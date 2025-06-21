@@ -18,6 +18,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
+use App\Filament\Admin\Widgets\ActiveWorkSessionWidget;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -39,8 +40,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                ActiveWorkSessionWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
