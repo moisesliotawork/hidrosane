@@ -53,16 +53,8 @@ class ActiveWorkSessionWidget extends Widget implements HasForms
                         \Filament\Forms\Components\TextInput::make('duration')
                             ->label('Tiempo activa')
                             ->disabled()
-                            ->placeholder(fn() => $this->data ? null : 'No hay sesión activa'),
-
-                        \Filament\Forms\Components\TextInput::make('ip_address')
-                            ->label('Dirección IP')
-                            ->disabled(),
-
-                        \Filament\Forms\Components\TextInput::make('location')
-                            ->label('Ubicación aproximada')
-                            ->disabled(),
-
+                            ->placeholder(fn() => $this->data ? null : 'No hay sesión activa')
+                            ->columnSpanFull(),
 
                         \Filament\Forms\Components\Actions::make([
                             \Filament\Forms\Components\Actions\Action::make('end_session')
@@ -88,9 +80,11 @@ class ActiveWorkSessionWidget extends Widget implements HasForms
                                         $this->loadActiveSession();
                                     }
                                 })
-                        ])->fullWidth(),
+                                ->extraAttributes(['class' => 'w-full'])
+                        ])
+                            ->alignment('right') // Esto aplica al contenedor Actions
+                            ->fullWidth() // Esto aplica al contenedor Actions
                     ])
-                    ->columns(2)
             ])
             ->statePath('data');
     }
