@@ -11,6 +11,7 @@ class WorkSession extends Model
 
     protected $fillable = [
         'user_id',
+        'panel_id',
         'start_time',
         'end_time',
         'latitude',
