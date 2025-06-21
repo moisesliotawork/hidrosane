@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -48,4 +50,33 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        $panelId = $panel->getId();
+
+        // Lógica para el panel de admin
+        if ($panelId === 'admin') {
+            return $this->hasRole('admin');
+        }
+
+        // Lógica para el panel de comercial
+        if ($panelId === 'comercial') {
+            return $this->hasRole('commercial');
+        }
+
+        // Lógica para el panel de teleoperador
+        if ($panelId === 'teleoperador') {
+            return $this->hasRole('teleoperator');
+        }
+
+        // Lógica para el panel de jefe de sala
+        if ($panelId === 'jefe-sala') {
+            return $this->hasRole('head_of_room');
+        }
+
+        // Retorna false por defecto si no coincide con ninguno de los paneles
+        return false;
+    }
+
 }
