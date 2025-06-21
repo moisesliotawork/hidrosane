@@ -17,28 +17,27 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
+use App\Http\Middleware\StartWorkSession;
 
-class AdminPanelProvider extends PanelProvider
+class CommercialPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
         return $panel
-            ->default()
-            ->id('admin')
-            ->path('admin')
+            ->id('comercial')
+            ->path('comercial')
             ->brandName("Ohana")
             ->login()
             ->colors([
                 'primary' => Color::Lime,
             ])
-            ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
-            ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
+            ->discoverResources(in: app_path('Filament/Commercial/Resources'), for: 'App\\Filament\\Commercial\\Resources')
+            ->discoverPages(in: app_path('Filament/Commercial/Pages'), for: 'App\\Filament\\Commercial\\Pages')
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
+            ->discoverWidgets(in: app_path('Filament/Commercial/Widgets'), for: 'App\\Filament\\Commercial\\Widgets')
             ->widgets([
                 ActiveWorkSessionWidget::class,
             ])
