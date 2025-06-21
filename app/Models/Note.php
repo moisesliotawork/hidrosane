@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Enums\NoteStatus;
 
 class Note extends Model
 {
@@ -42,7 +43,8 @@ class Note extends Model
         'reschedule_date' => 'date',
         'visit_date' => 'date',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
+        'status' => NoteStatus::class,
     ];
 
     /**
