@@ -79,4 +79,10 @@ class User extends Authenticatable implements FilamentUser
         return false;
     }
 
+    // Agrega esta relación al modelo User
+    public function notes()
+    {
+        return $this->hasMany(Note::class);
+    }
+
 }
