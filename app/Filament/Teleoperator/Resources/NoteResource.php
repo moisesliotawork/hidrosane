@@ -33,18 +33,27 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('first_names')
                             ->required()
                             ->maxLength(255)
-                            ->label('Nombres'),
+                            ->label('Nombres')
+                            ->validationMessages([
+                                'required' => 'Los nombres son obligatorios',
+                            ]),
 
                         Forms\Components\TextInput::make('last_names')
                             ->required()
                             ->maxLength(255)
-                            ->label('Apellidos'),
+                            ->label('Apellidos')
+                            ->validationMessages([
+                                'required' => 'Los apellidos son obligatorios',
+                            ]),,
 
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->required()
                             ->maxLength(20)
-                            ->label('Teléfono'),
+                            ->label('Teléfono')
+                            ->validationMessages([
+                                'required' => 'El telefono es obligatorio',
+                            ]),,
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
@@ -62,7 +71,10 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
                             ->maxLength(20)
-                            ->label('Código postal'),
+                            ->label('Código postal')
+                            ->validationMessages([
+                                'required' => 'El codigo postal es obligatorio',
+                            ]),,
 
                         Forms\Components\TextInput::make('primary_address')
                             ->required()
@@ -81,19 +93,22 @@ class NoteResource extends Resource
                 Forms\Components\Section::make('Gestión Comercial')
                     ->schema([
 
-                        Forms\Components\Select::make('fuente')
-                            ->options(FuenteNotas::options())
-                            ->required()
-                            ->native(false)
-                            ->label('Fuente de la nota')
-                            ->hidden(fn(string $operation): bool => $operation === 'create'),
+                        //Forms\Components\Select::make('fuente')
+                        //    ->options(FuenteNotas::options())
+                        //    ->required()
+                        //    ->native(false)
+                        //    ->label('Fuente de la nota')
+                        //    ->hidden(fn(string $operation): bool => $operation === 'create'),
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
                             ->required()
                             ->native(false)
                             ->live()
-                            ->label('Estado'),
+                            ->label('Estado')
+                            ->validationMessages([
+                                'required' => 'El estado es obligatorio',
+                            ]),
 
                         Forms\Components\Textarea::make('observations')
                             ->maxLength(65535)
