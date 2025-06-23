@@ -144,7 +144,7 @@ class NoteResource extends Resource
                     ->badge()
                     ->color(fn(FuenteNotas $state): string => $state->getColor())
                     ->formatStateUsing(fn(FuenteNotas $state): string => $state->getLabel())
-                    ->label('Fuente'),
+                    ->label('Tipo'),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
