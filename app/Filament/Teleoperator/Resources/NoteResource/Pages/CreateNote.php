@@ -18,7 +18,8 @@ class CreateNote extends CreateRecord
         return [
             // Botón principal (Guardar)
             Actions\CreateAction::make()
-                ->label('Guardar'),
+                ->label('Guardar')
+                ->action('create'), // Asegúrate de incluir esta línea
 
             // Botón secundario (Guardar y crear otro)
             Actions\CreateAction::make('createAnother')
