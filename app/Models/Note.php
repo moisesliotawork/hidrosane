@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Enums\NoteStatus;
-
+use App\Enums\FuenteNotas;
 class Note extends Model
 {
     use HasFactory;
@@ -40,6 +40,11 @@ class Note extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'status' => NoteStatus::class,
+        'fuente' => FuenteNotas::class,
+    ];
+
+    protected $attributes = [
+        'fuente' => 'CALLE',
     ];
 
     protected static function boot()
