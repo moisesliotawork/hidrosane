@@ -24,6 +24,8 @@ class NoteResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\Hidden::make('customer_id'),
+                Forms\Components\Hidden::make('comercial_id'),
 
                 Forms\Components\Section::make('Información Personal')
                     ->schema([
@@ -130,15 +132,11 @@ class NoteResource extends Resource
         return $table
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
-                Tables\Columns\TextColumn::make('first_names')
+                Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
-                    ->label('Nombres'),
+                    ->label('Nombres y Apellidos'),
 
-                Tables\Columns\TextColumn::make('last_names')
-                    ->searchable()
-                    ->label('Apellidos'),
-
-                Tables\Columns\TextColumn::make('phone')
+                Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
                     ->label('Teléfono'),
 
@@ -152,11 +150,6 @@ class NoteResource extends Resource
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
                     ->label('Estado'),
-
-                Tables\Columns\TextColumn::make('visit_date')
-                    ->date()
-                    ->sortable()
-                    ->label('Fecha visita'),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
