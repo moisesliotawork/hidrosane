@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
+ use App\Enums\HorarioNotas;
 
 class NoteResource extends Resource
 {
@@ -139,11 +140,17 @@ class NoteResource extends Resource
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
 
-                        Forms\Components\TextInput::make('visit_schedule')
-                            ->maxLength(255)
+
+
+                        Forms\Components\Select::make('visit_schedule')
+                            ->options(HorarioNotas::options()) // Usa las opciones del enum
                             ->label('Horario de visita')
+                            ->native(false) // Mejora la UI en desktop
+                            ->searchable() // Permite búsqueda
+                            ->required() // Si es obligatorio
                             ->hidden(fn(Forms\Get $get): bool =>
-                                $get('status') !== NoteStatus::CONTACTED->value),
+                                $get('status') !== NoteStatus::CONTACTED->value)
+                            ,
                     ])->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
