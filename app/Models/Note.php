@@ -47,11 +47,32 @@ class Note extends Model
         'status' => NoteStatus::class,
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($note) {
+            // Generar número de nota automáticamente
+            if (empty($note->nro_nota)) {
+                do {
+                    $nroNota = str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+                } while (self::where('nro_nota', $nroNota)->exists());
+
+                $note->nro_nota = $nroNota;
+            }
+        });
+    }
+
     /**
      * Get the user that owns the note.
      */
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function comercial()
+    {
+        return $this->belongsTo(User::class, 'comercial_id');
     }
 }
