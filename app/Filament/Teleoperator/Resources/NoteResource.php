@@ -128,6 +128,7 @@ class NoteResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
                 Tables\Columns\TextColumn::make('first_names')
                     ->searchable()
