@@ -44,7 +44,7 @@ class NoteResource extends Resource
                             ->label('Apellidos')
                             ->validationMessages([
                                 'required' => 'Los apellidos son obligatorios',
-                            ]),,
+                            ]),
 
                         Forms\Components\TextInput::make('phone')
                             ->tel()
@@ -53,7 +53,7 @@ class NoteResource extends Resource
                             ->label('Teléfono')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
-                            ]),,
+                            ]),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
@@ -74,7 +74,7 @@ class NoteResource extends Resource
                             ->label('Código postal')
                             ->validationMessages([
                                 'required' => 'El codigo postal es obligatorio',
-                            ]),,
+                            ]),
 
                         Forms\Components\TextInput::make('primary_address')
                             ->required()

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use Illuminate\Support\Str;
 use Filament\Actions;
+use Filament\Actions\Action;
 
 class CreateNote extends CreateRecord
 {
@@ -19,7 +20,7 @@ class CreateNote extends CreateRecord
             // Botón principal (Guardar)
             Actions\CreateAction::make()
                 ->label('Guardar')
-                ->action('create'), // Asegúrate de incluir esta línea
+                ->action('create'),
 
             // Botón secundario (Guardar y crear otro)
             Actions\CreateAction::make('createAnother')
@@ -31,7 +32,7 @@ class CreateNote extends CreateRecord
             Actions\Action::make('cancel')
                 ->label('Cancelar')
                 ->color('danger')
-                ->action(fn() => redirect()->back()),
+                ->url($this->getResource()::getUrl('index')),
         ];
     }
 
