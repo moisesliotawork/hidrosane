@@ -40,6 +40,15 @@ class UserSeeder extends Seeder
         ]);
         $teleoperator->assignRole('teleoperator');
 
+        $teleoperator2 = User::create([
+            'name' => 'Teleoperador 2',
+            'last_name' => 'User',
+            'email' => 'teleoperador2@example.com',
+            'password' => Hash::make('123456'),
+            'phone' => '555555555'
+        ]);
+        $teleoperator2->assignRole('teleoperator');
+
         // Crear comercial
         $commercial = User::create([
             'name' => 'Comercial',
