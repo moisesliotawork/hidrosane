@@ -186,7 +186,8 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('user_id', auth()->id());
+            ->where('user_id', auth()->id())
+            ->whereNull('comercial_id');
     }
 
     public static function getPages(): array
