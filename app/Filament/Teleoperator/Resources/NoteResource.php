@@ -55,7 +55,6 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('email')
                             ->email()
-                            ->required()
                             ->maxLength(255)
                             ->label('Correo electrónico'),
 
