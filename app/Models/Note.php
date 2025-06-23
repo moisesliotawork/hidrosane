@@ -17,6 +17,9 @@ class Note extends Model
      */
     protected $fillable = [
         'user_id',
+        'cutomer_id',
+        'comercial_id',
+        'nro_nota',
         'first_names',
         'last_names',
         'phone',
@@ -74,5 +77,10 @@ class Note extends Model
     public function comercial()
     {
         return $this->belongsTo(User::class, 'comercial_id');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
     }
 }
