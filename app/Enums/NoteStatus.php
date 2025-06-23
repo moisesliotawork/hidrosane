@@ -25,4 +25,13 @@ enum NoteStatus: string
             self::NULL->value => self::NULL->label(),
         ];
     }
+
+    public function getColor(): string|array|null
+    {
+        return match ($this) {
+            self::CONTACTED => 'info',
+            self::RESCHEDULED => 'info',
+            self::NULL => 'info',
+        };
+    }
 }

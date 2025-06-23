@@ -32,9 +32,9 @@ enum FuenteNotas: string implements HasLabel, HasColor
     public function getColor(): string|array|null
     {
         return match ($this) {
-            self::CALLE => 'danger', // vinotinto
-            self::VIP_INT => 'success', // verde
-            self::VIP_EXT => 'primary', // azul
+            self::CALLE => 'orange',
+            self::VIP_INT => 'success',
+            self::VIP_EXT => 'primary',
         };
     }
 

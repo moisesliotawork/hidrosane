@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
+use App\Enums\FuenteNotas;
 
 class NoteResource extends Resource
 {
@@ -79,11 +80,19 @@ class NoteResource extends Resource
 
                 Forms\Components\Section::make('Gestión Comercial')
                     ->schema([
+
+                        Forms\Components\Select::make('fuente')
+                            ->options(FuenteNotas::options())
+                            ->required()
+                            ->native(false)
+                            ->label('Fuente de la nota')
+                            ->hidden(fn(string $operation): bool => $operation === 'create'),
+
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
                             ->required()
                             ->native(false)
-                            ->live() // Esto permite que el formulario reaccione a cambios
+                            ->live()
                             ->label('Estado'),
 
                         Forms\Components\Textarea::make('observations')
@@ -131,34 +140,36 @@ class NoteResource extends Resource
         return $table
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
+                Tables\Columns\TextColumn::make('fuente')
+                    ->badge()
+                    ->color(fn(FuenteNotas $state): string => $state->getColor())
+                    ->formatStateUsing(fn(FuenteNotas $state): string => $state->getLabel())
+                    ->label('Fuente'),
+
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
                     ->label('Nombres y Apellidos'),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
-                    ->label('Teléfono'),
+                    ->label('Teléfono')
+                    ->html()
+                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' . $state . '</span>'),
+
+                Tables\Columns\TextColumn::make('customer.postal_code')
+                    ->label('CP'),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->date('j F Y')
+                    ->sortable()
+                    ->label("Fech/Creación"),
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn(NoteStatus $state): string => match ($state) {
-                        NoteStatus::CONTACTED => 'success',
-                        NoteStatus::RESCHEDULED => 'warning',
-                        NoteStatus::NULL => 'danger',
-                    })
+                    ->color(fn(NoteStatus $state): string => $state->getColor())
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
                     ->label('Estado'),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -166,7 +177,24 @@ class NoteResource extends Resource
                     ->label('Estado'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->label(''),
+                //Tables\Actions\Action::make('changeFuente')
+                //    ->form([
+                //        Forms\Components\Select::make('fuente')
+                //            ->options(FuenteNotas::options())
+                //            ->required()
+                //            ->native(false)
+                //            ->label('Nueva Fuente')
+                //    ])
+                //    ->action(function (Note $record, array $data): void {
+                //        $record->fuente = $data['fuente'];
+                //        $record->save();
+                //    })
+                //    ->icon('heroicon-o-pencil-square')
+                //    ->modalHeading('Cambiar Fuente')
+                //    ->modalButton('Guardar')
+                //    ->label('Cambiar Fuente')
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
