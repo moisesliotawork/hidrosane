@@ -7,10 +7,32 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use Illuminate\Support\Str;
+use Filament\Actions;
 
 class CreateNote extends CreateRecord
 {
     protected static string $resource = NoteResource::class;
+
+    protected function getFormActions(): array
+    {
+        return [
+            // Botón principal (Guardar)
+            Actions\CreateAction::make()
+                ->label('Guardar'),
+
+            // Botón secundario (Guardar y crear otro)
+            Actions\CreateAction::make('createAnother')
+                ->label('Guardar y crear otro')
+                ->color("gray")
+                ->action('createAnother'),
+
+            // Botón Cancelar
+            Actions\Action::make('cancel')
+                ->label('Cancelar')
+                ->color('danger')
+                ->action(fn() => redirect()->back()),
+        ];
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
