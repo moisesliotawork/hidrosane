@@ -19,6 +19,7 @@ class Note extends Model
         'user_id',
         'customer_id',
         'comercial_id',
+        'fuente',
         'nro_nota',
         'status',
         'observations',
