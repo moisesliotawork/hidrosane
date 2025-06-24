@@ -5,16 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class City extends Model
+class PostalCode extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'uid',
-        'title',
-        'state_id'
+        'code',
+        'city_id'
     ];
 
     protected $casts = [
@@ -31,18 +30,10 @@ class City extends Model
     }
 
     /**
-     * Get the state that owns the city.
+     * Get the city that owns the postal code.
      */
-    public function state(): BelongsTo
+    public function city(): BelongsTo
     {
-        return $this->belongsTo(State::class);
-    }
-
-    /**
-     * Get the postal codes for the city.
-     */
-    public function postalCodes(): HasMany
-    {
-        return $this->hasMany(PostalCode::class);
+        return $this->belongsTo(City::class);
     }
 }
