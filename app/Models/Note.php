@@ -73,7 +73,9 @@ class Note extends Model
 
     public function comercial()
     {
-        return $this->belongsTo(User::class, 'comercial_id');
+        return $this->belongsTo(User::class, 'comercial_id')->withDefault([
+            'name' => 'Sin Asignar'
+        ]);
     }
 
     public function customer()

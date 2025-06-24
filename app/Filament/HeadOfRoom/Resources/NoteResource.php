@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Teleoperator\Resources;
+namespace App\Filament\HeadOfRoom\Resources;
 
-use App\Filament\Teleoperator\Resources\NoteResource\Pages;
-use App\Filament\Teleoperator\Resources\NoteResource\RelationManagers;
+use App\Filament\HeadOfRoom\Resources\NoteResource\Pages;
+use App\Filament\HeadOfRoom\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
 use App\Models\PostalCode;
 use Filament\Forms;
@@ -173,7 +173,7 @@ class NoteResource extends Resource
                             ->label('Horario de visita')
                             ->native(false)
                             ->searchable()
-                            ->required()
+                            ->required() // Si es obligatorio
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value)
                         ,
@@ -207,6 +207,8 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
 
+
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->date('j F Y')
                     ->sortable()
@@ -218,6 +220,22 @@ class NoteResource extends Resource
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
                     ->label('Estado'),
+
+                Tables\Columns\TextColumn::make('comercial.name')
+                    ->label('Comercial')
+                    ->formatStateUsing(function ($state, Note $record) {
+                        if (!$record->comercial_id) {
+                            return 'Sin Asignar';
+                        }
+                        return $state ?? 'Comercial no encontrado';
+                    })
+                    ->badge()
+                    ->color(function ($state, Note $record) {
+                        if (!$record->comercial_id) {
+                            return 'gray';
+                        }
+                        return $state ? 'success' : 'danger';
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -254,13 +272,6 @@ class NoteResource extends Resource
         return [
             //
         ];
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()
-            ->where('user_id', auth()->id())
-            ->whereNull('comercial_id');
     }
 
     public static function getPages(): array
