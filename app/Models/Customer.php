@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Customer extends Model
 {
@@ -16,10 +17,11 @@ class Customer extends Model
         'phone',
         'secondary_phone',
         'email',
-        'postal_code',
+        'age',
+        'postal_code_id',
         'primary_address',
         'secondary_address',
-        'parish'
+        'parish',
     ];
 
     public function name(): Attribute
@@ -27,5 +29,10 @@ class Customer extends Model
         return Attribute::make(
             get: fn() => $this->first_names . ' ' . $this->last_names,
         );
+    }
+
+    public function postalCode(): BelongsTo
+    {
+        return $this->belongsTo(PostalCode::class);
     }
 }

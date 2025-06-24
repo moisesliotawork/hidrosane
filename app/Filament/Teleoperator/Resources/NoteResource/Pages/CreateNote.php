@@ -57,10 +57,11 @@ class CreateNote extends CreateRecord
                 'phone' => $data['phone'],
                 'secondary_phone' => $data['secondary_phone'] ?? null,
                 'email' => $data['email'],
-                'postal_code' => $data['postal_code'],
+                'postal_code_id' => $data['postal_code_id'],
                 'primary_address' => $data['primary_address'],
                 'secondary_address' => $data['secondary_address'] ?? null,
                 'parish' => $data['parish'] ?? null,
+                'age' => $data['age'] ?? null,
             ]);
         }
 

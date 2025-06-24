@@ -28,6 +28,7 @@ class EditNote extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
+            'age' => $customer->age,
         ]);
     }
 
@@ -41,10 +42,11 @@ class EditNote extends EditRecord
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
             'email' => $data['email'],
-            'postal_code' => $data['postal_code'],
+            'postal_code_id' => $data['postal_code_id'],
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,
+            'age' => $data['age'] ?? null,
         ]);
 
         // Eliminar los campos del customer del array de datos de la nota
@@ -54,10 +56,11 @@ class EditNote extends EditRecord
             $data['phone'],
             $data['secondary_phone'],
             $data['email'],
-            $data['postal_code'],
+            $data['postal_code_id'],
             $data['primary_address'],
             $data['secondary_address'],
-            $data['parish']
+            $data['parish'],
+            $data['age'],
         );
 
         return $data;

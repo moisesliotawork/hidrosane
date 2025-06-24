@@ -5,6 +5,7 @@ namespace App\Filament\Teleoperator\Resources;
 use App\Filament\Teleoperator\Resources\NoteResource\Pages;
 use App\Filament\Teleoperator\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
+use App\Models\PostalCode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -66,21 +67,41 @@ class NoteResource extends Resource
                             ->tel()
                             ->maxLength(20)
                             ->label('Teléfono secundario (opcional)'),
-                    ])->columns(2),
 
-                Forms\Components\Section::make('Información de Contacto')
-                    ->schema([
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->maxLength(255)
                             ->label('Correo electrónico'),
 
-                        Forms\Components\TextInput::make('postal_code')
+                        Forms\Components\TextInput::make('age')
+                            ->numeric()
                             ->required()
                             ->maxLength(20)
-                            ->label('Código postal')
+                            ->label('Edad')
                             ->validationMessages([
-                                'required' => 'El codigo postal es obligatorio',
+                                'required' => 'La edad es obligatoria',
+                            ]),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Información de Contacto')
+                    ->schema([
+                        Forms\Components\Select::make('postal_code_id')
+                            ->label('Código postal')
+                            ->required()
+                            ->relationship(
+                                name: 'customer.postalCode',
+                                titleAttribute: 'code',
+                                modifyQueryUsing: fn(Builder $query) => $query->with('city')
+                            )
+                            ->getOptionLabelFromRecordUsing(
+                                fn(PostalCode $record) =>
+                                "{$record->city->title} - {$record->code}"
+                            )
+                            ->searchable(['code', 'city.title'])
+                            ->preload()
+                            ->native(false)
+                            ->validationMessages([
+                                'required' => 'El código postal es obligatorio',
                             ]),
 
                         Forms\Components\TextInput::make('primary_address')
@@ -184,7 +205,7 @@ class NoteResource extends Resource
                     ->html()
                     ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' . $state . '</span>'),
 
-                Tables\Columns\TextColumn::make('customer.postal_code')
+                Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
 
                 Tables\Columns\TextColumn::make('created_at')
