@@ -1,0 +1,479 @@
+[
+    {
+        "id": "1",
+        "uid": "a642ae56-5ec0-4aea-a781-0e3c274b71c0",
+        "title": "Almer\u00eda",
+        "iso": "AL",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "2",
+        "uid": "6d509c0c-0114-4323-85f0-c99bc2a05e91",
+        "title": "C\u00e1diz",
+        "iso": "CA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "3",
+        "uid": "505db1a4-c6f6-4201-9f89-1ae23b067b0f",
+        "title": "C\u00f3rdoba",
+        "iso": "CO",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "4",
+        "uid": "b3205fa7-9f48-4664-83a5-eff75ee4e650",
+        "title": "Granada",
+        "iso": "GR",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "5",
+        "uid": "a2810ff7-de7c-45f2-92e6-913aaf795a51",
+        "title": "Huelva",
+        "iso": "H",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "6",
+        "uid": "9dbd3b70-6533-4a18-bfe3-cf3cc80f2612",
+        "title": "Ja\u00e9n",
+        "iso": "J",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "7",
+        "uid": "e49343e4-d278-4179-95b0-c3199b02d48e",
+        "title": "M\u00e1laga",
+        "iso": "MA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "8",
+        "uid": "c29cf55e-e9a3-4a16-952f-69cd1da8beb1",
+        "title": "Sevilla",
+        "iso": "SE",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "9",
+        "uid": "91fb1751-6f25-49d5-af5d-ad7499a0b8c5",
+        "title": "Huesca",
+        "iso": "HU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "10",
+        "uid": "3f534780-05b2-4a73-98c0-24c017f44a28",
+        "title": "Teruel",
+        "iso": "TE",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "11",
+        "uid": "b0925fb4-e33b-4fa2-8834-5afed73cf1cc",
+        "title": "Zaragoza",
+        "iso": "Z",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "12",
+        "uid": "738a77f8-23e5-498d-8017-52387715ff14",
+        "title": "Asturias",
+        "iso": "O",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "13",
+        "uid": "7cdf78f7-09f6-4f3d-90c9-d4aea5cac76d",
+        "title": "Cantabria",
+        "iso": "S",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "14",
+        "uid": "889b3135-3cf2-48ea-97c9-d2eabd057c83",
+        "title": "Ceuta",
+        "iso": "CE",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "15",
+        "uid": "fbc76586-11e4-4689-add4-d504267bf82e",
+        "title": "\u00c1vila",
+        "iso": "AV",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "16",
+        "uid": "66ddd0c5-1981-4a65-afdc-dbf62de42aa8",
+        "title": "Burgos",
+        "iso": "BU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "17",
+        "uid": "87621778-c953-478a-8682-a02d49371bd7",
+        "title": "Le\u00f3n",
+        "iso": "LE",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "18",
+        "uid": "58047c8c-dae9-4ba5-935c-b3d76b349991",
+        "title": "Palencia",
+        "iso": "P",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "19",
+        "uid": "890dcb71-e190-4d07-8fad-6ee1a7d4ab47",
+        "title": "Salamanca",
+        "iso": "SA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "20",
+        "uid": "978303d2-76d7-4fb7-8be1-7a4112402061",
+        "title": "Segovia",
+        "iso": "SG",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "21",
+        "uid": "4c5b825b-420a-43bb-b59c-56b938f474ed",
+        "title": "Soria",
+        "iso": "SO",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "22",
+        "uid": "f3f18c32-3952-421f-b0bd-8056b5f9bddd",
+        "title": "Valladolid",
+        "iso": "VA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "23",
+        "uid": "96644078-6b07-4d7e-af51-6ce548941215",
+        "title": "Zamora",
+        "iso": "ZA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "24",
+        "uid": "ff14861a-906f-4922-9349-8b7daa9bcc0a",
+        "title": "Albacete",
+        "iso": "AB",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "25",
+        "uid": "4e5b4a74-f0a6-4025-8ea4-616c3e86d072",
+        "title": "Ciudad Real",
+        "iso": "CR",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "26",
+        "uid": "284006e9-0740-4434-b706-39e6fc393cd2",
+        "title": "Cuenca",
+        "iso": "CU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "27",
+        "uid": "91df50c7-1402-43c5-882f-f148bacf88e1",
+        "title": "Guadalajara",
+        "iso": "GU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "28",
+        "uid": "b0eecc36-bb0f-404f-9e4f-bab93d0d9a40",
+        "title": "Toledo",
+        "iso": "TO",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "29",
+        "uid": "580facdd-e62d-4e24-baf8-528a529af0bf",
+        "title": "Las Palmas",
+        "iso": "GC",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "30",
+        "uid": "27d57cdd-efc2-4633-a01e-499d6a5cd93d",
+        "title": "Santa Cruz de Tenerife",
+        "iso": "TF",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "31",
+        "uid": "e264a1f9-d352-4cfb-bed2-d285463ce21a",
+        "title": "Barcelona",
+        "iso": "B",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "32",
+        "uid": "cafd2ab4-e318-44b5-845c-864b8ccb5d3a",
+        "title": "Girona",
+        "iso": "GI",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "33",
+        "uid": "95d3f1b4-f7e9-48d6-958e-ba1259384db3",
+        "title": "Lleida",
+        "iso": "L",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "34",
+        "uid": "52e5d854-0094-455b-a0e5-6b5773e2dba5",
+        "title": "Tarragona",
+        "iso": "T",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "35",
+        "uid": "f1cdc0cd-a1eb-49b1-8c18-260a4f3fbc63",
+        "title": "Badajoz",
+        "iso": "BA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "36",
+        "uid": "0826b0ff-bf68-46f0-a516-c1604f9c92dc",
+        "title": "C\u00e1ceres",
+        "iso": "CC",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "37",
+        "uid": "aa9a36ed-3397-4528-b2ad-d64c29c66292",
+        "title": "A Coru\u00f1a",
+        "iso": "C",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "38",
+        "uid": "e3820ddb-d931-4010-bcec-e05403d1d2fc",
+        "title": "Galicia",
+        "iso": "GA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "39",
+        "uid": "42e5be57-75c5-4ad9-84c1-836edb6b1c21",
+        "title": "Lugo",
+        "iso": "LU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "40",
+        "uid": "1ca4b61d-d2e5-4ed1-91f0-7ec7ca665b73",
+        "title": "Ourense",
+        "iso": "OR",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "41",
+        "uid": "85b3b1bd-4f2c-4db5-bcc1-42151d1a3acf",
+        "title": "Pontevedra",
+        "iso": "PO",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "42",
+        "uid": "81736f1e-5655-4818-b1a0-2b504463c983",
+        "title": "Baleares",
+        "iso": "PM",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "43",
+        "uid": "f18c487f-0358-44be-a78a-36f2c77bae8f",
+        "title": "Murcia",
+        "iso": "MU",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "44",
+        "uid": "97e7c80e-df22-4127-818e-493c7f271bb4",
+        "title": "Madrid",
+        "iso": "M",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "45",
+        "uid": "b2133fa1-225e-4f0b-ae44-3e6eb5aa1c74",
+        "title": "Melilla",
+        "iso": "ME",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "46",
+        "uid": "5cb9c395-fc79-4c25-944a-7499cbdfcd3a",
+        "title": "Navarra",
+        "iso": "NA",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "47",
+        "uid": "ed6d836e-c137-44e9-abda-46b33e99f3e3",
+        "title": "Vizcaya",
+        "iso": "BI",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "48",
+        "uid": "ca706468-8014-4ed2-a457-2568d47ddc3f",
+        "title": "Guip\u00fazcoa",
+        "iso": "SS",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "49",
+        "uid": "d3679c86-2d39-4543-a00b-6a7216450e33",
+        "title": "\u00c1lava",
+        "iso": "VI",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "50",
+        "uid": "d4386b49-430b-4080-8b34-7515c59bcc2a",
+        "title": "La Rioja",
+        "iso": "LO",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "51",
+        "uid": "a38b8711-6129-43ad-9df8-9556a8365ced",
+        "title": "Alicante",
+        "iso": "A",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "52",
+        "uid": "e01cf992-1fb5-431b-a69a-8201441b93c0",
+        "title": "Castell\u00f3n",
+        "iso": "CS",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    },
+    {
+        "id": "53",
+        "uid": "65825237-2c8e-4dda-9d18-36e532d56aeb",
+        "title": "Valencia",
+        "iso": "V",
+        "country_id": "1",
+        "created_at": "2025-05-04 07:52:46",
+        "updated_at": "2025-05-04 07:52:46"
+    }
+]
