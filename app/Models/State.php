@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Country extends Model
+class State extends Model
 {
     use HasFactory;
 
@@ -14,6 +14,7 @@ class Country extends Model
         'uid',
         'title',
         'iso',
+        'country_id'
     ];
 
     protected $casts = [
@@ -30,11 +31,10 @@ class Country extends Model
     }
 
     /**
-     * Get the states for the country.
+     * Get the country that owns the state.
      */
-    public function states(): HasMany
+    public function country(): BelongsTo
     {
-        return $this->hasMany(State::class);
+        return $this->belongsTo(Country::class);
     }
-
 }
