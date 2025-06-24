@@ -91,13 +91,12 @@ class NoteResource extends Resource
                             ->relationship(
                                 name: 'customer.postalCode',
                                 titleAttribute: 'code',
-                                modifyQueryUsing: fn(Builder $query) => $query->with('city')
+                                modifyQueryUsing: fn(Builder $query) => $query->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                             )
                             ->getOptionLabelFromRecordUsing(
-                                fn(PostalCode $record) =>
-                                "{$record->city->title} - {$record->code}"
+                                fn(PostalCode $record) => "{$record->city->title} - {$record->code}"
                             )
-                            ->searchable(['code', 'city.title'])
+                            ->searchable(['code', 'cities.title'])
                             ->preload()
                             ->native(false)
                             ->validationMessages([

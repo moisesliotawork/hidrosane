@@ -24,7 +24,7 @@ class EditNote extends EditRecord
             'phone' => $customer->phone,
             'secondary_phone' => $customer->secondary_phone,
             'email' => $customer->email,
-            'postal_code' => $customer->postal_code,
+            'postal_code_id' => $customer->postal_code_id,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
