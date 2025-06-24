@@ -14,13 +14,19 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
- use App\Enums\HorarioNotas;
+use App\Enums\HorarioNotas;
 
 class NoteResource extends Resource
 {
     protected static ?string $model = Note::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    protected static ?string $navigationLabel = 'Notas';
+
+    protected static ?string $modelLabel = 'Nota';
+
+    protected static ?string $pluralModelLabel = 'Notas';
 
     public static function form(Form $form): Form
     {
@@ -94,12 +100,12 @@ class NoteResource extends Resource
                 Forms\Components\Section::make('Gestión Comercial')
                     ->schema([
 
-                        //Forms\Components\Select::make('fuente')
-                        //    ->options(FuenteNotas::options())
-                        //    ->required()
-                        //    ->native(false)
-                        //    ->label('Fuente de la nota')
-                        //    ->hidden(fn(string $operation): bool => $operation === 'create'),
+                        Forms\Components\Select::make('fuente')
+                            ->options(FuenteNotas::options())
+                            ->required()
+                            ->native(false)
+                            ->label('Fuente de la nota')
+                            ->hidden(fn(string $operation): bool => $operation === 'create'),
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
@@ -150,7 +156,7 @@ class NoteResource extends Resource
                             ->required() // Si es obligatorio
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value)
-                            ,
+                        ,
                     ])->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
@@ -219,9 +225,7 @@ class NoteResource extends Resource
                 //    ->label('Cambiar Fuente')
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+
             ]);
     }
 
