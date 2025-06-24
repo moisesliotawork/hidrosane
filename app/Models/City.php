@@ -5,17 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class State extends Model
+class City extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'uid',
         'title',
-        'iso',
-        'country_id'
+        'state_id'
     ];
 
     protected $casts = [
@@ -32,18 +30,10 @@ class State extends Model
     }
 
     /**
-     * Get the country that owns the state.
+     * Get the state that owns the city.
      */
-    public function country(): BelongsTo
+    public function state(): BelongsTo
     {
-        return $this->belongsTo(Country::class);
-    }
-
-    /**
-     * Get the cities for the state.
-     */
-    public function cities(): HasMany
-    {
-        return $this->hasMany(City::class);
+        return $this->belongsTo(State::class);
     }
 }
