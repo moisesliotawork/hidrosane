@@ -206,11 +206,6 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
 
-                Tables\Columns\TextColumn::make('created_at')
-                    ->date('j F Y')
-                    ->sortable()
-                    ->label("Fecha Asignada"),
-
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn(NoteStatus $state): string => $state->getColor())
