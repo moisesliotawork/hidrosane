@@ -16,7 +16,8 @@ class UserSeeder extends Seeder
             'last_name' => 'User',
             'email' => 'admin@example.com',
             'password' => Hash::make('123456'),
-            'phone' => '123456789'
+            'phone' => '123456789',
+            'empleado_id' => 00
         ]);
         $admin->assignRole('admin');
 
@@ -26,7 +27,8 @@ class UserSeeder extends Seeder
             'last_name' => 'de Sala',
             'email' => 'jefesala@example.com',
             'password' => Hash::make('123456'),
-            'phone' => '987654321'
+            'phone' => '987654321',
+             'empleado_id' => 01
         ]);
         $headOfRoom->assignRole('head_of_room');
 
@@ -36,7 +38,8 @@ class UserSeeder extends Seeder
             'last_name' => 'User',
             'email' => 'teleoperador@example.com',
             'password' => Hash::make('123456'),
-            'phone' => '555555555'
+            'phone' => '555555555',
+            'empleado_id' => 02
         ]);
         $teleoperator->assignRole('teleoperator');
 
@@ -45,7 +48,8 @@ class UserSeeder extends Seeder
             'last_name' => 'User',
             'email' => 'teleoperador2@example.com',
             'password' => Hash::make('123456'),
-            'phone' => '555555555'
+            'phone' => '555555555',
+            'empleado_id' => 03
         ]);
         $teleoperator2->assignRole('teleoperator');
 
@@ -55,7 +59,8 @@ class UserSeeder extends Seeder
             'last_name' => 'User',
             'email' => 'comercial@example.com',
             'password' => Hash::make('123456'),
-            'phone' => '111111111'
+            'phone' => '111111111',
+            'empleado_id' => 04
         ]);
         $commercial->assignRole('commercial');
     }

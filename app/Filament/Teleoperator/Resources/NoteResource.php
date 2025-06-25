@@ -75,7 +75,6 @@ class NoteResource extends Resource
 
                         Forms\Components\TextInput::make('age')
                             ->numeric()
-                            ->required()
                             ->maxLength(20)
                             ->label('Edad')
                             ->validationMessages([

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
+use Filament\Notifications\Notification;
 
 class NoteResource extends Resource
 {
@@ -75,7 +76,6 @@ class NoteResource extends Resource
 
                         Forms\Components\TextInput::make('age')
                             ->numeric()
-                            ->required()
                             ->maxLength(20)
                             ->label('Edad')
                             ->validationMessages([
@@ -245,22 +245,48 @@ class NoteResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->label(''),
-                //Tables\Actions\Action::make('changeFuente')
-                //    ->form([
-                //        Forms\Components\Select::make('fuente')
-                //            ->options(FuenteNotas::options())
-                //            ->required()
-                //            ->native(false)
-                //            ->label('Nueva Fuente')
-                //    ])
-                //    ->action(function (Note $record, array $data): void {
-                //        $record->fuente = $data['fuente'];
-                //        $record->save();
-                //    })
-                //    ->icon('heroicon-o-pencil-square')
-                //    ->modalHeading('Cambiar Fuente')
-                //    ->modalButton('Guardar')
-                //    ->label('Cambiar Fuente')
+                Tables\Actions\DeleteAction::make()
+                    ->label(''),
+
+                Tables\Actions\Action::make('assignCommercial')
+                    ->label('Asignar Comercial')
+                    ->icon('heroicon-s-user-plus')
+                    ->form([
+                        Forms\Components\Select::make('comercial_id')
+                            ->label('Seleccionar Comercial')
+                            ->options(function () {
+                                $commercials = \App\Models\User::role('commercial')
+                                    ->select('id', 'name', 'last_name', 'empleado_id')
+                                    ->get();
+
+                                return [null => 'Sin asignar'] + $commercials->mapWithKeys(function ($user) {
+                                    return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
+                                })->toArray();
+                            })
+                            ->searchable()
+                            ->native(false)
+                    ])
+                    ->action(function (Note $record, array $data): void {
+                        try {
+                            $record->update(['comercial_id' => $data['comercial_id'] ?? null]);
+
+                            $message = is_null($data['comercial_id'] ?? null)
+                                ? 'Comercial removido correctamente'
+                                : 'Comercial asignado correctamente: ' . \App\Models\User::find($data['comercial_id'])->name;
+
+                            Notification::make()
+                                ->title($message)
+                                ->success()
+                                ->send();
+
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Error al actualizar comercial')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ])
             ->bulkActions([
 
