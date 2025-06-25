@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
+use App\Filament\Teleoperator\Pages\ViewProfile;
+use Filament\Navigation\MenuItem;
 
 class TeleoperatorPanelProvider extends PanelProvider
 {
@@ -29,6 +31,12 @@ class TeleoperatorPanelProvider extends PanelProvider
             ->path('teleoperador')
             ->login()
             ->brandName("Ohana")
+            ->userMenuItems([
+                'profile' => MenuItem::make()
+                    ->label('Mi Perfil')
+                    ->url(fn(): string => ViewProfile::getUrl())
+                    ->icon('heroicon-o-user'),
+            ])
             ->colors([
                 'primary' => Color::Lime,
             ])
