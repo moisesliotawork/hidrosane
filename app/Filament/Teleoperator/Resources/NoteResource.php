@@ -57,7 +57,7 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->required()
-                            ->maxLength(20)
+                            ->maxLength(9)
                             ->label('Teléfono')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
@@ -65,7 +65,7 @@ class NoteResource extends Resource
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
-                            ->maxLength(20)
+                            ->maxLength(9)
                             ->label('Teléfono secundario (opcional)'),
 
                         Forms\Components\TextInput::make('email')
@@ -209,7 +209,7 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('created_at')
                     ->date('j F Y')
                     ->sortable()
-                    ->label("Fech/Creación"),
+                    ->label("Fecha Asignada"),
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
