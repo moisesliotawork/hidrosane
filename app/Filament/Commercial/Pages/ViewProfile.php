@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Pages;
+namespace App\Filament\Commercial\Pages;
 
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 class ViewProfile extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-user';
-    protected static string $view = 'filament.admin.pages.view-profile';
+    protected static string $view = 'filament.commercial.pages.view-profile';
     protected static ?string $navigationLabel = 'Mi Perfil';
     protected static ?string $title = 'Mi Perfil';
 

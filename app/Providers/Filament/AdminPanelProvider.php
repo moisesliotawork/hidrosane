@@ -19,7 +19,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
-use App\Filament\HeadOfRoom\Pages\ViewProfile;
+use App\Filament\Admin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 
 class AdminPanelProvider extends PanelProvider

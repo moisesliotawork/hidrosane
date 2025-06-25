@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Http\Middleware\StartWorkSession;
+use App\Filament\Commercial\Pages\ViewProfile;
+use Filament\Navigation\MenuItem;
 
 class CommercialPanelProvider extends PanelProvider
 {
@@ -29,6 +31,12 @@ class CommercialPanelProvider extends PanelProvider
             ->path('comercial')
             ->brandName("Ohana")
             ->login()
+            ->userMenuItems([
+                'profile' => MenuItem::make()
+                    ->label('Mi Perfil')
+                    ->url(fn(): string => ViewProfile::getUrl())
+                    ->icon('heroicon-o-user'),
+            ])
             ->colors([
                 'primary' => Color::Lime,
             ])
