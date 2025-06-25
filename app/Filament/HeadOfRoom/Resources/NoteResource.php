@@ -207,13 +207,6 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
 
-
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->date('j F Y')
-                    ->sortable()
-                    ->label("Fecha Asignada"),
-
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn(NoteStatus $state): string => $state->getColor())
@@ -241,6 +234,20 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->options(NoteStatus::options())
                     ->label('Estado'),
+
+                Tables\Filters\SelectFilter::make('comercial_id')
+                    ->label('Comercial')
+                    ->options(function () {
+                        $commercials = \App\Models\User::role('commercial')
+                            ->select('id', 'name', 'last_name', 'empleado_id')
+                            ->get();
+
+                        return $commercials->mapWithKeys(function ($user) {
+                            return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
+                        })->toArray();
+                    })
+                    ->searchable()
+                    ->native(false),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()

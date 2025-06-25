@@ -29,7 +29,7 @@ enum NoteStatus: string
     public function getColor(): string|array|null
     {
         return match ($this) {
-            self::CONTACTED => 'info',
+            self::CONTACTED => 'orange',
             self::RESCHEDULED => 'info',
             self::NULL => 'info',
         };
