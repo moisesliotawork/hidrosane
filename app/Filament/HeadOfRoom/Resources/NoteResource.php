@@ -194,6 +194,10 @@ class NoteResource extends Resource
                     ->formatStateUsing(fn(FuenteNotas $state): string => $state->getLabel())
                     ->label('Tipo'),
 
+                Tables\Columns\TextColumn::make('user.empleado_id')
+                    ->searchable()
+                    ->label('Teleoperadora'),
+
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
                     ->label('Nombres y Apellidos'),
