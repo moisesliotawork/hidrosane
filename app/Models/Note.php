@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
+use Carbon\Carbon;
+
 class Note extends Model
 {
     use HasFactory;
@@ -24,7 +26,8 @@ class Note extends Model
         'status',
         'observations',
         'visit_date',
-        'visit_schedule'
+        'visit_schedule',
+        'assignment_date'
     ];
 
     /**
@@ -34,6 +37,7 @@ class Note extends Model
      */
     protected $casts = [
         'visit_date' => 'date',
+        'assignment_date' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'status' => NoteStatus::class,
@@ -78,5 +82,17 @@ class Note extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Obtiene la fecha de asignación formateada o "Sin fecha" si es null
+     *
+     * @return string
+     */
+    public function getFechaAsigAttribute()
+    {
+        return $this->assignment_date
+            ? $this->assignment_date->format('d/m/Y')
+            : 'Sin fecha';
     }
 }
