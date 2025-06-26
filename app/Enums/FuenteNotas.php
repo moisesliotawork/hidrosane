@@ -23,9 +23,9 @@ enum FuenteNotas: string implements HasLabel, HasColor
     public function getPuntaje(): int
     {
         return match ($this) {
-            self::CALLE => 1000,
-            self::VIP_INT => 2000,
-            self::VIP_EXT => 3000,
+            self::CALLE => 4950,
+            self::VIP_INT => 8900,
+            self::VIP_EXT => 7500,
         };
     }
 
