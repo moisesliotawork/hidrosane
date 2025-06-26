@@ -16,6 +16,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Spatie\Permission\Models\Role;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Set;
+use Illuminate\Support\Carbon;
 
 class UserResource extends Resource
 {
@@ -59,6 +62,17 @@ class UserResource extends Resource
                     ])
                     ->required()
                     ->searchable(),
+                DatePicker::make('alta_empleado')
+                    ->label('Fecha de alta')
+                    ->displayFormat('d/m/Y')
+                    ->format('Y-m-d')
+                    ->native(false)
+                    ->live()
+                    ->afterStateUpdated(function (Set $set, $state) {
+                        // Al seleccionar una fecha, establece la hora a medianoche (00:00:00)
+                        $set('alta_empleado', Carbon::parse($state)->startOfDay());
+                    })
+                    ->dehydrated(),
             ]);
     }
 

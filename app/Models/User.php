@@ -25,6 +25,7 @@ class User extends Authenticatable implements FilamentUser
         'empleado_id',
         'last_name',
         'email',
+        'alta_empleado',
         'password',
         'phone'
     ];
@@ -37,6 +38,10 @@ class User extends Authenticatable implements FilamentUser
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    protected $casts = [
+        'alta_empleado' => 'datetime',
     ];
 
     /**
