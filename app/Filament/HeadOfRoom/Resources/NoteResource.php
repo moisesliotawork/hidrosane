@@ -209,21 +209,19 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
 
-                Tables\Columns\TextColumn::make('comercial.empleado_id')
+                Tables\Columns\TextColumn::make('comercial_empleado')
                     ->label('Comercial')
-                    ->formatStateUsing(function ($state, Note $record) {
-                        if (!$record->comercial_id) {
-                            return 'Sin Asignar';
-                        }
-                        return $state ?? 'Comercial no encontrado';
-                    })
                     ->badge()
-                    ->color(function ($state, Note $record) {
-                        if (!$record->comercial_id) {
+                    ->color(function ($state) {
+                        if ($state === 'Sin Asignar') {
                             return 'gray';
                         }
-                        return $state ? 'success' : 'danger';
+                        if ($state === 'Comercial no encontrado') {
+                            return 'danger';
+                        }
+                        return 'success';
                     }),
+                    
                 Tables\Columns\TextColumn::make('fecha_asig')
                     ->label('Asignacion')
                     ->sortable(),

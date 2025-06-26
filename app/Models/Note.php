@@ -94,4 +94,14 @@ class Note extends Model
             ? $this->assignment_date->format('d/m/Y')
             : 'Sin fecha';
     }
+
+
+    public function getComercialEmpleadoAttribute()
+    {
+        if (!$this->comercial_id) {
+            return 'Sin Asignar';
+        }
+
+        return $this->comercial->empleado_id ?? 'Comercial no encontrado';
+    }
 }
