@@ -34,7 +34,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
         return match ($this) {
             self::CALLE => 'orange',
             self::VIP_INT => 'success',
-            self::VIP_EXT => 'primary',
+            self::VIP_EXT => 'yellow',
         };
     }
 
