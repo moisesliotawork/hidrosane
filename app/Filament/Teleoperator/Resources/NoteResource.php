@@ -142,22 +142,6 @@ class NoteResource extends Resource
                             ->label('Observaciones'),
                     ]),
 
-                Forms\Components\Section::make('Reprogramación')
-                    ->schema([
-                        Forms\Components\DatePicker::make('reschedule_date')
-                            ->label('Fecha de reprogramación')
-                            ->hidden(fn(Forms\Get $get): bool =>
-                                $get('status') !== NoteStatus::RESCHEDULED->value),
-
-                        Forms\Components\Textarea::make('reschedule_notes')
-                            ->maxLength(65535)
-                            ->label('Notas de reprogramación')
-                            ->hidden(fn(Forms\Get $get): bool =>
-                                $get('status') !== NoteStatus::RESCHEDULED->value),
-                    ])->columns(2)
-                    ->hidden(fn(Forms\Get $get): bool =>
-                        $get('status') !== NoteStatus::RESCHEDULED->value),
-
                 Forms\Components\Section::make('Visita')
                     ->schema([
                         Forms\Components\DatePicker::make('visit_date')

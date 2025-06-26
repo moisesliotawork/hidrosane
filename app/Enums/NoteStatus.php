@@ -5,14 +5,12 @@ namespace App\Enums;
 enum NoteStatus: string
 {
     case CONTACTED = 'contacted';
-    case RESCHEDULED = 'rescheduled';
     case NULL = 'null';
 
     public function label(): string
     {
         return match ($this) {
             self::CONTACTED => 'Contactado',
-            self::RESCHEDULED => 'Reprogramado',
             self::NULL => 'Nulo',
         };
     }
@@ -21,7 +19,6 @@ enum NoteStatus: string
     {
         return [
             self::CONTACTED->value => self::CONTACTED->label(),
-            self::RESCHEDULED->value => self::RESCHEDULED->label(),
             self::NULL->value => self::NULL->label(),
         ];
     }
@@ -30,7 +27,6 @@ enum NoteStatus: string
     {
         return match ($this) {
             self::CONTACTED => 'orange',
-            self::RESCHEDULED => 'info',
             self::NULL => 'info',
         };
     }
