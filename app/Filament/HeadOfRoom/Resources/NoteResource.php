@@ -59,15 +59,21 @@ class NoteResource extends Resource
                             ->tel()
                             ->required()
                             ->maxLength(9)
+                            ->minLength(9)
                             ->label('Teléfono')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
+                                'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
                             ->maxLength(9)
-                            ->label('Teléfono secundario (opcional)'),
+                            ->minLength(9)
+                            ->label('Teléfono secundario (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
 
                         Forms\Components\TextInput::make('email')
                             ->email()
@@ -180,7 +186,7 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
-                    ->label('Teleoperadora'),
+                    ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
@@ -202,7 +208,7 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
 
-                Tables\Columns\TextColumn::make('comercial.name')
+                Tables\Columns\TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')
                     ->formatStateUsing(function ($state, Note $record) {
                         if (!$record->comercial_id) {
@@ -217,6 +223,9 @@ class NoteResource extends Resource
                         }
                         return $state ? 'success' : 'danger';
                     }),
+                Tables\Columns\TextColumn::make('fecha_asig')
+                    ->label('Asignacion')
+                    ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
@@ -264,6 +273,13 @@ class NoteResource extends Resource
                     ->action(function (Note $record, array $data): void {
                         try {
                             $record->update(['comercial_id' => $data['comercial_id'] ?? null]);
+
+                            if ($data['comercial_id'] ?? null) {
+                                $record->update(['assignment_date' => now()]);
+                            } else {
+                                $record->update(['assignment_date' => null]);
+                                ;
+                            }
 
                             $message = is_null($data['comercial_id'] ?? null)
                                 ? 'Comercial removido correctamente'

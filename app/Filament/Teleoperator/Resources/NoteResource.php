@@ -58,15 +58,21 @@ class NoteResource extends Resource
                             ->tel()
                             ->required()
                             ->maxLength(9)
+                            ->minLength(9)
                             ->label('Teléfono')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
+                                'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
                             ->maxLength(9)
-                            ->label('Teléfono secundario (opcional)'),
+                            ->minLength(9)
+                            ->label('Teléfono secundario (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
 
                         Forms\Components\TextInput::make('email')
                             ->email()
