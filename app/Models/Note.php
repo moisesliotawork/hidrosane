@@ -99,7 +99,7 @@ class Note extends Model
     public function getComercialEmpleadoAttribute()
     {
         if (!$this->comercial_id) {
-            return 'Sin Asignar';
+            return 'Sin Com.';
         }
 
         return $this->comercial->empleado_id ?? 'Comercial no encontrado';

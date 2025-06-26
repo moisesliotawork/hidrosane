@@ -213,7 +213,7 @@ class NoteResource extends Resource
                     ->label('Comercial')
                     ->badge()
                     ->color(function ($state) {
-                        if ($state === 'Sin Asignar') {
+                        if ($state === 'Sin Com.') {
                             return 'gray';
                         }
                         if ($state === 'Comercial no encontrado') {
