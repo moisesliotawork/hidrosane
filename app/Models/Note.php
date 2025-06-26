@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
-use Carbon\Carbon;
 
 class Note extends Model
 {

@@ -17,6 +17,7 @@ use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use Filament\Notifications\Notification;
+use Carbon\Carbon;
 
 class NoteResource extends Resource
 {
@@ -231,6 +232,28 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->options(NoteStatus::options())
                     ->label('Estado'),
+
+                Tables\Filters\Filter::make('fecha_asig')
+                    ->form([
+                        Forms\Components\DatePicker::make('assignment_date')
+                            ->label('Fecha exacta de asignación')
+                            ->displayFormat('d/m/Y')
+                            ->native(false)
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['assignment_date'],
+                                fn(Builder $query, $date) => $query->whereDate('assignment_date', $date)
+                            );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (!$data['assignment_date']) {
+                            return null;
+                        }
+
+                        return 'Fecha de asignación: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y');
+                    }),
 
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
