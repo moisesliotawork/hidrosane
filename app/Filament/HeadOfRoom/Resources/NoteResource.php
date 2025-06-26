@@ -182,8 +182,8 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('fuente')
                     ->badge()
                     ->color(fn(FuenteNotas $state): string => $state->getColor())
-                    ->formatStateUsing(fn(FuenteNotas $state): string => $state->getLabel())
-                    ->label('Tipo'),
+                    ->formatStateUsing(fn(FuenteNotas $state): string => $state->getPuntaje() . ' pts')
+                    ->label('Puntos'),
 
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
@@ -221,7 +221,7 @@ class NoteResource extends Resource
                         }
                         return 'success';
                     }),
-                    
+
                 Tables\Columns\TextColumn::make('fecha_asig')
                     ->label('Asignacion')
                     ->sortable(),
