@@ -23,8 +23,6 @@ class Note extends Model
         'nro_nota',
         'status',
         'observations',
-        'reschedule_date',
-        'reschedule_notes',
         'visit_date',
         'visit_schedule'
     ];
@@ -35,7 +33,6 @@ class Note extends Model
      * @var array
      */
     protected $casts = [
-        'reschedule_date' => 'date',
         'visit_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
