@@ -321,7 +321,58 @@ class NoteResource extends Resource
                     }),
             ])
             ->bulkActions([
+                Tables\Actions\BulkAction::make('assignCommercialBulk')
+                    ->label('Asignar comercial')
+                    ->icon('heroicon-s-user-plus')
+                    ->form([
+                        Forms\Components\Select::make('comercial_id')
+                            ->label('Seleccionar Comercial')
+                            ->options(function () {
+                                $commercials = \App\Models\User::role('commercial')
+                                    ->select('id', 'name', 'last_name', 'empleado_id')
+                                    ->get();
 
+                                return ['' => 'Sin asignar'] + $commercials->mapWithKeys(function ($user) {
+                                    return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
+                                })->toArray();
+                            })
+                            ->searchable()
+                            ->native(false)
+                            ->placeholder('Seleccione un comercial'),
+                    ])
+                    ->action(function (iterable $records, array $data): void {
+                        try {
+                            $comercialId = $data['comercial_id'] ?? null;
+                            $assignmentDate = !empty($comercialId) ? now() : null;
+
+                            $recordIds = collect($records)->pluck('id')->toArray();
+
+                            Note::whereIn('id', $recordIds)
+                                ->update([
+                                    'comercial_id' => !empty($comercialId) ? $comercialId : null,
+                                    'assignment_date' => $assignmentDate
+                                ]);
+
+                            $message = empty($comercialId)
+                                ? 'Comercial removido de las notas seleccionadas'
+                                : 'Comercial asignado correctamente a múltiples notas: ' .
+                                \App\Models\User::find($comercialId)->name;
+
+                            Notification::make()
+                                ->title('Asignación masiva completada')
+                                ->body($message)
+                                ->success()
+                                ->send();
+
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Error en asignación masiva')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
 
