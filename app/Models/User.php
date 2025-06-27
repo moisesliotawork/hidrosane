@@ -9,6 +9,9 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -85,10 +88,32 @@ class User extends Authenticatable implements FilamentUser
         return false;
     }
 
-    // Agrega esta relación al modelo User
     public function notes()
     {
         return $this->hasMany(Note::class);
+    }
+
+    // Agrega estas relaciones al modelo User
+    public function teams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'user_team')
+            ->withTimestamps()
+            ->withPivot(['joined_at', 'is_active']);
+    }
+
+    public function currentTeam(): BelongsTo
+    {
+        return $this->belongsTo(Team::class, 'current_team_id');
+    }
+
+    public function ledTeams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'team_leader_id');
+    }
+
+    public function managedSalesTeams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'sales_manager_id');
     }
 
 }
