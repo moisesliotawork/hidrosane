@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "149f044c2d0516cb3f112fe127f3063a",
+    "content-hash": "21030a88956dd29358a8575662eb7699",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -2139,6 +2139,64 @@
                 }
             ],
             "time": "2025-02-03T10:55:03+00:00"
+        },
+        {
+            "name": "kingmaker/filament-flex-layout",
+            "version": "1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/kingmaker-agm/filament-flex-layout.git",
+                "reference": "166f028ff6bff074e9056101cfa98d559d30d1d1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/kingmaker-agm/filament-flex-layout/zipball/166f028ff6bff074e9056101cfa98d559d30d1d1",
+                "reference": "166f028ff6bff074e9056101cfa98d559d30d1d1",
+                "shasum": ""
+            },
+            "require": {
+                "filament/forms": "^v3.3",
+                "filament/infolists": "^v3.3",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kingmaker\\FilamentFlexLayout\\FilamentFlexLayoutProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kingmaker\\FilamentFlexLayout\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Kingmaker",
+                    "email": "b.g.pratheep.cool@gmail.com"
+                }
+            ],
+            "description": "The Flex layout for the Forms and Infolists components in Filament.",
+            "keywords": [
+                "Forms",
+                "filament",
+                "flex",
+                "flexbox",
+                "infolists",
+                "layout",
+                "split"
+            ],
+            "support": {
+                "issues": "https://github.com/kingmaker-agm/filament-flex-layout/issues",
+                "source": "https://github.com/kingmaker-agm/filament-flex-layout/tree/v1.0.1"
+            },
+            "time": "2025-03-22T11:28:25+00:00"
         },
         {
             "name": "kirschbaum-development/eloquent-power-joins",

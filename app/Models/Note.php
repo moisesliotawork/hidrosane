@@ -35,7 +35,7 @@ class Note extends Model
      * @var array
      */
     protected $casts = [
-        'visit_date' => 'date',
+        'visit_date' => 'datetime',
         'assignment_date' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -103,5 +103,10 @@ class Note extends Model
         }
 
         return $this->comercial->empleado_id ?? 'Comercial no encontrado';
+    }
+
+    public function postalCode()
+    {
+        return $this->through('customer')->has('postalCode');
     }
 }

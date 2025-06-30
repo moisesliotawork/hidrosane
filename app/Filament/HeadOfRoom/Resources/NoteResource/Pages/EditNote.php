@@ -6,6 +6,8 @@ use App\Filament\HeadOfRoom\Resources\NoteResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Customer;
+use App\Models\PostalCode;
+
 
 class EditNote extends EditRecord
 {
@@ -34,6 +36,12 @@ class EditNote extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Verificar que el postal_code_id existe
+        $postalCode = PostalCode::find($data['postal_code_id']);
+        if (!$postalCode) {
+            throw new \Exception("El código postal seleccionado no existe");
+        }
+
         // Actualizar el customer con los nuevos datos
         $customer = Customer::find($data['customer_id']);
         $customer->update([
@@ -42,7 +50,7 @@ class EditNote extends EditRecord
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
             'email' => $data['email'],
-            'postal_code_id' => $data['postal_code_id'],
+            'postal_code_id' => $postalCode->id, // Usar el ID del código postal
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,

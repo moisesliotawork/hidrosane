@@ -33,6 +33,6 @@ class Customer extends Model
 
     public function postalCode(): BelongsTo
     {
-        return $this->belongsTo(PostalCode::class);
+        return $this->belongsTo(PostalCode::class, 'postal_code_id');
     }
 }

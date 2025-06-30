@@ -95,21 +95,24 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('postal_code_id')
                             ->label('Código postal')
                             ->required()
-                            ->relationship(
-                                name: 'customer.postalCode',
-                                titleAttribute: 'code',
-                                modifyQueryUsing: fn(Builder $query) => $query->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                            )
-                            ->getOptionLabelFromRecordUsing(
-                                fn(PostalCode $record) => "{$record->city->title} - {$record->code}"
-                            )
-                            ->searchable(['code', 'cities.title'])
+                            ->options(function () {
+                                return PostalCode::query()
+                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
+                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                    ->orderBy('cities.title')
+                                    ->orderBy('postal_codes.code')
+                                    ->limit(500) // Limitar resultados para mejor rendimiento
+                                    ->get()
+                                    ->mapWithKeys(fn($item) => [
+                                        $item->id => "{$item->city_title} - {$item->code}"
+                                    ]);
+                            })
+                            ->searchable(['code', 'city.title'])
                             ->preload()
                             ->native(false)
                             ->validationMessages([
                                 'required' => 'El código postal es obligatorio',
                             ]),
-
                         Forms\Components\TextInput::make('primary_address')
                             ->required()
                             ->maxLength(255)
@@ -321,6 +324,12 @@ class NoteResource extends Resource
                     }),
             ])
             ->bulkActions([
+                Tables\Actions\DeleteBulkAction::make()
+                    ->label('Eliminar seleccionadas')
+                    ->modalHeading('Eliminar notas seleccionadas')
+                    ->modalDescription('¿Estás seguro de que quieres eliminar las notas seleccionadas? Esta acción no se puede deshacer.')
+                    ->modalSubmitActionLabel('Sí, eliminar')
+                    ->successNotificationTitle('Notas eliminadas correctamente'),
                 Tables\Actions\BulkAction::make('assignCommercialBulk')
                     ->label('Asignar comercial')
                     ->icon('heroicon-s-user-plus')
