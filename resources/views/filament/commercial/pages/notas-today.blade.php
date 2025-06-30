@@ -5,6 +5,7 @@
         line-height: 1.1;
         font-weight: 600;
     }
+
     .customer-address {
         font-size: 0.75rem;
         line-height: 1;
@@ -13,7 +14,8 @@
 
     /* Estilos para los botones de acción */
     .action-button {
-        flex: 1; /* Ocupa espacio igualitario */
+        flex: 1;
+        /* Ocupa espacio igualitario */
         padding: 0.4rem 0.2rem;
         font-size: 0.7rem;
         border-radius: 0.25rem;
@@ -26,9 +28,12 @@
         white-space: nowrap;
         margin: 0 0.1rem;
     }
+
     .action-button:hover {
-        background-color: #d1d5db; /* Gris medio al hover */
+        background-color: #d1d5db;
+        /* Gris medio al hover */
     }
+
     .action-buttons-container {
         display: flex;
         gap: 0.2rem;
@@ -40,25 +45,32 @@
         .mobile-optimized {
             font-size: 0.8rem;
         }
+
         .mobile-optimized .text-xs {
             font-size: 0.7rem;
         }
+
         .mobile-optimized .text-sm {
             font-size: 0.75rem;
         }
+
         .mobile-optimized .text-base {
             font-size: 0.85rem;
         }
+
         .mobile-optimized .p-4 {
             padding: 0.75rem;
         }
+
         .mobile-optimized .gap-2 {
             gap: 0.5rem;
         }
+
         .mobile-optimized .rounded-lg {
             border-radius: 0.5rem;
         }
-        .mobile-optimized .space-y-4 > * + * {
+
+        .mobile-optimized .space-y-4>*+* {
             margin-top: 1rem;
         }
     }
@@ -68,29 +80,37 @@
         .mobile-optimized {
             font-size: 0.75rem;
         }
+
         .mobile-optimized .text-xs {
             font-size: 0.65rem;
         }
+
         .mobile-optimized .text-sm {
             font-size: 0.7rem;
         }
+
         .mobile-optimized .text-base {
             font-size: 0.8rem;
         }
+
         .mobile-optimized .p-4 {
             padding: 0.6rem;
         }
+
         .mobile-optimized .gap-2 {
             gap: 0.35rem;
         }
+
         .mobile-optimized .px-2 {
             padding-left: 0.3rem;
             padding-right: 0.3rem;
         }
+
         .mobile-optimized .py-0\.5 {
             padding-top: 0.15rem;
             padding-bottom: 0.15rem;
         }
+
         .action-button {
             font-size: 0.65rem;
             padding: 0.3rem 0.1rem;
@@ -102,42 +122,54 @@
         .mobile-optimized {
             font-size: 0.7rem !important;
         }
+
         .mobile-optimized .text-xs {
             font-size: 0.6rem !important;
         }
+
         .mobile-optimized .text-sm {
             font-size: 0.65rem !important;
         }
+
         .mobile-optimized .text-base {
             font-size: 0.75rem !important;
         }
+
         .mobile-optimized .p-4 {
             padding: 0.5rem !important;
         }
+
         .mobile-optimized .gap-2 {
             gap: 0.25rem !important;
         }
+
         .mobile-optimized .px-2 {
             padding-left: 0.25rem !important;
             padding-right: 0.25rem !important;
         }
+
         .mobile-optimized .py-0\.5 {
             padding-top: 0.125rem !important;
             padding-bottom: 0.125rem !important;
         }
-        .mobile-optimized .space-y-4 > * + * {
+
+        .mobile-optimized .space-y-4>*+* {
             margin-top: 0.75rem !important;
         }
+
         .mobile-optimized .mb-3 {
             margin-bottom: 0.5rem !important;
         }
+
         .mobile-optimized .mt-3 {
             margin-top: 0.5rem !important;
         }
+
         .mobile-optimized .my-2 {
             margin-top: 0.25rem !important;
             margin-bottom: 0.25rem !important;
         }
+
         .action-button {
             font-size: 0.6rem !important;
             padding: 0.25rem 0.1rem !important;
@@ -218,7 +250,9 @@
 
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
-                            <button class="action-button">De Camino</button>
+                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
+                                De Camino
+                            </button>
                             <button class="action-button">GPS</button>
                             <button class="action-button">Dentro</button>
                             <button class="action-button">Llévame</button>

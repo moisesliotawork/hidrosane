@@ -25,6 +25,7 @@ class Note extends Model
         'status',
         'observations',
         'visit_date',
+        'de_camino',
         'visit_schedule',
         'assignment_date'
     ];
@@ -41,6 +42,7 @@ class Note extends Model
         'updated_at' => 'datetime',
         'status' => NoteStatus::class,
         'fuente' => FuenteNotas::class,
+        'de_camino' => 'boolean',
     ];
 
     protected $attributes = [

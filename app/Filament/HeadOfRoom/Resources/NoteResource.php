@@ -62,6 +62,7 @@ class NoteResource extends Resource
                             ->maxLength(9)
                             ->minLength(9)
                             ->label('Teléfono')
+                            ->mask('999 999 999')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
                                 'min' => 'Debe tener exactamente 9 cifras',
@@ -71,6 +72,7 @@ class NoteResource extends Resource
                             ->tel()
                             ->maxLength(9)
                             ->minLength(9)
+                            ->mask('999 999 999')
                             ->label('Teléfono secundario (opcional)')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
@@ -200,7 +202,8 @@ class NoteResource extends Resource
                     ->searchable()
                     ->label('Teléfono')
                     ->html()
-                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' . $state . '</span>'),
+                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
+                        chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
