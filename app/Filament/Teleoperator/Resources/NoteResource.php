@@ -193,7 +193,8 @@ class NoteResource extends Resource
                     ->searchable()
                     ->label('Teléfono')
                     ->html()
-                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' . $state . '</span>'),
+                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
+                        chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
