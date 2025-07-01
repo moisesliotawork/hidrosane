@@ -6,6 +6,8 @@ use App\Filament\Teleoperator\Resources\NoteResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
+use App\Models\Observation;
+use App\Models\PostalCode;
 use Illuminate\Support\Str;
 use Filament\Actions;
 use Filament\Actions\Action;
@@ -38,7 +40,7 @@ class CreateNote extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Normalizar los nombres para comparación (sin espacios y en minúsculas)
+        // Normalizar los nombres para comparación
         $normalizedFirstName = Str::slug(Str::lower($data['first_names']), '');
         $normalizedLastName = Str::slug(Str::lower($data['last_names']), '');
 
@@ -49,15 +51,32 @@ class CreateNote extends CreateRecord
             ->where('phone', $data['phone'])
             ->first();
 
-        // Si no existe, crear nuevo cliente
-        if (!$customer) {
+        // Verificar que el postal_code_id existe
+        $postalCode = PostalCode::find($data['postal_code_id']);
+        if (!$postalCode) {
+            throw new \Exception("El código postal seleccionado no existe");
+        }
+
+        if ($customer) {
+            // Actualizar solo los campos permitidos (excluyendo nombres y teléfono)
+            $customer->update([
+                'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
+                'email' => $data['email'] ?? $customer->email,
+                'postal_code_id' => $postalCode->id,
+                'primary_address' => $data['primary_address'] ?? $customer->primary_address,
+                'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
+                'parish' => $data['parish'] ?? $customer->parish,
+                'age' => $data['age'] ?? $customer->age,
+            ]);
+        } else {
+            // Crear nuevo cliente con todos los datos
             $customer = Customer::create([
                 'first_names' => $data['first_names'],
                 'last_names' => $data['last_names'],
                 'phone' => $data['phone'],
                 'secondary_phone' => $data['secondary_phone'] ?? null,
                 'email' => $data['email'],
-                'postal_code_id' => $data['postal_code_id'],
+                'postal_code_id' => $postalCode->id,
                 'primary_address' => $data['primary_address'],
                 'secondary_address' => $data['secondary_address'] ?? null,
                 'parish' => $data['parish'] ?? null,
@@ -71,5 +90,19 @@ class CreateNote extends CreateRecord
         $data['comercial_id'] = null;
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        // Guardar observaciones después de crear la nota
+        $observations = $this->form->getState()['observations'] ?? [];
+
+        foreach ($observations as $observationData) {
+            Observation::create([
+                'note_id' => $this->record->id,
+                'author_id' => auth()->id(),
+                'observation' => $observationData['observation']
+            ]);
+        }
     }
 }

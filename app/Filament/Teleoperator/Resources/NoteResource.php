@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
+use Illuminate\Support\Str;
 
 class NoteResource extends Resource
 {
@@ -95,15 +96,19 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('postal_code_id')
                             ->label('Código postal')
                             ->required()
-                            ->relationship(
-                                name: 'customer.postalCode',
-                                titleAttribute: 'code',
-                                modifyQueryUsing: fn(Builder $query) => $query->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                            )
-                            ->getOptionLabelFromRecordUsing(
-                                fn(PostalCode $record) => "{$record->city->title} - {$record->code}"
-                            )
-                            ->searchable(['code', 'cities.title'])
+                            ->options(function () {
+                                return PostalCode::query()
+                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
+                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                    ->orderBy('cities.title')
+                                    ->orderBy('postal_codes.code')
+                                    ->limit(500) // Limitar resultados para mejor rendimiento
+                                    ->get()
+                                    ->mapWithKeys(fn($item) => [
+                                        $item->id => "{$item->city_title} - {$item->code}"
+                                    ]);
+                            })
+                            ->searchable(['code', 'city.title'])
                             ->preload()
                             ->native(false)
                             ->validationMessages([
@@ -143,11 +148,6 @@ class NoteResource extends Resource
                             ->validationMessages([
                                 'required' => 'El estado es obligatorio',
                             ]),
-
-                        Forms\Components\Textarea::make('observations')
-                            ->maxLength(65535)
-                            ->columnSpanFull()
-                            ->label('Observaciones'),
                     ]),
 
                 Forms\Components\Section::make('Visita')
@@ -171,6 +171,54 @@ class NoteResource extends Resource
                     ])->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
+
+                Forms\Components\Section::make('Observaciones')
+                    ->schema([
+                        Forms\Components\Repeater::make('observations')
+                            ->label("")
+                            ->relationship('myObservations')
+                            ->schema([
+                                Forms\Components\Hidden::make('author_id')
+                                    ->default(auth()->id()),
+                                Forms\Components\Textarea::make('observation')
+                                    ->required()
+                                    ->label('')
+                                    ->placeholder('Escribe una observación')
+                                    ->columnSpanFull(),
+                            ])
+                            ->addActionLabel('Añadir observación')
+                            ->defaultItems(1)
+                            ->collapsible()
+                            ->collapsed()
+                            ->columnSpanFull()
+                            ->itemLabel(function (array $state): ?string {
+                                // Usar el usuario autenticado como fallback
+                                $author = auth()->user();
+
+                                // Si hay un author_id en el estado, intentar cargar el usuario
+                                if (isset($state['author_id'])) {
+                                    $author = \App\Models\User::find($state['author_id']) ?? $author;
+                                }
+
+                                // Determinar el rol abreviado
+                                $role = 'Tel. Op'; // Por defecto
+                                if ($author->hasRole('commercial')) {
+                                    $role = 'Com.';
+                                } elseif ($author->hasRole('head_of_room')) {
+                                    $role = 'Tel. Op';
+                                }
+
+                                // Formatear la fecha (usar now() si no hay fecha)
+                                $date = now()->format('d/m/y');
+
+                                // Limitar el texto de la observación para que no sea muy largo
+                                $observationText = $state['observation'] ?? 'Nueva observación';
+                                $limitedObservation = Str::limit($observationText, 30);
+
+                                return "{$author->name} {$author->last_name} ({$role}) - {$date}: {$limitedObservation}";
+                            }),
+
+                    ]),
             ]);
     }
 

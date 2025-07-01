@@ -156,4 +156,11 @@ class Note extends Model
     {
         return $this->hasMany(Observation::class);
     }
+
+    public function myObservations()
+    {
+        return $this->hasMany(Observation::class)
+            ->where('author_id', auth()->id());
+    }
+
 }
