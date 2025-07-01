@@ -98,6 +98,9 @@ class NotasToday extends Component
                     'fuente_label' => $note->fuente->getLabel(),
                     'fuente_puntaje' => $note->fuente->getPuntaje(),
                     'de_camino' => $note->de_camino,
+                    'show_phone' => $note->show_phone,
+                    'phone' => $note->customer->phone ?? null,
+                    'secondary_phone' => $note->customer->secondary_phone ?? null,
                 ];
             });
     }

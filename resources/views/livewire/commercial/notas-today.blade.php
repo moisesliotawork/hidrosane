@@ -63,6 +63,20 @@
             margin: 0 0.1rem;
         }
 
+        .customer-phone {
+            font-size: 0.75rem;
+            line-height: 1.1;
+            font-weight: 600;
+            color: #000000;
+            /* Color negro para modo claro */
+            margin-top: 0.1rem;
+        }
+
+        .dark .customer-phone {
+            color: #ffffff;
+            /* Color blanco para modo oscuro */
+        }
+
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
             .mobile-optimized {
@@ -272,12 +286,22 @@
                         </div>
 
                         <!-- Información del cliente -->
+                        <!-- Información del cliente -->
                         <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
                         <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
                         <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
-                        <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
-                        <!-- Botones de acción -->
+                        @if($note['show_phone'])
+                            <div class="mt-1">
+                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
+                                @if($note['secondary_phone'])
+                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                                @endif
+                            </div>
+                        @endif
+
+                        <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
+                        
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
                             <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
