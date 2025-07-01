@@ -8,15 +8,20 @@ use Filament\Notifications\Notification;
 
 class NotasToday extends Component
 {
-    protected $listeners = ['notaActualizada' => '$refresh'];
+    protected $listeners = ['notaActualizada' => '$refresh', 'guardarUbicacion' => 'guardarUbicacion'];
+
 
     public ?float $ubicacionLat = null;
     public ?float $ubicacionLng = null;
 
     public function guardarUbicacion($notaId, $lat, $lng)
     {
-        $this->ubicacionLat = $lat;
-        $this->ubicacionLng = $lng;
+        $note = Note::find($notaId);
+        $note->lat = $lat;
+        $note->lng = $lng;
+        $note->save();
+
+
 
         Notification::make()
             ->title('Ubicación capturada')
