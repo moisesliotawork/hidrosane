@@ -41,6 +41,28 @@
             margin-top: 0.5rem;
         }
 
+        .action-button.w-full {
+            width: 100%;
+            margin: 0;
+            padding: 0.4rem 0;
+        }
+
+        .action-button.w-full {
+            flex: 1;
+            /* Ocupa espacio igualitario */
+            padding: 0.4rem 0.2rem;
+            font-size: 0.7rem;
+            border-radius: 0.25rem;
+            background-color: #00248c;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin: 0 0.1rem;
+        }
+
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
             .mobile-optimized {
@@ -116,6 +138,10 @@
                 font-size: 0.65rem;
                 padding: 0.3rem 0.1rem;
             }
+
+            .action-button.w-full {
+                padding: 0.3rem 0;
+            }
         }
 
         /* Ajustes para pantallas ≤375px */
@@ -174,6 +200,10 @@
             .action-button {
                 font-size: 0.6rem !important;
                 padding: 0.25rem 0.1rem !important;
+            }
+
+            .action-button.w-full {
+                padding: 0.25rem 0;
             }
         }
     </style>
@@ -248,6 +278,7 @@
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
                         <!-- Botones de acción -->
+                        <!-- Botones de acción -->
                         <div class="action-buttons-container">
                             <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
                                 De Camino
@@ -255,9 +286,15 @@
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
-
                             <button class="action-button">Dentro</button>
                             <button class="action-button">Llévame</button>
+                        </div>
+
+                        <!-- Nuevo botón que ocupa todo el ancho -->
+                        <div class="mt-1"> <!-- Margen superior pequeño para separar -->
+                            <button class="action-button w-full"> <!-- w-full para que ocupe todo el ancho -->
+                                Gestionar
+                            </button>
                         </div>
                     </div>
                 @empty
