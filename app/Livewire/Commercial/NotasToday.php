@@ -1,19 +1,13 @@
 <?php
 
-namespace App\Filament\Commercial\Pages;
+namespace App\Livewire\Commercial;
 
-use Filament\Pages\Page;
-use Filament\Notifications\Notification;
+use Livewire\Component;
 use App\Models\Note;
-use Illuminate\Support\Facades\Log;
-class NotasToday extends Page
-{
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Notas Hoy';
-    protected static ?string $title = 'Notas Hoy';
-    protected static ?string $slug = 'notas-hoy';
-    protected static string $view = 'filament.commercial.pages.notas-today';
+use Filament\Notifications\Notification;
 
+class NotasToday extends Component
+{
     protected $listeners = ['notaActualizada' => '$refresh'];
 
     public function toggleDeCamino($noteId)
@@ -39,24 +33,16 @@ class NotasToday extends Page
             ->body('La nota ha sido marcada como ' . ($note->de_camino ? 'EN CAMINO' : 'NO EN CAMINO'))
             ->send();
 
-        $this->emit('notaActualizada'); // Para refrescar los datos si es necesario
+        $this->dispatch('notaActualizada');
     }
 
-
-    // Deshabilitar completamente los widgets del header
-    protected function getHeaderWidgets(): array
+    public function getNotesProperty()
     {
-        return [];
-    }
-
-    // Método para obtener las notas directamente
-    public function getNotes()
-    {
-        $hoy = now()->format('Y-m-d'); // Obtener fecha actual en formato Y-m-d
+        $hoy = now()->format('Y-m-d');
 
         return Note::with(['customer', 'comercial'])
-            ->where('comercial_id', auth()->id()) // Solo notas del usuario en sesión
-            ->whereDate('assignment_date', $hoy) // Solo notas asignadas hoy
+            ->where('comercial_id', auth()->id())
+            ->whereDate('assignment_date', $hoy)
             ->latest()
             ->get()
             ->map(function ($note) {
@@ -82,4 +68,8 @@ class NotasToday extends Page
             });
     }
 
+    public function render()
+    {
+        return view('livewire.commercial.notas-today');
+    }
 }
