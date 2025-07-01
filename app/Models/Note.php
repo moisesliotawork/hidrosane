@@ -27,7 +27,9 @@ class Note extends Model
         'visit_date',
         'de_camino',
         'visit_schedule',
-        'assignment_date'
+        'assignment_date',
+        'lat',
+        'lng'
     ];
 
     /**
@@ -110,5 +112,31 @@ class Note extends Model
     public function postalCode()
     {
         return $this->through('customer')->has('postalCode');
+    }
+
+    /**
+     * Obtiene las coordenadas como array [lat, lng]
+     *
+     * @return array|null
+     */
+    public function getCoordinatesAttribute()
+    {
+        if ($this->lat && $this->lng) {
+            return [
+                'lat' => $this->lat,
+                'lng' => $this->lng
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * Verifica si la nota tiene coordenadas
+     *
+     * @return bool
+     */
+    public function hasCoordinates()
+    {
+        return !empty($this->lat) && !empty($this->lng);
     }
 }
