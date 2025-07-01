@@ -27,11 +27,19 @@ class NotasToday extends Component
         $note->de_camino = !$note->de_camino;
         $note->save();
 
-        Notification::make()
-            ->title('Estado actualizado')
-            ->success()
-            ->body('La nota ha sido marcada como ' . ($note->de_camino ? 'EN CAMINO' : 'NO EN CAMINO'))
-            ->send();
+        if (!$note->de_camino) {
+            Notification::make()
+                ->title('Estado actualizado')
+                ->warning()
+                ->body('La nota ha sido marcada como NO EN CAMINO')
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Estado actualizado')
+                ->success()
+                ->body('La nota ha sido marcada como EN CAMINO')
+                ->send();
+        }
 
         $this->dispatch('notaActualizada');
     }
