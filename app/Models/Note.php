@@ -29,7 +29,8 @@ class Note extends Model
         'visit_schedule',
         'assignment_date',
         'lat',
-        'lng'
+        'lng',
+        'show_phone'
     ];
 
     /**
@@ -45,6 +46,7 @@ class Note extends Model
         'status' => NoteStatus::class,
         'fuente' => FuenteNotas::class,
         'de_camino' => 'boolean',
+        'show_phone' => 'boolean',
     ];
 
     protected $attributes = [
@@ -138,5 +140,15 @@ class Note extends Model
     public function hasCoordinates()
     {
         return !empty($this->lat) && !empty($this->lng);
+    }
+
+    /**
+     * Determina si se puede mostrar el teléfono del cliente
+     *
+     * @return bool
+     */
+    public function canShowPhone()
+    {
+        return $this->show_phone;
     }
 }
