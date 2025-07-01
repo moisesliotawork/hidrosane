@@ -18,6 +18,7 @@ use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class NoteResource extends Resource
 {
@@ -149,10 +150,6 @@ class NoteResource extends Resource
                                 'required' => 'El estado es obligatorio',
                             ]),
 
-                        Forms\Components\Textarea::make('observations')
-                            ->maxLength(65535)
-                            ->columnSpanFull()
-                            ->label('Observaciones'),
                     ]),
 
                 Forms\Components\Section::make('Visita')
@@ -176,6 +173,54 @@ class NoteResource extends Resource
                     ])->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
+
+                Forms\Components\Section::make('Observaciones')
+                    ->schema([
+                        Forms\Components\Repeater::make('observations')
+                            ->label("")
+                            ->relationship()
+                            ->schema([
+                                Forms\Components\Hidden::make('author_id')
+                                    ->default(auth()->id()),
+                                Forms\Components\Textarea::make('observation')
+                                    ->required()
+                                    ->label('')
+                                    ->placeholder('Escribe una observación')
+                                    ->columnSpanFull(),
+                            ])
+                            ->addActionLabel('Añadir observación')
+                            ->defaultItems(1)
+                            ->collapsible()
+                            ->collapsed()
+                            ->columnSpanFull()
+                            ->itemLabel(function (array $state): ?string {
+                                // Usar el usuario autenticado como fallback
+                                $author = auth()->user();
+
+                                // Si hay un author_id en el estado, intentar cargar el usuario
+                                if (isset($state['author_id'])) {
+                                    $author = \App\Models\User::find($state['author_id']) ?? $author;
+                                }
+
+                                // Determinar el rol abreviado
+                                $role = 'Tel. Op'; // Por defecto
+                                if ($author->hasRole('commercial')) {
+                                    $role = 'Com.';
+                                } elseif ($author->hasRole('head_of_room')) {
+                                    $role = 'Tel. Op';
+                                }
+
+                                // Formatear la fecha (usar now() si no hay fecha)
+                                $date = now()->format('d/m/y');
+
+                                // Limitar el texto de la observación para que no sea muy largo
+                                $observationText = $state['observation'] ?? 'Nueva observación';
+                                $limitedObservation = Str::limit($observationText, 30);
+
+                                return "{$author->name} {$author->last_name} ({$role}) - {$date}: {$limitedObservation}";
+                            }),
+
+                    ]),
             ]);
     }
 

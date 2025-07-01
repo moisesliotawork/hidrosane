@@ -151,4 +151,9 @@ class Note extends Model
     {
         return $this->show_phone;
     }
+
+    public function observations()
+    {
+        return $this->hasMany(Observation::class);
+    }
 }

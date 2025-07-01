@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
+use App\Models\Observation;
 use App\Models\PostalCode;
 use Illuminate\Support\Str;
 
@@ -88,5 +89,19 @@ class CreateNote extends CreateRecord
         $data['comercial_id'] = null;
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        // Guardar observaciones después de crear la nota
+        $observations = $this->form->getState()['observations'] ?? [];
+
+        foreach ($observations as $observationData) {
+            Observation::create([
+                'note_id' => $this->record->id,
+                'author_id' => auth()->id(),
+                'observation' => $observationData['observation']
+            ]);
+        }
     }
 }

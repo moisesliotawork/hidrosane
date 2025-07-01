@@ -7,7 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Customer;
 use App\Models\PostalCode;
-
+use App\Models\Observation;
 
 class EditNote extends EditRecord
 {
@@ -19,7 +19,16 @@ class EditNote extends EditRecord
         $note = $this->record;
         $customer = $note->customer;
 
-        // Combinar los datos de la nota con los del customer
+        // Obtener las observaciones existentes
+        $observations = $note->observations()->get()->map(function ($observation) {
+            return [
+                'author_id' => $observation->author_id,
+                'observation' => $observation->observation,
+                // Agregar campos adicionales si es necesario
+            ];
+        })->toArray();
+
+        // Combinar los datos de la nota con los del customer y observaciones
         return array_merge($data, [
             'first_names' => $customer->first_names,
             'last_names' => $customer->last_names,
@@ -50,7 +59,7 @@ class EditNote extends EditRecord
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
             'email' => $data['email'],
-            'postal_code_id' => $postalCode->id, // Usar el ID del código postal
+            'postal_code_id' => $postalCode->id,
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,
@@ -72,6 +81,32 @@ class EditNote extends EditRecord
         );
 
         return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        $currentObservationIds = [];
+        $observations = $this->data['observations'] ?? [];
+
+        foreach ($observations as $observationData) {
+            if (isset($observationData['id'])) {
+                // Actualizar observación existente
+                $observation = $this->record->observations()->find($observationData['id']);
+                if ($observation) {
+                    $observation->update($observationData);
+                    $currentObservationIds[] = $observation->id;
+                }
+            } else {
+                // Crear nueva observación
+                $newObservation = $this->record->observations()->create($observationData);
+                $currentObservationIds[] = $newObservation->id;
+            }
+        }
+
+        // Eliminar observaciones que no están en el formulario
+        $this->record->observations()
+            ->whereNotIn('id', $currentObservationIds)
+            ->delete();
     }
 
     protected function getHeaderActions(): array
