@@ -10,6 +10,27 @@ class NotasToday extends Component
 {
     protected $listeners = ['notaActualizada' => '$refresh'];
 
+    public ?float $ubicacionLat = null;
+    public ?float $ubicacionLng = null;
+
+    public function guardarUbicacion($notaId, $lat, $lng)
+    {
+        $this->ubicacionLat = $lat;
+        $this->ubicacionLng = $lng;
+
+        Notification::make()
+            ->title('Ubicación capturada')
+            ->success()
+            ->body("Ubicación guardada para la nota #$notaId: [$lat, $lng]")
+            ->send();
+
+        // Aquí puedes opcionalmente guardar en BD si quieres
+        // $note = Note::find($notaId);
+        // $note->lat = $lat;
+        // $note->lng = $lng;
+        // $note->save();
+    }
+
     public function toggleDeCamino($noteId)
     {
         $note = Note::find($noteId);

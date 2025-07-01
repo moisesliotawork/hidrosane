@@ -252,7 +252,10 @@
                             <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
                                 De Camino
                             </button>
-                            <button class="action-button">GPS</button>
+                            <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
+                                GPS
+                            </button>
+
                             <button class="action-button">Dentro</button>
                             <button class="action-button">Llévame</button>
                         </div>
@@ -265,4 +268,54 @@
             </div>
         </div>
     </div>
+    <script>
+        function getUbicacion(notaId) {
+            if (location.protocol !== 'https:')
+            {
+                // Si no está en HTTPS, guardar ubicación fija (Caracas)
+                Livewire.dispatch('guardarUbicacion', {
+                    notaId: notaId,
+                    lat: 10.4806,
+                    lng: -66.9036
+                });
+                alert('Estás en entorno local, se usó ubicación de Caracas.');
+                return;
+            }
+
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        Livewire.dispatch('guardarUbicacion', {
+                            notaId: notaId,
+                            lat: lat,
+                            lng: lng
+                        });
+                    },
+                    function (error) {
+                        // Si hay error, usar Caracas como fallback
+                        Livewire.dispatch('guardarUbicacion', {
+                            notaId: notaId,
+                            lat: 10.4806,
+                            lng: -66.9036
+                        });
+                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
+                    }
+                );
+            } else
+            {
+                // Geolocalización no soportada
+                Livewire.dispatch('guardarUbicacion', {
+                    notaId: notaId,
+                    lat: 10.4806,
+                    lng: -66.9036
+                });
+                alert('Geolocalización no soportada, se usó Caracas.');
+            }
+        }
+    </script>
+
 </div>
