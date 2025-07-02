@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             AdditionalRolesSeeder::class,
             GeneralManagerRoleSeeder::class,
             UserSeeder::class,
+            UsuariosViejos::class,
             CountrySeeder::class,
             StateSeeder::class,
             CitySeeder::class,
