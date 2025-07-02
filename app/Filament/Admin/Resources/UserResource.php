@@ -79,6 +79,17 @@ class UserResource extends Resource
                         $set('alta_empleado', Carbon::parse($state)->startOfDay());
                     })
                     ->dehydrated(),
+                Forms\Components\TextInput::make('phone')
+                    ->tel()
+                    ->required()
+                    ->maxLength(11)
+                    ->minLength(11)
+                    ->label('Teléfono')
+                    ->mask('999 999 999')
+                    ->validationMessages([
+                        'required' => 'El telefono es obligatorio',
+                        'min' => 'Debe tener exactamente 9 cifras',
+                    ]),
             ]);
     }
 
@@ -87,14 +98,21 @@ class UserResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('empleado_id')
-                ->badge()
-                ->color(Color::Blue)
+                    ->badge()
+                    ->color(Color::Blue)
                     ->label('ID Empleado')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('name')->label('nombre'),
                 TextColumn::make('email')->label('correo electrónico'),
+                Tables\Columns\TextColumn::make('phone')
+                    ->searchable()
+                    ->label('Teléfono')
+                    ->html()
+                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
+                        chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
+
                 TextColumn::make('role')
                     ->label('Rol')
                     ->badge()
