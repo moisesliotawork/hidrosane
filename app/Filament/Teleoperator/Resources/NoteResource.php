@@ -215,7 +215,7 @@ class NoteResource extends Resource
                                 $observationText = $state['observation'] ?? 'Nueva observación';
                                 $limitedObservation = Str::limit($observationText, 30);
 
-                                return "{$author->name} {$author->last_name} ({$role}) - {$date}: {$limitedObservation}";
+                                return "{$author->empleado_id} ({$role}) - {$date}: {$limitedObservation}";
                             }),
 
                     ]),
@@ -254,6 +254,7 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(NoteStatus::options())

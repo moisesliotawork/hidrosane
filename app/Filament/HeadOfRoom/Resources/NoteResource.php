@@ -19,6 +19,7 @@ use App\Enums\HorarioNotas;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Filament\Support\Colors\Color;
 
 class NoteResource extends Resource
 {
@@ -217,7 +218,7 @@ class NoteResource extends Resource
                                 $observationText = $state['observation'] ?? 'Nueva observación';
                                 $limitedObservation = Str::limit($observationText, 30);
 
-                                return "{$author->name} {$author->last_name} ({$role}) - {$date}: {$limitedObservation}";
+                                return "{$author->empleado_id} ({$role}) - {$date}: {$limitedObservation}";
                             }),
 
                     ]),
@@ -229,6 +230,13 @@ class NoteResource extends Resource
         return $table
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
+
+                Tables\Columns\TextColumn::make('nro_nota')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::Gray)
+                    ->label('# Nota'),
+
                 Tables\Columns\TextColumn::make('fuente')
                     ->badge()
                     ->color(fn(FuenteNotas $state): string => $state->getColor())
@@ -277,6 +285,7 @@ class NoteResource extends Resource
                     ->label('Asignacion')
                     ->sortable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(NoteStatus::options())

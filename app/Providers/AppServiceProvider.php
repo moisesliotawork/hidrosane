@@ -23,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        //Personalizar colores de filament
         FilamentColor::register([
             'danger' => Color::Red,
             'gray' => Color::Zinc,
@@ -34,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
             'yellow' => Color::Yellow,
         ]);
 
+        // Aplicar Tailwind a toda la app
         FilamentAsset::register([
             Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/app.css'),
         ]);
