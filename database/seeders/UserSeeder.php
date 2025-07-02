@@ -17,51 +17,8 @@ class UserSeeder extends Seeder
             'email' => 'admin@example.com',
             'password' => Hash::make('123456'),
             'phone' => '123456789',
-            'empleado_id' => 00
+            'empleado_id' => 100
         ]);
         $admin->assignRole('admin');
-
-        // Crear jefe de sala
-        $headOfRoom = User::create([
-            'name' => 'Jefe',
-            'last_name' => 'de Sala',
-            'email' => 'jefesala@example.com',
-            'password' => Hash::make('123456'),
-            'phone' => '987654321',
-             'empleado_id' => 01
-        ]);
-        $headOfRoom->assignRole('head_of_room');
-
-        // Crear teleoperador
-        $teleoperator = User::create([
-            'name' => 'Teleoperador',
-            'last_name' => 'User',
-            'email' => 'teleoperador@example.com',
-            'password' => Hash::make('123456'),
-            'phone' => '555555555',
-            'empleado_id' => 02
-        ]);
-        $teleoperator->assignRole('teleoperator');
-
-        $teleoperator2 = User::create([
-            'name' => 'Teleoperador 2',
-            'last_name' => 'User',
-            'email' => 'teleoperador2@example.com',
-            'password' => Hash::make('123456'),
-            'phone' => '555555555',
-            'empleado_id' => 03
-        ]);
-        $teleoperator2->assignRole('teleoperator');
-
-        // Crear comercial
-        $commercial = User::create([
-            'name' => 'Comercial',
-            'last_name' => 'User',
-            'email' => 'comercial@example.com',
-            'password' => Hash::make('123456'),
-            'phone' => '111111111',
-            'empleado_id' => 04
-        ]);
-        $commercial->assignRole('commercial');
     }
 }

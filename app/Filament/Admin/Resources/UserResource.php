@@ -65,6 +65,7 @@ class UserResource extends Resource
                         'delegate' => 'DELEGADO',
                         'team_leader' => 'JEFE DE EQUIPO',
                         'sales_manager' => 'JEFE DE VENTAS',
+                        "app_support" => "SOPORTE",
                     ])
                     ->required()
                     ->searchable(),
@@ -135,6 +136,7 @@ class UserResource extends Resource
                         'delegate' => 'DELEGADO',
                         'team_leader' => 'JEFE DE EQUIPO',
                         'sales_manager' => 'JEFE DE VENTAS',
+                        "app_support" => "SOPORTE",
                         default => strtoupper($state),
                     }),
                 TextColumn::make('alta_empleado')
