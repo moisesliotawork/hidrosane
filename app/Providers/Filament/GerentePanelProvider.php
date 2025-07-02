@@ -17,7 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use App\Filament\Commercial\Pages\ViewProfile;
+use App\Filament\Gerente\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 
 class GerentePanelProvider extends PanelProvider
