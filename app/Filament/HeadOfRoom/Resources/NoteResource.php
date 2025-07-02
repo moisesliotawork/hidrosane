@@ -157,21 +157,22 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\DatePicker::make('visit_date')
                             ->label('Fecha de visita')
+                            ->default(now()->addDay()->toDateString()) // Default mañana
+                            ->minDate(now()->addDay()->toDateString()) // Prevencion para no colocar fechas pasadas
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
 
-
-
                         Forms\Components\Select::make('visit_schedule')
-                            ->options(HorarioNotas::options()) // Usa las opciones del enum
+                            ->options(HorarioNotas::options())
                             ->label('Horario de visita')
+                            ->default(HorarioNotas::TD->value) // Default TD
                             ->native(false)
                             ->searchable()
-                            ->required() // Si es obligatorio
+                            ->required()
                             ->hidden(fn(Forms\Get $get): bool =>
-                                $get('status') !== NoteStatus::CONTACTED->value)
-                        ,
-                    ])->columns(2)
+                                $get('status') !== NoteStatus::CONTACTED->value),
+                    ])
+                    ->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
 
@@ -236,11 +237,11 @@ class NoteResource extends Resource
                     ->color(Color::Gray)
                     ->label('# Nota'),
 
-                Tables\Columns\TextColumn::make('fuente')
-                    ->badge()
-                    ->color(fn(FuenteNotas $state): string => $state->getColor())
-                    ->formatStateUsing(fn(FuenteNotas $state): string => $state->getPuntaje() . ' pts')
-                    ->label('Puntos'),
+                // Tables\Columns\TextColumn::make('fuente')
+                // ->badge()
+                // ->color(fn(FuenteNotas $state): string => $state->getColor())
+                // ->formatStateUsing(fn(FuenteNotas $state): string => $state->getPuntaje() . ' pts')
+                // ->label('Puntos'),
 
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
@@ -284,6 +285,12 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('fecha_asig')
                     ->label('Asig.')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('visit_schedule')
+                    ->badge()
+                    ->color(Color::Gray)
+                    ->label('Horario')
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')

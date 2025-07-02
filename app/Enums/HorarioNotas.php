@@ -24,13 +24,13 @@ enum HorarioNotas: string implements HasLabel
             self::_11_13 => '11-13',
             self::_12_14 => '12-14',
             self::_13_1430 => '13-14:30',
-            self::TM => 'TM (Toda la mañana)',
+            self::TM => 'TM',
             self::_1530_17 => '15:30-17',
             self::_16_18 => '16-18',
             self::_17_19 => '17-19',
             self::_18_20 => '18-20',
-            self::TT => 'TT (Toda la tarde)',
-            self::TD => 'TD (Todo el día)',
+            self::TT => 'TT',
+            self::TD => 'TD',
         };
     }
 
