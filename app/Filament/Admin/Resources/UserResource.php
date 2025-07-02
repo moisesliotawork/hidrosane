@@ -19,6 +19,7 @@ use Spatie\Permission\Models\Role;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Set;
 use Illuminate\Support\Carbon;
+use Filament\Support\Colors\Color;
 
 class UserResource extends Resource
 {
@@ -59,6 +60,11 @@ class UserResource extends Resource
                         'head_of_room' => 'JEFE DE SALA',
                         'teleoperator' => 'TELEOPERADOR',
                         'commercial' => 'COMERCIAL',
+                        'gerente_general' => 'GERENTE GENERAL',
+                        'delivery' => 'REPARTIDOR',
+                        'delegate' => 'DELEGADO',
+                        'team_leader' => 'JEFE DE EQUIPO',
+                        'sales_manager' => 'JEFE DE VENTAS',
                     ])
                     ->required()
                     ->searchable(),
@@ -80,8 +86,43 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('empleado_id')
+                ->badge()
+                ->color(Color::Blue)
+                    ->label('ID Empleado')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('name')->label('nombre'),
-                TextColumn::make('email')->label('correo electrónico')
+                TextColumn::make('email')->label('correo electrónico'),
+                TextColumn::make('role')
+                    ->label('Rol')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'admin' => 'info',
+                        'gerente_general' => 'info',
+                        'head_of_room' => 'pink',
+                        'commercial' => 'success',
+                        'teleoperator' => 'pink',
+                        'delivery' => 'orange',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                        'admin' => 'ADMIN',
+                        'gerente_general' => 'GERENTE GENERAL',
+                        'head_of_room' => 'JEFE DE SALA',
+                        'commercial' => 'COMERCIAL',
+                        'teleoperator' => 'TELEOPERADOR',
+                        'delivery' => 'REPARTIDOR',
+                        'delegate' => 'DELEGADO',
+                        'team_leader' => 'JEFE DE EQUIPO',
+                        'sales_manager' => 'JEFE DE VENTAS',
+                        default => strtoupper($state),
+                    }),
+                TextColumn::make('alta_empleado')
+                    ->label('Fecha de alta')
+                    ->date('d/m/Y')
+                    ->sortable(),
             ])
             ->filters([
                 //

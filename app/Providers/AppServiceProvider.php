@@ -33,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
             'warning' => Color::Amber,
             'orange' => Color::Orange,
             'yellow' => Color::Yellow,
+            'pink' => Color::Pink,
         ]);
 
         // Aplicar Tailwind a toda la app

@@ -13,6 +13,11 @@ class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function beforeCreate(): void
     {
         // Validar que el empleado_id tenga exactamente 3 cifras

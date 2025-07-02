@@ -116,4 +116,9 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Team::class, 'sales_manager_id');
     }
 
+    public function getRoleAttribute(): ?string
+    {
+        return $this->roles->first()?->name;
+    }
+
 }
