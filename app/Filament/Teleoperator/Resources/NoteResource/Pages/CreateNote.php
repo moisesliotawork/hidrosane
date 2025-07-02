@@ -94,15 +94,17 @@ class CreateNote extends CreateRecord
 
     protected function afterCreate(): void
     {
-        // Guardar observaciones después de crear la nota
         $observations = $this->form->getState()['observations'] ?? [];
 
         foreach ($observations as $observationData) {
-            Observation::create([
-                'note_id' => $this->record->id,
-                'author_id' => auth()->id(),
-                'observation' => $observationData['observation']
-            ]);
+            // Verifica si existe y tiene contenido
+            if (!empty($observationData['observation'])) {
+                Observation::create([
+                    'note_id' => $this->record->id,
+                    'author_id' => auth()->id(),
+                    'observation' => $observationData['observation'],
+                ]);
+            }
         }
     }
 }

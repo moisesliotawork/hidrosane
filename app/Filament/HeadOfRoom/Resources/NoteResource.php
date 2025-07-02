@@ -179,12 +179,10 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('observations')
                             ->label("")
-                            ->relationship()
                             ->schema([
                                 Forms\Components\Hidden::make('author_id')
                                     ->default(auth()->id()),
                                 Forms\Components\Textarea::make('observation')
-                                    ->required()
                                     ->label('')
                                     ->placeholder('Escribe una observación')
                                     ->columnSpanFull(),
@@ -192,6 +190,7 @@ class NoteResource extends Resource
                             ->addActionLabel('Añadir observación')
                             ->defaultItems(1)
                             ->collapsible()
+                            ->dehydrated(false)
                             ->collapsed()
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {
@@ -245,11 +244,13 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
+                    ->badge()
+                    ->color(Color::Pink)
                     ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
-                    ->label('Nombres y Apellidos'),
+                    ->label('Nombre Cliente'),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
@@ -269,7 +270,7 @@ class NoteResource extends Resource
                     ->label('Estado'),
 
                 Tables\Columns\TextColumn::make('comercial_empleado')
-                    ->label('Comercial')
+                    ->label('Com.')
                     ->badge()
                     ->color(function ($state) {
                         if ($state === 'Sin Com.') {
@@ -282,7 +283,7 @@ class NoteResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('fecha_asig')
-                    ->label('Asignacion')
+                    ->label('Asig.')
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')

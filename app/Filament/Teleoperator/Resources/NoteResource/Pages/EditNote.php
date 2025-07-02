@@ -88,23 +88,34 @@ class EditNote extends EditRecord
         $observations = $this->data['observations'] ?? [];
 
         foreach ($observations as $observationData) {
+            // Ignorar observaciones vacías
+            if (empty($observationData['observation'])) {
+                continue;
+            }
+
             if (isset($observationData['id'])) {
                 // Actualizar observación existente
                 $observation = $this->record->observations()->find($observationData['id']);
                 if ($observation) {
-                    $observation->update($observationData);
+                    $observation->update([
+                        'observation' => $observationData['observation'],
+                    ]);
                     $currentObservationIds[] = $observation->id;
                 }
             } else {
                 // Crear nueva observación
-                $newObservation = $this->record->observations()->create($observationData);
+                $newObservation = $this->record->observations()->create([
+                    'author_id' => auth()->id(), // O usa el dato del form si quieres
+                    'observation' => $observationData['observation'],
+                ]);
                 $currentObservationIds[] = $newObservation->id;
             }
         }
 
-        // Eliminar observaciones que no están en el formulario
+        // Eliminar observaciones que ya no existen en el formulario
         $this->record->observations()
             ->whereNotIn('id', $currentObservationIds)
             ->delete();
     }
+
 }

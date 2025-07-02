@@ -17,6 +17,7 @@ use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use Illuminate\Support\Str;
+use Filament\Support\Colors\Color;
 
 class NoteResource extends Resource
 {
@@ -181,7 +182,7 @@ class NoteResource extends Resource
                                 Forms\Components\Hidden::make('author_id')
                                     ->default(auth()->id()),
                                 Forms\Components\Textarea::make('observation')
-                                    ->required()
+
                                     ->label('')
                                     ->placeholder('Escribe una observación')
                                     ->columnSpanFull(),
@@ -189,6 +190,7 @@ class NoteResource extends Resource
                             ->addActionLabel('Añadir observación')
                             ->defaultItems(1)
                             ->collapsible()
+                            ->dehydrated(false)
                             ->collapsed()
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {
@@ -227,15 +229,27 @@ class NoteResource extends Resource
         return $table
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
+                Tables\Columns\TextColumn::make('nro_nota')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::Gray)
+                    ->label('# Nota'),
+
                 Tables\Columns\TextColumn::make('fuente')
                     ->badge()
                     ->color(fn(FuenteNotas $state): string => $state->getColor())
                     ->formatStateUsing(fn(FuenteNotas $state): string => $state->getLabel())
                     ->label('Tipo'),
 
+                Tables\Columns\TextColumn::make('user.empleado_id')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::Pink)
+                    ->label('T. Op.'),
+
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
-                    ->label('Nombres y Apellidos'),
+                    ->label('Nombre Cliente'),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
@@ -253,6 +267,10 @@ class NoteResource extends Resource
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
                     ->label('Estado'),
+
+                Tables\Columns\TextColumn::make('fecha_asig')
+                    ->label('Asig.')
+                    ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
