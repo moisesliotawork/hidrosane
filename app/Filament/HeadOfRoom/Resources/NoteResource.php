@@ -181,6 +181,7 @@ class NoteResource extends Resource
                         Forms\Components\Repeater::make('observations')
                             ->label("")
                             ->schema([
+                                Forms\Components\Hidden::make('id'),
                                 Forms\Components\Hidden::make('author_id')
                                     ->default(auth()->id()),
                                 Forms\Components\Textarea::make('observation')
@@ -191,7 +192,7 @@ class NoteResource extends Resource
                             ->addActionLabel('Añadir observación')
                             ->defaultItems(1)
                             ->collapsible()
-                            ->dehydrated(false)
+                            ->dehydrated(true)
                             ->collapsed()
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {

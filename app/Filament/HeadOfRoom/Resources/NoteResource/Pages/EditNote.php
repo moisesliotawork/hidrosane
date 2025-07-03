@@ -22,6 +22,7 @@ class EditNote extends EditRecord
         // Obtener las observaciones existentes
         $observations = $note->observations()->get()->map(function ($observation) {
             return [
+                'id' => $observation->id, // Asegúrate de incluir el ID para edición
                 'author_id' => $observation->author_id,
                 'observation' => $observation->observation,
                 // Agregar campos adicionales si es necesario
@@ -40,6 +41,7 @@ class EditNote extends EditRecord
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
             'age' => $customer->age,
+            'observations' => $observations, // Asegúrate de incluir este campo
         ]);
     }
 

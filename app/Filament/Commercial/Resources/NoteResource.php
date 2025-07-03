@@ -3,29 +3,29 @@
 namespace App\Filament\Commercial\Resources;
 
 use App\Filament\Commercial\Resources\NoteResource\Pages;
-use App\Filament\Commercial\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
+use App\Models\PostalCode;
+use App\Enums\NoteStatus;
+use App\Enums\FuenteNotas;
+use App\Enums\HorarioNotas;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Enums\NoteStatus;
-use App\Enums\FuenteNotas;
-use App\Enums\HorarioNotas;
 use Filament\Notifications\Notification;
-use Carbon\Carbon;
+use Filament\Support\Colors\Color;
 use Illuminate\Support\Str;
-use App\Models\PostalCode;
-use Filament\Infolists\Infolist;
-use Filament\Infolists\Components;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\Section;
+use Carbon\Carbon;
 
 class NoteResource extends Resource
 {
+    protected static ?string $model = Note::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationLabel = 'Notas';
@@ -34,119 +34,217 @@ class NoteResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Notas';
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function form(Form $form): Form
     {
-        return $infolist
+        return $form
             ->schema([
-                Section::make('Información Personal')
+                Forms\Components\Hidden::make('customer_id'),
+                Forms\Components\Hidden::make('comercial_id'),
+
+                Forms\Components\Section::make('Información Personal')
                     ->schema([
-                        TextEntry::make('customer.first_names')
-                            ->label('Nombres'),
+                        Forms\Components\TextInput::make('first_names')
+                            ->disabled()
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Nombres')
+                            ->validationMessages([
+                                'required' => 'Los nombres son obligatorios',
+                            ]),
 
-                        TextEntry::make('customer.last_names')
-                            ->label('Apellidos'),
+                        Forms\Components\TextInput::make('last_names')
+                            ->required()
+                            ->disabled()
+                            ->maxLength(255)
+                            ->label('Apellidos')
+                            ->validationMessages([
+                                'required' => 'Los apellidos son obligatorios',
+                            ]),
 
-                        TextEntry::make('customer.phone')
+                        Forms\Components\TextInput::make('phone')
+                            ->tel()
+                            ->disabled()
+                            ->required()
+                            ->maxLength(11)
+                            ->minLength(11)
                             ->label('Teléfono')
-                            ->formatStateUsing(function ($state) {
-                                // Eliminar espacios existentes y formatear de 3 en 3
-                                $cleanNumber = str_replace(' ', '', $state);
-                                return chunk_split($cleanNumber, 3, ' ');
-                            }),
+                            ->mask('999 999 999')
+                            ->validationMessages([
+                                'required' => 'El telefono es obligatorio',
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
 
-                        TextEntry::make('customer.secondary_phone')
-                            ->label('Teléfono secundario')
-                            ->formatStateUsing(function ($state) {
-                                if (empty($state))
-                                    return null;
+                        Forms\Components\TextInput::make('secondary_phone')
+                            ->tel()
+                            ->disabled()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono secundario (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
 
-                                // Eliminar espacios existentes y formatear de 3 en 3
-                                $cleanNumber = str_replace(' ', '', $state);
-                                return chunk_split($cleanNumber, 3, ' ');
-                            }),
-
-                        TextEntry::make('customer.email')
+                        Forms\Components\TextInput::make('email')
+                            ->email()
+                            ->disabled()
+                            ->maxLength(255)
                             ->label('Correo electrónico'),
 
-                        TextEntry::make('customer.age')
-                            ->label('Edad'),
+                        Forms\Components\TextInput::make('age')
+                            ->numeric()
+                            ->disabled()
+                            ->maxLength(20)
+                            ->label('Edad')
+                            ->validationMessages([
+                                'required' => 'La edad es obligatoria',
+                            ]),
                     ])->columns(2),
 
-                Section::make('Información de Contacto')
+                Forms\Components\Section::make('Información de Contacto')
                     ->schema([
-                        TextEntry::make('customer.postalCode.code')
+                        Forms\Components\Select::make('postal_code_id')
                             ->label('Código postal')
-                            ->formatStateUsing(function ($state, $record) {
-                                $postalCode = $record->customer->postalCode->code ?? null;
-                                $city = $record->customer->postalCode->city->title ?? null;
-
-                                if ($postalCode && $city) {
-                                    return "$city - $postalCode";
-                                }
-
-                                return $postalCode ?? $city ?? 'Sin ubicación';
-                            }),
-
-                        TextEntry::make('customer.primary_address')
+                            ->disabled()
+                            ->required()
+                            ->options(function () {
+                                return PostalCode::query()
+                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
+                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                    ->orderBy('cities.title')
+                                    ->orderBy('postal_codes.code')
+                                    ->limit(500) // Limitar resultados para mejor rendimiento
+                                    ->get()
+                                    ->mapWithKeys(fn($item) => [
+                                        $item->id => "{$item->city_title} - {$item->code}"
+                                    ]);
+                            })
+                            ->searchable(['code', 'city.title'])
+                            ->preload()
+                            ->native(false)
+                            ->validationMessages([
+                                'required' => 'El código postal es obligatorio',
+                            ]),
+                        Forms\Components\TextInput::make('primary_address')
+                            ->required()
+                            ->disabled()
+                            ->maxLength(255)
                             ->label('Dirección principal'),
 
-                        TextEntry::make('customer.secondary_address')
-                            ->label('Dirección secundaria'),
+                        Forms\Components\TextInput::make('secondary_address')
+                            ->maxLength(255)
+                            ->disabled()
+                            ->label('Dirección secundaria (opcional)'),
 
-                        TextEntry::make('customer.parish')
-                            ->label('Parroquia'),
+                        Forms\Components\TextInput::make('parish')
+                            ->maxLength(255)
+                            ->disabled()
+                            ->label('Parroquia (opcional)'),
                     ])->columns(2),
 
-                Section::make('Gestión Comercial')
+                Forms\Components\Section::make('Gestión Comercial')
                     ->schema([
-                        TextEntry::make('fuente')
-                            ->label('Fuente de la nota')
-                            ->badge()
-                            ->color(fn(FuenteNotas $state): string => $state->getColor()),
 
-                        TextEntry::make('status')
+                        Forms\Components\Select::make('fuente')
+                            ->options(FuenteNotas::options())
+                            ->required()
+                            ->disabled()
+                            ->native(false)
+                            ->label('Fuente de la nota')
+                            ->hidden(fn(string $operation): bool => $operation === 'create'),
+
+                        Forms\Components\Select::make('status')
+                            ->options(NoteStatus::options())
+                            ->required()
+                            ->disabled()
+                            ->native(false)
+                            ->live()
                             ->label('Estado')
-                            ->badge()
-                            ->color(fn(NoteStatus $state): string => $state->getColor()),
+                            ->validationMessages([
+                                'required' => 'El estado es obligatorio',
+                            ]),
+
                     ]),
 
-                Section::make('Visita')
+                Forms\Components\Section::make('Visita')
                     ->schema([
-                        TextEntry::make('visit_date')
+                        Forms\Components\DatePicker::make('visit_date')
+                            ->disabled()
                             ->label('Fecha de visita')
-                            ->date(),
+                            ->default(now()->addDay()->toDateString()) // Default mañana
+                            ->minDate(now()->addDay()->toDateString()) // Prevencion para no colocar fechas pasadas
+                            ->hidden(fn(Forms\Get $get): bool =>
+                                $get('status') !== NoteStatus::CONTACTED->value),
 
-                        TextEntry::make('visit_schedule')
+                        Forms\Components\Select::make('visit_schedule')
+                            ->options(HorarioNotas::options())
                             ->label('Horario de visita')
-                            ->formatStateUsing(fn($state) => HorarioNotas::tryFrom($state)?->getLabel()),
-                    ])->columns(2)
-                    ->hidden(fn($record) => $record->status !== NoteStatus::CONTACTED->value),
+                            ->default(HorarioNotas::TD->value) // Default TD
+                            ->native(false)
+                            ->searchable()
+                            ->disabled()
+                            ->required()
+                            ->hidden(fn(Forms\Get $get): bool =>
+                                $get('status') !== NoteStatus::CONTACTED->value),
+                    ])
+                    ->columns(2)
+                    ->hidden(fn(Forms\Get $get): bool =>
+                        $get('status') !== NoteStatus::CONTACTED->value),
 
-                Section::make('Observaciones')
+                Forms\Components\Section::make('Observaciones')
                     ->schema([
-                        Components\RepeatableEntry::make('observations')
-                            ->label('')
+                        Forms\Components\Repeater::make('observations')
+                            ->label("")
+                            ->relationship() // Esto es clave para el funcionamiento correcto
                             ->schema([
-                                TextEntry::make('observation')
+                                Forms\Components\Hidden::make('id'),
+                                Forms\Components\Hidden::make('author_id')
+                                    ->default(auth()->id()),
+                                Forms\Components\Textarea::make('observation')
                                     ->label('')
+                                    ->placeholder('Escribe una observación')
                                     ->columnSpanFull()
-                                    ->html()
-                                    ->formatStateUsing(function ($state, $record) {
-                                        $author = $record->author;
-                                        $role = 'Tel. Op';
-                                        if ($author->hasRole('commercial')) {
-                                            $role = 'Com.';
-                                        } elseif ($author->hasRole('head_of_room')) {
-                                            $role = 'Tel. Op';
+                                    ->disabled(function ($get, $set, $state, $record) {
+                                        // Si es una nueva observación (no tiene ID), permitir edición
+                                        if (empty($record?->getKey())) {
+                                            return false;
                                         }
-
-                                        $date = $record->created_at->format('d/m/y');
-                                        $observation = nl2br(e($state));
-
-                                        return "<strong>{$author->name} {$author->last_name} ({$role}) - {$date}:</strong><br>{$observation}";
-                                    }),
+                                        // Si ya existe, solo permitir edición si es del usuario actual
+                                        return $record->author_id !== auth()->id();
+                                    })
+                                    ->dehydrated(),
                             ])
-                            ->grid(1),
+                            ->addActionLabel('Añadir observación')
+                            ->defaultItems(1)
+                            ->collapsible()
+                            ->collapsed()
+                            ->columnSpanFull()
+                            ->itemLabel(function (array $state): ?string {
+                                $author = isset($state['author_id'])
+                                    ? \App\Models\User::find($state['author_id'])
+                                    : auth()->user();
+
+                                $date = isset($state['created_at'])
+                                    ? Carbon::parse($state['created_at'])->format('d/m/y')
+                                    : now()->format('d/m/y');
+
+                                $observationText = $state['observation'] ?? 'Nueva observación';
+                                $limitedObservation = Str::limit($observationText, 30);
+
+                                return "{$date}: {$limitedObservation}";
+                            })
+                            ->deleteAction(
+                                fn(Forms\Components\Actions\Action $action) => $action
+                                    ->requiresConfirmation()
+                                    ->hidden(function ($record) {
+                                        // Permitir eliminar si es nueva observación
+                                        if (empty($record->getKey())) {
+                                            return false;
+                                        }
+                                        // Ocultar si el autor no es el usuario actual
+                                        return $record->author_id !== auth()->id();
+                                    })
+                            ),
                     ]),
             ]);
     }
@@ -156,26 +254,26 @@ class NoteResource extends Resource
         return $table
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
-                Tables\Columns\TextColumn::make('fuente')
+                Tables\Columns\TextColumn::make('nro_nota')
+                    ->searchable()
                     ->badge()
-                    ->color(fn(FuenteNotas $state): string => $state->getColor())
-                    ->formatStateUsing(fn(FuenteNotas $state): string => $state->getPuntaje() . ' pts')
-                    ->label('Puntos'),
+                    ->color(Color::Gray)
+                    ->label('# Nota'),
 
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
+                    ->badge()
+                    ->color(Color::Pink)
                     ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable()
-                    ->label('Nombres y Apellidos'),
+                    ->label('Nombre Cliente'),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
                     ->label('Teléfono')
-                    ->html()
-                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
-                        chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
+                    ->formatStateUsing(fn($state) => chunk_split(str_replace(' ', '', $state), 3, ' ')),
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
@@ -187,64 +285,47 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
 
-                Tables\Columns\TextColumn::make('comercial_empleado')
-                    ->label('Comercial')
-                    ->badge()
-                    ->color(function ($state) {
-                        if ($state === 'Sin Com.') {
-                            return 'gray';
-                        }
-                        if ($state === 'Comercial no encontrado') {
-                            return 'danger';
-                        }
-                        return 'success';
-                    }),
-
                 Tables\Columns\TextColumn::make('fecha_asig')
-                    ->label('Asignacion')
+                    ->label('Asig.')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('visit_schedule')
+                    ->badge()
+                    ->color(Color::Gray)
+                    ->label('Horario')
                     ->sortable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
-
+                Tables\Filters\SelectFilter::make('status')
+                    ->options(NoteStatus::options())
+                    ->label('Estado'),
             ])
             ->actions([
 
             ])
             ->bulkActions([
-
+                // No bulk actions for commercial panel
             ]);
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListNotes::route('/'),
-            'view' => Pages\ViewNote::route('/{record}'),
+            //'view' => Pages\ViewNote::route('/{record}'),
+            'edit' => Pages\EditNote::route('/{record}/edit'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('comercial_id', auth()->id())
-            ->with(['observations.author']);
-        ;
-    }
-
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
-    public static function canEdit($record): bool
-    {
-        return false;
+            ->where('comercial_id', auth()->id());
     }
 }

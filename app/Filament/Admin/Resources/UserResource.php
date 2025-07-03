@@ -36,7 +36,6 @@ class UserResource extends Resource
                     ->required()
                     ->length(3)
                     ->numeric()
-                    ->unique(table: User::class, column: 'empleado_id')
                     ->rules(['regex:/^\d{3}$/']),
 
                 TextInput::make("name")->required()->label('Nombre'),

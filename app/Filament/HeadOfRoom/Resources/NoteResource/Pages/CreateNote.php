@@ -93,6 +93,12 @@ class CreateNote extends CreateRecord
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
 
+        // Guardar temporalmente las observaciones
+        $this->observations = $data['observations'] ?? [];
+
+        // Eliminar las observaciones de los datos principales
+        unset($data['observations']);
+
         return $data;
     }
 
@@ -101,11 +107,10 @@ class CreateNote extends CreateRecord
         $observations = $this->form->getState()['observations'] ?? [];
 
         foreach ($observations as $observationData) {
-            // Verifica si existe y tiene contenido
             if (!empty($observationData['observation'])) {
                 Observation::create([
                     'note_id' => $this->record->id,
-                    'author_id' => auth()->id(),
+                    'author_id' => $observationData['author_id'] ?? auth()->id(),
                     'observation' => $observationData['observation'],
                 ]);
             }
