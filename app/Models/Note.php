@@ -163,4 +163,9 @@ class Note extends Model
             ->where('author_id', auth()->id());
     }
 
+    public function anotacionesVisitas()
+    {
+        return $this->hasMany(AnotacionVisita::class, 'nota_id');
+    }
+
 }
