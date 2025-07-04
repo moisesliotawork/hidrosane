@@ -45,7 +45,6 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
                             ->disabled()
-                            ->required()
                             ->maxLength(255)
                             ->label('Nombres')
                             ->validationMessages([
@@ -53,7 +52,6 @@ class NoteResource extends Resource
                             ]),
 
                         Forms\Components\TextInput::make('last_names')
-                            ->required()
                             ->disabled()
                             ->maxLength(255)
                             ->label('Apellidos')
@@ -64,7 +62,6 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->disabled()
-                            ->required()
                             ->maxLength(11)
                             ->minLength(11)
                             ->label('Teléfono')
@@ -106,7 +103,6 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('postal_code_id')
                             ->label('Código postal')
                             ->disabled()
-                            ->required()
                             ->options(function () {
                                 return PostalCode::query()
                                     ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
@@ -126,7 +122,6 @@ class NoteResource extends Resource
                                 'required' => 'El código postal es obligatorio',
                             ]),
                         Forms\Components\TextInput::make('primary_address')
-                            ->required()
                             ->disabled()
                             ->maxLength(255)
                             ->label('Dirección principal'),
@@ -147,7 +142,6 @@ class NoteResource extends Resource
 
                         Forms\Components\Select::make('fuente')
                             ->options(FuenteNotas::options())
-                            ->required()
                             ->disabled()
                             ->native(false)
                             ->label('Fuente de la nota')
@@ -155,7 +149,6 @@ class NoteResource extends Resource
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
-                            ->required()
                             ->disabled()
                             ->native(false)
                             ->live()
@@ -171,8 +164,6 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('visit_date')
                             ->disabled()
                             ->label('Fecha de visita')
-                            ->default(now()->addDay()->toDateString()) // Default mañana
-                            ->minDate(now()->addDay()->toDateString()) // Prevencion para no colocar fechas pasadas
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
 
@@ -183,13 +174,35 @@ class NoteResource extends Resource
                             ->native(false)
                             ->searchable()
                             ->disabled()
-                            ->required()
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
                     ])
                     ->columns(2)
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
+
+                Forms\Components\Section::make('Historial de Anotaciones de Visita')
+                    ->schema([
+                        Forms\Components\Grid::make()
+                            ->schema([
+                                Forms\Components\Textarea::make('anotacionesVisitasDisplay')
+                                    ->label('')
+                                    ->disabled()
+                                    ->formatStateUsing(function ($state, Note $record) {
+                                        return $record->anotacionesVisitas
+                                            ->map(function ($anotacion) {
+                                                $empleadoId = $anotacion->autor->empleado_id ?? 'SIN-ID';
+                                                $fechaHora = Carbon::parse($anotacion->created_at)->format('d/m/Y H:i');
+                                                return "[$empleadoId] $fechaHora - {$anotacion->asunto}: {$anotacion->cuerpo}";
+                                            })
+                                            ->join("\n");
+                                    })
+                                    ->columnSpanFull()
+                                    ->rows(5)
+                            ])
+                    ])
+                    ->collapsible()
+                    ->hidden(fn(string $operation): bool => $operation === 'create'),
 
                 Forms\Components\Section::make('Observaciones')
                     ->schema([

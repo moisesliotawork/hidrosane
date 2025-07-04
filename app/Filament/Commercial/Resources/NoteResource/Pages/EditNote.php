@@ -6,6 +6,8 @@ use App\Filament\Commercial\Resources\NoteResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Observation;
+use Filament\Notifications\Notification;
+use App\Enums\EstadoTerminal;
 
 class EditNote extends EditRecord
 {
@@ -13,6 +15,76 @@ class EditNote extends EditRecord
     public function getTitle(): string
     {
         return 'Nro de Nota: ' . $this->record->nro_nota;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('nulo')
+                ->label('Nulo')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar acción')
+                ->modalDescription('¿Estás seguro de marcar esta nota como NULO?')
+                ->modalSubmitActionLabel('Sí, confirmar')
+                ->action(function () {
+                    $this->record->estado_terminal = EstadoTerminal::NULO;
+                    $this->record->save();
+
+                    Notification::make()
+                        ->title('Nota marcada como NULO')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('confirmada')
+                ->label('Confirmada')
+                ->color('orange')
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar acción')
+                ->modalDescription('¿Estás seguro de marcar esta nota como CONFIRMADA?')
+                ->modalSubmitActionLabel('Sí, confirmar')
+                ->action(function () {
+                    $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
+                    $this->record->save();
+                    Notification::make()
+                        ->title('Nota marcada como CONFIRMADA')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('venta')
+                ->label('Venta')
+                ->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar acción')
+                ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
+                ->modalSubmitActionLabel('Sí, confirmar')
+                ->action(function () {
+                    $this->record->estado_terminal = EstadoTerminal::VENTA;
+                    $this->record->save();
+                    Notification::make()
+                        ->title('Nota marcada como VENTA')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('sala')
+                ->label('Sala')
+                ->color('pink')
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar acción')
+                ->modalDescription('¿Estás seguro de marcar esta nota como SALA?')
+                ->modalSubmitActionLabel('Sí, confirmar')
+                ->action(function () {
+                    $this->record->estado_terminal = EstadoTerminal::SALA;
+                    $this->record->save();
+                    Notification::make()
+                        ->title('Nota marcada como SALA')
+                        ->success()
+                        ->send();
+                }),
+        ];
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
@@ -77,5 +149,10 @@ class EditNote extends EditRecord
         $this->record->observations()
             ->whereNotIn('id', $currentObservationIds)
             ->delete();
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 }

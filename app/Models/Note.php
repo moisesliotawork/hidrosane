@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
+use App\Enums\EstadoTerminal;
 
 class Note extends Model
 {
@@ -30,7 +31,8 @@ class Note extends Model
         'assignment_date',
         'lat',
         'lng',
-        'show_phone'
+        'show_phone',
+        'estado_terminal',
     ];
 
     /**
@@ -47,10 +49,12 @@ class Note extends Model
         'fuente' => FuenteNotas::class,
         'de_camino' => 'boolean',
         'show_phone' => 'boolean',
+        'estado_terminal' => EstadoTerminal::class,
     ];
 
     protected $attributes = [
         'fuente' => 'CALLE',
+        'estado_terminal' => null,
     ];
 
     protected static function boot()
@@ -166,6 +170,45 @@ class Note extends Model
     public function anotacionesVisitas()
     {
         return $this->hasMany(AnotacionVisita::class, 'nota_id');
+    }
+
+    // En tu modelo Note
+    public function getEstadoTerminalAttribute($value): EstadoTerminal
+    {
+        // Si el valor es una instancia del Enum, lo retornamos directamente
+        if ($value instanceof EstadoTerminal) {
+            return $value;
+        }
+
+        // Si es null o string vacío, retornamos SIN_ESTADO
+        if ($value === null || $value === '') {
+            return EstadoTerminal::SIN_ESTADO;
+        }
+
+        // Intentamos convertir el string al Enum
+        try {
+            return EstadoTerminal::from($value);
+        } catch (\ValueError $e) {
+            return EstadoTerminal::SIN_ESTADO;
+        }
+    }
+
+    public function setEstadoTerminalAttribute($value): void
+    {
+        // Si es una instancia del Enum, guardamos su valor
+        if ($value instanceof EstadoTerminal) {
+            $this->attributes['estado_terminal'] = $value->value;
+            return;
+        }
+
+        // Si es null o string vacío, guardamos como string vacío
+        if ($value === null || $value === '') {
+            $this->attributes['estado_terminal'] = '';
+            return;
+        }
+
+        // Guardamos el valor directamente (asumimos que es un string válido)
+        $this->attributes['estado_terminal'] = $value;
     }
 
 }

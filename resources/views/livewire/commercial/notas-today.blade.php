@@ -301,7 +301,7 @@
                         @endif
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
-                        
+
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
                             <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
@@ -310,8 +310,10 @@
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
-                            <button class="action-button">Dentro</button>
-                            <button class="action-button">Llévame</button>
+                            <button class="action-button" wire:click="redirigirAEdicion({{ $note['id'] }})">
+                                Dentro
+                            </button>
+                            <button class=" action-button">Llévame</button>
                         </div>
 
                         <!-- Nuevo botón que ocupa todo el ancho -->

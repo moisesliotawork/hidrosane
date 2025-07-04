@@ -13,6 +13,11 @@ class EditNote extends EditRecord
 {
     protected static string $resource = NoteResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         // Obtener el customer relacionado

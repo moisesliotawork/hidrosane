@@ -5,6 +5,7 @@ namespace App\Livewire\Commercial;
 use Livewire\Component;
 use App\Models\Note;
 use Filament\Notifications\Notification;
+use App\Models\AnotacionVisita;
 
 class NotasToday extends Component
 {
@@ -21,6 +22,12 @@ class NotasToday extends Component
         $note->lng = $lng;
         $note->save();
 
+        AnotacionVisita::create([
+            'nota_id' => $notaId,
+            'author_id' => auth()->id(),
+            'asunto' => 'GPS',
+            'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng"
+        ]);
 
 
         Notification::make()
@@ -50,10 +57,18 @@ class NotasToday extends Component
             return;
         }
 
-        $note->de_camino = !$note->de_camino;
+        $nuevoEstado = !$note->de_camino;
+        $note->de_camino = $nuevoEstado;
         $note->save();
 
-        if (!$note->de_camino) {
+        AnotacionVisita::create([
+            'nota_id' => $noteId,
+            'author_id' => auth()->id(),
+            'asunto' => 'DE CAMINO',
+            'cuerpo' => $nuevoEstado ? "Va de camino" : "No va de camino"
+        ]);
+
+        if (!$nuevoEstado) {
             Notification::make()
                 ->title('Estado actualizado')
                 ->warning()
@@ -68,6 +83,11 @@ class NotasToday extends Component
         }
 
         $this->dispatch('notaActualizada');
+    }
+
+    public function redirigirAEdicion($noteId)
+    {
+        return redirect()->route('filament.comercial.resources.notes.edit', ['record' => $noteId]);
     }
 
     public function getNotesProperty()

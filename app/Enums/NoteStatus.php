@@ -10,8 +10,8 @@ enum NoteStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::CONTACTED => 'Contactado',
-            self::NULL => 'Nulo',
+            self::CONTACTED => 'Cont',
+            self::NULL => 'Nul',
         };
     }
 
