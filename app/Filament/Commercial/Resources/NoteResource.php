@@ -341,4 +341,11 @@ class NoteResource extends Resource
         return parent::getEloquentQuery()
             ->where('comercial_id', auth()->id());
     }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+
 }
