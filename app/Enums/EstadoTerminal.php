@@ -5,7 +5,7 @@ namespace App\Enums;
 enum EstadoTerminal: string
 {
     case SIN_ESTADO = '';
-    case NULO = "nulo";
+    case NUL = "nulo";
     case VENTA = 'venta';
     case CONFIRMADO = 'confirmado';
     case SALA = 'sala';
@@ -14,7 +14,7 @@ enum EstadoTerminal: string
     {
         return match ($this) {
             self::SIN_ESTADO => 'S/E',
-            self::NULO => 'NUL',
+            self::NUL => 'NUL',
             self::VENTA => 'VTA',
             self::CONFIRMADO => 'CONF',
             self::SALA => 'OF',

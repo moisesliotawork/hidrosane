@@ -8,6 +8,7 @@ use App\Models\PostalCode;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
+use App\Enums\EstadoTerminal;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Infolist;

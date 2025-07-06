@@ -49,7 +49,6 @@ class Note extends Model
         'fuente' => FuenteNotas::class,
         'de_camino' => 'boolean',
         'show_phone' => 'boolean',
-        'estado_terminal' => EstadoTerminal::class,
     ];
 
     protected $attributes = [
