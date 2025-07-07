@@ -159,7 +159,7 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('visit_date')
                             ->label('Fecha de visita')
                             ->default(now()->addDay()->toDateString()) // Default mañana
-                            ->minDate(now()->addDay()->toDateString()) // Prevencion para no colocar fechas pasadas
+                            ->minDate(now()->toDateString()) // Prevencion para no colocar fechas pasadas
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
 
@@ -299,7 +299,7 @@ class NoteResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn(Note $record): string => $record->estado_terminal->label())
                     ->color(fn(Note $record): string => match ($record->estado_terminal) {
-                        EstadoTerminal::NULO => 'danger',
+                        EstadoTerminal::NUL => 'danger',
                         EstadoTerminal::VENTA => 'success',
                         EstadoTerminal::CONFIRMADO => 'orange',
                         EstadoTerminal::SALA => 'pink',
