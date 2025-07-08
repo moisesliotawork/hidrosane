@@ -11,14 +11,12 @@ class Producto extends Model
 
     protected $fillable = [
         'nombre',
-        'medida1',
-        'medida2',
-        'puntos'
+        'puntos',
+        'tipo_medida',
+        'medida'
     ];
 
     protected $casts = [
         'puntos' => 'integer',
-        'medida2' => 'integer',
-        'medida1' => 'integer'
     ];
 }

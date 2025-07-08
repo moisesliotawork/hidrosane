@@ -28,13 +28,15 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como NULO?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
-                    $this->record->estado_terminal = EstadoTerminal::NULO;
+                    $this->record->estado_terminal = EstadoTerminal::NUL;
                     $this->record->save();
 
                     Notification::make()
                         ->title('Nota marcada como NULO')
                         ->success()
                         ->send();
+
+                    $this->redirect(static::getResource()::getUrl('index'));
                 }),
 
             Actions\Action::make('confirmada')
@@ -51,6 +53,8 @@ class EditNote extends EditRecord
                         ->title('Nota marcada como CONFIRMADA')
                         ->success()
                         ->send();
+
+                    $this->redirect(static::getResource()::getUrl('index'));
                 }),
 
             Actions\Action::make('venta')
@@ -67,6 +71,8 @@ class EditNote extends EditRecord
                         ->title('Nota marcada como VENTA')
                         ->success()
                         ->send();
+
+                    $this->redirect(static::getResource()::getUrl('index'));
                 }),
 
             Actions\Action::make('sala')
@@ -83,6 +89,8 @@ class EditNote extends EditRecord
                         ->title('Nota marcada como SALA')
                         ->success()
                         ->send();
+
+                    $this->redirect(static::getResource()::getUrl('index'));
                 }),
         ];
     }

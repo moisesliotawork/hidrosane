@@ -235,9 +235,14 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->searchable()
-                    ->badge()
-                    ->color(Color::Gray)
-                    ->label('# Nota'),
+                    ->label('# Nota')
+                    ->formatStateUsing(function (string $state) {
+                        // Asegurarse que tiene exactamente 5 caracteres
+                        if (strlen($state) === 5) {
+                            return substr($state, 0, 3) . ' ' . substr($state, 3, 2);
+                        }
+                        return $state; // Si no tiene 5 caracteres, devolver el valor original
+                    }),
 
                 // Tables\Columns\TextColumn::make('fuente')
                 // ->badge()

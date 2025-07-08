@@ -38,9 +38,9 @@ class UserResource extends Resource
                     ->numeric()
                     ->rules(['regex:/^\d{3}$/']),
 
-                TextInput::make("name")->required()->label('Nombre'),
+                TextInput::make("name")->required()->label('NOMBRES')->sortable(),
                 TextInput::make("email")->required(),
-                TextInput::make("last_name")->label('Apellidos')->required(),
+                TextInput::make("last_name")->label('Apellidos')->sortable()->required(),
                 TextInput::make('password')
                     ->label('Contraseña')
                     ->password() // Oculta el texto por defecto

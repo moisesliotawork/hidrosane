@@ -340,7 +340,8 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('comercial_id', auth()->id());
+            ->where('comercial_id', auth()->id())
+            ->whereNull('estado_terminal');
     }
 
     public static function canCreate(): bool

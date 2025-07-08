@@ -97,6 +97,7 @@ class NotasToday extends Component
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())
             ->whereDate('assignment_date', $hoy)
+            ->whereNull('estado_terminal')
             ->latest()
             ->get()
             ->map(function ($note) {
