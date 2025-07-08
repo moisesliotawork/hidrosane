@@ -38,9 +38,9 @@ class UserResource extends Resource
                     ->numeric()
                     ->rules(['regex:/^\d{3}$/']),
 
-                TextInput::make("name")->required()->label('NOMBRES')->sortable(),
+                TextInput::make("name")->required()->label('Nombres'),
                 TextInput::make("email")->required(),
-                TextInput::make("last_name")->label('Apellidos')->sortable()->required(),
+                TextInput::make("last_name")->label('Apellidos')->required(),
                 TextInput::make('password')
                     ->label('Contraseña')
                     ->password() // Oculta el texto por defecto
@@ -104,7 +104,8 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('name')->label('nombre'),
+                TextColumn::make('name')->label('nombre')->sortable()
+                    ->sortable(),
                 TextColumn::make('email')->label('correo electrónico'),
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable()
