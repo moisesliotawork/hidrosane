@@ -31,4 +31,9 @@ class CreateProducto extends CreateRecord
 
         return $producto;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }
