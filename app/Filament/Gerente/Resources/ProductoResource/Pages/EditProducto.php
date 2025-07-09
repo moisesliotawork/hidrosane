@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources\ProductoResource\Pages;
+namespace App\Filament\Gerente\Resources\ProductoResource\Pages;
 
-use App\Filament\Admin\Resources\ProductoResource;
+use App\Filament\Gerente\Resources\ProductoResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -60,5 +60,4 @@ class EditProducto extends EditRecord
 
         return $data;
     }
-
 }

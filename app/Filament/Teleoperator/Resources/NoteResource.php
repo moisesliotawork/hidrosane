@@ -156,7 +156,6 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('visit_date')
                             ->label('Fecha de visita')
                             ->default(now()->addDay()->toDateString()) // Default mañana
-                            ->minDate(now()->toDateString()) // Prevencion para no colocar fechas pasadas
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
 

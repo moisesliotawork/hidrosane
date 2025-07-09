@@ -1,11 +1,10 @@
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Gerente\Resources;
 
-use App\Filament\Admin\Resources\ProductoResource\Pages;
-use App\Filament\Admin\Resources\ProductoResource\RelationManagers;
+use App\Filament\Gerente\Resources\ProductoResource\Pages;
+use App\Filament\Gerente\Resources\ProductoResource\RelationManagers;
 use App\Models\Producto;
-use App\Models\TipoMedida;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -17,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Group;
 use Filament\Tables\Columns\TextColumn;
+use App\Models\TipoMedida;
 
 class ProductoResource extends Resource
 {
