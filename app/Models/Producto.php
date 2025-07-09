@@ -19,4 +19,10 @@ class Producto extends Model
     protected $casts = [
         'puntos' => 'integer',
     ];
+
+    public function medidas()
+    {
+        return $this->hasMany(ProductoMedida::class);
+    }
+
 }

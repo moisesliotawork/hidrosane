@@ -104,9 +104,9 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('name')->label('nombre')->sortable()
+                TextColumn::make('name')->label('nombre')->searchable()->sortable()
                     ->sortable(),
-                TextColumn::make('email')->label('correo electrónico'),
+                TextColumn::make('email')->label('correo electrónico')->searchable(),
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable()
                     ->label('Teléfono')

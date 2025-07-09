@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             StateSeeder::class,
             CitySeeder::class,
             PostalCodeSeeder::class,
+            TiposMedidaSeeder::class,
+            ProductosConMedidasSeeder::class,
         ]);
     }
 }
