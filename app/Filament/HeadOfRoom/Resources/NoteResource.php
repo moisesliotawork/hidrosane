@@ -139,8 +139,7 @@ class NoteResource extends Resource
                             ->options(FuenteNotas::options())
                             ->required()
                             ->native(false)
-                            ->label('Fuente de la nota')
-                            ->hidden(fn(string $operation): bool => $operation === 'create'),
+                            ->label('Fuente de la nota'),
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
