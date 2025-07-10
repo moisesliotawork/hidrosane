@@ -144,6 +144,7 @@ class UserResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
             ])
+            ->paginated(false)
             ->filters([
                 //
             ])
