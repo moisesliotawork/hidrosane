@@ -125,4 +125,13 @@ class User extends Authenticatable implements FilamentUser
         return $this->roles->first()?->name;
     }
 
+    public function getPhonesVisibleAttribute(): bool
+    {
+        return $this->notes()->where('show_phone', true)->exists();
+    }
+
+    public function notesComercial(): HasMany
+    {
+        return $this->hasMany(Note::class, 'comercial_id');
+    }
 }
