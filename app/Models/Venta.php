@@ -24,7 +24,6 @@ class Venta extends Model
         'interes_art',
         'interes_art_detalle',
         'observaciones_repartidor',
-        'status',
     ];
 
     protected $casts = [

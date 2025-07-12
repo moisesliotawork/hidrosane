@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Note;
 use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
+use App\Filament\Commercial\Resources\VentaResource;
 
 class NotasToday extends Component
 {
@@ -85,14 +86,19 @@ class NotasToday extends Component
         $this->dispatch('notaActualizada');
     }
 
-    public function redirigirAEdicion($noteId)
+    public function redirigirAVenta(int $noteId)
     {
-        return redirect()->route('filament.comercial.resources.notes.edit', ['record' => $noteId]);
+        // URL “create” del recurso Venta, pasándole la nota
+        $url = VentaResource::getUrl('create', ['note' => $noteId], panel: 'comercial');
+
+        return redirect()->to($url);
     }
 
     public function getNotesProperty()
     {
         $hoy = now()->format('Y-m-d');
+
+
 
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())

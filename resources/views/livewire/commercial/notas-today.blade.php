@@ -310,7 +310,7 @@
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
-                            <button class="action-button" wire:click="redirigirAEdicion({{ $note['id'] }})">
+                            <button class="action-button" wire:click="redirigirAVenta({{ $note['id'] }})">
                                 Dentro
                             </button>
                             <button class=" action-button">Llévame</button>

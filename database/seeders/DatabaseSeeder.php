@@ -25,6 +25,8 @@ class DatabaseSeeder extends Seeder
             PostalCodeSeeder::class,
             TiposMedidaSeeder::class,
             ProductosConMedidasSeeder::class,
+            ProductosSimplesSeeder::class,
+            OfertaSeeder::class,
         ]);
     }
 }

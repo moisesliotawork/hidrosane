@@ -12,8 +12,6 @@ class Producto extends Model
     protected $fillable = [
         'nombre',
         'puntos',
-        'tipo_medida',
-        'medida'
     ];
 
     protected $casts = [

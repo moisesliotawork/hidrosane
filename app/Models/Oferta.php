@@ -12,7 +12,6 @@ class Oferta extends Model
 
     protected $fillable = [
         'nombre',
-        'slug',
         'puntos_base',
         'precio_base',
         'descripcion',

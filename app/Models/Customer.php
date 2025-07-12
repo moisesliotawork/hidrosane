@@ -22,6 +22,14 @@ class Customer extends Model
         'primary_address',
         'secondary_address',
         'parish',
+        'dni', 
+        'fecha_nac',
+        'iban',
+        'tipo_vivienda',
+        'estado_civil',
+        'situacion_laboral',
+        'ingresos_rango',
+        'num_hab_casa',
     ];
 
     public function name(): Attribute
