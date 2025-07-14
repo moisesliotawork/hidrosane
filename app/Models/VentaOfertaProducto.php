@@ -16,13 +16,11 @@ class VentaOfertaProducto extends Model
         'venta_oferta_id',
         'producto_id',
         'cantidad',
-        'precio_unitario',
         'puntos_linea',
     ];
 
     protected $casts = [
         'cantidad' => 'integer',
-        'precio_unitario' => 'decimal:2',
         'puntos_linea' => 'integer',
     ];
 

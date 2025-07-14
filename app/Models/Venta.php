@@ -24,13 +24,15 @@ class Venta extends Model
         'interes_art',
         'interes_art_detalle',
         'observaciones_repartidor',
+        'cuota_mensual'
     ];
 
     protected $casts = [
-        'fecha_venta'   => 'datetime',
+        'fecha_venta' => 'datetime',
         'importe_total' => 'decimal:2',
-        'num_cuotas'    => 'integer',
-        'interes_art'   => 'boolean',
+        'num_cuotas' => 'integer',
+        'interes_art' => 'boolean',
+        'cuota_mensual' => 'decimal:2',
     ];
 
     /* ---------- Relaciones ---------- */

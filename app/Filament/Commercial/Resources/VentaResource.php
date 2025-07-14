@@ -7,6 +7,7 @@ use App\Filament\Commercial\Resources\VentaResource\RelationManagers;
 use App\Models\Venta;
 use App\Models\User;
 use App\Models\Producto;
+use App\Models\Oferta;
 use App\Models\PostalCode;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -25,89 +26,283 @@ use Filament\Forms\Components\{
     Hidden,
     Grid
 };
-use Filament\Tables\Columns\{TextColumn, BadgeColumn};
+use Filament\Forms\Get;
+use Filament\Forms\Set;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Collection;
 
 class VentaResource extends Resource
 {
     protected static ?string $model = Venta::class;
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
+
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 /* ---------- Cliente (editable) ---------- */
-                Section::make('Información del cliente')->schema([
-                    Hidden::make('note_id')->required(),
+                Section::make('Información del cliente')
+                    ->schema([
+                        Hidden::make('note_id')->required(),
 
-                    Grid::make(3)->schema([
-                        TextInput::make('first_names')->label('Nombres')->required(),
-                        TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI'),
+                        Grid::make([
+                            'default' => 1,   // móviles
+                            'md' => 2,   // >= 768 px
+                            'xl' => 3,   // >= 1280 px
+                        ])->schema([
 
-                        TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                        TextInput::make('email')->label('Email')->email(),
+                                    // ➊ Datos personales
+                                    TextInput::make('first_names')
+                                        ->label('Nombres')
+                                        ->required(),
 
-                        DatePicker::make('fecha_nac')->label('Fec. nac.'),
-                        TextInput::make('age')->numeric()->label('Edad'),
+                                    TextInput::make('last_names')
+                                        ->label('Apellidos')
+                                        ->required(),
 
-                        TextInput::make('iban')->label('IBAN')->columnSpanFull(),
+                                    TextInput::make('dni')
+                                        ->label('DNI')
+                                        ->columnSpanFull(),          // ocupa el ancho completo
 
-                        Select::make('postal_code_id')
-                            ->label('Código postal')
-                            ->required()
-                            ->options(function () {
-                                // Igual que en NoteResource: juntamos código + ciudad
-                                return PostalCode::query()
-                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                    ->orderBy('cities.title')
-                                    ->orderBy('postal_codes.code')
-                                    ->limit(500) // evita traer 20 000 CP si no hace falta
-                                    ->get()
-                                    ->mapWithKeys(fn($item) => [
-                                        $item->id => "{$item->city_title} - {$item->code}"
-                                    ]);
+                                    DatePicker::make('fecha_nac')
+                                        ->label('Fec. nac.'),
+
+                                    TextInput::make('age')
+                                        ->numeric()
+                                        ->label('Edad'),
+
+                                    // ➋ Contacto
+                                    TextInput::make('phone')
+                                        ->label('Teléfono')
+                                        ->tel()
+                                        ->required(),
+
+                                    TextInput::make('secondary_phone')
+                                        ->label('Teléfono 2')
+                                        ->tel(),
+
+                                    TextInput::make('email')
+                                        ->label('Email')
+                                        ->email()
+                                        ->columnSpanFull(),
+
+                                    // ➌ Bancarios
+                                    TextInput::make('iban')
+                                        ->label('IBAN')
+                                        ->columnSpanFull(),
+
+                                    // ➍ Dirección
+                                    Select::make('postal_code_id')
+                                        ->label('Código postal')
+                                        ->required()
+                                        ->options(fn() => PostalCode::query()
+                                            ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
+                                            ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                            ->orderBy('cities.title')
+                                            ->orderBy('postal_codes.code')
+                                            ->limit(500)
+                                            ->get()
+                                            ->mapWithKeys(fn($item) => [
+                                                $item->id => "{$item->city_title} - {$item->code}",
+                                            ]))
+                                        ->searchable(['code', 'city.title'])
+                                        ->preload()
+                                        ->native(false)
+                                        ->columnSpanFull()
+                                        ->validationMessages([
+                                            'required' => 'El código postal es obligatorio',
+                                        ]),
+
+                                    TextInput::make('primary_address')
+                                        ->label('Dirección 1')
+                                        ->columnSpanFull(),
+
+                                    TextInput::make('secondary_address')
+                                        ->label('Dirección 2')
+                                        ->columnSpanFull(),
+
+                                    TextInput::make('parish')
+                                        ->label('Parroquia'),
+
+                                    // ➎ Datos económicos / hogar
+                                    Select::make('tipo_vivienda')
+                                        ->label('Tipo de vivienda')
+                                        ->required()
+                                        ->options(\App\Enums\TipoVivienda::options())
+                                        ->native(false),
+
+                                    Select::make('estado_civil')
+                                        ->label('Estado civil')
+                                        ->required()
+                                        ->options(\App\Enums\EstadoCivil::options())
+                                        ->native(false),
+
+                                    Select::make('situacion_laboral')
+                                        ->label('Situación laboral')
+                                        ->required()
+                                        ->options(\App\Enums\SituacionLaboral::options())
+                                        ->native(false),
+
+                                    Select::make('ingresos_rango')
+                                        ->label('Ingresos netos mensuales')
+                                        ->required()
+                                        ->options(\App\Enums\IngresosRango::options())
+                                        ->native(false),
+                                ]),
+                    ]),
+
+                /* ---------- Ofertas ---------- */
+                Section::make('Ofertas incluidas')
+                    ->schema([
+                        Repeater::make('ventaOfertas')
+                            ->relationship()
+                            ->minItems(1)
+                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                $total = collect($get('ventaOfertas') ?? [])
+                                    ->sum(function ($o) {
+                                        return Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0;
+                                    });
+
+                                $set('importe_total', number_format($total, 2, '.', ''));
                             })
-                            ->searchable(['code', 'city.title'])   // permite buscar por CP o ciudad
-                            ->preload()
-                            ->native(false)
                             ->validationMessages([
-                                'required' => 'El código postal es obligatorio',
-                            ]),
+                                'min' => 'Debes agregar al menos una oferta a la venta.',
+                                'required' => 'Debes agregar al menos una oferta a la venta.',
+                            ])
+                            ->defaultItems(1)
+                            ->itemLabel(function ($state) {
+                                return blank($state['oferta_id'] ?? null)
+                                    ? 'Nueva oferta'
+                                    : Oferta::find($state['oferta_id'])?->nombre;
+                            })
+                            ->schema([
 
+                                /* ─────────── Cabecera de la oferta ─────────── */
+                                Grid::make(3)->schema([
+                                    Select::make('oferta_id')
+                                        ->label('Oferta')
+                                        ->relationship('oferta', 'nombre')
+                                        ->searchable()
+                                        ->reactive()
+                                        ->required()
+                                        ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                            // 1. actualizar total puntos (ya lo tienes arriba)
+                                            // 2. recalcular importe_total global
+                                            $total = collect($get('../../../ventaOfertas') ?? [])
+                                                ->sum(function ($o) {
+                                                return Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0;
+                                            });
 
-                        TextInput::make('primary_address')->label('Dirección 1')->columnSpan(2),
-                        TextInput::make('secondary_address')->label('Dirección 2')->columnSpan(2),
-                        TextInput::make('parish')->label('Parroquia'),
+                                            $set('../../../importe_total', number_format($total, 2, '.', ''));
+                                        }),
 
-                        Select::make('tipo_vivienda')
-                            ->label('Tipo de vivienda')
-                            ->required()
-                            ->options(\App\Enums\TipoVivienda::options())
-                            ->native(false),
+                                    TextInput::make('puntos')              // total puntos de la oferta
+                                        ->numeric()
+                                        ->disabled()
+                                        ->dehydrated()
+                                        ->reactive()                        // para refrescar el helper
+                                        ->helperText(function (Get $get) {
+                                            $ofertaId = $get('oferta_id');
+                                            $base = Oferta::find($ofertaId)?->puntos_base ?? 0;
+                                            $total = (int) $get('puntos');
+                                            $diff = $total - $base;
 
-                        Select::make('estado_civil')
-                            ->label('Estado civil')
-                            ->required()
-                            ->options(\App\Enums\EstadoCivil::options())
-                            ->native(false),
+                                            return $diff === 0
+                                                ? 'Igual a los puntos base'
+                                                : ($diff > 0
+                                                    ? "+{$diff} sobre el límite"
+                                                    : "{$diff} por debajo");
+                                        }),
+                                ]),
 
-                        Select::make('ingresos_rango')
-                            ->label('Ingresos netos mensuales')
-                            ->required()
-                            ->options(\App\Enums\IngresosRango::options())
-                            ->native(false),
+                                /* ─────────── Detalle de productos ─────────── */
 
-                        Select::make('situacion_laboral')
-                            ->label('Situación laboral')
-                            ->required()
-                            ->options(\App\Enums\SituacionLaboral::options())
-                            ->native(false),
+                                Section::make('Productos de la oferta')
+                                    ->collapsed()
+                                    ->schema([
+                                        Repeater::make('productos')
+                                            ->relationship()
+                                            ->minItems(1)
+                                            ->validationMessages([
+                                                'min' => 'Debes agregar al menos un producto a la oferta.',
+                                                'required' => 'Debes agregar al menos un producto a la oferta.',
+                                            ])
+                                            ->defaultItems(1)
 
-                    ])->columns(3),
-                ]),
+                                            /* Cuando se agrega o quita una línea */
+                                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                                $total = collect($get('productos') ?? [])
+                                                    ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+
+                                                $set('puntos', $total);
+                                            })
+
+                                            ->schema([
+                                                Grid::make(3)->schema([
+
+                                                    /* ─── Producto ─── */
+                                                    Select::make('producto_id')
+                                                        ->label('Producto')
+                                                        ->relationship('producto', 'nombre')
+                                                        ->searchable()
+                                                        ->reactive()
+                                                        ->required()
+                                                        ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                                            $producto = Producto::find($state);
+                                                            $cantidad = (int) ($get('cantidad') ?? 1);
+
+                                                            // 1. actualizar puntos de la línea
+                                                            $set('puntos_linea', $cantidad * ($producto?->puntos ?? 0));
+
+                                                            // 2. recalcular total puntos oferta
+                                                            $total = collect($get('../../productos') ?? [])
+                                                                ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+
+                                                            $set('../../puntos', $total);
+                                                        }),
+
+                                                    /* ─── Cantidad ─── */
+                                                    TextInput::make('cantidad')
+                                                        ->numeric()
+                                                        ->minValue(1)
+                                                        ->reactive()
+                                                        ->required()
+                                                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                            $producto = Producto::find($get('producto_id'));
+
+                                                            // 1. actualizar puntos de la línea
+                                                            $set('puntos_linea', (int) $state * ($producto?->puntos ?? 0));
+
+                                                            // 2. recalcular total puntos oferta
+                                                            $total = collect($get('../../productos') ?? [])
+                                                                ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+
+                                                            $set('../../puntos', $total);
+                                                        }),
+
+                                                    /* ─── Puntos línea (solo lectura) ─── */
+                                                    TextInput::make('puntos_linea')
+                                                        ->numeric()
+                                                        ->disabled()
+                                                        ->dehydrated(),
+                                                ]),
+                                            ])
+                                            ->columns(1)
+                                            ->itemLabel(
+                                                fn($state) =>
+                                                blank($state['producto_id'] ?? null)
+                                                ? 'Nuevo producto'
+                                                : Producto::find($state['producto_id'])->nombre
+                                            ),
+                                    ])
+                                    ->columns(1),
+
+                            ])
+                            ->columns(1)
+                            ->collapsible(),
+                    ]),
 
                 /* ---------- Datos de la venta ---------- */
                 Section::make('Datos de la venta')->schema([
@@ -120,30 +315,65 @@ class VentaResource extends Resource
                         ->label('Compañero/a')
                         ->native(false)
                         ->searchable()
-                        ->placeholder('Sin compañero')
-                        ->options(function () {
-                            return User::role('commercial')
+                        ->nullable()                // ← permite null en BD
+                        ->options(function (): Collection {
+                            // lista de comerciales EXCLUYENDO al autenticado
+                            $comerciales = User::role('commercial')
+                                ->whereKeyNot(auth()->id())           // 👈 fuera el usuario en sesión
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->get()
                                 ->mapWithKeys(fn($u) => [
                                     $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
                                 ]);
-                        }),
+
+                            // añadimos la entrada «Sin compañero» al principio con clave null
+                            return collect([null => 'Sin compañero'])->merge($comerciales);
+                        })
+                        ->default(null),
 
                     TextInput::make('importe_total')
                         ->label('Importe total (€)')
                         ->numeric()
                         ->prefix('€')
-                        ->required(),
+                        ->disabled()
+                        ->dehydrated()
+                        ->reactive()
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            $cuotas = (int) ($get('num_cuotas') ?? 1);
+                            $importe = (float) $state;
+
+                            $set('cuota_mensual', number_format($importe / max($cuotas, 1), 2, '.', ''));
+                        }),
+
 
                     TextInput::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->numeric()
-                        ->minValue(1),
+                        ->reactive()
+                        ->required()
+                        ->rules([
+                            'integer',
+                            Rule::in(array_merge([1], range(6, 39))),   // 1 ó 6–39
+                        ])
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            $importe = (float) ($get('importe_total') ?? 0);
+                            $cuotas = (int) $state ?: 1;
+
+                            $set('cuota_mensual', number_format($importe / $cuotas, 2, '.', ''));
+                        }),
 
                     TextInput::make('accesorio_entregado')
                         ->label('Accesorio entregado')
                         ->placeholder('Ej.: Almohada viscoelástica'),
+
+                    TextInput::make('cuota_mensual')
+                        ->label('Cuota mensual (€)')
+                        ->numeric()
+                        ->prefix('€')
+                        ->disabled()
+                        ->dehydrated()
+                        ->reactive(),
+
 
                     TextInput::make('motivo_venta')
                         ->label('Motivo de la venta')
@@ -153,94 +383,14 @@ class VentaResource extends Resource
                         ->label('Motivo del horario')
                         ->placeholder('Por qué se eligió esa franja'),
 
+                    Toggle::make('interes_art')
+                        ->label('Interés en artículo de regalo'),
+
                     Forms\Components\Textarea::make('observaciones_repartidor')
                         ->label('Observaciones')
                         ->rows(3)
                         ->columnSpanFull(),
-
-                    Toggle::make('interes_art')
-                        ->label('Interés en artículo de regalo'),
                 ])->columns(2),
-
-                /* ---------- Ofertas ---------- */
-                Section::make('Ofertas incluidas')
-                    ->schema([
-                        Repeater::make('ventaOfertas')
-                            ->relationship()
-                            ->label('Ofertas')
-                            ->minItems(1)
-                            ->defaultItems(1)
-                            ->schema([
-
-                                /* ─────────── Campos de la oferta ─────────── */
-                                Grid::make(3)
-                                    ->schema([
-                                        Select::make('oferta_id')
-                                            ->label('Oferta')
-                                            ->relationship('oferta', 'nombre')
-                                            ->searchable()
-                                            ->required(),
-
-                                        TextInput::make('precio_cerrado')
-                                            ->label('Precio cerrado (€)')
-                                            ->numeric()
-                                            ->required()
-                                            ->prefix('€'),
-
-                                        TextInput::make('puntos')
-                                            ->numeric()
-                                            ->label('Puntos')
-                                            ->required(),
-                                    ]),
-
-                                /* ─────────── Bloque de productos ─────────── */
-                                Section::make('Productos de la oferta')
-                                    ->collapsed()          // opcional: empieza plegado
-                                    ->schema([
-                                        Repeater::make('productos')
-                                            ->relationship()
-                                            ->label('Productos')
-                                            ->minItems(1)
-                                            ->defaultItems(1)
-                                            ->schema([
-                                                Grid::make(4)    // 4 columnas exactas
-                                                    ->schema([
-                                                        Select::make('producto_id')
-                                                            ->label('Producto')
-                                                            ->relationship('producto', 'nombre')
-                                                            ->searchable()
-                                                            ->required(),
-
-                                                        TextInput::make('cantidad')
-                                                            ->numeric()
-                                                            ->minValue(1)
-                                                            ->required(),
-
-                                                        TextInput::make('precio_unitario')
-                                                            ->numeric()
-                                                            ->required()
-                                                            ->prefix('€'),
-
-                                                        TextInput::make('puntos_linea')
-                                                            ->numeric()
-                                                            ->label('Puntos línea')
-                                                            ->default(0),
-                                                    ]),
-                                            ])
-                                            ->columns(1)  // un bloque “producto” por fila
-                                            ->itemLabel(
-                                                fn($state) =>
-                                                $state['producto_id']
-                                                ? Producto::find($state['producto_id'])->nombre
-                                                : 'Nuevo producto'
-                                            ),
-                                    ])
-                                    ->columns(1), // el Section muestra solo su repeater
-
-                            ])
-                            ->columns(1)      // un bloque “oferta” por fila
-                            ->collapsible(),  // la oferta entera se puede plegar
-                    ])
 
             ]);
     }

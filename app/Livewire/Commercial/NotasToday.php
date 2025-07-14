@@ -7,6 +7,7 @@ use App\Models\Note;
 use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
 use App\Filament\Commercial\Resources\VentaResource;
+use App\Enums\EstadoTerminal;   
 
 class NotasToday extends Component
 {
@@ -88,11 +89,21 @@ class NotasToday extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-        // URL “create” del recurso Venta, pasándole la nota
-        $url = VentaResource::getUrl('create', ['note' => $noteId], panel: 'comercial');
+        /* 1. Cambiar estado_terminal a VENTA ------------------------------ */
+        $note = Note::findOrFail($noteId);      // si no existe lanzará 404
+        $note->estado_terminal = EstadoTerminal::VENTA; // o simplemente 'VENTA'
+        $note->save();
+
+        /* 2. Redirigir al formulario de venta ----------------------------- */
+        $url = VentaResource::getUrl(
+            'create',
+            ['note' => $noteId],
+            panel: 'comercial'
+        );
 
         return redirect()->to($url);
     }
+
 
     public function getNotesProperty()
     {
@@ -104,6 +115,7 @@ class NotasToday extends Component
             ->where('comercial_id', auth()->id())
             ->whereDate('assignment_date', $hoy)
             ->whereNull('estado_terminal')
+            ->whereDoesntHave('venta')
             ->latest()
             ->get()
             ->map(function ($note) {

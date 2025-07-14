@@ -209,5 +209,10 @@ class Note extends Model
         // Guardamos el valor directamente (asumimos que es un string válido)
         $this->attributes['estado_terminal'] = $value;
     }
+    public function venta()
+    {
+        return $this->hasOne(\App\Models\Venta::class, 'note_id');
+    }
+
 
 }

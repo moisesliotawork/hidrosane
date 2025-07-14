@@ -3,70 +3,92 @@
 namespace App\Filament\Commercial\Resources\VentaResource\Pages;
 
 use App\Filament\Commercial\Resources\VentaResource;
-use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-use App\Models\Venta;
-use App\Models\PostalCode;
-use App\Models\Note;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use App\Models\{Venta, PostalCode, Note};
+use App\Filament\Commercial\Pages\NotasHoy;
 
 class CreateVenta extends CreateRecord
 {
     protected static string $resource = VentaResource::class;
 
+    /** id de la nota recibida en la URL */
+    public int $noteId;
 
-    /**
-     * /ventas/create/{note}  ➜  $note llega aquí
-     */
+    /* ---------------------------------------------------------------------
+     | 1. Cargar la nota y pre-rellenar el formulario
+     * -------------------------------------------------------------------*/
     public function mount(): void
     {
         parent::mount();
 
-        /** ID que viene en /ventas/create/{note} */
-        $noteId = request()->route('note');   // string|null
+        $this->noteId = (int) request()->route('note');
+        abort_if(!$this->noteId, 404, 'Nota no especificada');
 
-        abort_if(empty($noteId), 404, 'Nota no especificada');
+        $note = Note::with('customer')->findOrFail($this->noteId);
+        $customer = $note->customer;
 
-        // 1. Cargar la nota con su cliente
-        $this->note = Note::with('customer')->findOrFail((int) $noteId);
-        $customer = $this->note->customer;
-
-        // 2. Pre-rellenar el formulario
         $this->form->fill(array_merge(
-            ['note_id' => $this->note->id],
+            ['note_id' => $note->id],
             $customer->only($customer->getFillable())
         ));
     }
 
-
-
+    /* ---------------------------------------------------------------------
+     | 2. Crear venta + relaciones
+     * -------------------------------------------------------------------*/
     protected function handleRecordCreation(array $data): Venta
     {
-        /* 1. Validar que el código postal existe  ---------------------------- */
-        $postalCode = PostalCode::find($data['postal_code_id']);
-        if (!$postalCode) {
-            throw new \Exception("El código postal seleccionado no existe");
-        }
+        return DB::transaction(function () use ($data) {
 
-        /* 2. Actualizar cliente --------------------------------------------- */
-        $customer = $this->note->customer;
-        $customer->update(array_intersect_key(
-            $data,
-            array_flip($customer->getFillable())
-        ));
+            /* 2.1 Validar que exista el código postal */
+            if (!PostalCode::find($data['postal_code_id'])) {
+                throw ValidationException::withMessages([
+                    'postal_code_id' => 'El código postal seleccionado no existe.',
+                ]);
+            }
 
-        /* 3. Crear venta (pasa el id del CP a la venta si fuera necesario) -- */
-        $venta = Venta::create([
-            'note_id' => $this->note->id,
-            'customer_id' => $customer->id,
-            'fecha_venta' => $data['fecha_venta'],
-            'importe_total' => $data['importe_total'],
-            'num_cuotas' => $data['num_cuotas'] ?? null,
-            'interes_art' => $data['interes_art'] ?? false,
-        ]);
+            /* 2.2 Cargar nota + cliente otra vez (por seguridad) */
+            $note = Note::with('customer')->findOrFail($this->noteId);
+            $customer = $note->customer;
 
-        /* 4. Guardar ofertas + productos ------------------------------------ */
-        $this->form->model($venta)->saveRelationships();
+            /* 2.3 Actualizar datos del cliente */
+            $customer->update(array_intersect_key(
+                $data,
+                array_flip($customer->getFillable())
+            ));
 
-        return $venta;
+            /* calcula cuota mensual si hay número de cuotas válido */
+            $cuotas = (int) ($data['num_cuotas'] ?? 0);
+            $cuotaMensual = $cuotas > 0 ? round($data['importe_total'] / $cuotas, 2) : null;
+
+            /* 2.4 Crear venta */
+            $venta = Venta::create([
+                'note_id' => $this->noteId,
+                'customer_id' => $customer->id,
+                'comercial_id' => $note->comercial_id ?? auth()->id(),
+                'companion_id' => $data['companion_id'] ?? null,
+                'fecha_venta' => $data['fecha_venta'],
+                'importe_total' => $data['importe_total'],
+                'num_cuotas' => $data['num_cuotas'] ?? null,
+                'cuota_mensual' => $cuotaMensual,
+                'accesorio_entregado' => $data['accesorio_entregado'] ?? null,
+                'motivo_venta' => $data['motivo_venta'] ?? null,
+                'motivo_horario' => $data['motivo_horario'] ?? null,
+                'interes_art' => $data['interes_art'] ?? false,
+                'observaciones_repartidor' => $data['observaciones_repartidor'] ?? null,
+            ]);
+
+            /* 2.5 Guardar ofertas y productos relacionados */
+            $this->form->model($venta)->saveRelationships();
+
+            return $venta;
+        });
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return NotasHoy::getUrl();   // genera /commercial/notas-hoy
     }
 }

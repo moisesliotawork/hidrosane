@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use App\Models\Observation;
 use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
+use App\Filament\Commercial\Resources\VentaResource;
 
 class EditNote extends EditRecord
 {
@@ -65,14 +66,23 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
+                    // 1. Cambiar estado de la nota
                     $this->record->estado_terminal = EstadoTerminal::VENTA;
                     $this->record->save();
+
                     Notification::make()
                         ->title('Nota marcada como VENTA')
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    // 2. Redirigir al formulario de venta con la nota
+                    $url = VentaResource::getUrl(
+                        'create',
+                        ['note' => $this->record->id],
+                        panel: 'comercial'      // ← si tu panel es “comercial”
+                    );
+
+                    $this->redirect($url);
                 }),
 
             Actions\Action::make('sala')

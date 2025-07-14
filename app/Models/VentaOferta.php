@@ -16,13 +16,11 @@ class VentaOferta extends Model
     protected $fillable = [
         'venta_id',
         'oferta_id',
-        'precio_cerrado',
         'puntos',
     ];
 
     protected $casts = [
-        'precio_cerrado' => 'decimal:2',
-        'puntos'         => 'integer',
+        'puntos' => 'integer',
     ];
 
     /* ---------- Relaciones ---------- */
