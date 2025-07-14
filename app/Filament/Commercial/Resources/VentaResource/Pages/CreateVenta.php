@@ -78,6 +78,9 @@ class CreateVenta extends CreateRecord
                 'motivo_horario' => $data['motivo_horario'] ?? null,
                 'interes_art' => $data['interes_art'] ?? false,
                 'observaciones_repartidor' => $data['observaciones_repartidor'] ?? null,
+                'productos_externos' => collect($data['productos_externos'] ?? [])
+                    ->filter()                       // quita vacíos
+                    ->implode(', '),
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

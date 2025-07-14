@@ -304,6 +304,43 @@ class VentaResource extends Resource
                             ->collapsible(),
                     ]),
 
+                /* ---------- Productos externos ---------- */
+                Section::make('Productos externos')
+                    ->visible(function (Get $get) {
+                        // ¿Hay alguna oferta con “Producto Externo”?
+                        return collect($get('ventaOfertas') ?? [])
+                            ->filter(function ($oferta) {
+                            return collect($oferta['productos'] ?? [])
+                                ->contains(function ($linea) {
+                                    $id = $linea['producto_id'] ?? null;
+                                    return optional(\App\Models\Producto::find($id))->nombre === 'Producto Externo';
+                                });
+                        })
+                            ->isNotEmpty();
+                    })
+                    ->schema(function (Get $get) {
+                        // Una entrada por oferta que tenga al menos un «Producto Externo»
+                        $externas = collect($get('ventaOfertas') ?? [])
+                            ->filter(function ($oferta) {
+                            return collect($oferta['productos'] ?? [])
+                                ->contains(function ($linea) {
+                                    $id = $linea['producto_id'] ?? null;
+                                    return optional(\App\Models\Producto::find($id))->nombre === 'Producto Externo';
+                                });
+                        })
+                            ->values();                 // re-indexa 0,1,2…
+            
+                        return $externas->map(function ($_, $idx) {
+                            return TextInput::make("productos_externos.$idx")
+                                ->label("Nombre producto externo #" . ($idx + 1))
+                                ->required()
+                                ->dehydrated();         // guarda el valor
+                        })->all();
+                    })
+                    ->columns(1)
+                    ->collapsible()
+                    ->reactive(),                     // necesario para refrescar al cambiar ofertas
+
                 /* ---------- Datos de la venta ---------- */
                 Section::make('Datos de la venta')->schema([
                     DatePicker::make('fecha_venta')
@@ -373,21 +410,22 @@ class VentaResource extends Resource
                         ->disabled()
                         ->dehydrated()
                         ->reactive(),
+                ])->columns(2),
 
-
+                Section::make('Informe al Repartidor')->schema([
                     TextInput::make('motivo_venta')
-                        ->label('Motivo de la venta')
+                        ->label('¿Por qué pusiste le vendiste?')
                         ->placeholder('Razón principal de la compra'),
 
                     TextInput::make('motivo_horario')
-                        ->label('Motivo del horario')
+                        ->label('¿Por qué pusiste ese horario?')
                         ->placeholder('Por qué se eligió esa franja'),
 
                     Toggle::make('interes_art')
-                        ->label('Interés en artículo de regalo'),
+                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?'),
 
                     Forms\Components\Textarea::make('observaciones_repartidor')
-                        ->label('Observaciones')
+                        ->label('Observaciones adicionales par el repartidor')
                         ->rows(3)
                         ->columnSpanFull(),
                 ])->columns(2),

@@ -341,7 +341,7 @@ class NoteResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('comercial_id', auth()->id())
-            ->whereNull('estado_terminal');
+            ->whereIn('estado_terminal', [null, '']);
     }
 
     public static function canCreate(): bool

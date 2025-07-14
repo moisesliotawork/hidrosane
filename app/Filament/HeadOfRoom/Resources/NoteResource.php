@@ -34,6 +34,19 @@ class NoteResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Notas';
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
+            ->where(function (Builder $q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhereIn('estado_terminal', [
+                        EstadoTerminal::SIN_ESTADO->value,          // ''
+                        EstadoTerminal::SALA->value,                // 'sala'
+                    ]);
+            });
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -139,7 +152,7 @@ class NoteResource extends Resource
                             ->options(FuenteNotas::options())
                             ->required()
                             ->native(false)
-                            ->label('Fuente de la nota'),
+                            ->label('Tipo'),
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())

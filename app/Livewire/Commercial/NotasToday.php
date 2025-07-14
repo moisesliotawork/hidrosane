@@ -7,7 +7,7 @@ use App\Models\Note;
 use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
 use App\Filament\Commercial\Resources\VentaResource;
-use App\Enums\EstadoTerminal;   
+use App\Enums\EstadoTerminal;
 
 class NotasToday extends Component
 {
@@ -114,7 +114,7 @@ class NotasToday extends Component
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())
             ->whereDate('assignment_date', $hoy)
-            ->whereNull('estado_terminal')
+            ->whereIn('estado_terminal', [null, ''])
             ->whereDoesntHave('venta')
             ->latest()
             ->get()

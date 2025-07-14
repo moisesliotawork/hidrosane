@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\EstadoTerminal;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class Note extends Model
 {
@@ -33,6 +35,7 @@ class Note extends Model
         'lng',
         'show_phone',
         'estado_terminal',
+        'productos_externos',
     ];
 
     /**
@@ -49,6 +52,8 @@ class Note extends Model
         'fuente' => FuenteNotas::class,
         'de_camino' => 'boolean',
         'show_phone' => 'boolean',
+        'observations' => 'array',
+        'productos_externos' => 'string',
     ];
 
     protected $attributes = [
