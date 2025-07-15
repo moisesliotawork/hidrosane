@@ -6,8 +6,7 @@ use Livewire\Component;
 use App\Models\Note;
 use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
-use App\Filament\Commercial\Resources\VentaResource;
-use App\Enums\EstadoTerminal;
+use App\Filament\Commercial\Resources\NoteResource;
 
 class NotasToday extends Component
 {
@@ -89,20 +88,16 @@ class NotasToday extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-        /* 1. Cambiar estado_terminal a VENTA ------------------------------ */
-        $note = Note::findOrFail($noteId);      // si no existe lanzará 404
-        $note->estado_terminal = EstadoTerminal::VENTA; // o simplemente 'VENTA'
-        $note->save();
-
-        /* 2. Redirigir al formulario de venta ----------------------------- */
-        $url = VentaResource::getUrl(
-            'create',
-            ['note' => $noteId],
+        
+        $url = NoteResource::getUrl(
+            'edit',
+            ['record' => $noteId],
             panel: 'comercial'
         );
 
         return redirect()->to($url);
     }
+
 
 
     public function getNotesProperty()

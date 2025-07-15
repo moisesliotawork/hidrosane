@@ -91,7 +91,27 @@ class VentaResource extends Resource
                                     // ➌ Bancarios
                                     TextInput::make('iban')
                                         ->label('IBAN')
-                                        ->columnSpanFull(),
+                                        ->columnSpanFull()
+
+                                        // ─── Presentación → “ES12 3456 7890 …” ───────────────
+                                        ->formatStateUsing(fn(?string $state) => $state
+                                            ? implode(' ', str_split(strtoupper($state), 4))
+                                            : null)
+
+                                        // ─── Guardado → “ES1234567890…” ──────────────────────
+                                        ->dehydrateStateUsing(fn(?string $state) => $state
+                                            ? str_replace(' ', '', strtoupper($state))
+                                            : null)
+
+                                        // ─── Mientras escribe / pega ─────────────────────────
+                                        ->afterStateUpdated(function ($state, callable $set) {
+                                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                                            $formatted = implode(' ', str_split($plain, 4));
+
+                                            if ($formatted !== $state) {
+                                                $set($formatted);            // actualiza la vista con los espacios
+                                            }
+                                        }),
 
                                     // ➍ Dirección
                                     Select::make('postal_code_id')
@@ -313,7 +333,7 @@ class VentaResource extends Resource
                             return collect($oferta['productos'] ?? [])
                                 ->contains(function ($linea) {
                                     $id = $linea['producto_id'] ?? null;
-                                    return optional(\App\Models\Producto::find($id))->nombre === 'Producto Externo';
+                                    return optional(Producto::find($id))->nombre === 'Producto Externo';
                                 });
                         })
                             ->isNotEmpty();
@@ -325,7 +345,7 @@ class VentaResource extends Resource
                             return collect($oferta['productos'] ?? [])
                                 ->contains(function ($linea) {
                                     $id = $linea['producto_id'] ?? null;
-                                    return optional(\App\Models\Producto::find($id))->nombre === 'Producto Externo';
+                                    return optional(Producto::find($id))->nombre === 'Producto Externo';
                                 });
                         })
                             ->values();                 // re-indexa 0,1,2…
@@ -348,25 +368,34 @@ class VentaResource extends Resource
                         ->default(now())
                         ->required(),
 
+
+
+                    /* … dentro del schema … */
                     Select::make('companion_id')
                         ->label('Compañero/a')
                         ->native(false)
                         ->searchable()
-                        ->nullable()                // ← permite null en BD
+                        ->nullable()                         // permite null en la columna
                         ->options(function (): Collection {
                             // lista de comerciales EXCLUYENDO al autenticado
                             $comerciales = User::role('commercial')
-                                ->whereKeyNot(auth()->id())           // 👈 fuera el usuario en sesión
+                                ->whereKeyNot(auth()->id())
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->get()
                                 ->mapWithKeys(fn($u) => [
                                     $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
                                 ]);
 
-                            // añadimos la entrada «Sin compañero» al principio con clave null
-                            return collect([null => 'Sin compañero'])->merge($comerciales);
+                            // añadimos “SIN COMPAÑERO” con clave vacía
+                            return collect(['' => 'SIN COMPAÑERO'])->merge($comerciales);
                         })
-                        ->default(null),
+                        ->default('')                        // al abrir el formulario se ve la opción
+                        ->dehydrateStateUsing(               // ← aquí la magia
+                            fn(mixed $state) => blank($state) ? null : $state
+                        )
+                        ->formatStateUsing(                  // ← para ediciones futuras
+                            fn(mixed $state) => $state ?? ''
+                        ),
 
                     TextInput::make('importe_total')
                         ->label('Importe total (€)')
@@ -425,7 +454,7 @@ class VentaResource extends Resource
                         ->label('¿Al cliente le ha interesado más artículos que no le has vendido?'),
 
                     Forms\Components\Textarea::make('observaciones_repartidor')
-                        ->label('Observaciones adicionales par el repartidor')
+                        ->label('Observaciones adicionales para el repartidor')
                         ->rows(3)
                         ->columnSpanFull(),
                 ])->columns(2),

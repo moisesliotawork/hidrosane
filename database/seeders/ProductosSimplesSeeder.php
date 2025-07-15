@@ -78,6 +78,7 @@ class ProductosSimplesSeeder extends Seeder
             ['nombre' => 'Sofá 3 PL 195x105x100 Talisman Beige', 'puntos' => 5],
             ['nombre' => 'Chaiselongue Talisman 285x105x155', 'puntos' => 6],
             ['nombre' => 'Cama Asistencial Elevadora + Barras Protect.', 'puntos' => 8],
+            ['nombre' => 'Producto Externo', 'puntos' => 15],
         ];
 
         foreach ($productos as $producto) {

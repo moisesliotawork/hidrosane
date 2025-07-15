@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, PostalCode, Note};
 use App\Filament\Commercial\Pages\NotasHoy;
 
+
 class CreateVenta extends CreateRecord
 {
     protected static string $resource = VentaResource::class;
@@ -93,5 +94,19 @@ class CreateVenta extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return NotasHoy::getUrl();   // genera /commercial/notas-hoy
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            // Botón principal (antes llamado “Crear”)
+            $this->getCreateFormAction()
+                ->label('Declarar VENTA'),
+
+            // Botón Cancelar → redirige a la página Notas Hoy
+            $this->getCancelFormAction()
+                ->label('Cancelar')
+                ->url(NotasHoy::getUrl()),
+        ];
     }
 }
