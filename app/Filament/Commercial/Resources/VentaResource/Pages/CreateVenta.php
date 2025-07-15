@@ -70,7 +70,7 @@ class CreateVenta extends CreateRecord
                 'customer_id' => $customer->id,
                 'comercial_id' => $note->comercial_id ?? auth()->id(),
                 'companion_id' => $data['companion_id'] ?? null,
-                'fecha_venta' => $data['fecha_venta'],
+                'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
                 'num_cuotas' => $data['num_cuotas'] ?? null,
                 'cuota_mensual' => $cuotaMensual,

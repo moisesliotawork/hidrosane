@@ -366,10 +366,7 @@ class VentaResource extends Resource
                                             ])
                                             ->columns(1)
                                             ->itemLabel(
-                                                fn($state) =>
-                                                blank($state['producto_id'] ?? null)
-                                                ? 'Nuevo producto'
-                                                : Producto::find($state['producto_id'])->nombre
+                                                ""
                                             ),
                                     ])
                                     ->columns(1),
@@ -418,10 +415,6 @@ class VentaResource extends Resource
 
                 /* ---------- Datos de la venta ---------- */
                 Section::make('Datos de la venta')->schema([
-                    DatePicker::make('fecha_venta')
-                        ->label('Fecha')
-                        ->default(now())
-                        ->required(),
 
                     TextInput::make('importe_total')
                         ->label('Importe total (€)')
