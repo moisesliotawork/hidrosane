@@ -170,6 +170,21 @@ class VentaResource extends Resource
                                         ->required()
                                         ->options(\App\Enums\IngresosRango::options())
                                         ->native(false),
+
+                                    Select::make('num_hab_casa')
+                                        ->label('Número de habitaciones')
+                                        ->options(
+                                            fn() => collect(range(1, 10))
+                                                ->mapWithKeys(fn($n) => [$n => (string) $n])
+                                                ->toArray()
+                                        )
+                                        ->searchable()    
+                                        ->preload()       
+                                        ->default(1) 
+                                        ->required()
+                                        ->reactive(),
+
+
                                 ]),
                     ]),
 
@@ -178,6 +193,7 @@ class VentaResource extends Resource
                     ->schema([
                         Repeater::make('ventaOfertas')
                             ->relationship()
+                            ->createItemButtonLabel('Agregar Oferta')
                             ->minItems(1)
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 $total = collect($get('ventaOfertas') ?? [])
@@ -205,6 +221,7 @@ class VentaResource extends Resource
                                         ->label('Oferta')
                                         ->relationship('oferta', 'nombre')
                                         ->searchable()
+                                        ->preload()
                                         ->reactive()
                                         ->required()
                                         ->afterStateUpdated(function (Set $set, Get $get, $state) {
@@ -267,6 +284,7 @@ class VentaResource extends Resource
                                                         ->label('Producto')
                                                         ->relationship('producto', 'nombre')
                                                         ->searchable()
+                                                        ->preload()
                                                         ->reactive()
                                                         ->required()
                                                         ->afterStateUpdated(function (Set $set, Get $get, $state) {
@@ -288,22 +306,29 @@ class VentaResource extends Resource
                                                         ->numeric()
                                                         ->minValue(1)
                                                         ->reactive()
+                                                        ->default(1)
                                                         ->required()
                                                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                            // 1. Si queda vacío o por debajo de 1, lo reiniciamos a 1
+                                                            $cantidad = (int) $state;
+                                                            if ($cantidad < 1) {
+                                                                $cantidad = 1;
+                                                                $set('cantidad', 1);
+                                                            }
+
+                                                            // 2. Actualizamos los puntos de la línea según la cantidad
                                                             $producto = Producto::find($get('producto_id'));
+                                                            $set('puntos_linea', $cantidad * ($producto?->puntos ?? 0));
 
-                                                            // 1. actualizar puntos de la línea
-                                                            $set('puntos_linea', (int) $state * ($producto?->puntos ?? 0));
-
-                                                            // 2. recalcular total puntos oferta
+                                                            // 3. Recalculamos el total de puntos de la oferta
                                                             $total = collect($get('../../productos') ?? [])
                                                                 ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
-
                                                             $set('../../puntos', $total);
                                                         }),
 
                                                     /* ─── Puntos línea (solo lectura) ─── */
                                                     TextInput::make('puntos_linea')
+                                                        ->label("Total Puntos Seleccionados")
                                                         ->numeric()
                                                         ->disabled()
                                                         ->dehydrated(),
@@ -429,7 +454,7 @@ class VentaResource extends Resource
                         }),
 
                     TextInput::make('accesorio_entregado')
-                        ->label('Accesorio entregado')
+                        ->label('¿Haz entregado algun ACCESORIO AL CLIENTE?')
                         ->placeholder('Ej.: Almohada viscoelástica'),
 
                     TextInput::make('cuota_mensual')
@@ -441,7 +466,7 @@ class VentaResource extends Resource
                         ->reactive(),
                 ])->columns(2),
 
-                Section::make('Informe al Repartidor')->schema([
+                Section::make('Información hoja de Incidencias')->schema([
                     TextInput::make('motivo_venta')
                         ->label('¿Por qué pusiste le vendiste?')
                         ->placeholder('Razón principal de la compra'),
