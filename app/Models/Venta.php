@@ -24,7 +24,9 @@ class Venta extends Model
         'interes_art',
         'interes_art_detalle',
         'observaciones_repartidor',
-        'cuota_mensual'
+        'cuota_mensual',
+        'fecha_entrega',
+        'horario_entrega'
     ];
 
     protected $casts = [

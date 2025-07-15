@@ -82,6 +82,8 @@ class CreateVenta extends CreateRecord
                 'productos_externos' => collect($data['productos_externos'] ?? [])
                     ->filter()                       // quita vacíos
                     ->implode(', '),
+                'fecha_entrega' => $data['fecha_entrega'],
+                'horario_entrega' => $data['horario_entrega']
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

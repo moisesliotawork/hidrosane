@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Producto;
 use App\Models\Oferta;
 use App\Models\PostalCode;
+use App\Enums\HorarioNotas;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -88,31 +89,6 @@ class VentaResource extends Resource
                                         ->email()
                                         ->columnSpanFull(),
 
-                                    // ➌ Bancarios
-                                    TextInput::make('iban')
-                                        ->label('IBAN')
-                                        ->columnSpanFull()
-
-                                        // ─── Presentación → “ES12 3456 7890 …” ───────────────
-                                        ->formatStateUsing(fn(?string $state) => $state
-                                            ? implode(' ', str_split(strtoupper($state), 4))
-                                            : null)
-
-                                        // ─── Guardado → “ES1234567890…” ──────────────────────
-                                        ->dehydrateStateUsing(fn(?string $state) => $state
-                                            ? str_replace(' ', '', strtoupper($state))
-                                            : null)
-
-                                        // ─── Mientras escribe / pega ─────────────────────────
-                                        ->afterStateUpdated(function ($state, callable $set) {
-                                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
-                                            $formatted = implode(' ', str_split($plain, 4));
-
-                                            if ($formatted !== $state) {
-                                                $set($formatted);            // actualiza la vista con los espacios
-                                            }
-                                        }),
-
                                     // ➍ Dirección
                                     Select::make('postal_code_id')
                                         ->label('Código postal')
@@ -178,23 +154,77 @@ class VentaResource extends Resource
                                                 ->mapWithKeys(fn($n) => [$n => (string) $n])
                                                 ->toArray()
                                         )
-                                        ->searchable()    
-                                        ->preload()       
-                                        ->default(1) 
+                                        ->searchable()
+                                        ->preload()
+                                        ->default(1)
                                         ->required()
                                         ->reactive(),
 
+                                    // ➌ Bancarios
+                                    TextInput::make('iban')
+                                        ->label('IBAN')
+                                        ->columnSpanFull()
 
+                                        // ─── Presentación → “ES12 3456 7890 …” ───────────────
+                                        ->formatStateUsing(fn(?string $state) => $state
+                                            ? implode(' ', str_split(strtoupper($state), 4))
+                                            : null)
+
+                                        // ─── Guardado → “ES1234567890…” ──────────────────────
+                                        ->dehydrateStateUsing(fn(?string $state) => $state
+                                            ? str_replace(' ', '', strtoupper($state))
+                                            : null)
+
+                                        // ─── Mientras escribe / pega ─────────────────────────
+                                        ->afterStateUpdated(function ($state, callable $set) {
+                                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                                            $formatted = implode(' ', str_split($plain, 4));
+
+                                            if ($formatted !== $state) {
+                                                $set($formatted);            // actualiza la vista con los espacios
+                                            }
+                                        }),
                                 ]),
                     ]),
 
+                Section::make('¿Estas en pareja con otro compañero?')
+                    ->schema([
+                        /* … dentro del schema … */
+                        Select::make('companion_id')
+                            ->label('')
+                            ->native(false)
+                            ->searchable()
+                            ->nullable()                         // permite null en la columna
+                            ->options(function (): Collection {
+                                // lista de comerciales EXCLUYENDO al autenticado
+                                $comerciales = User::role('commercial')
+                                    ->whereKeyNot(auth()->id())
+                                    ->select('id', 'empleado_id', 'name', 'last_name')
+                                    ->get()
+                                    ->mapWithKeys(fn($u) => [
+                                        $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                    ]);
+
+                                // añadimos “SIN COMPAÑERO” con clave vacía
+                                return collect(['' => 'SIN COMPAÑERO'])->merge($comerciales);
+                            })
+                            ->default('')                        // al abrir el formulario se ve la opción
+                            ->dehydrateStateUsing(               // ← aquí la magia
+                                fn(mixed $state) => blank($state) ? null : $state
+                            )
+                            ->formatStateUsing(                  // ← para ediciones futuras
+                                fn(mixed $state) => $state ?? ''
+                            ),
+                    ]),
                 /* ---------- Ofertas ---------- */
                 Section::make('Ofertas incluidas')
                     ->schema([
                         Repeater::make('ventaOfertas')
                             ->relationship()
                             ->createItemButtonLabel('Agregar Oferta')
+                            ->addAction(fn($action) => $action->button()->color('success'))
                             ->minItems(1)
+                            ->label(false)
                             ->afterStateUpdated(function (Get $get, Set $set) {
                                 $total = collect($get('ventaOfertas') ?? [])
                                     ->sum(function ($o) {
@@ -393,35 +423,6 @@ class VentaResource extends Resource
                         ->default(now())
                         ->required(),
 
-
-
-                    /* … dentro del schema … */
-                    Select::make('companion_id')
-                        ->label('Compañero/a')
-                        ->native(false)
-                        ->searchable()
-                        ->nullable()                         // permite null en la columna
-                        ->options(function (): Collection {
-                            // lista de comerciales EXCLUYENDO al autenticado
-                            $comerciales = User::role('commercial')
-                                ->whereKeyNot(auth()->id())
-                                ->select('id', 'empleado_id', 'name', 'last_name')
-                                ->get()
-                                ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                ]);
-
-                            // añadimos “SIN COMPAÑERO” con clave vacía
-                            return collect(['' => 'SIN COMPAÑERO'])->merge($comerciales);
-                        })
-                        ->default('')                        // al abrir el formulario se ve la opción
-                        ->dehydrateStateUsing(               // ← aquí la magia
-                            fn(mixed $state) => blank($state) ? null : $state
-                        )
-                        ->formatStateUsing(                  // ← para ediciones futuras
-                            fn(mixed $state) => $state ?? ''
-                        ),
-
                     TextInput::make('importe_total')
                         ->label('Importe total (€)')
                         ->numeric()
@@ -466,7 +467,17 @@ class VentaResource extends Resource
                         ->reactive(),
                 ])->columns(2),
 
-                Section::make('Información hoja de Incidencias')->schema([
+                Section::make('Informe al REPARTIDOR')->schema([
+                    DatePicker::make('fecha_entrega')
+                        ->label('Fecha de entrega')
+                        ->required(),
+                    Select::make('horario_entrega')
+                        ->label('Horario de entrega')
+                        ->options(HorarioNotas::options())
+                        ->default(HorarioNotas::TD->value)
+                        ->native(false)
+                        ->searchable()
+                        ->required(),
                     TextInput::make('motivo_venta')
                         ->label('¿Por qué pusiste le vendiste?')
                         ->placeholder('Razón principal de la compra'),
