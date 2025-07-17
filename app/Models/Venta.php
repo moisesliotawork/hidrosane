@@ -36,6 +36,7 @@ class Venta extends Model
         'nomina',
         'pension',
         'contrato_firmado',
+        'interes_art_detalle',
     ];
 
     protected $casts = [
