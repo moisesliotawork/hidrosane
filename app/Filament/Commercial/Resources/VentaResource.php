@@ -189,35 +189,30 @@ class VentaResource extends Resource
 
                 Section::make('¿Estás en pareja con otro compañero?')
                     ->schema([
-                        Select::make('companion_id')
-                            ->label('Compañero')
-                            ->native(false)
-                            ->searchable()
-                            ->nullable()                          // la columna admite NULL
-                            ->default(null)                       // arranca sin compañero
-                           
-                            ->options(fn() => collect(['' => 'SIN COMPAÑERO'])             // opción extra
-                                ->merge(
-                                    User::role('commercial')
-                                        ->whereKeyNot(auth()->id())
-                                        // → si tienes flag de activo, descomenta:
-                                        // ->where('active', true)
-                                        ->select('id', 'empleado_id', 'name', 'last_name')
-                                        ->orderBy('name')
-                                        ->get()
-                                        ->mapWithKeys(fn($u) => [
-                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                        ])
-                                ))
-                            
-                            ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state)
-                          
-                            ->getOptionLabelUsing(
-                                fn($value) =>             // “pastilla” del select
-                                blank($value)
-                                ? 'SIN COMPAÑERO'
-                                : User::find($value)?->empleado_id        // sólo el número
-                            )
+                        Section::make('¿Estás en pareja con otro compañero?')
+                            ->schema([
+                                Select::make('companion_id')
+                                    ->label('Compañero')
+                                    ->native(false)
+                                    ->searchable()
+                                    ->nullable()
+                                    ->default(null)
+                                    ->options(
+                                        fn() =>
+                                        User::role('commercial')
+                                            ->whereKeyNot(auth()->id())
+                                            ->select('id', 'empleado_id', 'name', 'last_name')
+                                            ->orderBy('name')
+                                            ->get()
+                                            ->mapWithKeys(fn($u) => [
+                                                $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                            ])
+                                            ->prepend('SIN COMPAÑERO', '') // importante: prepend() respeta key ''
+                                    )
+                                    ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state)
+
+                            ])
+
 
                     ]),
 

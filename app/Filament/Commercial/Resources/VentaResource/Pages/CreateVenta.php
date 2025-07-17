@@ -6,7 +6,7 @@ use App\Filament\Commercial\Resources\VentaResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Models\{Venta, PostalCode, Note};
+use App\Models\{Venta, PostalCode, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
 
 
@@ -63,6 +63,11 @@ class CreateVenta extends CreateRecord
             /* calcula cuota mensual si hay número de cuotas válido */
             $cuotas = (int) ($data['num_cuotas'] ?? 0);
             $cuotaMensual = $cuotas > 0 ? round($data['importe_total'] / $cuotas, 2) : null;
+
+            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
+                $data['companion_id'] = null;
+            }
+
 
             /* 2.4 Crear venta */
             $venta = Venta::create([

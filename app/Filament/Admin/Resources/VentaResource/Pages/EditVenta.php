@@ -10,10 +10,10 @@ class EditVenta extends EditRecord
 {
     protected static string $resource = VentaResource::class;
 
-    protected function getHeaderActions(): array
+    protected function mutateFormDataBeforeSave(array $data): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        /* Garantiza que nunca intentamos cambiar el nro_nota */
+        unset($data['note']['nro_nota']);
+        return $data;
     }
 }
