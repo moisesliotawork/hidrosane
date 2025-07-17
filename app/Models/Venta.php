@@ -26,7 +26,8 @@ class Venta extends Model
         'observaciones_repartidor',
         'cuota_mensual',
         'fecha_entrega',
-        'horario_entrega'
+        'horario_entrega',
+        'productos_externos'
     ];
 
     protected $casts = [
@@ -35,6 +36,8 @@ class Venta extends Model
         'num_cuotas' => 'integer',
         'interes_art' => 'boolean',
         'cuota_mensual' => 'decimal:2',
+        'productos_externos' => 'array',
+
     ];
 
     /* ---------- Relaciones ---------- */
