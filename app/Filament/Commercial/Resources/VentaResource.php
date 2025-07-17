@@ -31,6 +31,11 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Collection;
+use Filament\Forms\Components\{
+    Group,
+    Placeholder,
+    FileUpload
+};
 
 class VentaResource extends Resource
 {
@@ -489,6 +494,19 @@ class VentaResource extends Resource
                         ->columnSpanFull(),
                 ])->columns(2),
 
+                Section::make('Gestión Documentos')
+                    ->schema([
+                        self::docCard('precontractual', 'Precontractual'),
+                        self::docCard('dni_anverso', 'DNI – Anverso'),
+                        self::docCard('dni_reverso', 'DNI – Reverso'),
+                        self::docCard('documento_titularidad', 'Documento de titularidad'),
+                        self::docCard('nomina', 'Nómina'),
+                        self::docCard('pension', 'Pensión'),
+                        self::docCard('contrato_firmado', 'Contrato firmado'),
+                    ])
+                    ->columns(1)
+                    ->columnSpanFull(),
+
             ]);
     }
 
@@ -535,5 +553,43 @@ class VentaResource extends Resource
     {
         return false;
     }
+
+
+    protected static function docCard(string $field, string $label): Group
+    {
+        return Group::make([
+            /* ─────────────  TITULAR  ───────────── */
+            Placeholder::make("{$field}_title")
+                ->content(strtoupper($label))
+                ->extraAttributes(['class' => 'text-xl font-extrabold'])
+                ->label("")              
+
+            /* ───────────  DESCRIPCIÓN  ─────────── */
+            ,
+            Placeholder::make("{$field}_desc")
+                ->content(
+                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de "
+                    . "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
+                )
+                ->label("")               
+
+            /* ───────────  FILE UPLOAD  ─────────── */
+            ,
+            FileUpload::make($field)
+                ->label("")               
+                ->disk('public')
+                ->directory('ventas')
+                ->preserveFilenames()
+                ->openable()
+                ->downloadable()
+                ->extraAttributes([
+                    'class' => 'border-2 border-dashed py-16',
+                ])
+                ->columnSpanFull(),
+        ])
+            ->columns(1);
+    }
+
+
 
 }

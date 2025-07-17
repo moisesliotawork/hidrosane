@@ -88,7 +88,15 @@ class CreateVenta extends CreateRecord
                     ->filter()                       // quita vacíos
                     ->implode(', '),
                 'fecha_entrega' => $data['fecha_entrega'],
-                'horario_entrega' => $data['horario_entrega']
+                'horario_entrega' => $data['horario_entrega'],
+
+                'precontractual' => $data['precontractual'] ?? null,
+                'dni_anverso' => $data['dni_anverso'] ?? null,
+                'dni_reverso' => $data['dni_reverso'] ?? null,
+                'documento_titularidad' => $data['documento_titularidad'] ?? null,
+                'nomina' => $data['nomina'] ?? null,
+                'pension' => $data['pension'] ?? null,
+                'contrato_firmado' => $data['contrato_firmado'] ?? null,
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

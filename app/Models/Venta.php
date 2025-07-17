@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Support\Facades\Storage;
 
 class Venta extends Model
 {
@@ -27,7 +28,14 @@ class Venta extends Model
         'cuota_mensual',
         'fecha_entrega',
         'horario_entrega',
-        'productos_externos'
+        'productos_externos',
+        'precontractual',
+        'dni_anverso',
+        'dni_reverso',
+        'documento_titularidad',
+        'nomina',
+        'pension',
+        'contrato_firmado',
     ];
 
     protected $casts = [
@@ -39,6 +47,53 @@ class Venta extends Model
         'productos_externos' => 'array',
 
     ];
+
+    protected $appends = [
+        'precontractual_url',
+        'dni_anverso_url',
+        'dni_reverso_url',
+        'documento_titularidad_url',
+        'nomina_url',
+        'pension_url',
+        'contrato_firmado_url',
+    ];
+
+    public function getPrecontractualUrlAttribute()
+    {
+        return $this->urlFor('precontractual');
+    }
+    public function getDniAnversoUrlAttribute()
+    {
+        return $this->urlFor('dni_anverso');
+    }
+    public function getDniReversoUrlAttribute()
+    {
+        return $this->urlFor('dni_reverso');
+    }
+    public function getDocumentoTitularidadUrlAttribute()
+    {
+        return $this->urlFor('documento_titularidad');
+    }
+    public function getNominaUrlAttribute()
+    {
+        return $this->urlFor('nomina');
+    }
+    public function getPensionUrlAttribute()
+    {
+        return $this->urlFor('pension');
+    }
+    public function getContratoFirmadoUrlAttribute()
+    {
+        return $this->urlFor('contrato_firmado');
+    }
+
+    /* ---------- Helper ---------- */
+    protected function urlFor(string $field): ?string
+    {
+        return $this->$field
+            ? Storage::disk('public')->url($this->$field)
+            : null;
+    }
 
     /* ---------- Relaciones ---------- */
 
