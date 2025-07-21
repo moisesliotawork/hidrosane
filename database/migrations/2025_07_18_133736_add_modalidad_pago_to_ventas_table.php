@@ -4,20 +4,19 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+class AddModalidadPagoToVentasTable extends Migration
+{
     public function up(): void
     {
         Schema::table('ventas', function (Blueprint $table) {
-            $table->text('interes_art_detalle')
-                ->nullable()
-                ->after('interes_art');   // queda junto al toggle
+            $table->enum('modalidad_pago', ['Financiado', 'Contado'])->default('Financiado')->after('importe_total');
         });
     }
 
     public function down(): void
     {
         Schema::table('ventas', function (Blueprint $table) {
-            $table->dropColumn('interes_art_detalle');
+            $table->dropColumn('modalidad_pago');
         });
     }
-};
+}

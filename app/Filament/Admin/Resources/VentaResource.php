@@ -14,7 +14,9 @@ use Filament\Forms\Components\{
     Toggle,
     Repeater,
     Hidden,
-    Grid
+    Grid,
+    FileUpload,
+    Group
 };
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -37,6 +39,10 @@ class VentaResource extends Resource
     {
         return $form->schema([
 
+            Hidden::make('productos_externos')
+                ->default(fn(?Venta $record) => $record->productos_externos ?? [])
+                ->dehydrated(),
+
             Placeholder::make('nro_nota')
                 ->label('Nº Nota')
                 ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
@@ -45,6 +51,8 @@ class VentaResource extends Resource
 
             /* guarda la relación con la nota; no se muestra */
             Hidden::make('note_id')->required(),
+
+
 
             /* ───────── Información del cliente ────────── */
             Section::make('Información del cliente')
@@ -158,6 +166,80 @@ class VentaResource extends Resource
                         ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
                 ]),
 
+            Section::make('Datos de la venta')
+                ->schema([
+                    TextInput::make('importe_total')
+                        ->label('Importe total (€)')
+                        ->numeric()
+                        ->prefix('€')
+                        ->disabled()
+                        ->dehydrated()
+                        ->reactive()
+                        ->afterStateUpdated(
+                            fn(Get $get, Set $set, $state) =>
+                            $set('cuota_mensual', number_format(
+                                (float) $state /
+                                max((int) ($get('num_cuotas') ?? 1), 1),
+                                2,
+                                '.',
+                                ''
+                            ))
+                        ),
+
+                    Select::make('modalidad_pago')
+                        ->label('Modalidad de pago')
+                        ->options([
+                            'Contado' => 'Contado',
+                            'Financiado' => 'Financiado',
+                            'NS' => 'NS',          // 👈 nueva opción
+                        ])
+                        ->default('Financiado')
+                        ->required()
+                        ->reactive()
+                        ->debounce(300)
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            /* Si es Contado o NS → 1 cuota; si no, 6 */
+                            $cuotas = in_array($state, ['Contado', 'NS'], true) ? 1 : 6;
+                            $importe = (float) ($get('importe_total') ?? 0);
+
+                            $set('num_cuotas', $cuotas);
+                            $set('cuota_mensual', number_format(
+                                $importe / max($cuotas, 1),
+                                2,
+                                '.',
+                                ''
+                            ));
+                        }),
+
+                    TextInput::make('num_cuotas')
+                        ->label('Nº de cuotas')
+                        ->numeric()
+                        ->required()
+                        ->reactive()
+                        ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
+                        ->afterStateUpdated(
+                            fn(Get $get, Set $set, $state) =>
+                            $set('cuota_mensual', number_format(
+                                (float) ($get('importe_total') ?? 0) /
+                                max((int) $state, 1),
+                                2,
+                                '.',
+                                ''
+                            ))
+                        ),
+
+                    TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
+
+                    TextInput::make('cuota_mensual')
+                        ->label('Cuota mensual (€)')
+                        ->numeric()
+                        ->prefix('€')
+                        ->disabled()
+                        ->dehydrated()
+                        ->reactive(),
+                ])
+                ->columns(2),
+
             /* ------------- Ofertas --------------- */
             Section::make('Ofertas incluidas')
                 ->schema([
@@ -178,10 +260,9 @@ class VentaResource extends Resource
                             )
                         )
                         ->itemLabel(
-                            fn($state) =>
-                            blank($state['oferta_id'] ?? null)
+                            label: fn($state): string => blank($state['oferta_id'])
                             ? 'Nueva oferta'
-                            : Oferta::find($state['oferta_id'])?->nombre
+                            : Oferta::query()->whereKey($state['oferta_id'])->value('nombre') ?? 'Oferta eliminada'
                         )
                         ->schema([
                             /* ---------- Cabecera de Oferta ---------- */
@@ -246,48 +327,47 @@ class VentaResource extends Resource
                                                     ->reactive()
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
-                                                        $producto = \App\Models\Producto::find($state);
+                                                        $producto = Producto::find($state);
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
-                                                        $unit = $producto && $producto->nombre !== 'Producto Externo'
-                                                            ? ($producto->puntos ?? 0)
-                                                            : (int) ($get('puntos_manual') ?? 0);
 
-                                                        $set('puntos_linea', $cantidad * $unit);
 
+                                                        if ($producto && $producto->nombre !== 'Producto Externo') {
+                                                            $set('puntos_linea', $cantidad * ($producto->puntos ?? 0));
+                                                        }
+
+                                                        // Total puntos oferta
                                                         $set(
                                                             '../../puntos',
-                                                            collect($get('../../productos'))
-                                                                ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
+                                                            collect($get('../../productos'))->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
                                                         );
                                                     }),
+
 
                                                 /* CANTIDAD */
                                                 TextInput::make('cantidad')
                                                     ->numeric()
                                                     ->minValue(1)
-                                                    ->required()
                                                     ->default(1)
+                                                    ->required()
                                                     ->reactive()
+                                                    ->readOnly(
+                                                        fn(Get $get) =>           // ← cambia disabled() por readOnly()
+                                                        optional(Producto::find($get('producto_id')))->nombre === 'Producto Externo'
+                                                    )
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                                                        $state = (int) ($state ?: 1);
-                                                        if ($state < 1) {
-                                                            $state = 1;
-                                                            $set('cantidad', 1);
-                                                        }
+                                                        // fuerza a 1 si es externo, y ≥1 en caso normal
+                                                        $producto = Producto::find($get('producto_id'));
+                                                        $cantidad = $producto?->nombre === 'Producto Externo'
+                                                            ? 1
+                                                            : max((int) $state, 1);
 
-                                                        $producto = \App\Models\Producto::find($get('producto_id'));
-                                                        $unit = $producto && $producto->nombre !== 'Producto Externo'
-                                                            ? ($producto->puntos ?? 0)
-                                                            : (int) ($get('puntos_manual') ?? 0);
+                                                        $set('cantidad', $cantidad);
+                                                        $set('puntos_linea', $cantidad * ($producto?->puntos ?? 0));
 
-                                                        $set('puntos_linea', $state * $unit);
-
-                                                        // puntos totales de la oferta
-                                                        $set(
-                                                            '../../puntos',
-                                                            collect($get('../../productos'))
-                                                                ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
-                                                        );
+                                                        // total de puntos de la oferta
+                                                        $total = collect($get('../../productos') ?? [])
+                                                            ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+                                                        $set('../../puntos', $total);
                                                     }),
 
 
@@ -295,13 +375,21 @@ class VentaResource extends Resource
                                                     ->label('Pts línea')
                                                     ->numeric()
                                                     ->required()
-                                                    ->readonly()
                                                     ->dehydrated()
                                                     ->reactive()
-                                                    ->live(),
+                                                    ->readOnly(
+                                                        fn(Get $get) =>
+                                                        optional(\App\Models\Producto::find($get('producto_id')))->nombre !== 'Producto Externo'
+                                                    )
+                                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                                        // actualiza total puntos en la oferta si se modifican manualmente
+                                                        $set(
+                                                            '../../puntos',
+                                                            collect($get('../../productos'))
+                                                                ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
+                                                        );
+                                                    }),
 
-                                                Hidden::make('puntos_manual')
-                                                    ->reactive(),
                                             ]),
                                         ])->columns(1),
                                 ]),
@@ -310,7 +398,6 @@ class VentaResource extends Resource
                 ]),
 
 
-            /* ------------ Productos externos ------------- */
             Section::make('Productos externos')
                 ->visible(
                     fn(Get $get) =>
@@ -318,110 +405,36 @@ class VentaResource extends Resource
                         ->flatMap(fn($o) => $o['productos'] ?? [])
                         ->contains(
                             fn($l) =>
-                            optional(\App\Models\Producto::find($l['producto_id']))->nombre === 'Producto Externo'
+                            optional(Producto::find($l['producto_id'] ?? null))->nombre === 'Producto Externo'
                         )
                 )
                 ->schema(function (Get $get) {
-                    /** @var array<array{int,int}> $indices  [ofertaIdx, productoIdx] */
-                    $indices = [];
-                    foreach (($get('ventaOfertas') ?? []) as $ofIdx => $oferta) {
-                        foreach (($oferta['productos'] ?? []) as $prIdx => $linea) {
-                            if (optional(\App\Models\Producto::find($linea['producto_id']))->nombre === 'Producto Externo') {
-                                $indices[] = [$ofIdx, $prIdx];
+                    $fields = [];
+                    $index = 0;
+
+                    foreach ($get('ventaOfertas') ?? [] as $oferta) {
+                        foreach ($oferta['productos'] ?? [] as $producto) {
+                            if (optional(Producto::find($producto['producto_id'] ?? null))->nombre === 'Producto Externo') {
+                                $fields[] = Grid::make(3)->schema([
+                                    TextInput::make("productos_externos.$index")
+                                        ->label('Nombre producto externo #' . ($index + 1))
+                                        ->required()
+                                        ->columnSpan(2)
+                                        ->live(onBlur: true)     //  ⬅️  cambió: ya no envía cada tecla
+                                        ->key("prod-ext-$index"),
+                                ]);
+                                $index++;
                             }
                         }
                     }
 
-                    return collect($indices)->map(function (array $pair, int $idx) {
-                        [$ofIdx, $prIdx] = $pair;
-
-                        return Grid::make(3)->schema([
-                            /* NOMBRE */
-                            TextInput::make("productos_externos.$idx")
-                                ->label('Nombre producto externo #' . ($idx + 1))
-                                ->required()
-                                ->columnSpan(2)
-                                ->dehydrated(),
-
-                            /* PTS UNIDAD */
-                            TextInput::make("ventaOfertas.$ofIdx.productos.$prIdx.puntos_manual")
-                                ->label('Pts unidad')
-                                ->numeric()
-                                ->required()
-                                ->afterStateUpdated(function (Get $get, Set $set, $unit) use ($ofIdx, $prIdx) {
-                                    $cantidad = (int) ($get("ventaOfertas.$ofIdx.productos.$prIdx.cantidad") ?? 1);
-
-                                    // actualiza Pts línea dentro del repeater
-                                    $set(
-                                        "ventaOfertas.$ofIdx.productos.$prIdx.puntos_linea",
-                                        $cantidad * (int) $unit
-                                    );
-
-                                    // total de la oferta
-                                    $set(
-                                        "ventaOfertas.$ofIdx.puntos",
-                                        collect($get("ventaOfertas.$ofIdx.productos"))
-                                            ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
-                                    );
-                                }),
-                        ]);
-                    })->all();
+                    return $fields;
                 })
-                ->reactive()
                 ->columns(1)
+                ->reactive()
                 ->collapsible(),
 
-            /* ------------ Datos de la Venta ------------- */
-            Section::make('Datos de la venta')
-                ->schema([
-                    TextInput::make('importe_total')
-                        ->label('Importe total (€)')
-                        ->numeric()
-                        ->prefix('€')
-                        ->disabled()
-                        ->dehydrated()
-                        ->reactive()
-                        ->afterStateUpdated(
-                            fn(Get $get, Set $set, $state) =>
-                            $set(
-                                'cuota_mensual',
-                                number_format(
-                                    (float) $state / max((int) ($get('num_cuotas') ?? 1), 1),
-                                    2,
-                                    '.',
-                                    ''
-                                )
-                            )
-                        ),
-
-                    TextInput::make('num_cuotas')
-                        ->label('Nº de cuotas')
-                        ->numeric()
-                        ->required()
-                        ->reactive()
-                        ->afterStateUpdated(
-                            fn(Get $get, Set $set, $state) =>
-                            $set(
-                                'cuota_mensual',
-                                number_format(
-                                    (float) ($get('importe_total') ?? 0) / max((int) $state, 1),
-                                    2,
-                                    '.',
-                                    ''
-                                )
-                            )
-                        ),
-
-                    TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
-
-                    TextInput::make('cuota_mensual')
-                        ->label('Cuota mensual (€)')
-                        ->numeric()
-                        ->prefix('€')
-                        ->disabled()
-                        ->dehydrated()
-                        ->reactive(),
-                ])->columns(2),
+            /* ────────── Datos de la venta ────────── */
 
             Section::make('Informe al repartidor')
                 ->schema([
@@ -440,6 +453,19 @@ class VentaResource extends Resource
                         ->rows(3)
                         ->columnSpanFull(),
                 ])->columns(2),
+            Section::make('Gestión Documentos')
+                ->schema([
+                    self::docCard('precontractual', 'Precontractual'),
+                    self::docCard('dni_anverso', 'DNI – Anverso'),
+                    self::docCard('dni_reverso', 'DNI – Reverso'),
+                    self::docCard('documento_titularidad', 'Documento de titularidad'),
+                    self::docCard('nomina', 'Nómina'),
+                    self::docCard('pension', 'Pensión'),
+                    self::docCard('contrato_firmado', 'Contrato firmado'),
+                ])
+                ->columns(1)
+                ->columnSpanFull(),
+
         ]);
     }
 
@@ -495,4 +521,29 @@ class VentaResource extends Resource
     {
         return true;
     }
+
+    protected static function docCard(string $field, string $label): Group
+    {
+        return Group::make([
+            Placeholder::make("{$field}_title")
+                ->content(strtoupper($label))
+                ->extraAttributes(['class' => 'text-xl font-extrabold'])
+                ->label(""),
+
+            Placeholder::make("{$field}_desc")
+                ->content("Este espacio está diseñado para actualizar el archivo de <strong>{$label}</strong>.")
+                ->label(""),
+
+            FileUpload::make($field)
+                ->label("")
+                ->disk('public')
+                ->directory('ventas')
+                ->preserveFilenames()
+                ->openable()
+                ->downloadable()
+                ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
+                ->columnSpanFull(),
+        ]);
+    }
+
 }

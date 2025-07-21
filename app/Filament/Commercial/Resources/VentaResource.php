@@ -432,30 +432,65 @@ class VentaResource extends Resource
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $cuotas = (int) ($get('num_cuotas') ?? 1);
                             $importe = (float) $state;
-
                             $set('cuota_mensual', number_format($importe / max($cuotas, 1), 2, '.', ''));
                         }),
 
+                    Select::make('modalidad_pago')
+                        ->label('Modalidad de pago')
+                        ->options([
+                            'Contado' => 'Contado',
+                            'Financiado' => 'Financiado',
+                            'NS' => 'NS',
+                        ])
+                        ->default('Financiado')
+                        ->required()
+                        ->reactive()
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            if ($state === 'Contado' || $state === 'NS') {
+                                $set('num_cuotas', 1);
+                            } else {
+                                $set('num_cuotas', 6); // valor por defecto al volver a Financiado
+                            }
+
+                            // Actualizar cuota mensual al cambiar modalidad
+                            $importe = (float) ($get('importe_total') ?? 0);
+                            $cuotas = (int) (
+                                in_array($state, ['Contado', 'NS'], true)
+                                ? 1
+                                : ($get('num_cuotas') ?? 6)
+                            );
+                            $set('cuota_mensual', number_format($importe / max($cuotas, 1), 2, '.', ''));
+                        }),
 
                     TextInput::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->numeric()
-                        ->reactive()
                         ->required()
+                        ->reactive()
+
+                        // ⬇️ 1. Desactivar si es Contado o NS
+                        ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
+
+                        // ⬇️ 2. Valor por defecto: 1 si es Contado o NS, 6 en los demás casos
+                        ->default(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true) ? 1 : 6)
+
                         ->rules([
                             'integer',
-                            Rule::in(array_merge([1], range(6, 39))),   // 1 ó 6–39
+                            Rule::in(array_merge([1], range(6, 39))),
                         ])
+
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $importe = (float) ($get('importe_total') ?? 0);
-                            $cuotas = (int) $state ?: 1;
-
+                            $cuotas = (int) ($state ?: 1);
                             $set('cuota_mensual', number_format($importe / $cuotas, 2, '.', ''));
-                        }),
+                        })
 
-                    TextInput::make('accesorio_entregado')
-                        ->label('¿Haz entregado algun ACCESORIO AL CLIENTE?')
-                        ->placeholder('Ej.: Almohada viscoelástica'),
+                        // ⬇️ 3. Forzar 1 cuota al hidratar si es Contado o NS
+                        ->afterStateHydrated(function (Set $set, Get $get, $state) {
+                            if (in_array($get('modalidad_pago'), ['Contado', 'NS'], true)) {
+                                $set('num_cuotas', 1);
+                            }
+                        }),
 
                     TextInput::make('cuota_mensual')
                         ->label('Cuota mensual (€)')
@@ -464,6 +499,12 @@ class VentaResource extends Resource
                         ->disabled()
                         ->dehydrated()
                         ->reactive(),
+
+                    TextInput::make('accesorio_entregado')
+                        ->label('¿Haz entregado algun ACCESORIO AL CLIENTE?')
+                        ->placeholder('Ej.: Almohada viscoelástica'),
+
+
                 ])->columns(2),
 
                 Section::make('Informe al REPARTIDOR')->schema([
@@ -486,7 +527,17 @@ class VentaResource extends Resource
                         ->placeholder('Por qué se eligió esa franja'),
 
                     Toggle::make('interes_art')
-                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?'),
+                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
+                        ->reactive(),
+
+                    Forms\Components\Textarea::make('interes_art_detalle')
+                        ->label('Otros artículos de interés')
+                        ->placeholder('Detalle los artículos que despertaron interés')
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->visible(fn(Get $get) => (bool) $get('interes_art'))
+                        ->required(fn(Get $get) => (bool) $get('interes_art'))
+                        ->maxLength(500),
 
                     Forms\Components\Textarea::make('observaciones_repartidor')
                         ->label('Observaciones adicionales para el repartidor')
@@ -562,7 +613,7 @@ class VentaResource extends Resource
             Placeholder::make("{$field}_title")
                 ->content(strtoupper($label))
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label("")              
+                ->label("")
 
             /* ───────────  DESCRIPCIÓN  ─────────── */
             ,
@@ -571,12 +622,12 @@ class VentaResource extends Resource
                     "Este espacio está diseñado para que puedas actualizar y modificar el archivo de "
                     . "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
                 )
-                ->label("")               
+                ->label("")
 
             /* ───────────  FILE UPLOAD  ─────────── */
             ,
             FileUpload::make($field)
-                ->label("")               
+                ->label("")
                 ->disk('public')
                 ->directory('ventas')
                 ->preserveFilenames()

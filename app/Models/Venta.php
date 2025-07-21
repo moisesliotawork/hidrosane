@@ -18,6 +18,7 @@ class Venta extends Model
         'companion_id',
         'fecha_venta',
         'importe_total',
+        'modalidad_pago',
         'num_cuotas',
         'accesorio_entregado',
         'motivo_venta',

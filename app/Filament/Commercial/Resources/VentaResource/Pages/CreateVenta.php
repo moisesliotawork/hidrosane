@@ -36,9 +36,6 @@ class CreateVenta extends CreateRecord
         ));
     }
 
-    /* ---------------------------------------------------------------------
-     | 2. Crear venta + relaciones
-     * -------------------------------------------------------------------*/
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
@@ -50,15 +47,28 @@ class CreateVenta extends CreateRecord
                 ]);
             }
 
+            /* 2.1.b Valida que venga el detalle si activaron el toggle ---------- */
+            if (($data['interes_art'] ?? false) && blank($data['interes_art_detalle'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'interes_art_detalle' => 'Especifica los artículos de interés.',
+                ]);
+            }
+
             /* 2.2 Cargar nota + cliente otra vez (por seguridad) */
             $note = Note::with('customer')->findOrFail($this->noteId);
             $customer = $note->customer;
 
             /* 2.3 Actualizar datos del cliente */
+            /* 2.3 Actualizar datos del cliente */
             $customer->update(array_intersect_key(
                 $data,
                 array_flip($customer->getFillable())
             ));
+
+            /* ⚠️ Forzar número de cuotas si es contado */
+            if (($data['modalidad_pago'] ?? 'Financiado') === 'Contado') {
+                $data['num_cuotas'] = 1;
+            }
 
             /* calcula cuota mensual si hay número de cuotas válido */
             $cuotas = (int) ($data['num_cuotas'] ?? 0);
@@ -68,8 +78,7 @@ class CreateVenta extends CreateRecord
                 $data['companion_id'] = null;
             }
 
-
-            /* 2.4 Crear venta */
+            /* 2.4 Crear venta -------------------------------------------------- */
             $venta = Venta::create([
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
@@ -77,16 +86,24 @@ class CreateVenta extends CreateRecord
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
+                'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'num_cuotas' => $data['num_cuotas'] ?? null,
                 'cuota_mensual' => $cuotaMensual,
                 'accesorio_entregado' => $data['accesorio_entregado'] ?? null,
                 'motivo_venta' => $data['motivo_venta'] ?? null,
                 'motivo_horario' => $data['motivo_horario'] ?? null,
                 'interes_art' => $data['interes_art'] ?? false,
+                'interes_art_detalle' => $data['interes_art']
+                    ? ($data['interes_art_detalle'] ?? null)
+                    : null,
                 'observaciones_repartidor' => $data['observaciones_repartidor'] ?? null,
+
+                // ahora guardamos el array limpio (el modelo lo castea a array)
                 'productos_externos' => collect($data['productos_externos'] ?? [])
-                    ->filter()                       // quita vacíos
-                    ->implode(', '),
+                    ->filter()          // quita vacíos
+                    ->values()
+                    ->all(),
+
                 'fecha_entrega' => $data['fecha_entrega'],
                 'horario_entrega' => $data['horario_entrega'],
 
