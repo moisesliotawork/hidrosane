@@ -237,7 +237,7 @@
                             <td style="width:50%; vertical-align: top;">
                                 <table class="no-border">
                                     <tr>
-                                        <td>Cod.Contrato: <span class="uppercase">{{ $venta->note?->nro_nota }}</span>
+                                        <td>Cod.Contrato: <span class="uppercase">{{ $venta->nro_contrato }}</span>
                                         </td>
                                     </tr>
                                     <tr>

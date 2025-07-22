@@ -140,6 +140,24 @@ class Venta extends Model
         'contrato_firmado_url',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($venta) {
+            if (!$venta->nro_contrato) {
+                // Buscar el nro_contrato más alto
+                $max = self::max('nro_contrato');
+
+                // Convertir a número entero (si existe) y sumar 1
+                $next = $max ? (int) ltrim($max, '0') + 1 : 1;
+
+                // Rellenar con ceros hasta 5 caracteres
+                $venta->nro_contrato = str_pad($next, 5, '0', STR_PAD_LEFT);
+            }
+        });
+    }
+
     public function getPrecontractualUrlAttribute()
     {
         return $this->urlFor('precontractual');
