@@ -246,7 +246,7 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td>Deleg.: <span class="uppercase">Delegacion 1 - Vigo</span>
+                                        <td>Deleg.: <span class="uppercase">Vigo</span>
                                         </td>
                                     </tr>
                                     <tr>
