@@ -10,6 +10,61 @@ use App\Enums\EstadoTerminal;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property NoteStatus $status
+ * @property \Illuminate\Support\Carbon|null $assignment_date
+ * @property bool $de_camino
+ * @property \Illuminate\Database\Eloquent\Collection<int, \App\Models\Observation> $observations
+ * @property \Illuminate\Support\Carbon|null $visit_date
+ * @property string|null $visit_schedule
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property int $customer_id
+ * @property int|null $comercial_id
+ * @property FuenteNotas $fuente
+ * @property string $nro_nota
+ * @property string|null $lat
+ * @property string|null $lng
+ * @property bool $show_phone
+ * @property EstadoTerminal $estado_terminal
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\AnotacionVisita> $anotacionesVisitas
+ * @property-read int|null $anotaciones_visitas_count
+ * @property-read \App\Models\User|null $comercial
+ * @property-read \App\Models\Customer $customer
+ * @property-read mixed $comercial_empleado
+ * @property-read array|null $coordinates
+ * @property-read string $fecha_asig
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Observation> $myObservations
+ * @property-read int|null $my_observations_count
+ * @property-read int|null $observations_count
+ * @property-read \App\Models\User $user
+ * @property-read \App\Models\Venta|null $venta
+ * @method static \Database\Factories\NoteFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereAssignmentDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereComercialId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereCustomerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereDeCamino($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereEstadoTerminal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereFuente($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereLat($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereLng($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereNroNota($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereObservations($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereShowPhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereVisitDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Note whereVisitSchedule($value)
+ * @mixin \Eloquent
+ */
 class Note extends Model
 {
     use HasFactory;

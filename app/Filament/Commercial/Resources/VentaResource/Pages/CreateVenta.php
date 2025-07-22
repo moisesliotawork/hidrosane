@@ -87,6 +87,9 @@ class CreateVenta extends CreateRecord
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
+                'forma_pago' => $data['modalidad_pago'] === 'Contado'
+                    ? ($data['forma_pago'] ?? null)
+                    : null,
                 'num_cuotas' => $data['num_cuotas'] ?? null,
                 'cuota_mensual' => $cuotaMensual,
                 'accesorio_entregado' => $data['accesorio_entregado'] ?? null,

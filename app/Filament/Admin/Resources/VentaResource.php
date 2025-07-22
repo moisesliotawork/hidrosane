@@ -154,15 +154,18 @@ class VentaResource extends Resource
                         ->native(false)
                         ->nullable()
                         ->default(null)
-                        ->options(fn() => User::role('commercial')
-                            ->whereKeyNot(auth()->id())
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(fn($u) => [
-                                $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                            ])
-                            ->prepend('SIN COMPAÑERO', '')
-                            ->all())                       //  ← array, no Collection
+                        ->options(
+                            fn() => ['' => 'SIN COMPAÑERO']      // primera opción
+                            + User::role('commercial')
+                                ->whereKeyNot(auth()->id())
+                                ->select('id', 'empleado_id', 'name', 'last_name')
+                                ->orderBy('name')
+                                ->get()
+                                ->mapWithKeys(fn($u) => [
+                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                ])
+                                ->all()                       // array que necesita Filament
+                        )
                         ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
                 ]),
 
@@ -209,7 +212,27 @@ class VentaResource extends Resource
                                 '.',
                                 ''
                             ));
+                            if ($state !== 'Contado') {
+                                $set('forma_pago', null);
+                            }
                         }),
+
+                    Select::make('forma_pago')
+                        ->label('Forma de pago')
+                        ->options([
+                            'datafono' => 'Datáfono (TPV)',
+                            'giro_sepa' => 'Giro SEPA',
+                            'transferencia_bancaria' => 'Transferencia bancaria',
+                        ])
+                        ->native(false)
+                        ->visible(fn(Get $get) => $get('modalidad_pago') === 'Contado')
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Contado')
+                        // si dejan de estar en “Contado”, vaciamos el campo
+                        ->dehydrateStateUsing(
+                            fn($state, Get $get) =>
+                            $get('modalidad_pago') === 'Contado' ? $state : null
+                        ),
+
 
                     TextInput::make('num_cuotas')
                         ->label('Nº de cuotas')
@@ -327,10 +350,12 @@ class VentaResource extends Resource
                                                     ->reactive()
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
-                                                        $producto = Producto::find($state);
+                                                        $producto = Producto::find($state);   // Model|null
+                                            
+                                                        /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 
-
+                                                        /** @var \App\Models\Producto|null $producto */
                                                         if ($producto && $producto->nombre !== 'Producto Externo') {
                                                             $set('puntos_linea', $cantidad * ($producto->puntos ?? 0));
                                                         }
@@ -351,8 +376,8 @@ class VentaResource extends Resource
                                                     ->required()
                                                     ->reactive()
                                                     ->readOnly(
-                                                        fn(Get $get) =>           // ← cambia disabled() por readOnly()
-                                                        optional(Producto::find($get('producto_id')))->nombre === 'Producto Externo'
+                                                        fn(Get $get) =>
+                                                        Producto::find($get('producto_id'))?->nombre === 'Producto Externo'
                                                     )
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                                                         // fuerza a 1 si es externo, y ≥1 en caso normal
@@ -370,7 +395,6 @@ class VentaResource extends Resource
                                                         $set('../../puntos', $total);
                                                     }),
 
-
                                                 TextInput::make('puntos_linea')
                                                     ->label('Pts línea')
                                                     ->numeric()
@@ -379,7 +403,7 @@ class VentaResource extends Resource
                                                     ->reactive()
                                                     ->readOnly(
                                                         fn(Get $get) =>
-                                                        optional(\App\Models\Producto::find($get('producto_id')))->nombre !== 'Producto Externo'
+                                                        Producto::find($get('producto_id'))?->nombre !== 'Producto Externo'
                                                     )
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                                                         // actualiza total puntos en la oferta si se modifican manualmente
@@ -389,6 +413,7 @@ class VentaResource extends Resource
                                                                 ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0))
                                                         );
                                                     }),
+
 
                                             ]),
                                         ])->columns(1),
@@ -405,7 +430,7 @@ class VentaResource extends Resource
                         ->flatMap(fn($o) => $o['productos'] ?? [])
                         ->contains(
                             fn($l) =>
-                            optional(Producto::find($l['producto_id'] ?? null))->nombre === 'Producto Externo'
+                            Producto::find($l['producto_id'] ?? null)?->nombre === 'Producto Externo'
                         )
                 )
                 ->schema(function (Get $get) {
@@ -413,14 +438,14 @@ class VentaResource extends Resource
                     $index = 0;
 
                     foreach ($get('ventaOfertas') ?? [] as $oferta) {
-                        foreach ($oferta['productos'] ?? [] as $producto) {
-                            if (optional(Producto::find($producto['producto_id'] ?? null))->nombre === 'Producto Externo') {
+                        foreach ($oferta['productos'] ?? [] as $linea) {
+                            if (Producto::find($linea['producto_id'] ?? null)?->nombre === 'Producto Externo') {
                                 $fields[] = Grid::make(3)->schema([
                                     TextInput::make("productos_externos.$index")
                                         ->label('Nombre producto externo #' . ($index + 1))
                                         ->required()
                                         ->columnSpan(2)
-                                        ->live(onBlur: true)     //  ⬅️  cambió: ya no envía cada tecla
+                                        ->live(onBlur: true)
                                         ->key("prod-ext-$index"),
                                 ]);
                                 $index++;
@@ -433,6 +458,7 @@ class VentaResource extends Resource
                 ->columns(1)
                 ->reactive()
                 ->collapsible(),
+
 
             /* ────────── Datos de la venta ────────── */
 

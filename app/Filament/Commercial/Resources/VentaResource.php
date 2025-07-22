@@ -203,8 +203,8 @@ class VentaResource extends Resource
                                     ->nullable()
                                     ->default(null)
                                     ->options(
-                                        fn() =>
-                                        User::role('commercial')
+                                        fn() => ['' => 'SIN COMPAÑERO']      // primera opción
+                                        + User::role('commercial')
                                             ->whereKeyNot(auth()->id())
                                             ->select('id', 'empleado_id', 'name', 'last_name')
                                             ->orderBy('name')
@@ -212,7 +212,7 @@ class VentaResource extends Resource
                                             ->mapWithKeys(fn($u) => [
                                                 $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
                                             ])
-                                            ->prepend('SIN COMPAÑERO', '') // importante: prepend() respeta key ''
+                                            ->all()                       // array que necesita Filament
                                     )
                                     ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state)
 
@@ -244,6 +244,7 @@ class VentaResource extends Resource
                             ])
                             ->defaultItems(1)
                             ->itemLabel(function ($state) {
+                                /** @var \App\Models\Oferta|null $oferta */
                                 return blank($state['oferta_id'] ?? null)
                                     ? 'Nueva oferta'
                                     : Oferta::find($state['oferta_id'])?->nombre;
@@ -460,7 +461,28 @@ class VentaResource extends Resource
                                 : ($get('num_cuotas') ?? 6)
                             );
                             $set('cuota_mensual', number_format($importe / max($cuotas, 1), 2, '.', ''));
+
+                            // 2· Si ya **no** es Contado, vaciamos forma_pago
+                            if ($state !== 'Contado') {
+                                $set('forma_pago', null);
+                            }
                         }),
+
+                    Select::make('forma_pago')
+                        ->label('Forma de pago')
+                        ->options([
+                            'datafono' => 'Datáfono (TPV)',
+                            'giro_sepa' => 'Giro SEPA',
+                            'transferencia_bancaria' => 'Transferencia bancaria',
+                        ])
+                        ->native(false)
+                        ->visible(fn(Get $get) => $get('modalidad_pago') === 'Contado')
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Contado')
+                        // si dejan de estar en “Contado”, vaciamos el campo
+                        ->dehydrateStateUsing(
+                            fn($state, Get $get) =>
+                            $get('modalidad_pago') === 'Contado' ? $state : null
+                        ),
 
                     TextInput::make('num_cuotas')
                         ->label('Nº de cuotas')

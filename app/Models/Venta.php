@@ -7,6 +7,85 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * @property int $id
+ * @property int $note_id
+ * @property int $customer_id
+ * @property int $comercial_id
+ * @property int|null $companion_id
+ * @property \Illuminate\Support\Carbon $fecha_venta
+ * @property string|null $fecha_entrega
+ * @property string|null $horario_entrega
+ * @property numeric $importe_total
+ * @property string $modalidad_pago
+ * @property string|null $forma_pago
+ * @property numeric|null $cuota_mensual
+ * @property int $num_cuotas
+ * @property string|null $accesorio_entregado
+ * @property string|null $motivo_venta
+ * @property string|null $motivo_horario
+ * @property bool $interes_art
+ * @property array<array-key, mixed>|null $productos_externos
+ * @property string|null $precontractual
+ * @property string|null $interes_art_detalle
+ * @property string|null $observaciones_repartidor
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property string|null $dni_anverso
+ * @property string|null $dni_reverso
+ * @property string|null $documento_titularidad
+ * @property string|null $nomina
+ * @property string|null $pension
+ * @property string|null $contrato_firmado
+ * @property-read \App\Models\User $comercial
+ * @property-read \App\Models\User|null $companion
+ * @property-read \App\Models\Customer $customer
+ * @property-read mixed $contrato_firmado_url
+ * @property-read mixed $dni_anverso_url
+ * @property-read mixed $dni_reverso_url
+ * @property-read mixed $documento_titularidad_url
+ * @property-read mixed $nomina_url
+ * @property-read mixed $pension_url
+ * @property-read mixed $precontractual_url
+ * @property-read \App\Models\Note $note
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\VentaOferta> $ventaOfertas
+ * @property-read int|null $venta_ofertas_count
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereAccesorioEntregado($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereComercialId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereCompanionId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereContratoFirmado($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereCuotaMensual($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereCustomerId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereDniAnverso($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereDniReverso($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereDocumentoTitularidad($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereFechaEntrega($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereFechaVenta($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereFormaPago($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereHorarioEntrega($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereImporteTotal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereInteresArt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereInteresArtDetalle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereModalidadPago($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereMotivoHorario($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereMotivoVenta($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereNomina($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereNoteId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereNumCuotas($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereObservacionesRepartidor($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta wherePension($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta wherePrecontractual($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereProductosExternos($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class Venta extends Model
 {
     use HasFactory;
@@ -19,6 +98,7 @@ class Venta extends Model
         'fecha_venta',
         'importe_total',
         'modalidad_pago',
+        'forma_pago',
         'num_cuotas',
         'accesorio_entregado',
         'motivo_venta',
