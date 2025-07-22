@@ -231,6 +231,7 @@ class NoteResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->searchable()
+                    ->sortable()
                     ->badge()
                     ->color(Color::Gray)
                     ->label('# Nota'),

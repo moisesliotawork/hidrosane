@@ -247,6 +247,7 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->searchable()
                     ->label('# Nota')
+                    ->sortable()
                     ->formatStateUsing(function (string $state) {
                         // Asegurarse que tiene exactamente 5 caracteres
                         if (strlen($state) === 5) {
