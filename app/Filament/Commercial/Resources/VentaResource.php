@@ -231,24 +231,37 @@ class VentaResource extends Resource
                             ->minItems(1)
                             ->label(false)
                             ->afterStateUpdated(function (Get $get, Set $set) {
+                                // 1. IDs de ofertas presentes en el repeater
+                                $ids = collect($get('ventaOfertas') ?? [])
+                                    ->pluck('oferta_id')
+                                    ->filter()
+                                    ->all();
+
+                                // 2. Traemos precio_base solo una vez
+                                $precios = Oferta::query()
+                                    ->whereIn('id', $ids)
+                                    ->pluck('precio_base', 'id');   // [id => precio_base]
+                    
+                                // 3. Calculamos el total
                                 $total = collect($get('ventaOfertas') ?? [])
-                                    ->sum(function ($o) {
-                                        return Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0;
-                                    });
+                                    ->sum(fn($o) => (float) ($precios[$o['oferta_id']] ?? 0));
 
                                 $set('importe_total', number_format($total, 2, '.', ''));
                             })
+
                             ->validationMessages([
                                 'min' => 'Debes agregar al menos una oferta a la venta.',
                                 'required' => 'Debes agregar al menos una oferta a la venta.',
                             ])
                             ->defaultItems(1)
-                            ->itemLabel(function ($state) {
-                                /** @var \App\Models\Oferta|null $oferta */
-                                return blank($state['oferta_id'] ?? null)
-                                    ? 'Nueva oferta'
-                                    : Oferta::find($state['oferta_id'])?->nombre;
-                            })
+                            ->itemLabel(
+                                fn($state) =>
+                                blank($state['oferta_id'] ?? null)
+                                ? 'Nueva oferta'
+                                : Oferta::query()
+                                    ->whereKey($state['oferta_id'])
+                                    ->value('nombre')
+                            )
                             ->schema([
 
                                 /* ─────────── Cabecera de la oferta ─────────── */
@@ -323,20 +336,33 @@ class VentaResource extends Resource
                                                         ->preload()
                                                         ->reactive()
                                                         ->required()
-                                                        ->afterStateUpdated(function (Set $set, Get $get, $state) {
-                                                            $producto = Producto::find($state);
+                                                        ->afterStateUpdated(function (Set $set, Get $get, $state): void {
 
-                                                            // ⇢ Si es externo, lo dejamos en 1 y listo
-                                                            if ($producto?->nombre === 'Producto Externo') {
+                                                            // ──────────────────────────
+                                                            // 1. Traemos solo lo necesario
+                                                            // ──────────────────────────
+                                                            $nombre = Producto::query()->whereKey($state)->value('nombre');
+                                                            $puntosUnidad = (int) Producto::query()->whereKey($state)->value('puntos');
+
+                                                            // ──────────────────────────
+                                                            // 2. Forzar cantidad = 1 si es externo
+                                                            // ──────────────────────────
+                                                            if ($nombre === 'Producto Externo') {
                                                                 $set('cantidad', 1);
                                                             }
 
+                                                            // ──────────────────────────
+                                                            // 3. Recalcular puntos de la línea
+                                                            // ──────────────────────────
                                                             $cantidad = (int) ($get('cantidad') ?? 1);
-                                                            $set('puntos_linea', $cantidad * ($producto?->puntos ?? 0));
+                                                            $set('puntos_linea', $cantidad * $puntosUnidad);
 
-                                                            // total oferta
+                                                            // ──────────────────────────
+                                                            // 4. Recalcular total de puntos de la oferta
+                                                            // ──────────────────────────
                                                             $total = collect($get('../../productos') ?? [])
                                                                 ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+
                                                             $set('../../puntos', $total);
                                                         }),
 
@@ -348,24 +374,38 @@ class VentaResource extends Resource
                                                         ->required()
                                                         ->reactive()
                                                         ->readOnly(
-                                                            fn(Get $get) =>           // ← cambia disabled() por readOnly()
-                                                            optional(Producto::find($get('producto_id')))->nombre === 'Producto Externo'
+                                                            fn(Get $get) =>
+                                                            Producto::query()
+                                                                ->whereKey($get('producto_id'))
+                                                                ->value('nombre') === 'Producto Externo'
                                                         )
-                                                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                                                            // fuerza a 1 si es externo, y ≥1 en caso normal
-                                                            $producto = Producto::find($get('producto_id'));
-                                                            $cantidad = $producto?->nombre === 'Producto Externo'
+                                                        ->afterStateUpdated(function (Get $get, Set $set, $state): void {
+
+                                                            // ── Traemos lo justo 
+                                                            $nombre = Producto::query()
+                                                                ->whereKey($get('producto_id'))
+                                                                ->value('nombre');
+                                                            $puntosUnidad = (int) Producto::query()
+                                                                ->whereKey($get('producto_id'))
+                                                                ->value('puntos');
+
+                                                            // ── Forzar cantidad
+                                                            $cantidad = $nombre === 'Producto Externo'
                                                                 ? 1
                                                                 : max((int) $state, 1);
 
                                                             $set('cantidad', $cantidad);
-                                                            $set('puntos_linea', $cantidad * ($producto?->puntos ?? 0));
 
-                                                            // total de puntos de la oferta
+                                                            // ── Puntos de la línea 
+                                                            $set('puntos_linea', $cantidad * $puntosUnidad);
+
+                                                            // ── Total de puntos de la oferta 
                                                             $total = collect($get('../../productos') ?? [])
                                                                 ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+
                                                             $set('../../puntos', $total);
                                                         }),
+
 
                                                     /* ─── Puntos línea (solo lectura) ─── */
                                                     TextInput::make('puntos_linea')
@@ -389,28 +429,52 @@ class VentaResource extends Resource
 
                 /* ---------- Productos externos ---------- */
                 Section::make('Productos externos')
+                    // 1️⃣  Mostrar la sección solo si hay al menos un “Producto Externo”
                     ->visible(function (Get $get) {
-                        return collect($get('ventaOfertas') ?? [])
-                            ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
-                            ->contains(
-                                fn($l) =>
-                                optional(Producto::find($l['producto_id'] ?? null))->nombre === 'Producto Externo'
-                            );
-                    })
-                    ->schema(function (Get $get) {
-                        // todas las líneas que sean Producto Externo
-                        $externas = collect($get('ventaOfertas') ?? [])
-                            ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
-                            ->filter(
-                                fn($l) =>
-                                optional(Producto::find($l['producto_id'] ?? null))->nombre === 'Producto Externo'
-                            )
-                            ->values();
 
+                        // IDs de todos los productos en las ofertas
+                        $ids = collect($get('ventaOfertas') ?? [])
+                            ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
+                            ->pluck('producto_id')
+                            ->filter()
+                            ->all();
+
+                        if (empty($ids)) {
+                            return false;   // sin productos ⇒ nada que mostrar
+                        }
+
+                        return Producto::query()
+                            ->whereIn('id', $ids)
+                            ->where('nombre', 'Producto Externo')
+                            ->exists();     // true si al menos uno es externo
+                    })
+
+                    // 2️⃣  Generar inputs solo para los externos
+                    ->schema(function (Get $get) {
+
+                        // a) Agrupamos todos los productos y sus posiciones
+                        $lineas = collect($get('ventaOfertas') ?? [])
+                            ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
+                            ->values();   // renumeramos para que el índice sea 0-n
+            
+                        // b) Todos los IDs presentes
+                        $ids = $lineas->pluck('producto_id')->filter()->all();
+
+                        // c) Mapa [id => nombre] para saber cuáles son externos
+                        $nombres = Producto::query()
+                            ->whereIn('id', $ids)
+                            ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
+            
+                        // d) Filtramos solo los que son “Producto Externo”
+                        $externas = $lineas->filter(
+                            fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'
+                        )->values();
+
+                        // e) Creamos un TextInput por cada línea externa
                         return $externas->map(
                             fn($__, $idx) =>
                             TextInput::make("productos_externos.$idx")
-                                ->label("Nombre producto externo #" . ($idx + 1))
+                                ->label('Nombre producto externo #' . ($idx + 1))
                                 ->required()
                                 ->dehydrated()
                         )->all();
