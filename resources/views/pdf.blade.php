@@ -396,9 +396,9 @@
                                 $norm = Str::of($raw)
                                     ->replace(['€', ' '], '')
                                     ->lower()
-                                    ->value();                         
-                                if (Str::startsWith($norm, '>')) { 
-                                    $norm = '>1200';                  
+                                    ->value();
+                                if (Str::startsWith($norm, '>')) {
+                                    $norm = '>1200';
                                 }
 
                                 $enum = IngresosRango::tryFrom($norm);
@@ -418,60 +418,75 @@
     </div>
 
     <!-- =========== SECCIÓN C: RELACIÓN DE ARTÍCULOS =========== -->
+    @php
+        // 1) Aplanamos todas las líneas de producto y limitamos a 8 ítems
+        $items = $venta->ventaOfertas
+            ->flatMap(fn($o) => $o->productos)
+            ->values()
+            ->take(8);
+
+        // 2) Partimos en “columnas” de 4 filas cada una
+        $columns = $items->chunk(4);
+        $firstCol = $columns->get(0, collect());
+        $secondCol = $columns->get(1, collect());
+    @endphp
+
     <div class="section">
-        {{-- ================================================================
-        | B. RELACIÓN DE ARTÍCULOS
-        | Muestra hasta 8 líneas (4 por columna) con POS-ARTÍCULO-CANTIDAD
-        ================================================================ --}}
-        @php
-            // 1) Colección de todas las líneas de producto (VentaOfertaProducto)
-            $items = $venta->ventaOfertas
-                ->flatMap(fn($o) => $o->productos)  // aplanamos las líneas
-                ->values();
+        <h2 class="title-contracts">B. RELACIÓN DE ARTÍCULOS</h2>
 
-            // 2) Configuración de cómo se mostrará la tabla
-            $maxItems = 8;                 // total de líneas que caben en el diseño
-            $filas = 4;                 // filas visibles por columna
-            $show = $items->take($maxItems);
-        @endphp
-
-        <div class="section">
-            <h2 class="title-contracts">B. RELACIÓN DE ARTÍCULOS</h2>
-
+        @if($secondCol->isEmpty())
+            {{-- Solo una columna --}}
             <table class="article-table">
                 <thead>
                     <tr>
-                        <th style="width:  8%; height:15px; text-align:center;">POS</th>
-                        <th style="width: 32%; height:15px; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
-                        <th style="width: 10%; height:15px; text-align:center;">CANT</th>
-
-                        <th style="width:  8%; height:15px; text-align:center;">POS</th>
-                        <th style="width: 32%; height:15px; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
-                        <th style="width: 10%; height:15px; text-align:center;">CANT</th>
+                        <th style="width:8%; text-align:center;">POS</th>
+                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
+                        <th style="width:10%; text-align:center;">CANT</th>
                     </tr>
                 </thead>
-
                 <tbody>
-                    @for ($i = 0; $i < $filas; $i++)
+                    @foreach($firstCol as $idx => $line)
                         <tr>
-                            {{-- ================= Columna A ================= --}}
-                            @php $idxA = $i; @endphp
-                            @if(isset($show[$idxA]))
-                                <td style="text-align:center;">{{ $idxA + 1 }}</td>
-                                <td>{{ strtoupper($show[$idxA]->producto->nombre) }}</td>
-                                <td style="text-align:center;">{{ $show[$idxA]->cantidad }}</td>
+                            <td style="text-align:center;">{{ $idx + 1 }}</td>
+                            <td>{{ strtoupper($line->producto->nombre) }}</td>
+                            <td style="text-align:center;">{{ $line->cantidad }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @else
+            {{-- Dos columnas --}}
+            <table class="article-table">
+                <thead>
+                    <tr>
+                        <th style="width:8%;  text-align:center;">POS</th>
+                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
+                        <th style="width:10%; text-align:center;">CANT</th>
+                        <th style="width:8%;  text-align:center;">POS</th>
+                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
+                        <th style="width:10%; text-align:center;">CANT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php $rows = max($firstCol->count(), $secondCol->count()); @endphp
+                    @for($i = 0; $i < $rows; $i++)
+                        <tr>
+                            {{-- Columna A --}}
+                            @if(isset($firstCol[$i]))
+                                <td style="text-align:center;">{{ $i + 1 }}</td>
+                                <td>{{ strtoupper($firstCol[$i]->producto->nombre) }}</td>
+                                <td style="text-align:center;">{{ $firstCol[$i]->cantidad }}</td>
                             @else
                                 <td></td>
                                 <td></td>
                                 <td></td>
                             @endif
 
-                            {{-- ================= Columna B ================= --}}
-                            @php $idxB = $i + $filas; @endphp
-                            @if(isset($show[$idxB]))
-                                <td style="text-align:center;">{{ $idxB + 1 }}</td>
-                                <td>{{ strtoupper($show[$idxB]->producto->nombre) }}</td>
-                                <td style="text-align:center;">{{ $show[$idxB]->cantidad }}</td>
+                            {{-- Columna B --}}
+                            @if(isset($secondCol[$i]))
+                                <td style="text-align:center;">{{ $i + 1 + 4 }}</td>
+                                <td>{{ strtoupper($secondCol[$i]->producto->nombre) }}</td>
+                                <td style="text-align:center;">{{ $secondCol[$i]->cantidad }}</td>
                             @else
                                 <td></td>
                                 <td></td>
@@ -481,7 +496,7 @@
                     @endfor
                 </tbody>
             </table>
-        </div>
+        @endif
     </div>
 
     <!-- =========== SECCIÓN D: IMPORTE Y FORMA DE PAGO =========== -->

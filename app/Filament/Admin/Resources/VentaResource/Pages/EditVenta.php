@@ -5,7 +5,8 @@ namespace App\Filament\Admin\Resources\VentaResource\Pages;
 use App\Filament\Admin\Resources\VentaResource;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
-use Torgodly\Html2Media\Actions\Html2MediaAction;
+use Filament\Actions\Action;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 
 class EditVenta extends EditRecord
@@ -51,26 +52,35 @@ class EditVenta extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Html2MediaAction::make('pdf')
+            Action::make('pdf')
                 ->label('Contrato PDF')
                 ->icon('heroicon-o-document-text')
-                ->savePdf()                 // descarga directa
-                ->preview()                 // modal de vista previa
-                ->filename(
-                    fn(Venta $r) =>
-                    'contrato-' . ($r->note?->nro_nota ?? $r->id) . '.pdf'
-                )
-                ->content(fn(Venta $r) => view('pdf', [
-                    'venta' => $r->load([
-                        'note',
-                        'customer.postalCode.city',
-                        'comercial',
-                        'ventaOfertas.productos.producto',
-                    ]),
-                ])),
+                ->action(fn(Venta $record) => $this->downloadPdf($record))
+                ->requiresConfirmation(false)   // dispara directo
+                ->color('primary'),             // conserva estilo Filament
         ];
     }
 
+    /** Genera y envía el PDF sin alterar el front-end */
+    protected function downloadPdf(Venta $venta)
+    {
+        // Carga relaciones necesarias
+        $venta->load([
+            'note',
+            'customer.postalCode.city',
+            'comercial',
+            'ventaOfertas.productos.producto',
+        ]);
 
+        // Renderiza la vista Blade que ya tienes
+        $pdf = Pdf::loadView('pdf', ['venta' => $venta])
+            ->setPaper('letter');   // o 'a4', 'legal', etc.
+
+        // Descarga directa
+        return response()->streamDownload(
+            fn() => print ($pdf->output()),
+            'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
+        );
+    }
 
 }
