@@ -50,7 +50,7 @@ class ProductoResource extends Resource
                                 if (!$tipoId)
                                     return;
 
-                                $tipo = TipoMedida::find($tipoId);
+                                $tipo = TipoMedida::query()->firstWhere('id', $tipoId);
                                 if (!$value) {
                                     $fail('Debe ingresar un valor de medida.');
                                     return;

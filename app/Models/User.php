@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
- * @property string|null $empleado_id Código de tres dígitos para el usuario
+ * @property string|null $empleado_id 
  * @property string $name
  * @property string $last_name
  * @property string $email

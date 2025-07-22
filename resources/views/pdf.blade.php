@@ -417,87 +417,62 @@
         </table>
     </div>
 
-    <!-- =========== SECCIÓN C: RELACIÓN DE ARTÍCULOS =========== -->
     @php
-        // 1) Aplanamos todas las líneas de producto y limitamos a 8 ítems
+        // 1) Aplanamos todas las líneas de producto y limitamos a 10 ítems
         $items = $venta->ventaOfertas
             ->flatMap(fn($o) => $o->productos)
             ->values()
-            ->take(8);
+            ->take(10);
 
-        // 2) Partimos en “columnas” de 4 filas cada una
-        $columns = $items->chunk(4);
+        // 2) Partimos en “columnas” de 5 filas cada una
+        $columns = $items->chunk(5);
         $firstCol = $columns->get(0, collect());
         $secondCol = $columns->get(1, collect());
     @endphp
 
     <div class="section">
         <h2 class="title-contracts">B. RELACIÓN DE ARTÍCULOS</h2>
-
-        @if($secondCol->isEmpty())
-            {{-- Solo una columna --}}
-            <table class="article-table">
-                <thead>
+        <table class="article-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;  text-align:center;">POS</th>
+                    <th style="width: 32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
+                    <th style="width: 10%; text-align:center;">CANT</th>
+                    <th style="width: 8%;  text-align:center;">POS</th>
+                    <th style="width: 32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
+                    <th style="width: 10%; text-align:center;">CANT</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for ($i = 0; $i < 5; $i++)
                     <tr>
-                        <th style="width:8%; text-align:center;">POS</th>
-                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
-                        <th style="width:10%; text-align:center;">CANT</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($firstCol as $idx => $line)
-                        <tr>
-                            <td style="text-align:center;">{{ $idx + 1 }}</td>
-                            <td>{{ strtoupper($line->producto->nombre) }}</td>
-                            <td style="text-align:center;">{{ $line->cantidad }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            {{-- Dos columnas --}}
-            <table class="article-table">
-                <thead>
-                    <tr>
-                        <th style="width:8%;  text-align:center;">POS</th>
-                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
-                        <th style="width:10%; text-align:center;">CANT</th>
-                        <th style="width:8%;  text-align:center;">POS</th>
-                        <th style="width:32%; text-align:center;">DESCRIPCIÓN DEL ARTÍCULO</th>
-                        <th style="width:10%; text-align:center;">CANT</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @php $rows = max($firstCol->count(), $secondCol->count()); @endphp
-                    @for($i = 0; $i < $rows; $i++)
-                        <tr>
-                            {{-- Columna A --}}
-                            @if(isset($firstCol[$i]))
-                                <td style="text-align:center;">{{ $i + 1 }}</td>
-                                <td>{{ strtoupper($firstCol[$i]->producto->nombre) }}</td>
-                                <td style="text-align:center;">{{ $firstCol[$i]->cantidad }}</td>
-                            @else
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                            @endif
+                        {{-- Columna A --}}
+                        <td style="text-align:center;">
+                            {{ isset($firstCol[$i]) ? $i + 1 : '' }}
+                        </td>
+                        <td>
+                            {{ isset($firstCol[$i]) ? strtoupper($firstCol[$i]->producto->nombre) : '' }}
+                        </td>
+                        <td style="text-align:center;">
+                            {{ isset($firstCol[$i]) ? $firstCol[$i]->cantidad : '' }}
+                        </td>
 
-                            {{-- Columna B --}}
-                            @if(isset($secondCol[$i]))
-                                <td style="text-align:center;">{{ $i + 1 + 4 }}</td>
-                                <td>{{ strtoupper($secondCol[$i]->producto->nombre) }}</td>
-                                <td style="text-align:center;">{{ $secondCol[$i]->cantidad }}</td>
-                            @else
-                                <td></td>
-                                <td></td>
-                                <td></td>
-                            @endif
-                        </tr>
-                    @endfor
-                </tbody>
-            </table>
-        @endif
+                        {{-- Columna B --}}
+                        <td style="text-align:center;">
+                            {{ isset($secondCol[$i]) ? $i + 6 : '' }}
+                        </td>
+                        <td>
+                            {{ isset($secondCol[$i]) ? strtoupper($secondCol[$i]->producto->nombre) : '' }}
+                        </td>
+                        <td style="text-align:center;">
+                            {{ isset($secondCol[$i]) ? $secondCol[$i]->cantidad : '' }}
+                        </td>
+                    </tr>
+                @endfor
+            </tbody>
+        </table>
     </div>
+
 
     <!-- =========== SECCIÓN D: IMPORTE Y FORMA DE PAGO =========== -->
     <div class="section">
