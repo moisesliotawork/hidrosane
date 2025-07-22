@@ -14,7 +14,8 @@
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.6",
         "spatie/laravel-permission": "^6.20",
-        "stevebauman/location": "^7.5"
+        "stevebauman/location": "^7.5",
+        "torgodly/html2media": "^1.1"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",

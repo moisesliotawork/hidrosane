@@ -432,6 +432,7 @@ class VentaResource extends Resource
 
                                             ]),
                                         ])->columns(1),
+
                                 ]),
 
                         ])->columns(1)->collapsible(),
@@ -525,7 +526,6 @@ class VentaResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
-
         ]);
     }
 

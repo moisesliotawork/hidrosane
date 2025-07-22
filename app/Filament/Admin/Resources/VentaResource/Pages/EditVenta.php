@@ -5,17 +5,13 @@ namespace App\Filament\Admin\Resources\VentaResource\Pages;
 use App\Filament\Admin\Resources\VentaResource;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
+use Torgodly\Html2Media\Actions\Html2MediaAction;
+use App\Models\Venta;
 
 class EditVenta extends EditRecord
 {
     protected static string $resource = VentaResource::class;
 
-    /**
-     * Antes de guardar:
-     *  • Impide modificar el nro_nota
-     *  • Sincroniza num_cuotas / forma_pago / cuota_mensual según la modalidad
-     *  • Limpia arrays vacíos de productos_externos
-     */
     protected function mutateFormDataBeforeSave(array $data): array
     {
         /* 1. Nunca tocar el Nº de nota */
@@ -50,4 +46,31 @@ class EditVenta extends EditRecord
 
         return $data;
     }
+
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Html2MediaAction::make('pdf')
+                ->label('Contrato PDF')
+                ->icon('heroicon-o-document-text')
+                ->savePdf()                 // descarga directa
+                ->preview()                 // modal de vista previa
+                ->filename(
+                    fn(Venta $r) =>
+                    'contrato-' . ($r->note?->nro_nota ?? $r->id) . '.pdf'
+                )
+                ->content(fn(Venta $r) => view('pdf', [
+                    'venta' => $r->load([
+                        'note',
+                        'customer.postalCode.city',
+                        'comercial',
+                        'ventaOfertas.productos.producto',
+                    ]),
+                ])),
+        ];
+    }
+
+
+
 }

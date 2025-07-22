@@ -37,8 +37,8 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         // Aplicar Tailwind a toda la app
-        FilamentAsset::register([
-            Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/app.css'),
-        ]);
+        //FilamentAsset::register([
+        //    Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/app.css'),
+        //]);
     }
 }

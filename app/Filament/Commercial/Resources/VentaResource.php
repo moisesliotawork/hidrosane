@@ -30,7 +30,6 @@ use Filament\Forms\Components\{
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Collection;
 use Filament\Forms\Components\{
     Group,
     Placeholder,
@@ -43,9 +42,9 @@ class VentaResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
 
-
     public static function form(Form $form): Form
     {
+        
         return $form
             ->schema([
                 /* ---------- Cliente (editable) ---------- */
