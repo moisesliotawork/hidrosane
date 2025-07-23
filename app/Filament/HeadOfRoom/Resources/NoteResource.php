@@ -389,18 +389,21 @@ class NoteResource extends Resource
                                 })->toArray();
                             })
                             ->searchable()
-                            ->native(false)
+                            ->native(false),
+
+                        Forms\Components\DatePicker::make('assignment_date')
+                            ->label('Fecha de asignación')
+                            ->hint('Si se deja vacío, se usará la fecha actual')
+                            ->required(false),
                     ])
                     ->action(function (Note $record, array $data): void {
                         try {
-                            $record->update(['comercial_id' => $data['comercial_id'] ?? null]);
-
-                            if ($data['comercial_id'] ?? null) {
-                                $record->update(['assignment_date' => now()]);
-                            } else {
-                                $record->update(['assignment_date' => null]);
-                                ;
-                            }
+                            $record->update([
+                                'comercial_id' => $data['comercial_id'] ?? null,
+                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                    ? ($data['assignment_date'] ?? now())
+                                    : null,
+                            ]);
 
                             $message = is_null($data['comercial_id'] ?? null)
                                 ? 'Comercial removido correctamente'
@@ -445,19 +448,28 @@ class NoteResource extends Resource
                             ->searchable()
                             ->native(false)
                             ->placeholder('Seleccione un comercial'),
+
+                        Forms\Components\DatePicker::make('assignment_date')
+                            ->label('Fecha de asignación')
+                            ->hint('Si se deja vacío, se usará la fecha actual')
+                            ->required(false),
                     ])
                     ->action(function (iterable $records, array $data): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
-                            $assignmentDate = !empty($comercialId) ? now() : null;
 
+                            // Asignar fecha según lógica
+                            $assignmentDate = !empty($comercialId)
+                                ? ($data['assignment_date'] ?? now())
+                                : null;
+
+                            // IDs a actualizar
                             $recordIds = collect($records)->pluck('id')->toArray();
 
-                            Note::whereIn('id', $recordIds)
-                                ->update([
-                                    'comercial_id' => !empty($comercialId) ? $comercialId : null,
-                                    'assignment_date' => $assignmentDate
-                                ]);
+                            Note::whereIn('id', $recordIds)->update([
+                                'comercial_id' => !empty($comercialId) ? $comercialId : null,
+                                'assignment_date' => $assignmentDate,
+                            ]);
 
                             $message = empty($comercialId)
                                 ? 'Comercial removido de las notas seleccionadas'
