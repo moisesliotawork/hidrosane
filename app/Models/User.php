@@ -142,6 +142,10 @@ class User extends Authenticatable implements FilamentUser
             return $this->hasRole('gerente_general');
         }
 
+        if ($panelId === 'delivery') {
+            return $this->hasRole('gerente_general');
+        }
+
         // Retorna false por defecto si no coincide con ninguno de los paneles
         return false;
     }
