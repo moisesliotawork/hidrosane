@@ -499,6 +499,21 @@ class VentaResource extends Resource
 
             Section::make('Informe al repartidor')
                 ->schema([
+                    Select::make('repartidor_id')
+                        ->label('Repartidor')
+                        ->options(
+                            fn() => User::role('repartidor')
+                                ->select('id', 'empleado_id')
+                                ->orderBy('empleado_id')
+                                ->get()
+                                ->mapWithKeys(fn($user) => [$user->id => $user->empleado_id])
+                        )
+                        ->searchable()
+                        ->native(false)
+                        ->placeholder('Seleccionar repartidor')
+                        ->nullable()
+                        ->preload()
+                        ->columnSpanFull(),
                     DatePicker::make('fecha_entrega')->label('Fecha de entrega')->required(),
                     Select::make('horario_entrega')
                         ->label('Horario de entrega')

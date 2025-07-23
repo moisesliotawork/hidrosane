@@ -118,6 +118,7 @@ class Venta extends Model
         'pension',
         'contrato_firmado',
         'interes_art_detalle',
+        'repartidor_id',
     ];
 
     protected $casts = [
@@ -221,4 +222,10 @@ class Venta extends Model
     {
         return $this->hasMany(VentaOferta::class);
     }
+
+    public function repartidor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'repartidor_id');
+    }
+
 }
