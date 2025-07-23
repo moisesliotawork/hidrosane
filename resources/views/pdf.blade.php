@@ -208,6 +208,16 @@
             .header-table {
                 margin-bottom: 10px;
             }
+
+            .article-table tr.empty-row td {
+                height: 0.9mm !important;
+                line-height: 0.9mm !important;
+                min-height: 0.9mm !important;
+                padding: 0 !important;
+                font-size: 0 !important;
+                /* para evitar que algún espacio vacío afecte */
+                border-width: 1px !important;
+            }
         }
     </style>
 </head>
@@ -445,31 +455,34 @@
             </thead>
             <tbody>
                 @for ($i = 0; $i < 5; $i++)
-                    <tr>
+                    @php
+                        $isEmpty = !isset($firstCol[$i]) && !isset($secondCol[$i]);
+                    @endphp
+                    <tr class="{{ $isEmpty ? 'empty-row' : '' }}">
                         {{-- Columna A --}}
                         <td style="text-align:center;">
-                            {{ isset($firstCol[$i]) ? $i + 1 : '' }}
+                            {!! isset($firstCol[$i]) ? $i + 1 : '&nbsp;' !!}
                         </td>
                         <td>
-                            {{ isset($firstCol[$i]) ? strtoupper($firstCol[$i]->producto->nombre) : '' }}
+                            {!! isset($firstCol[$i]) ? strtoupper($firstCol[$i]->producto->nombre) : '&nbsp;' !!}
                         </td>
                         <td style="text-align:center;">
-                            {{ isset($firstCol[$i]) ? $firstCol[$i]->cantidad : '' }}
+                            {!! isset($firstCol[$i]) ? $firstCol[$i]->cantidad : '&nbsp;' !!}
                         </td>
 
-                        {{-- Columna B --}}
                         <td style="text-align:center;">
-                            {{ isset($secondCol[$i]) ? $i + 6 : '' }}
+                            {!! isset($secondCol[$i]) ? $i + 6 : '&nbsp;' !!}
                         </td>
                         <td>
-                            {{ isset($secondCol[$i]) ? strtoupper($secondCol[$i]->producto->nombre) : '' }}
+                            {!! isset($secondCol[$i]) ? strtoupper($secondCol[$i]->producto->nombre) : '&nbsp;' !!}
                         </td>
                         <td style="text-align:center;">
-                            {{ isset($secondCol[$i]) ? $secondCol[$i]->cantidad : '' }}
+                            {!! isset($secondCol[$i]) ? $secondCol[$i]->cantidad : '&nbsp;' !!}
                         </td>
                     </tr>
                 @endfor
             </tbody>
+
         </table>
     </div>
 
