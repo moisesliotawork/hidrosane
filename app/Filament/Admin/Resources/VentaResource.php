@@ -502,7 +502,7 @@ class VentaResource extends Resource
                     Select::make('repartidor_id')
                         ->label('Repartidor')
                         ->options(
-                            fn() => User::role('repartidor')
+                            fn() => User::role('delivery')
                                 ->select('id', 'empleado_id')
                                 ->orderBy('empleado_id')
                                 ->get()

@@ -119,6 +119,9 @@ class Venta extends Model
         'contrato_firmado',
         'interes_art_detalle',
         'repartidor_id',
+        'de_camino',
+        'lat',
+        'lng',
     ];
 
     protected $casts = [
@@ -128,6 +131,7 @@ class Venta extends Model
         'interes_art' => 'boolean',
         'cuota_mensual' => 'decimal:2',
         'productos_externos' => 'array',
+        'de_camino' => 'boolean',
 
     ];
 

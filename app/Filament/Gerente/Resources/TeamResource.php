@@ -49,7 +49,7 @@ class TeamResource extends Resource
                 ->relationship('members')
                 ->label('Miembros del equipo')
                 ->schema([
-                    Select::make('id')
+                    Forms\Components\Select::make('user_id')
                         ->label('Usuario')
                         ->options(
                             User::role('commercial')
@@ -69,7 +69,6 @@ class TeamResource extends Resource
                         ->default(true)
                         ->hidden(),
                 ])
-                ->columns(1)
                 ->createItemButtonLabel('Agregar miembro'),
         ]);
     }

@@ -49,7 +49,7 @@ class Team extends Model
 
     public function salesManager(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'sales_manager_id');
+        return $this->belongsTo(User::class);
     }
 
     public function teamLeader(): BelongsTo
