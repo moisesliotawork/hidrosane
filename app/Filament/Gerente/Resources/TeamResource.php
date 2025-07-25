@@ -29,6 +29,16 @@ class TeamResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\FileUpload::make('foto')
+                ->label('Foto del equipo')
+                ->image()
+                ->imagePreviewHeight('200')
+                ->directory('equipos')
+                ->disk('public')
+                ->visibility('public')
+                ->columnSpanFull(),
+
+
             Forms\Components\TextInput::make('name')
                 ->label('Nombre del equipo')
                 ->required()
@@ -81,17 +91,26 @@ class TeamResource extends Resource
     {
         return $table
             ->columns([
+
+                Tables\Columns\ImageColumn::make('foto_url')
+                    ->label('Foto')
+                    ->height('80px')
+                    ->width('80px')
+                    ->circular(),
+
                 Tables\Columns\TextColumn::make('name')
                     ->label('Equipo'),
 
                 Tables\Columns\TextColumn::make('teamLeader.name')
                     ->label('Líder'),
 
-                Tables\Columns\TextColumn::make('members.name')
+                Tables\Columns\TextColumn::make('members')
                     ->label('Miembros')
                     ->badge()
                     ->color('primary')
-                    ->separator(', '),
+                    ->getStateUsing(function ($record) {
+                        return $record->members->map(fn($m) => $m->display_name)->toArray();
+                    })
             ])
             ->filters([
                 //

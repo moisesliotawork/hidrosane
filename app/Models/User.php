@@ -192,4 +192,10 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(Note::class, 'comercial_id');
     }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return "{$this->empleado_id} - {$this->name} {$this->last_name}";
+    }
+
 }

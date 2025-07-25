@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property int $id
@@ -44,7 +45,8 @@ class Team extends Model
         'name',
         'description',
         'sales_manager_id',
-        'team_leader_id'
+        'team_leader_id',
+        'foto'
     ];
 
     public function salesManager(): BelongsTo
@@ -62,5 +64,10 @@ class Team extends Model
         return $this->belongsToMany(User::class, 'user_team')
             ->withTimestamps()
             ->withPivot(['joined_at', 'is_active']);
+    }
+
+    public function getFotoUrlAttribute(): ?string
+    {
+        return $this->foto ? Storage::disk('public')->url($this->foto) : null;
     }
 }
