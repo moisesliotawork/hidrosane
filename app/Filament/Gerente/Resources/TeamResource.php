@@ -20,18 +20,24 @@ class TeamResource extends Resource
 
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    protected static ?string $navigationGroup = 'Gestión de Equipos';
+    protected static ?string $modelLabel = 'Equipo';
+    protected static ?string $pluralModelLabel = 'Equipos';
+    protected static ?string $navigationLabel = 'Equipos';
+    protected static ?string $breadcrumb = 'Equipos';
+
 
     public static function form(Form $form): Form
     {
         return $form->schema([
             Forms\Components\TextInput::make('name')
                 ->label('Nombre del equipo')
-                ->required(),
+                ->required()
+                ->columnSpanFull(),
 
             Forms\Components\Textarea::make('description')
                 ->label('Descripción')
-                ->rows(2),
+                ->rows(2)
+                ->columnSpanFull(),
 
             Forms\Components\Select::make('team_leader_id')
                 ->label('Líder de Equipo')
@@ -41,35 +47,33 @@ class TeamResource extends Resource
                         ->get()
                         ->mapWithKeys(fn($user) => [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"])
                 )
+                ->reactive()
                 ->searchable()
                 ->preload()
-                ->required(),
+                ->required()
+                ->columnSpanFull(),
 
-            Forms\Components\Repeater::make('members')
-                ->relationship('members')
+
+            Forms\Components\Repeater::make('miembros')
                 ->label('Miembros del equipo')
                 ->schema([
                     Forms\Components\Select::make('user_id')
                         ->label('Usuario')
-                        ->options(
-                            User::role('commercial')
+                        ->options(function (Forms\Get $get) {
+                            $leaderId = $get('../../team_leader_id'); // <- subir al nivel raíz del formulario
+                
+                            return User::role('commercial')
+                                ->when($leaderId, fn($q) => $q->where('id', '!=', $leaderId))
                                 ->orderBy('name')
                                 ->get()
-                                ->mapWithKeys(fn($user) => [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"])
-                        )
-                        ->required()
-                        ->searchable(),
-
-                    // Estos campos no se muestran pero se graban con default
-                    Forms\Components\DatePicker::make('pivot.joined_at')
-                        ->default(now())
-                        ->hidden(),
-
-                    Forms\Components\Toggle::make('pivot.is_active')
-                        ->default(true)
-                        ->hidden(),
+                                ->mapWithKeys(fn($user) => [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"]);
+                        })
+                        ->searchable()
+                        ->required(),
                 ])
-                ->createItemButtonLabel('Agregar miembro'),
+                ->createItemButtonLabel('Agregar miembro')
+                ->columnSpanFull(),
+
         ]);
     }
 
@@ -77,7 +81,17 @@ class TeamResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Equipo'),
+
+                Tables\Columns\TextColumn::make('teamLeader.name')
+                    ->label('Líder'),
+
+                Tables\Columns\TextColumn::make('members.name')
+                    ->label('Miembros')
+                    ->badge()
+                    ->color('primary')
+                    ->separator(', '),
             ])
             ->filters([
                 //

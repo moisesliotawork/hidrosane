@@ -16,4 +16,16 @@ class EditTeam extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['miembros'] = $this->record->members->map(function ($user) {
+            return [
+                'user_id' => $user->id,
+            ];
+        })->toArray();
+
+        return $data;
+    }
+
 }

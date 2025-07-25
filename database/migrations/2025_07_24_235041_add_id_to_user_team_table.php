@@ -8,9 +8,9 @@ return new class extends Migration {
     public function up()
     {
         Schema::create('user_team', function (Blueprint $table) {
+            $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('team_id')->constrained('teams')->onDelete('cascade');
-            $table->primary(['user_id', 'team_id']);
             $table->date('joined_at')->nullable();
             $table->timestamps();
         });

@@ -5,14 +5,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up(): void
+    public function up()
     {
         Schema::table('user_team', function (Blueprint $table) {
             $table->boolean('is_active')->default(true)->after('joined_at');
         });
     }
 
-    public function down(): void
+    public function down()
     {
         Schema::table('user_team', function (Blueprint $table) {
             $table->dropColumn('is_active');
