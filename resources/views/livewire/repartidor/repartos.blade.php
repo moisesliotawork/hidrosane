@@ -337,54 +337,55 @@
             </div>
         </div>
     </div>
-   <script>
-    function getUbicacion(notaId) {
-        if (location.protocol !== 'https:') {
-            // Entorno local: ubicación de Caracas
-            Livewire.dispatch('guardarUbicacion', {
-                ventaId: notaId,
-                lat: 10.4806,
-                lng: -66.9036
-            });
+    <script>
+        function getUbicacion(ventaId) {
+            if (location.protocol !== 'https:')
+            {
+                // Entorno local: ubicación de Caracas
+                Livewire.dispatch('guardarUbicacion', {
+                    ventaId: ventaId,
+                    lat: 10.4806,
+                    lng: -66.9036
+                });
 
-            alert('Estás en entorno local, se usó ubicación de Caracas.');
-            return;
+                alert('Estás en entorno local, se usó ubicación de Caracas.');
+                return;
+            }
+
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        Livewire.dispatch('guardarUbicacion', {
+                            ventaId: ventaId,
+                            lat: lat,
+                            lng: lng
+                        });
+                    },
+                    function (error) {
+                        Livewire.dispatch('guardarUbicacion', {
+                            ventaId: ventaId,
+                            lat: 10.4806,
+                            lng: -66.9036
+                        });
+
+                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
+                    }
+                );
+            } else
+            {
+                Livewire.dispatch('guardarUbicacion', {
+                    ventaId: ventaId,
+                    lat: 10.4806,
+                    lng: -66.9036
+                });
+
+                alert('Geolocalización no soportada, se usó Caracas.');
+            }
         }
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function (position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-
-                    Livewire.dispatch('guardarUbicacion', {
-                        ventaId: notaId,
-                        lat: lat,
-                        lng: lng
-                    });
-                },
-                function (error) {
-                    // Error: fallback a Caracas
-                    Livewire.dispatch('guardarUbicacion', {
-                        ventaId: notaId,
-                        lat: 10.4806,
-                        lng: -66.9036
-                    });
-
-                    alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
-                }
-            );
-        } else {
-            // Geolocalización no soportada
-            Livewire.dispatch('guardarUbicacion', {
-                ventaId: notaId,
-                lat: 10.4806,
-                lng: -66.9036
-            });
-
-            alert('Geolocalización no soportada, se usó Caracas.');
-        }
-    }
-</script>
+    </script>
 
 </div>

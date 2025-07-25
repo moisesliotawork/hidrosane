@@ -8,7 +8,7 @@ use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
 
-class RepartosToday extends Component
+class Repartos extends Component
 {
     protected $listeners = ['ventaActualizada' => '$refresh', 'guardarUbicacion' => 'guardarUbicacion'];
 
@@ -75,11 +75,8 @@ class RepartosToday extends Component
     {
         $hoy = now()->toDateString();
 
-        //dd($hoy);
-
         return Venta::with(['note.customer.postalCode.city', 'comercial'])
             ->where('repartidor_id', auth()->id())
-            ->whereDate('fecha_entrega', $hoy)
             ->get()
             ->map(function ($venta) {
                 $note = $venta->note;
