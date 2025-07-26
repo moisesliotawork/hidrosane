@@ -8,6 +8,7 @@ use Illuminate\Support\Arr;
 use Filament\Actions\Action;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
+use App\Models\Reparto;
 
 class EditVenta extends EditRecord
 {
@@ -81,6 +82,15 @@ class EditVenta extends EditRecord
             fn() => print ($pdf->output()),
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
+    }
+
+    protected function afterSave(): void
+    {
+        $venta = $this->record;
+
+        if (!Reparto::where('venta_id', $venta->id)->exists()) {
+            Reparto::create(['venta_id' => $venta->id]);
+        }
     }
 
 }

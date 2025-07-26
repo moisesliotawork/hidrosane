@@ -3,7 +3,7 @@
 namespace App\Livewire\Repartidor;
 
 use Livewire\Component;
-use App\Models\Venta;
+use App\Models\Reparto;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
@@ -12,15 +12,21 @@ class RepartosToday extends Component
 {
     protected $listeners = ['ventaActualizada' => '$refresh', 'guardarUbicacion' => 'guardarUbicacion'];
 
-    public function guardarUbicacion($ventaId, $lat, $lng)
+    public function guardarUbicacion($repartoId, $lat, $lng)
     {
-        $venta = Venta::find($ventaId);
-        $venta->lat = $lat;
-        $venta->lng = $lng;
-        $venta->save();
+        $reparto = Reparto::with('venta')->find($repartoId);
+        if (!$reparto || $reparto->venta?->repartidor_id !== auth()->id()) {
+            Notification::make()->title('No autorizado')->danger()->body('No puedes modificar este reparto.')->send();
+            return;
+        }
+
+        $reparto->update([
+            'lat' => $lat,
+            'lng' => $lng,
+        ]);
 
         AnotacionVisita::create([
-            'nota_id' => $venta->note_id,
+            'nota_id' => $reparto->venta->note_id,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
             'cuerpo' => "Ubicación repartidor: [$lat, $lng]",
@@ -29,37 +35,32 @@ class RepartosToday extends Component
         Notification::make()
             ->title('Ubicación guardada')
             ->success()
-            ->body("Ubicación registrada para la venta #{$venta->id}")
+            ->body("Ubicación registrada para el reparto #{$reparto->id}")
             ->send();
     }
 
-    public function toggleDeCamino($ventaId)
+    public function toggleDeCamino($repartoId)
     {
-        $venta = Venta::find($ventaId);
-
-        if (!$venta || $venta->repartidor_id !== auth()->id()) {
-            Notification::make()
-                ->title('No autorizado')
-                ->danger()
-                ->body('No puedes modificar esta venta.')
-                ->send();
+        $reparto = Reparto::with('venta')->find($repartoId);
+        if (!$reparto || $reparto->venta?->repartidor_id !== auth()->id()) {
+            Notification::make()->title('No autorizado')->danger()->body('No puedes modificar este reparto.')->send();
             return;
         }
 
-        $venta->de_camino = !$venta->de_camino;
-        $venta->save();
+        $reparto->de_camino = !$reparto->de_camino;
+        $reparto->save();
 
         AnotacionVisita::create([
-            'nota_id' => $venta->note_id,
+            'nota_id' => $reparto->venta->note_id,
             'author_id' => auth()->id(),
             'asunto' => 'REPARTO',
-            'cuerpo' => $venta->de_camino ? "Repartidor en camino" : "Repartidor NO en camino",
+            'cuerpo' => $reparto->de_camino ? "Repartidor en camino" : "Repartidor NO en camino",
         ]);
 
         Notification::make()
             ->title('Estado actualizado')
             ->success()
-            ->body($venta->de_camino ? 'Marcado como EN CAMINO' : 'Marcado como NO EN CAMINO')
+            ->body($reparto->de_camino ? 'Marcado como EN CAMINO' : 'Marcado como NO EN CAMINO')
             ->send();
 
         $this->dispatch('ventaActualizada');
@@ -71,29 +72,30 @@ class RepartosToday extends Component
         return redirect()->to($url);
     }
 
-    public function getVentasProperty()
+    public function getRepartosProperty()
     {
         $hoy = now()->toDateString();
 
-        //dd($hoy);
-
-        return Venta::with(['note.customer.postalCode.city', 'comercial'])
-            ->where('repartidor_id', auth()->id())
-            ->whereDate('fecha_entrega', $hoy)
+        return Reparto::with('venta.note.customer.postalCode.city', 'venta.comercial')
+            ->whereHas('venta', fn($q) => $q->where('repartidor_id', auth()->id())->whereDate('fecha_entrega', $hoy))
             ->get()
-            ->map(function ($venta) {
+            ->map(function ($reparto) {
+                $venta = $reparto->venta;
                 $note = $venta->note;
-                $postalCode = $note->customer->postalCode->code ?? null;
-                $city = $note->customer->postalCode->city->title ?? null;
+                $customer = $note->customer;
+
+                $postalCode = $customer->postalCode->code ?? null;
+                $city = $customer->postalCode->city->title ?? null;
                 $addressInfo = $postalCode && $city ? "$postalCode, $city" : ($postalCode ?? $city ?? 'Sin ubicación');
 
                 return [
+                    'reparto_id' => $reparto->id,
                     'venta_id' => $venta->id,
                     'note_id' => $note->id,
                     'nro_nota' => $note->nro_nota,
                     'nro_contrato' => $venta->nro_contrato,
-                    'customer' => $note->customer->name ?? 'Sin cliente',
-                    'primary_address' => $note->customer->primary_address ?? 'Sin dirección',
+                    'customer' => $customer->name ?? 'Sin cliente',
+                    'primary_address' => $customer->primary_address ?? 'Sin dirección',
                     'address_info' => $addressInfo,
                     'comercial' => $venta->comercial->empleado_id ?? 'Sin comercial',
                     'visit_date' => optional($note->visit_date)->format('d/m/Y'),
@@ -102,16 +104,20 @@ class RepartosToday extends Component
                     'fuente' => $note->fuente->value,
                     'fuente_label' => $note->fuente->getLabel(),
                     'fuente_puntaje' => $note->fuente->getPuntaje(),
-                    'de_camino' => $venta->de_camino,
+                    'de_camino' => $reparto->de_camino,
+                    'lat' => $reparto->lat,
+                    'lng' => $reparto->lng,
                     'show_phone' => $note->show_phone,
-                    'phone' => $note->customer->phone,
-                    'secondary_phone' => $note->customer->secondary_phone,
+                    'phone' => $customer->phone,
+                    'secondary_phone' => $customer->secondary_phone,
                 ];
             });
     }
 
     public function render()
     {
-        return view('livewire.repartidor.repartos-today');
+        return view('livewire.repartidor.repartos-today', [
+            'repartos' => $this->repartos,
+        ]);
     }
 }

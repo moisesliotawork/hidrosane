@@ -224,12 +224,12 @@
     <div class="overflow-x-auto">
         <div class="mobile-optimized">
             <div class="space-y-4">
-                @forelse($this->ventas as $note)
+                @forelse($this->repartos as $reparto)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                         <!-- Línea superior con todos los elementos -->
                         <div class="flex items-center justify-between mb-3">
                             @php
-                                $colorData = match ($note['fuente_puntaje']) {
+                                $colorData = match ($reparto['fuente_puntaje']) {
                                     4950 => ['bg_color' => '#f67400', 'text_color' => '#ffffff'],
                                     8900 => ['bg_color' => '#166534', 'text_color' => '#ffffff'],
                                     7500 => ['bg_color' => '#1e40af', 'text_color' => '#ffffff'],
@@ -237,94 +237,89 @@
                                 };
                             @endphp
 
-                            <!-- Grupo izquierdo - Fecha y Hora -->
                             <div class="flex flex-col gap-1">
                                 <div class="flex gap-2">
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Fecha</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['visit_date'] }}
+                                            {{ $reparto['visit_date'] }}
                                         </span>
                                     </div>
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Horario</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['visit_schedule'] ?? '--:--' }}
+                                            {{ $reparto['visit_schedule'] ?? '--:--' }}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Grupo central - Nro Nota, Puntaje y Comercial -->
                             <div class="flex flex-col gap-1">
                                 <div class="flex gap-2">
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Nro Contrato</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: #00248c; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['nro_contrato'] }}
+                                            {{ $reparto['nro_contrato'] }}
                                         </span>
                                     </div>
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Nro Nota</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: #00248c; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['nro_nota'] }}
+                                            {{ $reparto['nro_nota'] }}
                                         </span>
                                     </div>
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Ptos</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['fuente_puntaje'] }} pts
+                                            {{ $reparto['fuente_puntaje'] }} pts
                                         </span>
                                     </div>
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Comercial</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
                                             style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['comercial'] }}
+                                            {{ $reparto['comercial'] }}
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Información del cliente -->
-                        <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
-                        <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
+                        <h3 class="customer-name dark:text-white">{{ $reparto['customer'] }}</h3>
+                        <p class="customer-address dark:text-white">{{ $reparto['primary_address'] }}</p>
+                        <p class="customer-address dark:text-white">{{ $reparto['address_info'] }}</p>
 
-                        @if($note['show_phone'])
+                        @if($reparto['show_phone'])
                             <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                                <p class="customer-phone">Tlf 1: {{ $reparto['phone'] ?? 'No disponible' }}</p>
+                                @if($reparto['secondary_phone'])
+                                    <p class="customer-phone">Tlf 2: {{ $reparto['secondary_phone'] }}</p>
                                 @endif
                             </div>
                         @endif
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
-                        <!-- Botones de acción -->
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['venta_id'] }})">
+                            <button class="action-button" wire:click="toggleDeCamino({{ $reparto['reparto_id'] }})">
                                 De Camino
                             </button>
-                            <button class="action-button" onclick="getUbicacion({{ $note['venta_id'] }})">
+                            <button class="action-button" onclick="getUbicacion({{ $reparto['reparto_id'] }})">
                                 GPS
                             </button>
-                            <button class="action-button" wire:click="redirigirAVenta({{ $note['venta_id'] }})">
+                            <button class="action-button" wire:click="redirigirAVenta({{ $reparto['venta_id'] }})">
                                 Dentro
                             </button>
-                            <button class=" action-button">Llévame</button>
+                            <button class="action-button">Llévame</button>
                         </div>
 
-                        <!-- Nuevo botón que ocupa todo el ancho -->
-                        <div class="mt-1"> <!-- Margen superior pequeño para separar -->
-                            <button class="action-button w-full"> <!-- w-full para que ocupe todo el ancho -->
+                        <div class="mt-1">
+                            <button class="action-button w-full">
                                 Gestionar
                             </button>
                         </div>
@@ -337,17 +332,16 @@
             </div>
         </div>
     </div>
+
     <script>
-        function getUbicacion(ventaId) {
+        function getUbicacion(repartoId) {
             if (location.protocol !== 'https:')
             {
-                // Entorno local: ubicación de Caracas
                 Livewire.dispatch('guardarUbicacion', {
-                    ventaId: ventaId,
+                    repartoId: repartoId,
                     lat: 10.4806,
                     lng: -66.9036
                 });
-
                 alert('Estás en entorno local, se usó ubicación de Caracas.');
                 return;
             }
@@ -358,34 +352,30 @@
                     function (position) {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
-
                         Livewire.dispatch('guardarUbicacion', {
-                            ventaId: ventaId,
+                            repartoId: repartoId,
                             lat: lat,
                             lng: lng
                         });
                     },
                     function (error) {
                         Livewire.dispatch('guardarUbicacion', {
-                            ventaId: ventaId,
+                            repartoId: repartoId,
                             lat: 10.4806,
                             lng: -66.9036
                         });
-
                         alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
                     }
                 );
             } else
             {
                 Livewire.dispatch('guardarUbicacion', {
-                    ventaId: ventaId,
+                    repartoId: repartoId,
                     lat: 10.4806,
                     lng: -66.9036
                 });
-
                 alert('Geolocalización no soportada, se usó Caracas.');
             }
         }
     </script>
-
 </div>

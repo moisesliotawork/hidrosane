@@ -8,6 +8,7 @@ use Filament\Resources\Pages\CreateRecord;
 use App\Models\Venta;
 use App\Models\PostalCode;
 use App\Models\Note;
+use App\Models\Reparto;
 
 class CreateVenta extends CreateRecord
 {
@@ -66,6 +67,10 @@ class CreateVenta extends CreateRecord
 
         /* 4. Guardar ofertas + productos ------------------------------------ */
         $this->form->model($venta)->saveRelationships();
+
+        if (!Reparto::where('venta_id', $venta->id)->exists()) {
+            Reparto::create(['venta_id' => $venta->id]);
+        }
 
         return $venta;
     }

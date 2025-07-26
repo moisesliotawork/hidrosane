@@ -24,14 +24,21 @@ class Oferta extends Model
     {
         // de paso accedemos a precio_cerrado y puntos desde el pivot
         return $this->belongsToMany(Venta::class, 'venta_ofertas')
-                    ->using(VentaOferta::class)   // “custom pivot” = el modelo intermedio
-                    ->withPivot(['precio_cerrado', 'puntos'])
-                    ->withTimestamps();
+            ->using(VentaOferta::class)   // “custom pivot” = el modelo intermedio
+            ->withPivot(['precio_cerrado', 'puntos'])
+            ->withTimestamps();
     }
 
     // relación directa al modelo intermedio
     public function ventaOfertas(): HasMany
     {
         return $this->hasMany(VentaOferta::class);
+    }
+
+    public function productos()
+    {
+        return $this->belongsToMany(\App\Models\Producto::class, 'oferta_productos')
+            ->withPivot('cantidad', 'puntos') // si tienes columnas adicionales
+            ->withTimestamps(); // opcional
     }
 }
