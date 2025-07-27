@@ -66,7 +66,11 @@ class VentaResource extends Resource
                         TextInput::make('last_names')->label('Apellidos')->required(),
                         TextInput::make('dni')->label('DNI')->columnSpanFull(),
 
-                        DatePicker::make('fecha_nac')->label('Fec. nac.'),
+                        DatePicker::make('fecha_nac')
+                            ->label('Fec. nac.')
+                            ->timezone('Europe/Madrid')
+                            ->native(false),
+
                         TextInput::make('age')->numeric()->label('Edad'),
 
                         TextInput::make('phone')->label('Teléfono')->tel()->required(),
@@ -517,7 +521,11 @@ class VentaResource extends Resource
                         ->nullable()
                         ->preload()
                         ->columnSpanFull(),
-                    DatePicker::make('fecha_entrega')->label('Fecha de entrega')->required(),
+                    DatePicker::make('fecha_entrega')
+                        ->label('Fecha de entrega')
+                        ->required()
+                        ->timezone('Europe/Madrid')
+                        ->native(false),
                     Select::make('horario_entrega')
                         ->label('Horario de entrega')
                         ->options(HorarioNotas::options())

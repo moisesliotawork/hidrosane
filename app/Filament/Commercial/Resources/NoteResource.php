@@ -164,6 +164,8 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\DatePicker::make('visit_date')
                             ->disabled()
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
                             ->label('Fecha de visita')
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),

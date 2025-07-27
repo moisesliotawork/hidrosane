@@ -78,6 +78,7 @@ class UserResource extends Resource
                     ->displayFormat('d/m/Y')
                     ->format('Y-m-d')
                     ->native(false)
+                    ->timezone('Europe/Madrid')
                     ->live()
                     ->afterStateUpdated(function (Set $set, $state) {
                         // Al seleccionar una fecha, establece la hora a medianoche (00:00:00)

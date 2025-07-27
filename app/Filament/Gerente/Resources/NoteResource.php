@@ -157,6 +157,8 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\DatePicker::make('visit_date')
                             ->label('Fecha de visita')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
                             ->default(now()->addDay()->toDateString()) // Default mañana
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),

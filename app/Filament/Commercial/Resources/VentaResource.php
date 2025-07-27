@@ -44,7 +44,7 @@ class VentaResource extends Resource
 
     public static function form(Form $form): Form
     {
-        
+
         return $form
             ->schema([
                 /* ---------- Cliente (editable) ---------- */
@@ -72,7 +72,9 @@ class VentaResource extends Resource
                                         ->columnSpanFull(),          // ocupa el ancho completo
 
                                     DatePicker::make('fecha_nac')
-                                        ->label('Fec. nac.'),
+                                        ->label('Fec. nac.')
+                                        ->timezone('Europe/Madrid')
+                                        ->native(false),
 
                                     TextInput::make('age')
                                         ->numeric()
@@ -595,6 +597,8 @@ class VentaResource extends Resource
                 Section::make('Informe al REPARTIDOR')->schema([
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
                         ->required(),
                     Select::make('horario_entrega')
                         ->label('Horario de entrega')
