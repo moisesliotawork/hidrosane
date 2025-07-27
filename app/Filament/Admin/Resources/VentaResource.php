@@ -31,7 +31,10 @@ class VentaResource extends Resource
 {
 
     protected static ?string $model = Venta::class;
-    protected static ?string $navigationLabel = 'Ventas';
+    protected static ?string $navigationLabel = 'Contratos';
+    protected static ?string $modelLabel = 'Contrato';
+    protected static ?string $pluralModelLabel = 'Contratos';
+    protected static ?string $breadcrumb = 'Contratos';
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
 
@@ -523,7 +526,19 @@ class VentaResource extends Resource
                         ->required(),
                     TextInput::make('motivo_venta')->label('Motivo de la venta'),
                     TextInput::make('motivo_horario')->label('Motivo del horario'),
-                    Toggle::make('interes_art')->label('¿Interés en otros artículos?'),
+                    Toggle::make('interes_art')
+                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
+                        ->reactive(),
+
+                    Forms\Components\Textarea::make('interes_art_detalle')
+                        ->label('Otros artículos de interés')
+                        ->placeholder('Detalle los artículos que despertaron interés')
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->visible(fn(Get $get) => (bool) $get('interes_art'))
+                        ->required(fn(Get $get) => (bool) $get('interes_art'))
+                        ->maxLength(500),
+
                     Forms\Components\Textarea::make('observaciones_repartidor')
                         ->label('Observaciones')
                         ->rows(3)
