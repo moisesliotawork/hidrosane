@@ -68,7 +68,7 @@ class RepartosToday extends Component
 
     public function redirigirAVenta($ventaId)
     {
-        $url = VentaResource::getUrl('edit', ['record' => $ventaId], panel: 'comercial');
+        $url = VentaResource::getUrl('view', ['record' => $ventaId], panel: 'repartidor');
         return redirect()->to($url);
     }
 
