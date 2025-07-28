@@ -9,6 +9,13 @@ class ViewVenta extends ViewRecord
 {
     protected static string $resource = VentaResource::class;
 
+    public bool $showNuloReparto = false;
+    public bool $showNuloFinanciero = false;
+
+    public bool $showNuloAusente = false;
+
+    public bool $showEntregaSimple = false;
+
     protected function getHeaderActions(): array
     {
         return []; // sin botones

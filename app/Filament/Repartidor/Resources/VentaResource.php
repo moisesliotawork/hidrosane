@@ -107,6 +107,151 @@ class VentaResource extends Resource
                         ->label('Observaciones')
                         ->columnSpanFull(),
                 ]),
+
+
+            Section::make('Declaraciones especiales')
+                ->schema([
+                    Grid::make(4)->schema([
+
+                        // 🔴 NULO REPARTO
+                        Section::make()->schema([
+                            Actions::make([
+                                Action::make('toggle_nulo_reparto')
+                                    ->label('NULO REPARTO')
+                                    ->color('gray_light')
+                                    ->icon(fn($livewire) => $livewire->showNuloReparto ? 'heroicon-m-chevron-up' : 'heroicon-m-chevron-down')
+                                    ->action(fn($livewire) => $livewire->showNuloReparto = !$livewire->showNuloReparto),
+                            ]),
+
+                            TextEntry::make('nulo_reparto_explicacion')
+                                ->label(null)
+                                ->state(fn() => collect([
+                                    '1. No se entrega NINGÚN ARTÍCULO del contrato',
+                                    '2. El CLIENTE RECHAZA la venta y la entrega',
+                                ])->implode('<br>'))
+                                ->html()
+                                ->visible(fn($livewire) => $livewire->showNuloReparto)
+                                ->extraAttributes(['class' => 'text-sm text-gray-700']),
+
+                            Actions::make([
+                                Action::make('declarar_nulo_reparto')
+                                    ->label('Declarar NULO en REPARTO')
+                                    ->color('gray_light')
+                                    ->icon('heroicon-m-x-circle')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('¿Confirmas que el reparto es NULO?')
+                                    ->modalDescription('No se entregó nada y el cliente rechazó la entrega.')
+                                    ->visible(fn($livewire) => $livewire->showNuloReparto)
+                                    ->action(fn($record) => $record->reparto?->update(['estado' => 'nulo_reparto'])),
+                            ]),
+                        ]),
+
+                        // 🔴 NULO FINANCIERO
+                        Section::make()->schema([
+                            Actions::make([
+                                Action::make('toggle_nulo_financiero')
+                                    ->label('NULO FINANCIERO')
+                                    ->color('danger')
+                                    ->icon(fn($livewire) => $livewire->showNuloFinanciero ? 'heroicon-m-chevron-up' : 'heroicon-m-chevron-down')
+                                    ->action(fn($livewire) => $livewire->showNuloFinanciero = !$livewire->showNuloFinanciero),
+                            ]),
+
+                            TextEntry::make('nulo_financiero_explicacion')
+                                ->label(null)
+                                ->state(fn() => collect([
+                                    '1. No se entrega <strong>NINGÚN ARTÍCULO</strong> del contrato.',
+                                    '2. El <u>CLIENTE NO DISPONE DE FINANCIACIÓN</u>',
+                                ])->implode('<br>'))
+                                ->html()
+                                ->visible(fn($livewire) => $livewire->showNuloFinanciero)
+                                ->extraAttributes(['class' => 'text-sm text-gray-700']),
+
+                            Actions::make([
+                                Action::make('declarar_nulo_financiero')
+                                    ->label('Declarar NULO FINANCIERO')
+                                    ->color('gray_light')
+                                    ->icon('heroicon-m-x-circle')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('¿Confirmas que es NULO por motivos financieros?')
+                                    ->modalDescription('No se entregó nada y el cliente no dispone de financiación.')
+                                    ->visible(fn($livewire) => $livewire->showNuloFinanciero)
+                                    ->action(fn($record) => $record->reparto?->update(['estado' => 'nulo_financiero'])),
+                            ]),
+                        ]),
+
+                        // 🟦 NULO POR AUSENTE
+                        Section::make()->schema([
+                            Actions::make([
+                                Action::make('toggle_nulo_ausente')
+                                    ->label('NULO POR AUSENTE')
+                                    ->color('info')
+                                    ->icon(fn($livewire) => $livewire->showNuloAusente ? 'heroicon-m-chevron-up' : 'heroicon-m-chevron-down')
+                                    ->action(fn($livewire) => $livewire->showNuloAusente = !$livewire->showNuloAusente),
+                            ]),
+
+                            TextEntry::make('nulo_ausente_explicacion')
+                                ->label(null)
+                                ->state(fn() => collect([
+                                    '1. No se entrega <strong>NINGÚN ARTÍCULO</strong> del contrato.',
+                                    '2. El <u>CLIENTE NO ESTÁ EN EL DOMICILIO.</u>',
+                                ])->implode('<br>'))
+                                ->html()
+                                ->visible(fn($livewire) => $livewire->showNuloAusente)
+                                ->extraAttributes(['class' => 'text-sm text-gray-700']),
+
+                            Actions::make([
+                                Action::make('declarar_nulo_ausente')
+                                    ->label('Declarar NULO POR AUSENTE')
+                                    ->color('gray_light')
+                                    ->icon('heroicon-m-user-minus')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('¿Confirmas que el cliente no se encontraba en el domicilio?')
+                                    ->modalDescription('No se entregó nada y el cliente no estaba presente.')
+                                    ->visible(fn($livewire) => $livewire->showNuloAusente)
+                                    ->action(fn($record) => $record->reparto?->update(['estado' => 'nulo_ausente'])),
+                            ]),
+                        ]),
+
+                        // ✅ ENTREGA SIMPLE
+                        Section::make()->schema([
+                            Actions::make([
+                                Action::make('toggle_entrega_simple')
+                                    ->label('ENTREGA SIMPLE')
+                                    ->color('gray_light')
+                                    ->icon(fn($livewire) => $livewire->showEntregaSimple ? 'heroicon-m-chevron-up' : 'heroicon-m-chevron-down')
+                                    ->action(fn($livewire) => $livewire->showEntregaSimple = !$livewire->showEntregaSimple),
+                            ]),
+
+                            TextEntry::make('entrega_simple_explicacion')
+                                ->label(null)
+                                ->state(fn() => collect([
+                                    '1. Se ha firmado al menos <span class="text-green-600 font-semibold underline">1 CONTRATO Y 1 PÓLIZA</span>.',
+                                    '2. Has entregado todos o parte de los artículos vendidos.',
+                                    '3. No has realizado <span class="text-red-600 font-semibold underline">NINGUNA</span> venta como repartidor.',
+                                ])->implode('<br>'))
+                                ->html()
+                                ->visible(fn($livewire) => $livewire->showEntregaSimple)
+                                ->extraAttributes(['class' => 'text-sm text-gray-700']),
+
+                            Actions::make([
+                                Action::make('declarar_entrega_simple')
+                                    ->label('✔ Declarar ENTREGA SIMPLE ✔')
+                                    ->color('success')
+                                    ->icon('heroicon-m-check-badge')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('¿Confirmas que se ha realizado una ENTREGA SIMPLE?')
+                                    ->modalDescription('El contrato y la póliza están firmados, los productos fueron entregados y no hiciste venta como repartidor.')
+                                    ->visible(fn($livewire) => $livewire->showEntregaSimple)
+                                    ->action(fn($record) => $record->reparto?->update(['estado' => 'entrega_simple'])),
+                            ]),
+                        ]),
+                    ]),
+                ])
+                ->columnSpanFull()
+
+
+
+
         ]);
     }
 

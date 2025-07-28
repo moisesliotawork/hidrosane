@@ -232,4 +232,10 @@ class Venta extends Model
         return $this->belongsTo(User::class, 'repartidor_id');
     }
 
+    public function reparto()
+    {
+        return $this->hasOne(Reparto::class);
+    }
+
+
 }
