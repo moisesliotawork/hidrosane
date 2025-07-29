@@ -239,16 +239,60 @@ class VentaResource extends Resource
                                     ->color('success')
                                     ->icon('heroicon-m-check-badge')
                                     ->requiresConfirmation()
-                                    ->modalHeading('¿Confirmas que se ha realizado una ENTREGA SIMPLE?')
-                                    ->modalDescription('El contrato y la póliza están firmados, los productos fueron entregados y no hiciste venta como repartidor.')
+                                    ->modalHeading('Declarar ENTREGA SIMPLE')
+                                    ->modalContent(fn($record) => view('filament.modals.entrega-simple', [
+                                        'contrato' => $record->nro_contrato,
+                                    ]))
+
                                     ->visible(fn($livewire) => $livewire->showEntregaSimple)
-                                    ->action(fn($record) => $record->reparto?->update(['estado' => 'entrega_simple'])),
+                                    ->action(fn($record) => $record->reparto?->update([
+                                        'estado' => 'entrega_simple',
+                                    ])),
                             ]),
+
                         ]),
+
+                        // ✅ ENTREGA CON VENTA
+                        Section::make()->schema([
+                            Actions::make([
+                                Action::make('toggle_entrega_venta')
+                                    ->label('ENTREGA CON VENTA')
+                                    ->color('success')
+                                    ->icon(fn($livewire) => $livewire->showEntregaVenta ? 'heroicon-m-chevron-up' : 'heroicon-m-chevron-down')
+                                    ->action(fn($livewire) => $livewire->showEntregaVenta = !$livewire->showEntregaVenta),
+                            ]),
+
+                            TextEntry::make('entrega_venta_explicacion')
+                                ->label(null)
+                                ->state(fn($record) => collect([
+                                    '1. <span class="text-green-600 font-semibold">El cliente ha firmado algún contrato.</span>',
+                                    '2. Has entregado todos o parte de los artículos vendidos.',
+                                    '3. <span class="text-red-600 font-semibold">Has realizado alguna venta como repartidor.</span>',
+                                ])->implode('<br>'))
+                                ->html()
+                                ->visible(fn($livewire) => $livewire->showEntregaVenta)
+                                ->extraAttributes(['class' => 'text-sm text-gray-700']),
+
+                            Actions::make([
+                                Action::make('declarar_entrega_venta')
+                                    ->label('✔ Declarar ENTREGA CON VENTA')
+                                    ->color('success')
+                                    ->icon('heroicon-m-check-circle')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('Declarar ENTREGA CON VENTA')
+                                    ->modalContent(fn($record) => view('filament.modals.entrega-venta', [
+                                        'contrato' => $record->nro_contrato,
+                                    ]))
+                                    ->visible(fn($livewire) => $livewire->showEntregaVenta)
+                                    ->action(fn($record) => $record->reparto?->update([
+                                        'estado' => 'entrega_venta',
+                                    ])),
+                            ]),
+                        ])
+
                     ]),
                 ])
                 ->columnSpanFull()
-
 
 
 

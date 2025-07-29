@@ -16,6 +16,8 @@ class ViewVenta extends ViewRecord
 
     public bool $showEntregaSimple = false;
 
+    public bool $showEntregaVenta = false;
+
     protected function getHeaderActions(): array
     {
         return []; // sin botones
