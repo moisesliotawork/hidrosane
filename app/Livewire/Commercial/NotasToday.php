@@ -88,7 +88,7 @@ class NotasToday extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-        
+
         $url = NoteResource::getUrl(
             'edit',
             ['record' => $noteId],
@@ -104,14 +104,19 @@ class NotasToday extends Component
     {
         $hoy = now()->format('Y-m-d');
 
+        //dd($hoy);
+
 
 
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())
-            ->whereDate('assignment_date', $hoy)
-            ->whereIn('estado_terminal', [null, ''])
+            ->whereDate('assignment_date', today())
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '');
+            })
             ->whereDoesntHave('venta')
-            ->latest()
+            ->latest('assignment_date')
             ->get()
             ->map(function ($note) {
                 $postalCode = $note->customer->postalCode->code ?? null;

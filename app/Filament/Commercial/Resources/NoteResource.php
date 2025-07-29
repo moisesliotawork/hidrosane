@@ -307,8 +307,9 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
 
-                Tables\Columns\TextColumn::make('fecha_asig')
+                Tables\Columns\TextColumn::make('assignment_date')
                     ->label('Asig.')
+                    ->date("d/m/Y")
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('visit_schedule')
@@ -349,7 +350,10 @@ class NoteResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('comercial_id', auth()->id())
-            ->whereIn('estado_terminal', [null, '']);
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '');
+            });
     }
 
     public static function canCreate(): bool
