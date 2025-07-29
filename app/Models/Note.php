@@ -91,6 +91,7 @@ class Note extends Model
         'show_phone',
         'estado_terminal',
         'productos_externos',
+        'ayuntamiento',
     ];
 
     /**

@@ -136,6 +136,11 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->disabled()
                             ->label('Parroquia (opcional)'),
+
+                        Forms\Components\TextInput::make('ayuntamiento')
+                            ->maxLength(255)
+                            ->required()
+                            ->label('Ayuntamiento'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Gestión Comercial')
