@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $venta_oferta_id
  * @property int $producto_id
  * @property int $cantidad
+ * @property int $cantidad_entregada   Cantidad que entregó el repartidor
  * @property int|null $puntos_linea
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -38,12 +39,14 @@ class VentaOfertaProducto extends Model
         'venta_oferta_id',
         'producto_id',
         'cantidad',
+        'cantidad_entregada',
         'puntos_linea',
     ];
 
     protected $casts = [
         'cantidad' => 'integer',
         'puntos_linea' => 'integer',
+        'cantidad_entregada' => 'integer',
     ];
 
     /* ---------- Relaciones ---------- */

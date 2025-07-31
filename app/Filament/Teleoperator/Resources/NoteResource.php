@@ -276,8 +276,9 @@ class NoteResource extends Resource
                     ->sortable()
                     ->label('Estado'),
 
-                Tables\Columns\TextColumn::make('fecha_asig')
+                Tables\Columns\TextColumn::make('assignment_date')
                     ->label('Asig.')
+                    ->date("d/m/Y")
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('visit_schedule')
