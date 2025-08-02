@@ -23,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\Venta::observe(\App\Observers\VentaObserver::class);
+
         //Personalizar colores de filament
         FilamentColor::register([
             'danger' => Color::Red,

@@ -293,9 +293,19 @@ class VentaResource extends Resource
                                         'contrato' => $record->nro_contrato,
                                     ]))
                                     ->visible(fn($livewire) => $livewire->showEntregaVenta)
-                                    ->action(fn($record) => $record->reparto?->update([
-                                        'estado' => 'entrega_venta',
-                                    ])),
+                                    ->action(function ($record) {
+                                        // 1) Cambiamos el estado del reparto
+                                        $reparto = $record->reparto;
+                                        if ($reparto) {
+                                            $reparto->update(['estado' => 'entrega_venta']);
+                                        }
+
+                                        // 2) Redirigimos a la página Edit del EntregaSimpleResource
+                                        return redirect()->to(
+                                            EntregaConVentaResource::getUrl('edit', ['record' => $reparto?->venta_id])
+                                        );
+                                    }),
+
                             ]),
                         ])
 

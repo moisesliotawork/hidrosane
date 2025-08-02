@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
+use App\Enums\EstadoEntrega;
+use Illuminate\Support\Collection;
 
 /**
  * @property int $id
@@ -237,5 +239,34 @@ class Venta extends Model
         return $this->hasOne(Reparto::class);
     }
 
+    public function refreshEstadoEntrega(): void
+    {
+        // 1️⃣  Reúne todas las líneas de todos los packs/ofertas
+        /** @var Collection<int,array{cantidad:int,cantidad_entregada:int|null}> $lineas */
+        $lineas = $this->ventaOfertas()
+            ->with('productos')               // eager-load
+            ->get()
+            ->flatMap->productos;             // cada producto tiene ‘cantidad’ y ‘cantidad_entregada’
+
+        if ($lineas->isEmpty()) {
+            return; // sin detalle ⇒ no tocamos nada
+        }
+
+        // 2️⃣  Sumas globales
+        $vendidas   = $lineas->sum('cantidad');
+        $entregadas = $lineas->sum(fn ($l) => (int) $l['cantidad_entregada']);
+
+        // 3️⃣  Determinar nuevo estado
+        $estado = match (true) {
+            $entregadas === 0              => EstadoEntrega::NO_ENTREGADO,
+            $entregadas <  $vendidas       => EstadoEntrega::PARCIAL,
+            default                        => EstadoEntrega::COMPLETO,
+        };
+
+        // 4️⃣  Actualizar el reparto (si existe y ha cambiado)
+        if ($this->reparto && $this->reparto->estado_entrega !== $estado) {
+            $this->reparto->update(['estado_entrega' => $estado]);
+        }
+    }
 
 }

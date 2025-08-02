@@ -14,11 +14,4 @@ class EditEntregaSimple extends EditRecord
     {
         return 'Entrega SIMPLE del contrato ' . $this->record->nro_contrato;
     }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Actions\DeleteAction::make(),
-        ];
-    }
 }
