@@ -4,7 +4,7 @@ namespace App\Filament\Repartidor\Resources;
 
 use App\Filament\Repartidor\Resources\EntregaConVentaResource\Pages;
 use App\Filament\Repartidor\Resources\EntregaConVentaResource\RelationManagers;
-use App\Models\EntregaConVenta;
+use App\Models\Venta;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -60,8 +60,21 @@ class EntregaConVentaResource extends Resource
     {
         return [
             'index' => Pages\ListEntregaConVentas::route('/'),
-            'create' => Pages\CreateEntregaConVenta::route('/create'),
             'edit' => Pages\EditEntregaConVenta::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+    public static function canViewAny(): bool
+    {
+        return true;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
     }
 }

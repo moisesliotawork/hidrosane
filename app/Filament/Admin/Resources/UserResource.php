@@ -44,8 +44,14 @@ class UserResource extends Resource
                     ->rules(['regex:/^\d{3}$/']),
 
                 TextInput::make("name")->required()->label('Nombres'),
-                TextInput::make("email")->required(),
                 TextInput::make("last_name")->label('Apellidos')->required(),
+
+                TextInput::make("email")->required(),
+                TextInput::make('direccion')
+                    ->label('Dirección')
+                    ->maxLength(255)
+                    ->nullable(),
+
                 TextInput::make('password')
                     ->label('Contraseña')
                     ->password() // Oculta el texto por defecto
@@ -85,6 +91,15 @@ class UserResource extends Resource
                         $set('alta_empleado', Carbon::parse($state)->startOfDay());
                     })
                     ->dehydrated(),
+
+                DatePicker::make('baja')
+                    ->label('Fecha de baja')
+                    ->displayFormat('d/m/Y')
+                    ->format('Y-m-d')
+                    ->seconds(false)        // oculta los segundos
+                    ->timezone('Europe/Madrid')
+                    ->native(false)
+                    ->nullable(),
                 Forms\Components\TextInput::make('phone')
                     ->tel()
                     ->required()

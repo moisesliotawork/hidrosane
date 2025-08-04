@@ -84,7 +84,9 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'alta_empleado',
         'password',
-        'phone'
+        'phone',
+        'direccion',
+        'baja',
     ];
 
     /**
@@ -99,6 +101,7 @@ class User extends Authenticatable implements FilamentUser
 
     protected $casts = [
         'alta_empleado' => 'datetime',
+        'baja'          => 'datetime',
     ];
 
     /**
