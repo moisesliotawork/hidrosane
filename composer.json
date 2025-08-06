@@ -12,6 +12,7 @@
         "filament/spatie-laravel-translatable-plugin": "^3.3",
         "kingmaker/filament-flex-layout": "^1.0",
         "laravel/framework": "^12.0",
+        "laravel/horizon": "^5.33",
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.6",
         "spatie/laravel-permission": "^6.20",

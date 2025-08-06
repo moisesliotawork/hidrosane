@@ -9,4 +9,5 @@ return [
     App\Providers\Filament\RepartidorPanelProvider::class,
     App\Providers\Filament\SuperAdminPanelProvider::class,
     App\Providers\Filament\TeleoperatorPanelProvider::class,
+    App\Providers\HorizonServiceProvider::class,
 ];
