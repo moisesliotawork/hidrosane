@@ -57,7 +57,6 @@ class ListNotes extends ListRecords
         ];
 
         // Si no es jefe de equipo, devolvemos solo “Todas”
-        // Si no es jefe, devolvemos solo “Todas”
         if (!$user->hasRole('team_leader')) {
             return $tabs;
         }
