@@ -253,8 +253,9 @@ class NoteDescResource extends Resource
                         return 'success';
                     }),
 
-                Tables\Columns\TextColumn::make('fecha_asig')
+                Tables\Columns\TextColumn::make('assignment_date')
                     ->label('Asig.')
+                    ->date("d/m/Y")
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('visit_schedule')
@@ -282,7 +283,7 @@ class NoteDescResource extends Resource
                     ->options(NoteStatus::options())
                     ->label('Estado'),
 
-                Tables\Filters\Filter::make('fecha_asig')
+                Tables\Filters\Filter::make('assignment_date')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha exacta de asignación')
