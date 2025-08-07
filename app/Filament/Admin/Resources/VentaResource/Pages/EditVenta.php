@@ -53,6 +53,13 @@ class EditVenta extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('preview')
+                ->label('Vista previa')
+                ->icon('heroicon-o-eye')
+                ->url(fn(Venta $record) => route('ventas.preview', $record))
+                ->openUrlInNewTab()               // ⇢ abre la URL en otra pestaña
+                ->color('gray'),
+
             Action::make('pdf')
                 ->label('Contrato PDF')
                 ->icon('heroicon-o-document-text')
