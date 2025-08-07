@@ -22,6 +22,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\Team;
 
 class NoteResource extends Resource
 {
@@ -282,6 +283,12 @@ class NoteResource extends Resource
                     ->color(Color::Gray)
                     ->label('# Nota'),
 
+                Tables\Columns\TextColumn::make('comercial.empleado_id')
+                    ->label('Comercial ID')
+                    ->badge()
+                    ->color(Color::Blue)
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('user.empleado_id')
                     ->searchable()
                     ->badge()
@@ -348,12 +355,43 @@ class NoteResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->where('comercial_id', auth()->id())
-            ->where(function ($q) {
-                $q->whereNull('estado_terminal')
-                    ->orWhere('estado_terminal', '');
-            });
+        $user = auth()->user();
+
+        // 1) IDs base: propio usuario
+        $ids = collect([$user->id]);
+
+        // 2) Si es líder, añadir miembros
+        if ($user->hasRole('team_leader')) {
+            $team = Team::where('team_leader_id', $user->id)->first();
+            if ($team) {
+                $ids = $ids->merge(
+                    $team->members()->pluck('users.id')
+                )->unique();
+            }
+        }
+
+        // 3) Construir query inicial
+        $query = parent::getEloquentQuery()
+            ->whereIn('comercial_id', $ids->all());
+
+        // 4) Detectar tab activo: “com_{ID}”
+        $active = request()->query('activeTab', '');
+
+        if (Str::startsWith($active, 'com_')) {
+            $comId = (int) Str::after($active, 'com_');
+
+            if ($comId > 0) {
+                $query->where('comercial_id', $comId);
+            }
+        }
+
+        // 5) Filtrar siempre estado_terminal vacío ó ''
+        $query->where(function ($q) {
+            $q->whereNull('estado_terminal')
+                ->orWhere('estado_terminal', '');
+        });
+
+        return $query;
     }
 
     public static function canCreate(): bool

@@ -6,6 +6,7 @@ use App\Filament\Gerente\Resources\TeamResource;
 use Filament\Actions;
 use Illuminate\Support\Facades\Auth;
 use Filament\Resources\Pages\CreateRecord;
+use App\Models\User;
 
 class CreateTeam extends CreateRecord
 {
@@ -26,6 +27,12 @@ class CreateTeam extends CreateRecord
                 'joined_at' => now(),
                 'is_active' => true,
             ]);
+        }
+
+        $leader = User::find($this->record->team_leader_id);
+
+        if ($leader && !$leader->hasRole('team_leader')) {
+            $leader->assignRole('team_leader');
         }
     }
 
