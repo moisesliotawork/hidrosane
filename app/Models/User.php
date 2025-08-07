@@ -101,7 +101,7 @@ class User extends Authenticatable implements FilamentUser
 
     protected $casts = [
         'alta_empleado' => 'datetime',
-        'baja'          => 'datetime',
+        'baja' => 'datetime',
     ];
 
     /**
@@ -121,37 +121,22 @@ class User extends Authenticatable implements FilamentUser
     {
         $panelId = $panel->getId();
 
-        // Lógica para el panel de admin
+        // TODOS pueden llegar al formulario (y a /admin).
         if ($panelId === 'admin') {
-            return $this->hasRole('admin');
+            return true;      // ó  $this->hasAnyRole([...roles...]);
         }
 
-        // Lógica para el panel de comercial
-        if ($panelId === 'comercial') {
-            return $this->hasRole('commercial');
-        }
-
-        // Lógica para el panel de teleoperador
-        if ($panelId === 'teleoperador') {
-            return $this->hasRole('teleoperator');
-        }
-
-        // Lógica para el panel de jefe de sala
-        if ($panelId === 'jefe-sala') {
-            return $this->hasRole('head_of_room');
-        }
-
-        if ($panelId === 'gerente') {
-            return $this->hasRole('gerente_general');
-        }
-
-        if ($panelId === 'repartidor') {
-            return $this->hasRole('delivery');
-        }
-
-        // Retorna false por defecto si no coincide con ninguno de los paneles
-        return false;
+        // Para los demás paneles mantén el filtrado estricto
+        return match ($panelId) {
+            'comercial' => $this->hasRole('commercial'),
+            'teleoperador' => $this->hasRole('teleoperator'),
+            'jefe-sala' => $this->hasRole('head_of_room'),
+            'gerente' => $this->hasRole('gerente_general'),
+            'repartidor' => $this->hasRole('delivery'),
+            default => false,
+        };
     }
+
 
     public function notes()
     {

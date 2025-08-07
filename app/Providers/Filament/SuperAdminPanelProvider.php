@@ -58,6 +58,7 @@ class SuperAdminPanelProvider extends PanelProvider
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,
                 SubstituteBindings::class,
+                \App\Http\Middleware\RedirectPanelLoginToAdmin::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
