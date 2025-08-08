@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\DB;
 
 class TeamResource extends Resource
 {
@@ -51,18 +52,32 @@ class TeamResource extends Resource
 
             Forms\Components\Select::make('team_leader_id')
                 ->label('Líder de Equipo')
-                ->options(
-                    User::role('commercial')
-                        ->orderBy('name')
+                ->options(function () {
+                    // IDs de líderes ya asignados
+                    $takenLeaders = Team::query()
+                        ->pluck('team_leader_id')
+                        ->filter() // descartar null
+                        ->toArray();
+
+                    // IDs de miembros ya asignados en cualquier equipo
+                    $takenMembers = DB::table('user_team')
+                        ->pluck('user_id')
+                        ->toArray();
+
+                    $excluded = array_unique(array_merge($takenLeaders, $takenMembers));
+
+                    return User::role('commercial')
+                        ->whereNotIn('id', $excluded)
+                        ->orderBy('empleado_id')
                         ->get()
-                        ->mapWithKeys(fn($user) => [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"])
-                )
-                ->reactive()
+                        ->mapWithKeys(fn($u) => [
+                            $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}"
+                        ]);
+                })
                 ->searchable()
                 ->preload()
                 ->required()
                 ->columnSpanFull(),
-
 
             Forms\Components\Repeater::make('miembros')
                 ->label('Miembros del equipo')
@@ -70,13 +85,28 @@ class TeamResource extends Resource
                     Forms\Components\Select::make('user_id')
                         ->label('Usuario')
                         ->options(function (Forms\Get $get) {
-                            $leaderId = $get('../../team_leader_id'); // <- subir al nivel raíz del formulario
-                
+                            $leaderId = $get('../../team_leader_id');
+
+                            // Todos los líderes y miembros de otros equipos
+                            $takenLeaders = Team::query()
+                                ->pluck('team_leader_id')
+                                ->filter()
+                                ->toArray();
+
+                            $takenMembers = DB::table('user_team')
+                                ->pluck('user_id')
+                                ->toArray();
+
+                            // Excluir al líder actual también
+                            $excluded = array_unique(array_merge($takenLeaders, $takenMembers, [$leaderId]));
+
                             return User::role('commercial')
-                                ->when($leaderId, fn($q) => $q->where('id', '!=', $leaderId))
-                                ->orderBy('name')
+                                ->whereNotIn('id', $excluded)
+                                ->orderBy('empleado_id')
                                 ->get()
-                                ->mapWithKeys(fn($user) => [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"]);
+                                ->mapWithKeys(fn($u) => [
+                                    $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}"
+                                ]);
                         })
                         ->searchable()
                         ->required(),
@@ -140,4 +170,10 @@ class TeamResource extends Resource
             'edit' => Pages\EditTeam::route('/{record}/edit'),
         ];
     }
+
+    protected static function getTableQuery(): Builder
+    {
+        return parent::getTableQuery()->where('deleted', false);
+    }
+
 }

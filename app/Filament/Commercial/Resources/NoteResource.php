@@ -332,6 +332,56 @@ class NoteResource extends Resource
                     ->label('Estado'),
             ])
             ->actions([
+                Tables\Actions\Action::make('assignCommercial')
+                    ->label('')
+                    ->icon('heroicon-s-user-plus')
+                    ->form([
+                        Forms\Components\Select::make('comercial_id')
+                            ->label('Seleccionar Comercial')
+                            ->options(function () {
+                                $commercials = \App\Models\User::role('commercial')
+                                    ->select('id', 'name', 'last_name', 'empleado_id')
+                                    ->get();
+
+                                return [null => 'Sin asignar'] + $commercials->mapWithKeys(function ($user) {
+                                    return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
+                                })->toArray();
+                            })
+                            ->searchable()
+                            ->native(false),
+
+                        Forms\Components\DatePicker::make('assignment_date')
+                            ->label('Fecha de asignación')
+                            ->hint('Si se deja vacío, se usará la fecha actual')
+                            ->required(false),
+                    ])
+                    ->action(function (Note $record, array $data): void {
+                        try {
+                            $record->update([
+                                'comercial_id' => $data['comercial_id'] ?? null,
+                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                    ? ($data['assignment_date'] ?? now())
+                                    : null,
+                            ]);
+
+                            $message = is_null($data['comercial_id'] ?? null)
+                                ? 'Comercial removido correctamente'
+                                : 'Comercial asignado correctamente: ' . \App\Models\User::find($data['comercial_id'])->name;
+
+                            Notification::make()
+                                ->title($message)
+                                ->success()
+                                ->send();
+
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->title('Error al actualizar comercial')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    })
+                    ->visible(fn(): bool => auth()->user()->hasRole('team_leader')),
 
             ])
             ->bulkActions([

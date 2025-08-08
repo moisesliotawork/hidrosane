@@ -39,15 +39,61 @@ use Illuminate\Support\Facades\Storage;
  */
 class Team extends Model
 {
-    use SoftDeletes;
 
     protected $fillable = [
         'name',
         'description',
         'sales_manager_id',
         'team_leader_id',
-        'foto'
+        'foto',
+        'deleted',
+        'history',
     ];
+
+    protected $casts = [
+        'deleted' => 'boolean',
+        'history' => 'array',
+    ];
+
+    public function delete(): bool
+    {
+        // 1) Capturar estado actual
+        $leader = $this->teamLeader;                  // modelo User antes de nullear
+        $leaderData = $leader?->toArray();
+        $membersData = $this->members->map(fn($u) => $u->toArray())->all();
+
+        // 2) Rellenar history
+        $this->history = [
+            'deleted_at' => now()->toDateTimeString(),
+            'team_leader' => $leaderData,
+            'members' => $membersData,
+        ];
+
+        // 3) Desvincular miembros
+        $this->members()->detach();
+
+        // 4) Marcar borrado y eliminar relación de líder
+        $this->deleted = true;
+        $this->team_leader_id = null;
+
+        // 5) Guardar cambios
+        $ok = $this->save();
+
+        // 6) Si guardó correctamente, retirar rol de team_leader al usuario
+        if ($ok && $leader) {
+            // Comprobar si aún lidera algún otro equipo NO borrado
+            $stillLeads = self::query()
+                ->where('team_leader_id', $leader->id)
+                ->where('deleted', false)
+                ->exists();
+
+            if (!$stillLeads && $leader->hasRole('team_leader')) {
+                $leader->removeRole('team_leader');
+            }
+        }
+
+        return $ok;
+    }
 
     public function salesManager(): BelongsTo
     {

@@ -1,5 +1,4 @@
 <?php
-// app/Filament/Commercial/Resources/NoteResource/Pages/ListNotes.php
 
 namespace App\Filament\Commercial\Resources\NoteResource\Pages;
 
@@ -13,6 +12,17 @@ use App\Models\{Team, Note};
 class ListNotes extends ListRecords
 {
     protected static string $resource = NoteResource::class;
+
+    public function getTitle(): string
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('team_leader')) {
+            return 'NOTAS JE';
+        }
+
+        return 'Notas';
+    }
 
     protected function getHeaderActions(): array
     {

@@ -22,14 +22,23 @@ class EditTeam extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\Action::make('delete')
+                ->label('Borrar')
+                ->icon('heroicon-o-trash')
+                ->action(fn() => $this->record->delete())
+                ->requiresConfirmation()
+                ->after(function (): void {
+                    // Redirige al index después del borrado lógico
+                    $this->redirect($this->getResource()::getUrl('index'));
+                })
+                ->color('danger'),
         ];
     }
 
     /*───────────────── Poblar el formulario ────────────────*/
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['miembros'] = $this->record->members->map(fn ($u) => [
+        $data['miembros'] = $this->record->members->map(fn($u) => [
             'user_id' => $u->id,
         ])->toArray();
 
@@ -39,7 +48,7 @@ class EditTeam extends EditRecord
     /*───────────────── Antes de guardar ────────────────────*/
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $this->miembros    = $data['miembros'] ?? [];
+        $this->miembros = $data['miembros'] ?? [];
         unset($data['miembros']);
 
         $this->oldLeaderId = $this->record->team_leader_id;   // líder previo
@@ -54,10 +63,12 @@ class EditTeam extends EditRecord
 
         // syncWithoutDetaching + detach de los que salieron
         $this->record->members()->sync(
-            collect($ids)->mapWithKeys(fn ($id) => [$id => [
-                'joined_at' => now(),
-                'is_active' => true,
-            ]])->toArray()
+            collect($ids)->mapWithKeys(fn($id) => [
+                $id => [
+                    'joined_at' => now(),
+                    'is_active' => true,
+                ]
+            ])->toArray()
         );
 
         /* 2 ▸ Gestionar el rol team_leader --------------------- */
@@ -65,7 +76,7 @@ class EditTeam extends EditRecord
 
         // (a) Asignar el rol al nuevo líder si no lo tiene
         $newLeader = User::find($newLeaderId);
-        if ($newLeader && ! $newLeader->hasRole('team_leader')) {
+        if ($newLeader && !$newLeader->hasRole('team_leader')) {
             $newLeader->assignRole('team_leader');
         }
 
@@ -76,7 +87,7 @@ class EditTeam extends EditRecord
             if (
                 $oldLeader &&
                 $oldLeader->hasRole('team_leader') &&
-                ! Team::where('team_leader_id', $oldLeader->id)->exists()  // ya no lidera ningún equipo
+                !Team::where('team_leader_id', $oldLeader->id)->exists()  // ya no lidera ningún equipo
             ) {
                 $oldLeader->removeRole('team_leader');
             }
