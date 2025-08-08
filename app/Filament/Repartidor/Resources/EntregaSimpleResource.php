@@ -486,6 +486,27 @@ class EntregaSimpleResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+
+            Section::make('Extras de la entrega')
+                ->schema([
+                    Grid::make(3)->schema([
+                        Toggle::make('reparto_extras.cliente_firma_garantias')
+                            ->label('Cliente firma garantías')
+                            ->default(fn(?Venta $record) => (bool) $record?->reparto?->cliente_firma_garantias)
+                            ->dehydrated(false),
+
+                        Toggle::make('reparto_extras.cliente_comentario_goodwork')
+                            ->label('Cliente comentó en GoodWork')
+                            ->default(fn(?Venta $record) => (bool) $record?->reparto?->cliente_comentario_goodwork)
+                            ->dehydrated(false),
+
+                        Toggle::make('reparto_extras.cliente_firma_digital')
+                            ->label('Cliente firma digital')
+                            ->default(fn(?Venta $record) => (bool) $record?->reparto?->cliente_firma_digital)
+                            ->dehydrated(false),
+                    ]),
+                ])
+                ->columns(1),
         ]);
     }
 

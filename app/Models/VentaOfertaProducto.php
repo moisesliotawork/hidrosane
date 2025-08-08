@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Enums\VendidoPor;
 
 /**
  * @property int $id
@@ -41,13 +42,26 @@ class VentaOfertaProducto extends Model
         'cantidad',
         'cantidad_entregada',
         'puntos_linea',
+        'vendido_por',
     ];
 
     protected $casts = [
         'cantidad' => 'integer',
         'puntos_linea' => 'integer',
         'cantidad_entregada' => 'integer',
+        'vendido_por' => VendidoPor::class,
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $m) {
+            if (blank($m->vendido_por)) {
+                $m->vendido_por = auth()->check() && auth()->user()->hasRole('delivery')
+                    ? 'repartidor'
+                    : 'comercial';
+            }
+        });
+    }
 
     /* ---------- Relaciones ---------- */
 

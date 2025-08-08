@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Enums\EstadoEntrega; 
+use App\Enums\EstadoEntrega;
 
 class Reparto extends Model
 {
@@ -17,10 +17,16 @@ class Reparto extends Model
         'lat',
         'lng',
         'estado_entrega',
+        'cliente_firma_garantias',
+        'cliente_comentario_goodwork',
+        'cliente_firma_digital',
     ];
 
     protected $casts = [
         'estado_entrega' => EstadoEntrega::class,
+        'cliente_firma_garantias' => 'boolean',
+        'cliente_comentario_goodwork' => 'boolean',
+        'cliente_firma_digital' => 'boolean',
     ];
 
     // Relación con venta
