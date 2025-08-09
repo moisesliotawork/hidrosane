@@ -532,8 +532,26 @@ class VentaResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->required(),
-                    TextInput::make('motivo_venta')->label('Motivo de la venta'),
-                    TextInput::make('motivo_horario')->label('Motivo del horario'),
+                    Select::make('motivo_venta')
+                        ->label('¿Por qué vendiste?')
+                        ->options([
+                            'Eliminación de miedos' => 'Eliminación de miedos',
+                            'Placer' => 'Placer',
+                            'Me compró el cliente' => 'Me compró el cliente',
+                            'Muy rebatido de objeciones' => 'Muy rebatido de objeciones',
+                        ])
+                        ->required()
+                        ->native(false),
+
+                    Select::make('motivo_horario')
+                        ->label('¿Por qué pusiste ese horario?')
+                        ->options([
+                            '3ª personas' => '3ª personas',
+                            'Se lo dije y marqué cuando firmó' => 'Se lo dije y marqué cuando firmó',
+                            'No va a estar a otra hora en casa' => 'No va a estar a otra hora en casa',
+                        ])
+                        ->required()
+                        ->native(false),
                     Toggle::make('interes_art')
                         ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
                         ->reactive(),

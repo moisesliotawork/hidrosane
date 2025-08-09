@@ -10,6 +10,19 @@ class VentaSeeder extends Seeder
 {
     public function run(): void
     {
+        $motivosVenta = [
+            'Eliminación de miedos',
+            'Placer',
+            'Me compró el cliente',
+            'Muy rebatido de objeciones',
+        ];
+
+        $motivosHorario = [
+            '3ª personas',
+            'Se lo dije y marqué cuando firmó',
+            'No va a estar a otra hora en casa',
+        ];
+
         $notas = Note::has('customer')->take(50)->get(); // Toma hasta 50 notas con cliente
 
         foreach ($notas as $nota) {
@@ -28,6 +41,9 @@ class VentaSeeder extends Seeder
                 'accesorio_entregado' => Arr::random(['Ninguno', 'Kit Hogar', 'Almohada']),
                 'interes_art' => rand(0, 1),
                 'status' => Arr::random(['BORRADOR', 'ENVIADA', 'VALIDADA', 'RECHAZADA']),
+
+                'motivo_venta' => Arr::random($motivosVenta),
+                'motivo_horario' => Arr::random($motivosHorario),
             ]);
 
             // Asociar una oferta aleatoria
