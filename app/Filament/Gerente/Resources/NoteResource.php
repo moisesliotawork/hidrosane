@@ -257,8 +257,20 @@ class NoteResource extends Resource
                     ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->searchable()
-                    ->label('Nombre Cliente'),
+                    ->label('Nombre Cliente')
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('customer', function (Builder $q) use ($search) {
+                            $q->where(function (Builder $qq) use ($search) {
+                                $qq->where('customers.first_names', 'like', "%{$search}%")
+                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
+                                    ->orWhereRaw(
+                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
+                                        ["%{$search}%"]
+                                    );
+                            });
+                        });
+                    }),
+
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
