@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
             OfertaSeeder::class,
             CustomerSeeder::class,
             NoteSeeder::class,
-            VentaSeeder::class
+            //VentaSeeder::class
         ]);
     }
 }

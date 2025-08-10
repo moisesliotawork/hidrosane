@@ -116,7 +116,6 @@ class NotasToday extends Component
                     ->orWhere('estado_terminal', '');
             })
             ->whereDoesntHave('venta')
-            ->latest('assignment_date')
             ->get()
             ->map(function ($note) {
                 $postalCode = $note->customer->postalCode->code ?? null;
