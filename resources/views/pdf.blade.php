@@ -532,7 +532,7 @@
                     <td>{{ number_format($venta->importe_total, 2, ',', '.') }} €</td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="text-align: left;"><strong>IBAN</strong> (cuenta bancaria)</td>
+                    <td colspan="2" style="text-align: left;"><strong>IBAN</strong> (cuenta bancaria) {{ $venta->customer->iban }}</td>
                     <td colspan="3">
                         {{-- $contract->type->slug == "financed" ? $statement->iban : '' --}}
                     </td>
