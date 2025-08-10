@@ -241,11 +241,16 @@ class VentaResource extends Resource
                         ),
 
 
-                    TextInput::make('num_cuotas')
+                    Select::make('num_cuotas')
                         ->label('Nº de cuotas')
-                        ->numeric()
+                        ->options(
+                            collect([1])->merge(range(6, 39))
+                                ->mapWithKeys(fn($num) => [$num => $num])
+                                ->toArray()
+                        )
                         ->required()
                         ->reactive()
+                        ->native(false)
                         ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
                         ->afterStateUpdated(
                             fn(Get $get, Set $set, $state) =>

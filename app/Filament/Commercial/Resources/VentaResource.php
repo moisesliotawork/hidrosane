@@ -549,11 +549,16 @@ class VentaResource extends Resource
                             $get('modalidad_pago') === 'Contado' ? $state : null
                         ),
 
-                    TextInput::make('num_cuotas')
+                    Select::make('num_cuotas')
                         ->label('Nº de cuotas')
-                        ->numeric()
+                        ->options(
+                            collect([1])->merge(range(6, 39))
+                                ->mapWithKeys(fn($num) => [$num => $num])
+                                ->toArray()
+                        )
                         ->required()
                         ->reactive()
+                        ->native(false)
 
                         // ⬇️ 1. Desactivar si es Contado o NS
                         ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
