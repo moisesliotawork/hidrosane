@@ -56,6 +56,72 @@ class VentaResource extends Resource
             Hidden::make('note_id')->required(),
 
 
+            Section::make('Informe al repartidor')
+                ->schema([
+                    Select::make('repartidor_id')
+                        ->label('Repartidor')
+                        ->options(
+                            fn() => User::role('delivery')
+                                ->select('id', 'empleado_id')
+                                ->orderBy('empleado_id')
+                                ->get()
+                                ->mapWithKeys(fn($user) => [$user->id => $user->empleado_id])
+                        )
+                        ->searchable()
+                        ->native(false)
+                        ->placeholder('Seleccionar repartidor')
+                        ->nullable()
+                        ->preload()
+                        ->columnSpanFull(),
+                    DatePicker::make('fecha_entrega')
+                        ->label('Fecha de entrega')
+                        ->required()
+                        ->timezone('Europe/Madrid')
+                        ->native(false),
+                    Select::make('horario_entrega')
+                        ->label('Horario de entrega')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->required(),
+                    Select::make('motivo_venta')
+                        ->label('¿Por qué vendiste?')
+                        ->options([
+                            'Eliminación de miedos' => 'Eliminación de miedos',
+                            'Placer' => 'Placer',
+                            'Me compró el cliente' => 'Me compró el cliente',
+                            'Muy rebatido de objeciones' => 'Muy rebatido de objeciones',
+                        ])
+                        ->required()
+                        ->native(false),
+
+                    Select::make('motivo_horario')
+                        ->label('¿Por qué pusiste ese horario?')
+                        ->options([
+                            '3ª personas' => '3ª personas',
+                            'Se lo dije y marqué cuando firmó' => 'Se lo dije y marqué cuando firmó',
+                            'No va a estar a otra hora en casa' => 'No va a estar a otra hora en casa',
+                        ])
+                        ->required()
+                        ->native(false),
+                    Toggle::make('interes_art')
+                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
+                        ->reactive(),
+
+                    Forms\Components\Textarea::make('interes_art_detalle')
+                        ->label('Otros artículos de interés')
+                        ->placeholder('Detalle los artículos que despertaron interés')
+                        ->rows(3)
+                        ->columnSpanFull()
+                        ->visible(fn(Get $get) => (bool) $get('interes_art'))
+                        ->required(fn(Get $get) => (bool) $get('interes_art'))
+                        ->maxLength(500),
+
+                    Forms\Components\Textarea::make('observaciones_repartidor')
+                        ->label('Observaciones')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ])->columns(2),
 
             /* ───────── Información del cliente ────────── */
             Section::make('Información del cliente')
@@ -509,72 +575,7 @@ class VentaResource extends Resource
 
             /* ────────── Datos de la venta ────────── */
 
-            Section::make('Informe al repartidor')
-                ->schema([
-                    Select::make('repartidor_id')
-                        ->label('Repartidor')
-                        ->options(
-                            fn() => User::role('delivery')
-                                ->select('id', 'empleado_id')
-                                ->orderBy('empleado_id')
-                                ->get()
-                                ->mapWithKeys(fn($user) => [$user->id => $user->empleado_id])
-                        )
-                        ->searchable()
-                        ->native(false)
-                        ->placeholder('Seleccionar repartidor')
-                        ->nullable()
-                        ->preload()
-                        ->columnSpanFull(),
-                    DatePicker::make('fecha_entrega')
-                        ->label('Fecha de entrega')
-                        ->required()
-                        ->timezone('Europe/Madrid')
-                        ->native(false),
-                    Select::make('horario_entrega')
-                        ->label('Horario de entrega')
-                        ->options(HorarioNotas::options())
-                        ->native(false)
-                        ->searchable()
-                        ->required(),
-                    Select::make('motivo_venta')
-                        ->label('¿Por qué vendiste?')
-                        ->options([
-                            'Eliminación de miedos' => 'Eliminación de miedos',
-                            'Placer' => 'Placer',
-                            'Me compró el cliente' => 'Me compró el cliente',
-                            'Muy rebatido de objeciones' => 'Muy rebatido de objeciones',
-                        ])
-                        ->required()
-                        ->native(false),
 
-                    Select::make('motivo_horario')
-                        ->label('¿Por qué pusiste ese horario?')
-                        ->options([
-                            '3ª personas' => '3ª personas',
-                            'Se lo dije y marqué cuando firmó' => 'Se lo dije y marqué cuando firmó',
-                            'No va a estar a otra hora en casa' => 'No va a estar a otra hora en casa',
-                        ])
-                        ->required()
-                        ->native(false),
-                    Toggle::make('interes_art')
-                        ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
-                        ->reactive(),
-
-                    Forms\Components\Textarea::make('interes_art_detalle')
-                        ->label('Otros artículos de interés')
-                        ->placeholder('Detalle los artículos que despertaron interés')
-                        ->rows(3)
-                        ->columnSpanFull()
-                        ->visible(fn(Get $get) => (bool) $get('interes_art'))
-                        ->required(fn(Get $get) => (bool) $get('interes_art'))
-                        ->maxLength(500),
-
-                    Forms\Components\Textarea::make('observaciones_repartidor')
-                        ->label('Observaciones')
-                        ->rows(3)
-                        ->columnSpanFull(),
-                ])->columns(2),
             Section::make('Gestión Documentos')
                 ->schema([
                     self::docCard('precontractual', 'Precontractual'),
