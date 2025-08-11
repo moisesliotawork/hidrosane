@@ -349,10 +349,6 @@ class NoteResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options(NoteStatus::options())
-                    ->label('Estado'),
-
                 Tables\Filters\Filter::make('assignment_date')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
