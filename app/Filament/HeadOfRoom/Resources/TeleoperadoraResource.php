@@ -63,7 +63,7 @@ class TeleoperadoraResource extends Resource
                     ->color('info'),
 
                 TextColumn::make('vendidas_count')
-                    ->label('VENDIDAS')
+                    ->label('VENTAS')
                     ->sortable()
                     ->badge()
                     ->color('success'),
