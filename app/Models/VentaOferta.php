@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use App\Enums\VendidoPor;
 
 /**
  * @property int $id
@@ -61,5 +62,14 @@ class VentaOferta extends Model
     public function productos(): HasMany
     {
         return $this->hasMany(VentaOfertaProducto::class);
+    }
+
+
+    public function hasComercialLines(): bool
+    {
+        // Si casteas a enum, puedes comparar con ->value o con el enum directo
+        return $this->productos()
+            ->where('vendido_por', VendidoPor::Comercial->value)
+            ->exists();
     }
 }

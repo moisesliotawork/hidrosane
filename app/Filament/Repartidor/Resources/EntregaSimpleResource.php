@@ -328,7 +328,7 @@ class EntregaSimpleResource extends Resource
                                         ->minItems(1)
                                         ->defaultItems(1)
                                         ->schema([
-                                            Grid::make(4)->schema([
+                                            Grid::make(5)->schema([
 
                                                 /* PRODUCTO (solo lectura) */
                                                 Select::make('producto_id')
@@ -349,6 +349,25 @@ class EntregaSimpleResource extends Resource
                                                     ->label('Pts Art.')
                                                     ->numeric()
                                                     ->disabled(),          // no editable
+
+                                                Forms\Components\Placeholder::make('vendido_por_badge')
+                                                    ->label('Vendido por')
+                                                    ->content(function (Get $get) {
+                                                        $v = (string) ($get('vendido_por') ?? '');
+                                                        return $v === 'comercial'
+                                                            ? 'COMERCIAL'
+                                                            : ($v === 'repartidor' ? 'REPARTIDOR' : '—');
+                                                    })
+                                                    ->extraAttributes(function (Get $get) {
+                                                        $v = (string) ($get('vendido_por') ?? '');
+                                                        $base = 'inline-block px-2 py-1 rounded-md text-xs font-bold border';
+                                                        return [
+                                                            'class' => $v === 'comercial'
+                                                                ? $base . ' text-green-600 bg-green-50 border-green-200'
+                                                                : $base . ' text-gray-600 bg-gray-50 border-gray-200',
+                                                        ];
+                                                    })
+                                                    ->columnSpan(1),
 
                                                 /* NUEVA: CANTIDAD ENTREGADA */
                                                 TextInput::make('cantidad_entregada')
