@@ -21,7 +21,7 @@ class ComercialResource extends Resource
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-phone';
-    protected static ?string $navigationLabel = 'Telefonos por Comerciales';
+    protected static ?string $navigationLabel = 'Ver Tlf COM';
 
     public static function getEloquentQuery(): Builder
     {
