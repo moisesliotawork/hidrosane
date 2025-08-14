@@ -183,38 +183,32 @@ class EntregaConVentaResource extends Resource
                             ? 'Nueva oferta'
                             : (Oferta::query()->whereKey($state['oferta_id'])->value('nombre') ?? 'Oferta')
                         )
-                        ->deleteAction(function (FormAction $action) {
+                        ->deletable(true)
+                        ->deleteAction(function (\Filament\Forms\Components\Actions\Action $action) {
                             $action
-                                ->visible(function (...$args) {
-                                    // Detectar $state y el record del ÍTEM (VentaOferta) si llega
-                                    $state = null;
-                                    $itemRecord = null;
-
-                                    foreach ($args as $arg) {
-                                        if (is_array($arg)) {
-                                            $state = $arg;
-                                        } elseif ($arg instanceof \App\Models\VentaOferta) {
-                                            $itemRecord = $arg;
-                                        }
+                                ->requiresConfirmation()
+                                ->visible(function (array $arguments) {
+                                    /** @var \App\Models\VentaOferta|null $record */
+                                    $record = $arguments['record'] ?? null;   // ítem persistido (si existe)
+                                    $state = $arguments['state'] ?? [];     // estado del ítem (si es nuevo)
+                    
+                                    // a) Si ya existe en BD, decidir con el modelo:
+                                    if ($record) {
+                                        return !$record->hasComercialLines();
                                     }
 
-                                    // a) Si tenemos el modelo del ítem, decidir por MODELO
-                                    if ($itemRecord) {
-                                        return !$itemRecord->hasComercialLines();
-                                    }
-
-                                    // b) Ítem nuevo (sin persistir): decidir por STATE
+                                    // b) Ítem nuevo: decidir con el estado del formulario:
                                     $tieneComercial = collect($state['productos'] ?? [])
-                                        ->contains(
-                                            fn($l) =>
-                                            ($l['vendido_por'] ?? null) === \App\Enums\VendidoPor::Comercial->value
-                                        );
+                                        ->contains(function ($l) {
+                                        $v = $l['vendido_por'] ?? null;
+                                        if ($v instanceof \App\Enums\VendidoPor)
+                                            $v = $v->value;
+                                        return $v === \App\Enums\VendidoPor::Comercial->value;
+                                    });
 
-                                    return !$tieneComercial;
-                                })
-                                ->requiresConfirmation();
+                                    return !$tieneComercial; // solo mostrar “Eliminar” si NO hay líneas del comercial
+                                });
                         })
-
 
                         ->schema([
 
@@ -291,9 +285,20 @@ class EntregaConVentaResource extends Resource
                                         ->minItems(1)
                                         ->defaultItems(1)
                                         ->columns(5)
+                                        ->deleteAction(
+                                            fn(\Filament\Forms\Components\Actions\Action $action) =>
+                                            $action
+                                                ->requiresConfirmation()
+                                                ->visible(function (\Filament\Forms\Get $get) {
+                                                    // Puede venir enum o string: normalizamos
+                                                    $v = $get('vendido_por');
+                                                    if ($v instanceof \App\Enums\VendidoPor) {
+                                                        $v = $v->value;
+                                                    }
+                                                    return $v !== \App\Enums\VendidoPor::Comercial->value;
+                                                })
+                                        )
 
-                                        // (Opcional) impedir eliminar la línea si es del Comercial
-                                        ->deletable(fn(Get $get, ?array $state) => ($state['vendido_por'] ?? '') !== VendidoPor::Comercial->value)
 
                                         ->schema([
                                             Grid::make(5)->schema([
