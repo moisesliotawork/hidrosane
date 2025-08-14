@@ -58,22 +58,32 @@ class TeleoperadoraResource extends Resource
 
                 TextColumn::make('confirmadas_count')
                     ->label('CONFIRMADAS')
-                    ->sortable()
+                    ->state(fn($record) => (int) ($record->confirmadas_count ?? 0)) // <= nunca null
                     ->badge()
-                    ->color('info'),
+                    ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'info')
+                    ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('confirmadas_count', $dir)),
 
                 TextColumn::make('vendidas_count')
                     ->label('VENTAS')
-                    ->sortable()
+                    ->state(fn($record) => (int) ($record->vendidas_count ?? 0))     // <= nunca null
                     ->badge()
-                    ->color('success'),
+                    ->color(fn($record) => ((int) ($record->vendidas_count ?? 0)) === 0 ? 'gray' : 'success')
+                    ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('vendidas_count', $dir)),
 
                 TextColumn::make('total_cv')
                     ->label('TOTAL')
-                    ->state(fn($record) => ($record->confirmadas_count ?? 0) + ($record->vendidas_count ?? 0))
-                    ->sortable()
+                    ->state(
+                        fn($record) =>
+                        (int) ($record->confirmadas_count ?? 0) + (int) ($record->vendidas_count ?? 0)
+                    )
                     ->badge()
-                    ->color('primary'),
+                    ->color(fn($state) => ((int) $state) === 0 ? 'gray' : 'primary')
+                    ->sortable(
+                        query: fn(Builder $q, string $dir) =>
+                        $q->orderByRaw('(COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) ' . $dir)
+                    ),
+
+
             ])
             ->filters([
                 //
@@ -99,19 +109,15 @@ class TeleoperadoraResource extends Resource
         ];
     }
 
+    // App\Filament\HeadOfRoom\Resources\TeleoperadoraResource.php
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->role('teleoperator') // Spatie\Permission
-            ->withCount([
-                // Notas creadas por la teleoperadora (user_id)
-                'notes as confirmadas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-
-                'notes as vendidas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
-            ]);
+        return \App\Models\User::query()
+            ->select('users.*')        // ⬅️ garantizamos modelo correcto
+            ->role('teleoperator');    // Spatie
     }
+
+
 
     public static function canEdited(): bool
     {
