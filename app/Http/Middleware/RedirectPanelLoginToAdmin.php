@@ -15,7 +15,7 @@ class RedirectPanelLoginToAdmin
         'jefe-sala/login',
         'gerente/login',
         'repartidor/login',
-        'invitado/login',
+        'superAdmin/login',
     ];
 
     public function handle(Request $request, Closure $next): Response

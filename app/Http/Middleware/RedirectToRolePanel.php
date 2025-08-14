@@ -21,7 +21,7 @@ class RedirectToRolePanel
                 $user->hasRole('head_of_room')    => '/jefe-sala',
                 $user->hasRole('gerente_general') => '/gerente',
                 $user->hasRole('delivery')        => '/repartidor',
-                $user->hasRole('invitado')        => '/invitado',
+                $user->hasRole('app_support')        => '/superAdmin',
                 default                           => '/',            // fallback
             };
 

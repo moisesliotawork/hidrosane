@@ -133,6 +133,7 @@ class User extends Authenticatable implements FilamentUser
             'jefe-sala' => $this->hasRole('head_of_room'),
             'gerente' => $this->hasRole('gerente_general'),
             'repartidor' => $this->hasRole('delivery'),
+            'superAdmin' => $this->hasRole('app_support'),
             default => false,
         };
     }
