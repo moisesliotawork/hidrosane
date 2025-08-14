@@ -654,7 +654,7 @@ class VentaResource extends Resource
 
                 Section::make('Gestión Documentos')
                     ->schema([
-                        self::docCard('precontractual', 'Precontractual'),
+                        self::docCard('precontractual', 'Precontractual', true),
                         self::docCard('dni_anverso', 'DNI – Anverso'),
                         self::docCard('dni_reverso', 'DNI – Reverso'),
                         self::docCard('documento_titularidad', 'Documento de titularidad'),
@@ -713,26 +713,21 @@ class VentaResource extends Resource
     }
 
 
-    protected static function docCard(string $field, string $label): Group
+    protected static function docCard(string $field, string $label, bool $required = false): Group
     {
         return Group::make([
-            /* ─────────────  TITULAR  ───────────── */
             Placeholder::make("{$field}_title")
                 ->content(strtoupper($label))
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label("")
+                ->label(""),
 
-            /* ───────────  DESCRIPCIÓN  ─────────── */
-            ,
             Placeholder::make("{$field}_desc")
                 ->content(
                     "Este espacio está diseñado para que puedas actualizar y modificar el archivo de "
                     . "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
                 )
-                ->label("")
+                ->label(""),
 
-            /* ───────────  FILE UPLOAD  ─────────── */
-            ,
             FileUpload::make($field)
                 ->label("")
                 ->disk('public')
@@ -740,14 +735,15 @@ class VentaResource extends Resource
                 ->preserveFilenames()
                 ->openable()
                 ->downloadable()
+                ->required($required) // ⬅️ aquí se vuelve requerido si $required=true
+                ->validationMessages([
+                    'required' => "El documento {$label} es obligatorio.",
+                ])
                 ->extraAttributes([
                     'class' => 'border-2 border-dashed py-16',
                 ])
                 ->columnSpanFull(),
-        ])
-            ->columns(1);
+        ])->columns(1);
     }
-
-
 
 }

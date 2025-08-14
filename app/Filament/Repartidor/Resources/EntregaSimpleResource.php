@@ -495,7 +495,7 @@ class EntregaSimpleResource extends Resource
                 ])->columns(2),
             Section::make('Gestión Documentos')
                 ->schema([
-                    self::docCard('precontractual', 'Precontractual'),
+                    self::docCard('precontractual', 'Precontractual', true),
                     self::docCard('dni_anverso', 'DNI – Anverso'),
                     self::docCard('dni_reverso', 'DNI – Reverso'),
                     self::docCard('documento_titularidad', 'Documento de titularidad'),
@@ -582,7 +582,7 @@ class EntregaSimpleResource extends Resource
         return true;
     }
 
-    protected static function docCard(string $field, string $label): Group
+    protected static function docCard(string $field, string $label, bool $required = false): Group
     {
         return Group::make([
             Placeholder::make("{$field}_title")
@@ -591,7 +591,10 @@ class EntregaSimpleResource extends Resource
                 ->label(""),
 
             Placeholder::make("{$field}_desc")
-                ->content("Este espacio está diseñado para actualizar el archivo de <strong>{$label}</strong>.")
+                ->content(
+                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de "
+                    . "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
+                )
                 ->label(""),
 
             FileUpload::make($field)
@@ -601,9 +604,15 @@ class EntregaSimpleResource extends Resource
                 ->preserveFilenames()
                 ->openable()
                 ->downloadable()
-                ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
+                ->required($required) // ⬅️ aquí se vuelve requerido si $required=true
+                ->validationMessages([
+                    'required' => "El documento {$label} es obligatorio.",
+                ])
+                ->extraAttributes([
+                    'class' => 'border-2 border-dashed py-16',
+                ])
                 ->columnSpanFull(),
-        ]);
+        ])->columns(1);
     }
 
     public static function shouldRegisterNavigation(): bool
