@@ -14,6 +14,11 @@ class EditVenta extends EditRecord
 {
     protected static string $resource = VentaResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         /* 1. Nunca tocar el Nº de nota */
