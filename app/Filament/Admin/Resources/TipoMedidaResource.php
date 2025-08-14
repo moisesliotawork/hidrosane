@@ -16,6 +16,9 @@ class TipoMedidaResource extends Resource
 {
     protected static ?string $model = TipoMedida::class;
 
+    protected static ?string $pluralModelLabel = 'Productos con Medida';
+    protected static ?string $modelLabel = 'Producto con Medida';
+
     protected static ?string $navigationIcon = 'heroicon-o-scale';
 
     public static function form(Form $form): Form
