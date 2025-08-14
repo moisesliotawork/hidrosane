@@ -12,6 +12,11 @@ class CreateTeam extends CreateRecord
 {
     protected static string $resource = TeamResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $this->miembros = $data['miembros'] ?? []; // guarda temporalmente para usar después
