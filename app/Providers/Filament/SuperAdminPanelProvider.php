@@ -21,6 +21,7 @@ use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Filament\SuperAdmin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
+use App\Filament\Widgets\SalesAndDeliveriesStats;
 
 class SuperAdminPanelProvider extends PanelProvider
 {
@@ -48,7 +49,7 @@ class SuperAdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\\Filament\\SuperAdmin\\Widgets')
             ->widgets([
-                ActiveWorkSessionWidget::class,
+                SalesAndDeliveriesStats::class,
             ])
             ->middleware([
                 EncryptCookies::class,

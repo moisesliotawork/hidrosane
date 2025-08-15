@@ -20,6 +20,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Admin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
+use App\Filament\Widgets\SalesAndDeliveriesStats;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -48,7 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
-
+                SalesAndDeliveriesStats::class,
             ])
             ->middleware([
                 EncryptCookies::class,
