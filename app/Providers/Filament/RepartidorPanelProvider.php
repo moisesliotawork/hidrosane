@@ -30,7 +30,8 @@ class RepartidorPanelProvider extends PanelProvider
             ->id('repartidor')
             ->path('repartidor')
             ->login()
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Mi Perfil')

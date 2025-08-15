@@ -29,7 +29,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->userMenuItems([
                 'profile' => MenuItem::make()

@@ -27,7 +27,8 @@ class GerentePanelProvider extends PanelProvider
         return $panel
             ->id('gerente')
             ->path('gerente')
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->userMenuItems([
                 'profile' => MenuItem::make()

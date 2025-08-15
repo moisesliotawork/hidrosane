@@ -30,7 +30,8 @@ class SuperAdminPanelProvider extends PanelProvider
             ->id('superAdmin')
             ->path('superAdmin')
             ->login()
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Mi Perfil')

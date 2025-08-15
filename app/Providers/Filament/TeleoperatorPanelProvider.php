@@ -30,7 +30,8 @@ class TeleoperatorPanelProvider extends PanelProvider
             ->id('teleoperador')
             ->path('teleoperador')
             ->login()
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Mi Perfil')

@@ -29,7 +29,8 @@ class CommercialPanelProvider extends PanelProvider
         return $panel
             ->id('comercial')
             ->path('comercial')
-            ->brandName("Ohana")
+            ->favicon(asset('favicon.ico'))
+            ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->userMenuItems([
                 'profile' => MenuItem::make()
