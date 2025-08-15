@@ -87,6 +87,7 @@ class User extends Authenticatable implements FilamentUser
         'phone',
         'direccion',
         'baja',
+        'dni',
     ];
 
     /**

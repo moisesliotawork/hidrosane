@@ -46,7 +46,13 @@ class UserResource extends Resource
                 TextInput::make("name")->required()->label('Nombres'),
                 TextInput::make("last_name")->label('Apellidos')->required(),
 
-                TextInput::make("email")->required(),
+                TextInput::make("dni")
+                    ->label(label: "DNI")
+                    ->required(),
+                TextInput::make("email")
+                    ->label("Correo")
+                    ->required(),
+
                 TextInput::make('direccion')
                     ->label('Dirección')
                     ->maxLength(255)
