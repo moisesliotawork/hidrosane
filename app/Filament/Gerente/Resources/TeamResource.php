@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
+use Filament\Forms\Get;
 
 class TeamResource extends Resource
 {
@@ -52,27 +53,37 @@ class TeamResource extends Resource
 
             Forms\Components\Select::make('team_leader_id')
                 ->label('Líder de Equipo')
-                ->options(function () {
-                    // IDs de líderes ya asignados
+                ->options(function (Get $get, ?Team $record) {
+                    // líderes ya tomados
                     $takenLeaders = Team::query()
                         ->pluck('team_leader_id')
-                        ->filter() // descartar null
+                        ->filter()
                         ->toArray();
 
-                    // IDs de miembros ya asignados en cualquier equipo
-                    $takenMembers = DB::table('user_team')
-                        ->pluck('user_id')
-                        ->toArray();
+                    // miembros ya asignados en cualquier equipo
+                    $takenMembers = DB::table('user_team')->pluck('user_id')->toArray();
 
                     $excluded = array_unique(array_merge($takenLeaders, $takenMembers));
+
+                    // ➜ en edición, permitir ver/seguir el líder actual
+                    if ($record) {
+                        $excluded = array_values(array_diff($excluded, [$record->team_leader_id]));
+                    }
 
                     return User::role('commercial')
                         ->whereNotIn('id', $excluded)
                         ->orderBy('empleado_id')
                         ->get()
                         ->mapWithKeys(fn($u) => [
-                            $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}"
+                            $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
                         ]);
+                })
+                ->getOptionLabelUsing(function ($value) {
+                    // ➜ muestra "empleado_id nombre apellido" cuando el valor ya no está en options()
+                    if (!$value)
+                        return null;
+                    $u = User::find($value);
+                    return $u ? "{$u->empleado_id} {$u->name} {$u->last_name}" : $value;
                 })
                 ->searchable()
                 ->preload()
@@ -84,29 +95,33 @@ class TeamResource extends Resource
                 ->schema([
                     Forms\Components\Select::make('user_id')
                         ->label('Usuario')
-                        ->options(function (Forms\Get $get) {
+                        ->options(function (Get $get, ?Team $record) {
                             $leaderId = $get('../../team_leader_id');
 
-                            // Todos los líderes y miembros de otros equipos
-                            $takenLeaders = Team::query()
-                                ->pluck('team_leader_id')
-                                ->filter()
-                                ->toArray();
+                            $takenLeaders = Team::query()->pluck('team_leader_id')->filter()->toArray();
+                            $takenMembers = DB::table('user_team')->pluck('user_id')->toArray();
 
-                            $takenMembers = DB::table('user_team')
-                                ->pluck('user_id')
-                                ->toArray();
-
-                            // Excluir al líder actual también
                             $excluded = array_unique(array_merge($takenLeaders, $takenMembers, [$leaderId]));
+
+                            // ➜ permitir ver/editar los miembros actuales del equipo en edición
+                            if ($record) {
+                                $currentMembers = $record->members()->pluck('users.id')->toArray();
+                                $excluded = array_values(array_diff($excluded, $currentMembers));
+                            }
 
                             return User::role('commercial')
                                 ->whereNotIn('id', $excluded)
                                 ->orderBy('empleado_id')
                                 ->get()
                                 ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}"
+                                    $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
                                 ]);
+                        })
+                        ->getOptionLabelUsing(function ($value) {
+                            if (!$value)
+                                return null;
+                            $u = User::find($value);
+                            return $u ? "{$u->empleado_id} {$u->name} {$u->last_name}" : $value;
                         })
                         ->searchable()
                         ->required(),
