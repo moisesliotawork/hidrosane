@@ -21,6 +21,8 @@ use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
+use Illuminate\Support\Collection;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class NoteResource extends Resource
 {
@@ -349,6 +351,43 @@ class NoteResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
+                Tables\Filters\Filter::make('assignment_range')
+                    ->label('Asignación (rango)')
+                    ->form([
+                        Forms\Components\DatePicker::make('start')
+                            ->label('Desde')
+                            ->native(false)
+                            ->timezone('Europe/Madrid'),
+                        Forms\Components\DatePicker::make('end')
+                            ->label('Hasta')
+                            ->native(false)
+                            ->timezone('Europe/Madrid'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $start = $data['start'] ?? null;
+                        $end = $data['end'] ?? null;
+
+                        return $query
+                            ->when($start, fn(Builder $q) => $q->whereDate('assignment_date', '>=', $start))
+                            ->when($end, fn(Builder $q) => $q->whereDate('assignment_date', '<=', $end));
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        $start = $data['start'] ?? null;
+                        $end = $data['end'] ?? null;
+
+                        if ($start && $end) {
+                            return 'Asignación: ' . Carbon::parse($start)->format('d/m/Y') .
+                                ' → ' . Carbon::parse($end)->format('d/m/Y');
+                        }
+                        if ($start) {
+                            return 'Asignación desde: ' . Carbon::parse($start)->format('d/m/Y');
+                        }
+                        if ($end) {
+                            return 'Asignación hasta: ' . Carbon::parse($end)->format('d/m/Y');
+                        }
+                        return null;
+                    }),
+
                 Tables\Filters\Filter::make('assignment_date')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
@@ -442,6 +481,45 @@ class NoteResource extends Resource
                     }),
             ])
             ->bulkActions([
+                Tables\Actions\BulkAction::make('pdfSalaSeleccionadas')
+                    ->label('PDF (SALA) seleccionadas')
+                    ->icon('heroicon-o-printer')
+                    ->color('pink')
+                    ->requiresConfirmation()
+                    ->action(function (Collection $records) {
+                        $notes = Note::query()
+                            ->whereIn('id', $records->pluck('id'))
+                            ->where(function (Builder $q) {
+                                $q->whereNull('estado_terminal')
+                                    ->orWhereIn('estado_terminal', [
+                                        EstadoTerminal::SIN_ESTADO->value,
+                                        EstadoTerminal::SALA->value,
+                                    ]);
+                            })
+                            ->with([
+                                'customer.postalCode.city',
+                                'user',
+                                'comercial',
+                            ])
+                            ->orderBy('nro_nota')
+                            ->get();
+
+                        if ($notes->isEmpty()) {
+                            $this->notify('warning', 'No hay notas válidas para generar el PDF.');
+                            return;
+                        }
+
+                        $pdf = Pdf::loadView('pdf.notas-sala', ['notes' => $notes])
+                            ->setPaper('a4');
+
+                        $filename = 'sala-' . now()->format('Ymd-His') . '.pdf';
+
+                        return response()->streamDownload(
+                            fn() => print ($pdf->output()),
+                            $filename
+                        );
+                    })
+                    ->deselectRecordsAfterCompletion(),
                 Tables\Actions\DeleteBulkAction::make()
                     ->label('Eliminar seleccionadas')
                     ->modalHeading('Eliminar notas seleccionadas')
