@@ -131,6 +131,11 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('dni')
+                    ->label('DNI')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('name')->label('NOMBRE')->searchable()->sortable()
                     ->sortable(),
                 TextColumn::make('email')->label('Correo Electrónico')->searchable(),
