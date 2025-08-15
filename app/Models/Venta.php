@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
-use App\Enums\EstadoEntrega;
+use App\Enums\{EstadoEntrega, EstadoVenta};
 use Illuminate\Support\Collection;
 
 /**
@@ -124,6 +124,7 @@ class Venta extends Model
         'de_camino',
         'lat',
         'lng',
+        'estado_venta',
     ];
 
     protected $casts = [
@@ -134,6 +135,7 @@ class Venta extends Model
         'cuota_mensual' => 'decimal:2',
         'productos_externos' => 'array',
         'de_camino' => 'boolean',
+        'estado_venta' => EstadoVenta::class,
 
     ];
 
@@ -163,6 +165,16 @@ class Venta extends Model
                 $venta->nro_contrato = str_pad($next, 5, '0', STR_PAD_LEFT);
             }
         });
+    }
+
+    public function getEstadoVentaLabelAttribute(): string
+    {
+        return $this->estado_venta?->label() ?? '';
+    }
+
+    public function getEstadoVentaColorAttribute(): ?string
+    {
+        return $this->estado_venta?->color();
     }
 
     public function getPrecontractualUrlAttribute()
@@ -253,14 +265,14 @@ class Venta extends Model
         }
 
         // 2️⃣  Sumas globales
-        $vendidas   = $lineas->sum('cantidad');
-        $entregadas = $lineas->sum(fn ($l) => (int) $l['cantidad_entregada']);
+        $vendidas = $lineas->sum('cantidad');
+        $entregadas = $lineas->sum(fn($l) => (int) $l['cantidad_entregada']);
 
         // 3️⃣  Determinar nuevo estado
         $estado = match (true) {
-            $entregadas === 0              => EstadoEntrega::NO_ENTREGADO,
-            $entregadas <  $vendidas       => EstadoEntrega::PARCIAL,
-            default                        => EstadoEntrega::COMPLETO,
+            $entregadas === 0 => EstadoEntrega::NO_ENTREGADO,
+            $entregadas < $vendidas => EstadoEntrega::PARCIAL,
+            default => EstadoEntrega::COMPLETO,
         };
 
         // 4️⃣  Actualizar el reparto (si existe y ha cambiado)

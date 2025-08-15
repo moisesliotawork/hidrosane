@@ -26,6 +26,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Admin\Resources\VentaResource\Pages;
 use Filament\Forms\Components\Placeholder;
+use App\Enums\EstadoVenta;
 
 class VentaResource extends Resource
 {
@@ -50,6 +51,19 @@ class VentaResource extends Resource
                 ->label('Nº Nota')
                 ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
                 ->extraAttributes(['class' => 'text-2xl font-bold'])   // tamaño y peso
+                ->columnSpanFull(),
+
+            Select::make('estado_venta')
+                ->label('Estado de la venta')
+                ->options(
+                    collect(EstadoVenta::cases())
+                        ->mapWithKeys(fn($e) => [$e->value => $e->label()])
+                        ->toArray()
+                )
+                ->default(EstadoVenta::EN_REVISION->value)
+                ->required()
+                ->native(false)
+                ->searchable()
                 ->columnSpanFull(),
 
             /* guarda la relación con la nota; no se muestra */
@@ -599,6 +613,12 @@ class VentaResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('estado_venta')
+                    ->badge()
+                    ->color(fn(EstadoVenta $state): string => $state->color())
+                    ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
+                    ->sortable()
+                    ->label('ESTADO/CONTR'),
                 TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
                 TextColumn::make('hora_venta')

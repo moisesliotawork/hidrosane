@@ -36,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
             'orange' => Color::Orange,
             'yellow' => Color::Yellow,
             'pink' => Color::Pink,
+            'purple' => Color::Purple,    // NO SALE A CALLE
+            'teal' => Color::Teal,
             'gray_light' => Color::hex('#737373'),
         ]);
 
