@@ -12,7 +12,7 @@ use App\Filament\HeadOfRoom\Resources\NoteDescResource; // para ver la nota en s
 
 class CustomerNotesTable extends BaseWidget
 {
-    protected static ?string $heading = 'Notas del Cliente';
+    protected static ?string $heading = 'HISTORICO DE CONTRATOS';
     protected int|string|array $columnSpan = 'full';
 
     /** Filament inyecta el registro actual del ViewRecord */
@@ -41,15 +41,17 @@ class CustomerNotesTable extends BaseWidget
             TextColumn::make('status')
                 ->label('Estado')
                 ->badge()
-                ->formatStateUsing(fn ($state) =>
+                ->formatStateUsing(
+                    fn($state) =>
                     $state instanceof NoteStatus
-                        ? $state->label()
-                        : (NoteStatus::tryFrom($state)?->label() ?? (string) $state)
+                    ? $state->label()
+                    : (NoteStatus::tryFrom($state)?->label() ?? (string) $state)
                 )
-                ->color(fn ($state) =>
+                ->color(
+                    fn($state) =>
                     $state instanceof NoteStatus
-                        ? $state->getColor()
-                        : (NoteStatus::tryFrom($state)?->getColor() ?? 'gray')
+                    ? $state->getColor()
+                    : (NoteStatus::tryFrom($state)?->getColor() ?? 'gray')
                 )
                 ->sortable(),
 
@@ -67,20 +69,23 @@ class CustomerNotesTable extends BaseWidget
                 ->label('Com.')
                 ->badge()
                 ->color(function ($state) {
-                    if ($state === 'Sin Com.') return 'gray';
-                    if ($state === 'Comercial no encontrado') return 'danger';
+                    if ($state === 'Sin Com.')
+                        return 'gray';
+                    if ($state === 'Comercial no encontrado')
+                        return 'danger';
                     return 'success';
                 }),
 
             TextColumn::make('estado_terminal')
                 ->label('TN')
                 ->badge()
-                ->formatStateUsing(fn ($state) =>
+                ->formatStateUsing(
+                    fn($state) =>
                     $state instanceof EstadoTerminal
-                        ? $state->label()
-                        : (EstadoTerminal::tryFrom($state)?->label() ?? (string) $state)
+                    ? $state->label()
+                    : (EstadoTerminal::tryFrom($state)?->label() ?? (string) $state)
                 )
-                ->color(fn ($state) => match ($state instanceof EstadoTerminal ? $state : EstadoTerminal::tryFrom($state)) {
+                ->color(fn($state) => match ($state instanceof EstadoTerminal ? $state : EstadoTerminal::tryFrom($state)) {
                     EstadoTerminal::NUL => 'danger',
                     EstadoTerminal::VENTA => 'success',
                     EstadoTerminal::CONFIRMADO => 'orange',
