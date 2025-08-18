@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
 use Filament\Forms\Get;
+use Illuminate\Support\Collection;
 
 class TeamResource extends Resource
 {
@@ -161,11 +162,34 @@ class TeamResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->label(''),
+                Tables\Actions\Action::make('delete')
+                    ->label('')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->action(function (Team $record) {
+                        $record->safeDelete();
+                    })
+                    ->successNotificationTitle('Equipo borrado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('deleteSelected')
+                        ->label('Borrar seleccionados')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->action(function (Collection $records) {
+                            DB::transaction(function () use ($records) {
+                                /** @var \App\Models\Team $team */
+                                foreach ($records as $team) {
+                                    $team->safeDelete();
+                                }
+                            });
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }

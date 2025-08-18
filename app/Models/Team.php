@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -115,5 +116,39 @@ class Team extends Model
     public function getFotoUrlAttribute(): ?string
     {
         return $this->foto ? Storage::disk('public')->url($this->foto) : null;
+    }
+
+    /**
+     * Borrado lógico con la misma lógica “inteligente” que usas en Edit:
+     * - marca deleted = true
+     * - desasocia miembros
+     * - si el líder ya no lidera ningún equipo activo, le quita el rol team_leader
+     */
+    public function safeDelete(): void
+    {
+        DB::transaction(function () {
+            $leader = $this->team_leader_id
+                ? User::find($this->team_leader_id)
+                : null;
+
+            // 1) marcar borrado lógico
+            $this->forceFill(['deleted' => true])->save();
+
+            // 2) desasociar miembros del equipo (puedes usar detach o marcar inactivos)
+            $this->members()->detach();
+            // Si prefieres mantener histórico: $this->members()->updateExistingPivot($this->members()->pluck('users.id'), ['is_active' => false]);
+
+            // 3) si el líder ya no lidera otro equipo “no borrado”, retirar el rol
+            if ($leader) {
+                $sigueSiendoLider = static::query()
+                    ->where('deleted', false)
+                    ->where('team_leader_id', $leader->id)
+                    ->exists();
+
+                if (!$sigueSiendoLider && $leader->hasRole('team_leader')) {
+                    $leader->removeRole('team_leader');
+                }
+            }
+        });
     }
 }
