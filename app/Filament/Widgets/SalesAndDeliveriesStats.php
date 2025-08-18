@@ -91,7 +91,7 @@ class SalesAndDeliveriesStats extends BaseWidget
             Stat::make('VENTAS AYER', number_format($ventasAyer))
                 ->description('Total Ventas AYER')
                 ->descriptionIcon('heroicon-o-calendar-days')
-                ->color('warning'),
+                ->color('success'),
 
             Stat::make('VENTAS HOY', number_format($ventasHoy))
                 ->description('Total Ventas HOY')
@@ -101,7 +101,7 @@ class SalesAndDeliveriesStats extends BaseWidget
             Stat::make('VENTAS SEMANA ANTERIOR', number_format($ventasSemanaAnterior))
                 ->description('Total Ventas SEMANA ANTERIOR')
                 ->descriptionIcon('heroicon-o-arrow-left')
-                ->color('warning'),
+                ->color('success'),
 
             Stat::make('VENTAS SEMANA', number_format($ventasSemana))
                 ->description('Total Ventas SEMANA ACTUAL')
@@ -111,7 +111,7 @@ class SalesAndDeliveriesStats extends BaseWidget
             Stat::make('VENTAS MES ANTERIOR', number_format($ventasMesAnterior))
                 ->description('Total Ventas MES ANTERIOR')
                 ->descriptionIcon('heroicon-o-arrow-uturn-left')
-                ->color('warning'),
+                ->color('success'),
 
             Stat::make('VENTAS MES', number_format($ventasMes))
                 ->description('Total Ventas MES ACTUAL')
@@ -122,22 +122,22 @@ class SalesAndDeliveriesStats extends BaseWidget
             Stat::make('REPARTOS AYER', number_format($repartosAyer))
                 ->description('Total Entregas AYER')
                 ->descriptionIcon('heroicon-o-truck')
-                ->color('warning'),
+                ->color('orange'),
 
             Stat::make('REPARTOS HOY', number_format($repartosHoy))
                 ->description('Total Entregas HOY')
                 ->descriptionIcon('heroicon-o-truck')
-                ->color('info'),
+                ->color('orange'),
 
             Stat::make('REPARTO SEMANA ANTERIOR', number_format($repartosSemanaAnterior))
                 ->description('Total Entregas SEMANA ANTERIOR')
                 ->descriptionIcon('heroicon-o-truck')
-                ->color('warning'),
+                ->color('orange'),
 
             Stat::make('REPARTO SEMANA', number_format($repartosSemana))
                 ->description('Total Entregas SEMANA ACTUAL')
                 ->descriptionIcon('heroicon-o-truck')
-                ->color('info'),
+                ->color('orange'),
 
         ];
     }
