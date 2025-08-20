@@ -81,7 +81,6 @@ class RepartosToday extends Component
             ->whereHas('venta', fn($q) => $q->where('repartidor_id', auth()->id())->whereDate('fecha_entrega', $hoy))
             ->where(function ($q) {
                 $q->where('estado', 'pendiente')
-                    ->orWhere('estado_entrega', EstadoEntrega::PARCIAL)
                     ->orWhere('estado_entrega', EstadoEntrega::NO_ENTREGADO);
             })
             ->get()

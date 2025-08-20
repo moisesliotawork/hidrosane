@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Enums\EstadoEntrega;
+use App\Enums\EstadoReparto;
 
 class Reparto extends Model
 {
@@ -27,6 +28,8 @@ class Reparto extends Model
         'cliente_firma_garantias' => 'boolean',
         'cliente_comentario_goodwork' => 'boolean',
         'cliente_firma_digital' => 'boolean',
+        
+        'estado' => EstadoReparto::class,
     ];
 
     // Relación con venta
