@@ -7,6 +7,7 @@ use App\Models\Reparto;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
+use App\Enums\EstadoEntrega;
 
 class RepartosToday extends Component
 {
@@ -78,6 +79,11 @@ class RepartosToday extends Component
 
         return Reparto::with('venta.note.customer.postalCode.city', 'venta.comercial')
             ->whereHas('venta', fn($q) => $q->where('repartidor_id', auth()->id())->whereDate('fecha_entrega', $hoy))
+            ->where(function ($q) {
+                $q->where('estado', 'pendiente')
+                    ->orWhere('estado_entrega', EstadoEntrega::PARCIAL)
+                    ->orWhere('estado_entrega', EstadoEntrega::NO_ENTREGADO);
+            })
             ->get()
             ->map(function ($reparto) {
                 $venta = $reparto->venta;

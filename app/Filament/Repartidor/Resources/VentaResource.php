@@ -294,19 +294,20 @@ class VentaResource extends Resource
                                     ]))
                                     ->visible(fn($livewire) => $livewire->showEntregaVenta)
                                     ->action(function ($record) {
-                                        // 1) Cambiamos el estado del reparto
                                         $reparto = $record->reparto;
                                         if ($reparto) {
                                             $reparto->update(['estado' => 'entrega_venta']);
                                         }
 
-                                        // 2) Redirigimos a la página Edit del EntregaSimpleResource
+                                        // ⬇️ Redirige primero a la página para agregar ofertas del repartidor
                                         return redirect()->to(
-                                            EntregaConVentaResource::getUrl('edit', ['record' => $reparto?->venta_id])
+                                            \App\Filament\Repartidor\Resources\EntregaConVentaResource::getUrl(
+                                                'add-offers',
+                                                ['record' => $reparto?->venta_id]
+                                            )
                                         );
                                     }),
-
-                            ]),
+                            ])
                         ])
 
                     ]),

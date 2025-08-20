@@ -7,6 +7,7 @@ use App\Models\Reparto;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
+use App\Enums\EstadoEntrega;
 
 class Repartos extends Component
 {
@@ -78,6 +79,11 @@ class Repartos extends Component
 
         return Reparto::with('venta.note.customer.postalCode.city', 'venta.comercial')
             ->whereHas('venta', fn($q) => $q->where('repartidor_id', auth()->id()))
+            ->where(function ($q) {
+                $q->where('estado', 'pendiente')
+                    ->orWhere('estado_entrega', EstadoEntrega::PARCIAL)
+                    ->orWhere('estado_entrega', EstadoEntrega::NO_ENTREGADO);
+            })
             ->get()
             ->map(function ($reparto) {
                 $venta = $reparto->venta;
@@ -116,7 +122,7 @@ class Repartos extends Component
 
     public function render()
     {
-        return view('livewire.repartidor.repartos-today', [
+        return view('livewire.repartidor.repartos', [
             'repartos' => $this->repartos,
         ]);
     }

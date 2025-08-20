@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
+use App\Enums\EstadoEntrega;
 
 class EditVenta extends EditRecord
 {
@@ -101,7 +102,10 @@ class EditVenta extends EditRecord
         $venta = $this->record;
 
         if (!Reparto::where('venta_id', $venta->id)->exists()) {
-            Reparto::create(['venta_id' => $venta->id]);
+            Reparto::create([
+                'venta_id' => $venta->id,
+                'estado_entrega' => EstadoEntrega::NO_ENTREGADO,
+            ]);
         }
     }
 
