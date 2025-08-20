@@ -12,6 +12,6 @@ class EditEntregaSimple extends EditRecord
 
     public function getTitle(): string
     {
-        return 'Entrega SIMPLE del contrato ' . $this->record->nro_contrato;
+        return 'DATOS DEL CONTRATO ' . $this->record->nro_contrato;
     }
 }
