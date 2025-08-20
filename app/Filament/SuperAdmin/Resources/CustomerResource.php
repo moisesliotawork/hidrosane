@@ -23,8 +23,8 @@ class CustomerResource extends Resource
     protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user';
-    protected static ?string $navigationLabel = 'Clientes';
-    protected static ?string $modelLabel = 'Cliente';
+    protected static ?string $navigationLabel = 'Posicion Global de Cliente';
+    protected static ?string $modelLabel = 'Posicion Global de Cliente';
 
 
     public static function form(Form $form): Form
@@ -39,7 +39,7 @@ class CustomerResource extends Resource
     {
         return $infolist->schema([
             Section::make('Vision Global del Cliente')
-                ->columns(6) 
+                ->columns(6)
                 ->schema([
                     TextEntry::make('id')->label('CLIENTE'),
 
@@ -76,7 +76,7 @@ class CustomerResource extends Resource
                             $d = Carbon::parse($r->fecha_nac)->diff(now());
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
                         }),
-                        
+
                 ])
                 ->columnSpan(6),
         ]);
