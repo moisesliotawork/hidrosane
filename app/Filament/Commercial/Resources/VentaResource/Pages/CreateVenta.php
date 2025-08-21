@@ -87,6 +87,7 @@ class CreateVenta extends CreateRecord
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
+                'importe_comercial' => $data['importe_total'],
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'forma_pago' => $data['modalidad_pago'] === 'Contado'
                     ? ($data['forma_pago'] ?? null)

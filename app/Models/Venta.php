@@ -126,6 +126,9 @@ class Venta extends Model
         'lng',
         'estado_venta',
         'financiera',
+        'importe_comercial',
+        'importe_repartidor',
+
     ];
 
     protected $casts = [
@@ -136,6 +139,8 @@ class Venta extends Model
         'cuota_mensual' => 'decimal:2',
         'productos_externos' => 'array',
         'de_camino' => 'boolean',
+        'importe_comercial' => 'decimal:2',
+        'importe_repartidor' => 'decimal:2',
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
 
