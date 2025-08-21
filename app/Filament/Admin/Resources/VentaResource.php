@@ -264,7 +264,7 @@ class VentaResource extends Resource
                         ->numeric()
                         ->prefix('€')
                         ->disabled()
-                        ->dehydrated()
+                        ->dehydrated(false)
                         ->reactive()
                         ->afterStateUpdated(
                             fn(Get $get, Set $set, $state) =>

@@ -288,4 +288,35 @@ class Venta extends Model
         }
     }
 
+    public function recomputarImportesDesdeOfertas(): void
+    {
+        $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        $impCom = 0.0;
+        $impRep = 0.0;
+
+        foreach ($this->ventaOfertas as $vo) {
+            $precio = (float) ($vo->oferta->precio_base ?? 0);
+
+            $tieneCom = $vo->productos->contains(fn($p) => $p->vendido_por === \App\Enums\VendidoPor::Comercial);
+            $tieneRep = $vo->productos->contains(fn($p) => $p->vendido_por === \App\Enums\VendidoPor::Repartidor);
+
+            if ($tieneCom || (!$tieneCom && !$tieneRep)) {
+                $impCom += $precio;
+            } else {
+                $impRep += $precio;
+            }
+        }
+
+        $this->importe_comercial = $impCom;
+        $this->importe_repartidor = $impRep;
+        $this->importe_total = $impCom + $impRep;
+        $this->cuota_mensual = (int) $this->num_cuotas > 0
+            ? round($this->importe_total / (int) $this->num_cuotas, 2)
+            : null;
+
+        $this->save();
+    }
+
+
 }

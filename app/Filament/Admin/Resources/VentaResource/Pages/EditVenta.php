@@ -101,6 +101,9 @@ class EditVenta extends EditRecord
     {
         $venta = $this->record;
 
+        // 🔁 Recalcula importes según lo que quedó en venta_ofertas y sus productos
+        $venta->recomputarImportesDesdeOfertas();
+
         if (!Reparto::where('venta_id', $venta->id)->exists()) {
             Reparto::create([
                 'venta_id' => $venta->id,
@@ -108,5 +111,6 @@ class EditVenta extends EditRecord
             ]);
         }
     }
+
 
 }

@@ -7,6 +7,8 @@ use Filament\Support\Colors\Color;
 use Filament\Support\Facades\FilamentColor;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
+use App\Observers\VentaOfertaObserver;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Models\Venta::observe(\App\Observers\VentaObserver::class);
+        \App\Models\VentaOferta::observe(VentaOfertaObserver::class);
 
         //Personalizar colores de filament
         FilamentColor::register([
