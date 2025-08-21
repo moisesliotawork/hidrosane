@@ -66,9 +66,7 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
-                    // 1. Cambiar estado de la nota
-                    $this->record->estado_terminal = EstadoTerminal::VENTA;
-                    $this->record->save();
+                    
 
                     Notification::make()
                         ->title('Nota marcada como VENTA')

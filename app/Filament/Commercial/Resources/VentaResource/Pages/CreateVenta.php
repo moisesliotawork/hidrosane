@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, PostalCode, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
+use App\Enums\EstadoTerminal;
 
 
 class CreateVenta extends CreateRecord
@@ -121,6 +122,8 @@ class CreateVenta extends CreateRecord
 
             /* 2.5 Guardar ofertas y productos relacionados */
             $this->form->model($venta)->saveRelationships();
+            $note->update(['estado_terminal' => EstadoTerminal::VENTA]);
+
 
             return $venta;
         });
