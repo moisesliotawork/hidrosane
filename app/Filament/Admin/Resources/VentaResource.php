@@ -27,6 +27,7 @@ use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Admin\Resources\VentaResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
+use App\Enums\Financiera;
 
 class VentaResource extends Resource
 {
@@ -304,6 +305,20 @@ class VentaResource extends Resource
                             }
                         }),
 
+                    Select::make('financiera')
+                        ->label('Financiera')
+                        ->options(
+                            collect(Financiera::cases())
+                                ->mapWithKeys(fn($f) => [$f->value => $f->label()])
+                                ->toArray()
+                        )
+                        ->nullable()
+                        ->native(false)
+                        ->searchable()
+                        ->visible(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                        ->helperText('Seleccione la entidad financiera (opcional)'),
+
+
                     Select::make('forma_pago')
                         ->label('Forma de pago')
                         ->options([
@@ -343,8 +358,6 @@ class VentaResource extends Resource
                             ))
                         ),
 
-                    TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
-
                     TextInput::make('cuota_mensual')
                         ->label('Cuota mensual (€)')
                         ->numeric()
@@ -352,6 +365,8 @@ class VentaResource extends Resource
                         ->disabled()
                         ->dehydrated()
                         ->reactive(),
+
+                    TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
                 ])
                 ->columns(2),
 

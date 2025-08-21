@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
-use App\Enums\{EstadoEntrega, EstadoVenta};
+use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
 use Illuminate\Support\Collection;
 
 /**
@@ -125,6 +125,7 @@ class Venta extends Model
         'lat',
         'lng',
         'estado_venta',
+        'financiera',
     ];
 
     protected $casts = [
@@ -136,6 +137,7 @@ class Venta extends Model
         'productos_externos' => 'array',
         'de_camino' => 'boolean',
         'estado_venta' => EstadoVenta::class,
+        'financiera' => Financiera::class,
 
     ];
 
