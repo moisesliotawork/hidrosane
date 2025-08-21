@@ -39,13 +39,16 @@ class CustomerResource extends Resource
     {
         return $infolist->schema([
             Section::make('Vision Global del Cliente')
-                ->columns(6) 
+                ->columns(6)
                 ->schema([
                     TextEntry::make('id')->label('CLIENTE'),
 
                     TextEntry::make('name')
                         ->label('NOMBRE')
                         ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names))),
+
+                    TextEntry::make('dni')
+                        ->label('DNI'),
 
                     TextEntry::make('primary_address')->label('DOMICILIO'),
 
@@ -76,7 +79,7 @@ class CustomerResource extends Resource
                             $d = Carbon::parse($r->fecha_nac)->diff(now());
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
                         }),
-                        
+
                 ])
                 ->columnSpan(6),
         ]);
@@ -96,6 +99,11 @@ class CustomerResource extends Resource
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
                     ->searchable(['first_names', 'last_names'])
                     ->wrap(),
+
+                TextColumn::make('dni')
+                    ->label('DNI')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('phones')
                     ->label('TELEFONOS')
