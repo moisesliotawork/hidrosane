@@ -229,6 +229,8 @@ class AgregarOfertasRepartidor extends EditRecord
                 ->sum(fn($vo) => (float) ($vo->oferta->precio_base ?? 0));
 
             $venta->update(['importe_total' => number_format($nuevoTotal, 2, '.', '')]);
+
+            $venta->recomputarImportesDesdeOfertas();
         });
 
         // Limpia el buffer

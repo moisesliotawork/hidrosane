@@ -128,7 +128,14 @@ class Venta extends Model
         'financiera',
         'importe_comercial',
         'importe_repartidor',
-
+        'vta_rep',
+        'vta_esp',
+        'vta_ac',
+        'com_venta',
+        'com_entrega',
+        'com_conpago',
+        'pas_comercial',
+        'pas_repartidor',
     ];
 
     protected $casts = [
@@ -141,6 +148,15 @@ class Venta extends Model
         'de_camino' => 'boolean',
         'importe_comercial' => 'decimal:2',
         'importe_repartidor' => 'decimal:2',
+        'vta_rep' => 'integer',
+        'vta_esp' => 'integer',
+        'vta_ac' => 'integer',
+        'pas_comercial' => 'integer',
+        'pas_repartidor' => 'integer',
+        'com_venta' => 'decimal:2',
+        'com_entrega' => 'decimal:2',
+        'com_conpago' => 'decimal:2',
+
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
 
@@ -318,5 +334,21 @@ class Venta extends Model
         $this->save();
     }
 
+    /**
+     * Recalcula VTA AC como suma de VTA REP + VTA ESP.
+     *
+     * @param  bool  $persist  Si true, guarda el cambio en BD.
+     * @return $this
+     */
+    public function recalcularVtasAcumuladas(bool $persist = false): self
+    {
+        $this->vta_ac = (int) ($this->vta_rep ?? 0) + (int) ($this->vta_esp ?? 0);
+
+        if ($persist) {
+            $this->save();
+        }
+
+        return $this;
+    }
 
 }

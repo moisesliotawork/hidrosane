@@ -83,6 +83,8 @@ class CreateVentaDesdeCero extends CreateRecord
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
                 'fecha_venta' => now(),
+                'importe_comercial' => $data['importe_total'],
+                'importe_repartidor' => 0,
                 'importe_total' => $data['importe_total'] ?? 0,
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado'
