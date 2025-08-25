@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, PostalCode, Note, Customer, User};
 use App\Enums\{NoteStatus};
-use App\Filament\Repartidor\Pages\NotasHoy;
+use App\Enums\VendidoPor;
+
 
 class CreateVentaDesdeCero extends CreateRecord
 {
@@ -112,6 +113,21 @@ class CreateVentaDesdeCero extends CreateRecord
 
             // 6) Relaciones (ofertas/productos)
             $this->form->model($venta)->saveRelationships();
+
+            // Marcar todas las líneas como vendidas por Repartidor
+            $venta->loadMissing(['ventaOfertas.productos']);
+            foreach ($venta->ventaOfertas as $vo) {
+                foreach ($vo->productos as $linea) {
+                    $linea->vendido_por = VendidoPor::Repartidor;
+                    $linea->save();
+                }
+            }
+
+            // Recalcular importes y comisiones derivadas de que vende el Repartidor
+            $venta->recomputarImportesDesdeOfertas();
+            $venta->calcularComisiones(true);
+            $venta->recomputarVtasRepYEsp(true)->recalcularVtasAcumuladas(true);
+
 
             return $venta;
         });

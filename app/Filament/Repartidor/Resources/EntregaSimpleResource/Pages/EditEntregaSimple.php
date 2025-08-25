@@ -15,10 +15,28 @@ class EditEntregaSimple extends EditRecord
         return 'DATOS DEL CONTRATO ' . $this->record->nro_contrato;
     }
 
+    // 1) Guardar el valor inicial de cuotas
+    protected ?int $oldNumCuotas = null; // ← NUEVO
+
+    public function mount($record): void // ← NUEVO
+    {
+        parent::mount($record);
+        $this->oldNumCuotas = (int) ($this->record->num_cuotas ?? 0);
+    }
+
     protected function afterSave(): void
     {
         /** @var \App\Models\Venta $venta */
         $venta = $this->record->fresh(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        // 2) Bono por CON PAGÓ si baja el nº de cuotas
+        if (
+            $this->oldNumCuotas !== null
+            && (int) $venta->num_cuotas < (int) $this->oldNumCuotas
+        ) {
+            $venta->com_conpago = 50.0;
+            $venta->save();
+        }
 
         // 1) Recalcular importes y cuota mensual desde las ofertas
         $venta->recomputarImportesDesdeOfertas();
