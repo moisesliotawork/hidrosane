@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
 use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
 use Illuminate\Support\Collection;
+use App\Enums\VendidoPor;
 
 /**
  * @property int $id
@@ -334,6 +335,62 @@ class Venta extends Model
         $this->save();
     }
 
+    protected function esOfertaExcepcional(string $nombre): bool
+    {
+        $n = mb_strtolower($nombre);
+
+        // "Excepciones" por nombre/descripción
+        if (str_contains($n, '1899€ canapé') || str_contains($n, '2099€ canapé') || str_contains($n, '2099€ somier')) {
+            return true;
+        }
+        if (str_contains($n, '3564€ somier') && str_contains($n, 'topper')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Recalcula VTA REP (no-excepcional) y VTA ESP (excepcional) SOLO
+     * contando ventaOfertas que tengan al menos un producto vendido por Repartidor.
+     *
+     * @param  bool  $persist
+     * @return $this
+     */
+    public function recomputarVtasRepYEsp(bool $persist = false): self
+    {
+        $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        $vtaRep = 0;
+        $vtaEsp = 0;
+
+        foreach ($this->ventaOfertas as $vo) {
+            $tieneLineaRep = $vo->productos->contains(
+                fn($p) => ($p->vendido_por ?? null) === VendidoPor::Repartidor
+            );
+
+            if (!$tieneLineaRep) {
+                continue; // solo contamos ventas del repartidor
+            }
+
+            $nombre = (string) ($vo->oferta->nombre ?? '');
+            if ($this->esOfertaExcepcional($nombre)) {
+                $vtaEsp++;
+            } else {
+                $vtaRep++;
+            }
+        }
+
+        $this->vta_rep = $vtaRep;
+        $this->vta_esp = $vtaEsp;
+
+        if ($persist) {
+            $this->save();
+        }
+
+        return $this;
+    }
+
     /**
      * Recalcula VTA AC como suma de VTA REP + VTA ESP.
      *
@@ -350,5 +407,121 @@ class Venta extends Model
 
         return $this;
     }
+
+
+    /**
+     * Determina las comisiones (venta, entrega) según el nombre del pack/oferta.
+     * Retorna ['venta' => float, 'entrega' => float].
+     */
+    protected function reglaComisionPorNombre(string $nombre): array
+    {
+        $n = mb_strtolower($nombre);
+
+        // ───── Excepciones por nombre exacto ────────────────────────────────
+        if (str_contains($n, '1899€ canapé')) {
+            return ['venta' => 200.0, 'entrega' => 15.0];
+        }
+        if (str_contains($n, '2099€ canapé') || str_contains($n, '2099€ somier')) {
+            return ['venta' => 220.0, 'entrega' => 15.0];
+        }
+        if (str_contains($n, '3564€ somier') && str_contains($n, 'topper')) {
+            return ['venta' => 240.0, 'entrega' => 30.0];
+        }
+
+        // ───── Clasificaciones principales por palabra clave ────────────────
+        // Media venta
+        if (str_contains($n, 'media.vta')) {
+            return ['venta' => 100.0, 'entrega' => 7.50];
+        }
+
+        // Oferta reparto
+        if (str_contains($n, 'oferta reparto')) {
+            return ['venta' => 100.0, 'entrega' => 15.0];
+        }
+
+        // Triplete especial
+        if (str_contains($n, 'tripl')) { // 'tripl.esp'
+            return ['venta' => 600.0, 'entrega' => 45.0];
+        }
+
+        // Cuádruple especial
+        if (str_contains($n, 'cuadrup')) { // 'cuadrup.esp'
+            return ['venta' => 800.0, 'entrega' => 60.0];
+        }
+
+        // Doblete
+        if (str_contains($n, 'doblete')) {
+            // Caso 3564€ (2 x 1899 casi) => 440 venta, 30 entrega
+            if (str_contains($n, '3564')) {
+                return ['venta' => 440.0, 'entrega' => 30.0];
+            }
+            // Caso 3798€ (= 2 x 1899 exacto) => 400 venta, 30 entrega
+            if (str_contains($n, '3798')) {
+                return ['venta' => 400.0, 'entrega' => 30.0];
+            }
+            // Fallback doblete genérico: asume 2 * sencilla (200) => 400/30
+            return ['venta' => 400.0, 'entrega' => 30.0];
+        }
+
+        // Sencilla
+        if (str_contains($n, 'sencilla')) {
+            if (str_contains($n, '4pts')) {
+                return ['venta' => 200.0, 'entrega' => 15.0];
+            }
+            // 5/7/8 pts
+            if (str_contains($n, '5pts') || str_contains($n, '7pts') || str_contains($n, '8pts')) {
+                return ['venta' => 220.0, 'entrega' => 15.0];
+            }
+            // Fallback sencilla
+            return ['venta' => 220.0, 'entrega' => 15.0];
+        }
+
+        // Si no matchea nada, sin comisión.
+        return ['venta' => 0.0, 'entrega' => 0.0];
+    }
+
+    /**
+     * Calcula y guarda:
+     *  - com_entrega: suma de entrega de TODAS las ventaOfertas
+     *  - com_venta  : suma de venta SOLO de ventaOfertas con algún producto vendido_por Repartidor
+     *
+     * @param  bool  $persist  Si true, persiste en BD.
+     * @return $this
+     */
+    public function calcularComisiones(bool $persist = true): self
+    {
+        $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        $totalEntrega = 0.0;
+        $totalVentaRepartidor = 0.0;
+
+        foreach ($this->ventaOfertas as $vo) {
+            $ofertaNombre = (string) ($vo->oferta->nombre ?? '');
+            $regla = $this->reglaComisionPorNombre($ofertaNombre);
+
+            // Comisión de entrega: SIEMPRE suma (no importa quién vendió)
+            $totalEntrega += (float) $regla['entrega'];
+
+            // Comisión de venta de REPARTIDOR: solo si hay al menos un producto vendido por Repartidor
+            $tieneLineaDelRepartidor = $vo->productos->contains(
+                fn($p) => ($p->vendido_por ?? null) === VendidoPor::Repartidor
+            );
+
+            if ($tieneLineaDelRepartidor) {
+                $totalVentaRepartidor += (float) $regla['venta'];
+            }
+        }
+
+        // Redondeos a 2 decimales
+        $this->com_entrega = round($totalEntrega, 2);
+        $this->com_venta = round($totalVentaRepartidor, 2);
+
+        if ($persist) {
+            $this->save();
+        }
+
+        return $this;
+    }
+
 
 }
