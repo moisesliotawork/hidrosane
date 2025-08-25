@@ -452,7 +452,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $commercials = \App\Models\User::role('commercial')
+                                $commercials = \App\Models\User::role(['commercial', 'team_leader'])
                                     ->select('id', 'name', 'last_name', 'empleado_id')
                                     ->get();
 
@@ -548,7 +548,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $commercials = \App\Models\User::role('commercial')
+                                $commercials = \App\Models\User::role(['commercial', 'team_leader'])
                                     ->select('id', 'name', 'last_name', 'empleado_id')
                                     ->get();
 
