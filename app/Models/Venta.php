@@ -137,6 +137,7 @@ class Venta extends Model
         'com_conpago',
         'pas_comercial',
         'pas_repartidor',
+        'repartidor_2',
     ];
 
     protected $casts = [
@@ -274,6 +275,12 @@ class Venta extends Model
     {
         return $this->belongsTo(User::class, 'repartidor_id');
     }
+
+    public function repartidor2(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'repartidor_2');
+    }
+
 
     public function reparto()
     {
@@ -528,5 +535,61 @@ class Venta extends Model
         return $this;
     }
 
+    public function calcularPas(bool $persist = true): self
+    {
+        $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        $pasR = 0;
+        $pasC = 0;
+
+        foreach ($this->ventaOfertas as $vo) {
+            $base = (int) ($vo->oferta->puntos_base ?? 0);
+            $cerrados = (int) ($vo->puntos ?? $base);
+            $diff = $cerrados - $base;
+
+            if ($diff < 0) {
+                continue; // no sumamos negativos
+            }
+
+            // ¿Hay líneas del repartidor en esta ventaOferta?
+            $tieneRep = $vo->productos->contains(
+                fn($p) => ($p->vendido_por ?? null) === \App\Enums\VendidoPor::Repartidor
+            );
+
+            // ¿Hay líneas del comercial en esta ventaOferta?
+            $tieneCom = $vo->productos->contains(
+                fn($p) => ($p->vendido_por ?? null) === \App\Enums\VendidoPor::Comercial
+            );
+
+            // Suma independiente para cada “lado”
+            if ($tieneRep) {
+                $pasR += $diff;
+            }
+            if ($tieneCom) {
+                $pasC += $diff;
+            }
+
+            /*
+            // ───── Alternativa EXCLUSIVA (descomenta si NO quieres doble conteo) ────
+            if ($tieneRep && !$tieneCom) {
+                $pasR += $diff;
+            } elseif ($tieneCom && !$tieneRep) {
+                $pasC += $diff;
+            } else {
+                // Si hay ambos, decide prioridad:
+                // $pasR += $diff;  // o $pasC += $diff;
+            }
+            */
+        }
+
+        $this->pas_repartidor = (int) $pasR;
+        $this->pas_comercial = (int) $pasC;
+
+        if ($persist) {
+            $this->save();
+        }
+
+        return $this;
+    }
 
 }

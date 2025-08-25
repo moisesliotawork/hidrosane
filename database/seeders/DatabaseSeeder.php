@@ -27,8 +27,8 @@ class DatabaseSeeder extends Seeder
             ProductosConMedidasSeeder::class,
             ProductosSimplesSeeder::class,
             OfertaSeeder::class,
-            //CustomerSeeder::class,
-            //NoteSeeder::class,
+            CustomerSeeder::class,
+            NoteSeeder::class,
             //VentaSeeder::class
         ]);
     }

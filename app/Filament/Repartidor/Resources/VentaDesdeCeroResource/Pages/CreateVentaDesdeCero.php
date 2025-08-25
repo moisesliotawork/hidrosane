@@ -126,8 +126,11 @@ class CreateVentaDesdeCero extends CreateRecord
             // Recalcular importes y comisiones derivadas de que vende el Repartidor
             $venta->recomputarImportesDesdeOfertas();
             $venta->calcularComisiones(true);
-            $venta->recomputarVtasRepYEsp(true)->recalcularVtasAcumuladas(true);
+            $venta->recomputarVtasRepYEsp(true)
+                ->recalcularVtasAcumuladas(true);
 
+                
+            $venta->calcularPas(true);
 
             return $venta;
         });

@@ -49,6 +49,9 @@ class EditEntregaSimple extends EditRecord
         $venta->recomputarVtasRepYEsp(true)
             ->recalcularVtasAcumuladas(true);
 
+        // 3b) PAS C / PAS R (dif. de puntos por ventaOferta del comercial/repartidor)
+        $venta->calcularPas(true);
+
         // 4) Estado de entrega (No entregado / Parcial / Completo) en el reparto asociado
         $venta->refreshEstadoEntrega();
     }

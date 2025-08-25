@@ -124,7 +124,7 @@ class CreateVenta extends CreateRecord
             /* 2.5 Guardar ofertas y productos relacionados */
             $this->form->model($venta)->saveRelationships();
             $note->update(['estado_terminal' => EstadoTerminal::VENTA]);
-
+            $venta->calcularPas(true);
 
             return $venta;
         });

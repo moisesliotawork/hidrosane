@@ -63,6 +63,8 @@ class EditEntregaConVenta extends EditRecord
         $venta->recomputarVtasRepYEsp(true)
             ->recalcularVtasAcumuladas(true);
 
+        $venta->calcularPas(true);
+
         // 4) Estado de entrega (No entregado / Parcial / Completo) en el reparto asociado
         $venta->refreshEstadoEntrega();
     }
