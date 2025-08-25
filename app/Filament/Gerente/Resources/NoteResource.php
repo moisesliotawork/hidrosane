@@ -99,24 +99,40 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('postal_code_id')
                             ->label('Código postal')
                             ->required()
-                            ->options(function () {
-                                return PostalCode::query()
-                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
+                            ->searchable()
+                            ->getSearchResultsUsing(function (string $search) {
+                                return \App\Models\PostalCode::query()
                                     ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                    ->when(
+                                        filled($search),
+                                        fn($q) => $q->where(function ($q) use ($search) {
+                                            $q->where('postal_codes.code', 'like', "%{$search}%")
+                                                ->orWhere('cities.title', 'like', "%{$search}%");
+                                        })
+                                    )
                                     ->orderBy('cities.title')
                                     ->orderBy('postal_codes.code')
-                                    ->limit(500) // Limitar resultados para mejor rendimiento
-                                    ->get()
-                                    ->mapWithKeys(fn($item) => [
-                                        $item->id => "{$item->city_title} - {$item->code}"
-                                    ]);
+                                    ->limit(50)
+                                    ->select('postal_codes.id')                                       // <-- id
+                                    ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label") // <-- label
+                                    ->pluck('label', 'postal_codes.id');                               // <-- pluck por strings
                             })
-                            ->searchable(['code', 'city.title'])
-                            ->preload()
+                            ->getOptionLabelUsing(function ($value) {
+                                if (!$value)
+                                    return null;
+
+                                return \App\Models\PostalCode::query()
+                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                    ->where('postal_codes.id', $value)
+                                    ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")
+                                    ->value('label');
+                            })
+                            ->searchPrompt('Escribe ciudad o código…')
                             ->native(false)
                             ->validationMessages([
                                 'required' => 'El código postal es obligatorio',
                             ]),
+
                         Forms\Components\TextInput::make('primary_address')
                             ->required()
                             ->maxLength(255)
@@ -365,7 +381,8 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $commercials = \App\Models\User::role('commercial')
+                                $commercials = \App\Models\User::role(['commercial', 'team_leader'])
+
                                     ->select('id', 'name', 'last_name', 'empleado_id')
                                     ->get();
 
@@ -422,7 +439,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $commercials = \App\Models\User::role('commercial')
+                                $commercials = \App\Models\User::role(['commercial', 'team_leader'])
                                     ->select('id', 'name', 'last_name', 'empleado_id')
                                     ->get();
 
