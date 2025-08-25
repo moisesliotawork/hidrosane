@@ -122,16 +122,24 @@ class Note extends Model
         parent::boot();
 
         static::creating(function ($note) {
-            // Generar número de nota automáticamente
             if (empty($note->nro_nota)) {
-                do {
-                    $nroNota = str_pad(mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
-                } while (self::where('nro_nota', $nroNota)->exists());
+                // Buscar el nro_nota más alto
+                $max = self::max('nro_nota');
 
-                $note->nro_nota = $nroNota;
+                if ($max) {
+                    // Si ya hay notas en BD, tomamos el último +1
+                    $next = (int) ltrim($max, '0') + 1;
+                } else {
+                    // 🚀 Primer número en producción
+                    $next = 4204;
+                }
+
+                // Guardar con padding a 5 dígitos
+                $note->nro_nota = str_pad($next, 5, '0', STR_PAD_LEFT);
             }
         });
     }
+
 
     /**
      * Get the user that owns the note.

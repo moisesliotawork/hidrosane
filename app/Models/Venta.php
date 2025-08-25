@@ -183,12 +183,17 @@ class Venta extends Model
                 $max = self::max('nro_contrato');
 
                 // Convertir a número entero (si existe) y sumar 1
-                $next = $max ? (int) ltrim($max, '0') + 1 : 1;
+                if ($max) {
+                    $next = (int) ltrim($max, '0') + 1;
+                } else {
+                    $next = 829; // 🚀 primer contrato en producción
+                }
 
                 // Rellenar con ceros hasta 5 caracteres
                 $venta->nro_contrato = str_pad($next, 5, '0', STR_PAD_LEFT);
             }
         });
+
     }
 
     public function getEstadoVentaLabelAttribute(): string
