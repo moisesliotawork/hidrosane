@@ -602,7 +602,8 @@ class NoteResource extends Resource
                         }
                     })
                     ->deselectRecordsAfterCompletion(),
-            ]);
+            ])
+            ->deselectAllRecordsWhenFiltered(false);
     }
 
     public static function getRelations(): array
