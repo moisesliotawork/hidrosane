@@ -58,16 +58,44 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
-                    Select::make('postal_code_id')->label('Código postal')->required()
-                        ->options(fn() => PostalCode::query()
-                            ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                            ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                            ->orderBy('cities.title')->orderBy('postal_codes.code')
-                            ->limit(500)
-                            ->get()
-                            ->mapWithKeys(fn($item) => [$item->id => "{$item->city_title} - {$item->code}"]))
-                        ->searchable(['code', 'city.title'])->preload()->native(false)->columnSpanFull()
-                        ->validationMessages(['required' => 'El código postal es obligatorio']),
+
+                    Forms\Components\Select::make('postal_code_id')
+                        ->label('Código postal')
+                        ->required()
+                        ->searchable()
+                        ->getSearchResultsUsing(function (string $search) {
+                            return \App\Models\PostalCode::query()
+                                ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                ->when(
+                                    filled($search),
+                                    fn($q) => $q->where(function ($q) use ($search) {
+                                        $q->where('postal_codes.code', 'like', "%{$search}%")
+                                            ->orWhere('cities.title', 'like', "%{$search}%");
+                                    })
+                                )
+                                ->orderBy('cities.title')
+                                ->orderBy('postal_codes.code')
+                                ->limit(50)
+                                ->select('postal_codes.id')                                       // <-- id
+                                ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label") // <-- label
+                                ->pluck('label', 'postal_codes.id');                               // <-- pluck por strings
+                        })
+                        ->getOptionLabelUsing(function ($value) {
+                            if (!$value)
+                                return null;
+
+                            return \App\Models\PostalCode::query()
+                                ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
+                                ->where('postal_codes.id', $value)
+                                ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")
+                                ->value('label');
+                        })
+                        ->searchPrompt('Escribe ciudad o código…')
+                        ->native(false)
+                        ->validationMessages([
+                            'required' => 'El código postal es obligatorio',
+                        ]),
+
                     TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
                     TextInput::make('parish')->label('Parroquia'),
