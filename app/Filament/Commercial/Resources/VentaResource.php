@@ -182,12 +182,12 @@ class VentaResource extends Resource
                                             : null)
 
                                         // ─── Mientras escribe / pega ─────────────────────────
-                                        ->afterStateUpdated(function ($state, callable $set) {
+                                        ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
                                             $plain = str_replace(' ', '', strtoupper($state ?? ''));
                                             $formatted = implode(' ', str_split($plain, 4));
 
                                             if ($formatted !== $state) {
-                                                $set($formatted);            // actualiza la vista con los espacios
+                                                $set('iban', $formatted); // ✅
                                             }
                                         }),
                                 ]),
