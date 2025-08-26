@@ -101,7 +101,11 @@ class PoliticasYComisiones extends Page implements HasForms
     /** Enlace directo para ver/descargar en el blade */
     public function getCurrentPublicUrl(): ?string
     {
-        $path = $this->normalizePath(data_get(AppSetting::get('politicas_comisiones_pdf'), 'path'));
-        return $path ? asset('storage/' . ltrim($path, '/')) : null;
+        $path = data_get(AppSetting::get('politicas_comisiones_pdf'), 'path');
+        if (!$path)
+            return null;
+
+        // Usar la URL del disco "public" (coincide con lo que usa FileUpload)
+        return Storage::disk('public')->url(ltrim($path, '/'));
     }
 }

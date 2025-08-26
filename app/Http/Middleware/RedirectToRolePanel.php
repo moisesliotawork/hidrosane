@@ -16,6 +16,7 @@ class RedirectToRolePanel
         if ($user) {
             $target = match (true) {
                 $user->hasRole('admin')           => '/admin',
+                $user->hasRole('team_leader')           => '/comercial',
                 $user->hasRole('commercial')      => '/comercial',
                 $user->hasRole('teleoperator')    => '/teleoperador',
                 $user->hasRole('head_of_room')    => '/jefe-sala',
