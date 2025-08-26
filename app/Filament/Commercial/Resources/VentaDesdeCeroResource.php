@@ -121,7 +121,7 @@ class VentaDesdeCeroResource extends Resource
                     Select::make('ingresos_rango')->label('Ingresos netos mensuales')
                         ->options(\App\Enums\IngresosRango::options())->required()->native(false),
 
-                    Select::make('num_hab_casa')->label('Número de habitaciones')
+                    Select::make('num_hab_casa')->label('Número de personas que residen en la casa')
                         ->options(
                             fn() => collect(range(1, 10))
                                 ->mapWithKeys(fn($n) => [$n => (string) $n])->toArray()
