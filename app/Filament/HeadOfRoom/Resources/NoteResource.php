@@ -313,6 +313,7 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
                     ->label('Teléfono')
+                    ->searchable()
                     ->html()
                     ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
                         chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),

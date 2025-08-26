@@ -187,7 +187,7 @@ class Venta extends Model
                 if ($max) {
                     $next = (int) ltrim($max, '0') + 1;
                 } else {
-                    $next = 829; // 🚀 primer contrato en producción
+                    $next = 1023; // 🚀 primer contrato en producción
                 }
 
                 // Rellenar con ceros hasta 5 caracteres
