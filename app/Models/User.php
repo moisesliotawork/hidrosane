@@ -129,7 +129,7 @@ class User extends Authenticatable implements FilamentUser
 
         // Para los demás paneles mantén el filtrado estricto
         return match ($panelId) {
-            'comercial' => $this->hasRole('commercial'),
+            'comercial' => $this->hasRole('commercial') || $this->hasRole('team_leader'),
             'teleoperador' => $this->hasRole('teleoperator'),
             'jefe-sala' => $this->hasRole('head_of_room'),
             'gerente' => $this->hasRole('gerente_general'),
