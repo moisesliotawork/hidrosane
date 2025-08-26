@@ -8,8 +8,8 @@ use App\Models\AppSetting;
 class PoliticasViewer extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Políticas y Comisiones';
-    protected static ?string $title = 'Políticas y Comisiones';
+    protected static ?string $navigationLabel = 'Ofertas Comerciales en Rigor';
+    protected static ?string $title = 'Ofertas Comerciales en Rigor';
     protected static ?string $slug = 'politicas';
     protected static string $view = 'filament.commercial.pages.politicas-viewer';
 

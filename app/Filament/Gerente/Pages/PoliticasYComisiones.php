@@ -16,8 +16,8 @@ class PoliticasYComisiones extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Políticas y Comisiones';
-    protected static ?string $title = 'Políticas y Comisiones en Rigor';
+    protected static ?string $navigationLabel = 'Ofertas Comerciales';
+    protected static ?string $title = 'Ofertas Comerciales en Rigor';
     protected static ?string $slug = 'politicas-comisiones';
     protected static string $view = 'filament.gerente.pages.politicas-comisiones';
 
