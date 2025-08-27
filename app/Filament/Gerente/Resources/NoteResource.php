@@ -357,13 +357,15 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        $commercials = \App\Models\User::role('commercial')
-                            ->select('id', 'name', 'last_name', 'empleado_id')
-                            ->get();
-
-                        return $commercials->mapWithKeys(function ($user) {
-                            return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
-                        })->toArray();
+                        return \App\Models\User::role(['commercial', 'team_leader']) // 👈 ambos roles
+                            ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                            ->orderBy('users.name')
+                            ->distinct()
+                            ->get()
+                            ->mapWithKeys(fn($u) => [
+                                $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
+                            ])
+                            ->toArray();
                     })
                     ->searchable()
                     ->native(false),
