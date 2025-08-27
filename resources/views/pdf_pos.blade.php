@@ -10,25 +10,22 @@
     $sy = (float) request('sy', 1);   // escala global Y
     $row = (float) request('row', 7.2); // alto/step de fila
 
-    // ===== Helpers seguros =====
+    // ===== Helpers =====
     $fecPromo = optional(Carbon::parse($venta->created_at))->format('d-m-Y');
     $fecEntr = $venta->fecha_entrega ? Carbon::parse($venta->fecha_entrega)->format('d-m-Y') : '';
 
-    // ===== Items: EXPLOTAR por cantidad y tomar 10 =====
+    // Items: EXPLOTAR por cantidad y tomar 10
     $rawLines = $venta->ventaOfertas->flatMap(fn($o) => $o->productos);
-    $items = $rawLines
-        ->flatMap(function ($line) {
-            $qty = max((int) ($line->cantidad ?? 1), 1);
-            return collect(array_fill(0, $qty, $line));
-        })
-        ->values()
-        ->take(10);
+    $items = $rawLines->flatMap(function ($line) {
+        $qty = max((int) ($line->cantidad ?? 1), 1);
+        return collect(array_fill(0, $qty, $line));
+    })->values()->take(10);
 
     $columns = $items->chunk(5)->map->values();
     $colA = $columns->get(0, collect());
     $colB = $columns->get(1, collect());
 
-    // ===== Coordenadas fijas en mm (no toques lo demás) =====
+    // ===== Coordenadas fijas en mm (las existentes NO se tocan) =====
     $yCodContrato = 11.5;
     $xCodContrato = 134.5;
     $yFecPromo = 11.5;
@@ -51,6 +48,22 @@
     $yA_Dir = 47;
     $xA_Dir = 129.5;
 
+    // ===== NUEVOS CAMPOS (coordenadas sugeridas) =====
+    // Izquierda
+    $yA_EstadoCivil = 59.8;
+    $xA_EstadoCivil = 42.5;   // “Estado civil:”
+    $yA_SitLab = 64.0;
+    $xA_SitLab = 42.5;   // “Situación laboral:”
+    // Derecha
+    $yA_Telefonos = 55.4;
+    $xA_Telefonos = 129.5;  // “Teléfonos:”
+
+    $yA_Vivienda = 59.8;
+    $xA_Vivienda = 129.5;  // “Vivienda:”
+
+    $yA_Ingresos = 64.1;
+    $xA_Ingresos = 129.5;  // “Ingresos:”
+
     $yBase = 93.1;     // origen tabla artículos
     $xPosA = 15.0;
     $xDesA = 32.0;
@@ -58,16 +71,12 @@
     $xDesB = 130.0;
 
     $yPagoFila = 150.5;
-    
     $xNumCuotas = 52.4;
     $wNumCuotas = 30;
-    
     $xCuota = 90.8;
     $wCuota = 28.0;
-    
     $xMes1 = 129.2;
     $wMes1 = 28.0;
-    
     $xImporte = 167.6;
     $wImporte = 25.0;
 
@@ -75,27 +84,34 @@
     $xIban = 88.8;
     $wIban = 110.0;
 
-    $yFirmas = 256;
+    $yFirmas = 266;
     $xFirmaCli = 10.0;
-
     $xFirmaEmp = 130.0;
     $wFirma = 70.0;
 
-    // ===== NUEVO: Lugar/Fecha DESGLOSADO (coordenadas de los huecos punteados) =====
-    // (ajusta solo estos si hace falta 1–2 mm)
-    $yLugarLinea = 282.2; // línea de los punteados
-
+    // Lugar/fecha desglosado (si lo usas más adelante)
+    $yLugarLinea = 282.2;
     $xLugarCiudad = 15.5;
-    $wLugarCiudad = 65.0;  // “En ____________”
-
+    $wLugarCiudad = 65.0;
     $xLugarDia = 47;
-    $wLugarDia = 12.0;  // “, a ___”
-
+    $wLugarDia = 12.0;
     $xLugarMes = 76.0;
-    $wLugarMes = 42.0;  // “de _____________”
+    $wLugarMes = 42.0;
 
+    // ===== Valores formateados para nuevos campos =====
+    $estadoCivil = mb_strtoupper($venta->customer->estado_civil ?? '', 'UTF-8');
+    $sitLab = mb_strtoupper($venta->customer->situacion_laboral ?? '', 'UTF-8');
 
-    // Valores a imprimir
+    $telefonos = collect([
+        $venta->customer->phone ?? null,
+        $venta->customer->phone2 ?? null,
+        $venta->customer->mobile ?? null,
+    ])->filter()->implode(' / ');
+
+    $vivienda = mb_strtoupper($venta->customer->tipo_vivienda ?? '', 'UTF-8');
+    $ingresos = mb_strtoupper($venta->customer->ingresos_rango ?? '', 'UTF-8');
+
+    // Lugar (si lo necesitas)
     $lugarCiudad = mb_strtoupper($venta->customer->postalCode?->city?->title ?? 'VIGO', 'UTF-8');
     $lugarDia = now()->format('d');
     $lugarMes = mb_strtoupper(now()->locale('es')->isoFormat('MMMM'), 'UTF-8');
@@ -151,6 +167,11 @@
 
         .field--sm {
             font-size: 8pt;
+        }
+
+        .sig {
+            position: absolute;
+            z-index: 1;
         }
 
 
@@ -212,21 +233,29 @@
             <div class="field" style="top:{{ $yA_Nac }}mm; left:{{ $xA_Nac }}mm;">
                 {{ $venta->customer->fecha_nac ? Carbon::parse($venta->customer->fecha_nac)->format('d-m-Y') : '' }}
             </div>
+
+            {{-- NUEVOS: Estado civil + Situación laboral (izquierda) --}}
+            <div class="field" style="top:{{ $yA_EstadoCivil }}mm; left:{{ $xA_EstadoCivil }}mm;">{{ $estadoCivil }}
+            </div>
+            <div class="field" style="top:{{ $yA_SitLab }}mm; left:{{ $xA_SitLab }}mm;">{{ $sitLab }}</div>
+
+            {{-- Domicilio + Teléfonos + Vivienda + Ingresos (derecha) --}}
             <div class="field" style="top:{{ $yA_Dir }}mm; left:{{ $xA_Dir }}mm;">
                 {{ strtoupper($venta->customer->primary_address ?? '') }}
             </div>
+            <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
+            <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
+            <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
 
             {{-- B. Artículos (duplicados por cantidad, sin columna CANT) --}}
             @for ($i = 0; $i < 5; $i++)
                 @php $y = $yBase + $i * $row; @endphp
-                {{-- Columna A --}}
                 <div class="field" style="top:{{ $y }}mm; left:{{ $xPosA }}mm; width:10mm; text-align:center;">
                     {{ isset($colA[$i]) ? $i + 1 : '' }}
                 </div>
                 <div class="field" style="top:{{ $y }}mm; left:{{ $xDesA }}mm; width:60mm;">
                     {{ isset($colA[$i]) ? strtoupper($colA[$i]->producto->nombre) : '' }}
                 </div>
-                {{-- Columna B --}}
                 <div class="field" style="top:{{ $y }}mm; left:{{ $xPosB }}mm; width:10mm; text-align:center;">
                     {{ isset($colB[$i]) ? $i + 6 : '' }}
                 </div>
@@ -263,22 +292,24 @@
                 style="top:{{ $yFirmas }}mm; left:{{ $xFirmaCli }}mm; width:{{ $wFirma }}mm; text-align:center;"></div>
             <div class="field"
                 style="top:{{ $yFirmas }}mm; left:{{ $xFirmaEmp }}mm; width:{{ $wFirma }}mm; text-align:center;"></div>
-
-            {{-- ===== LUGAR/FECHA DESGLOSADO ===== --}}
-            {{-- (Quita o comenta la línea compacta si aún la tienes) --}}
-            {{-- <div class="field" style="top:{{ $yLugar }}mm; left:25mm; width:170mm; text-align:center;"> ... </div>
-            --}}
-
         </div>
+
+        {{-- Firma de la Empresa (imagen) --}}
+        <img class="sig" src="{{ str_replace('\\', '/', public_path('images/FirmaEmpresa.png')) }}" alt="Firma Empresa"
+            style="
+        top: {{ $yFirmas - 18 }}mm;     /* sube la imagen para que quede sobre la línea */
+        left: {{ $xFirmaEmp + 5 }}mm;   /* un pequeño margen desde el inicio del recuadro */
+        width: 35mm;                    /* ocupa buena parte del ancho del recuadro ($wFirma=70) */
+        height: auto;
+    " />
+
 
         @if($debug)
             <div class="grid">
                 @for($y = 0; $y <= 297; $y += 5)
-                    <div class="h" style="top:{{ $y }}mm"></div>
-                @endfor
+                <div class="h" style="top:{{ $y }}mm"></div>@endfor
                 @for($x = 0; $x <= 210; $x += 5)
-                    <div class="v" style="left:{{ $x }}mm"></div>
-                @endfor
+                <div class="v" style="left:{{ $x }}mm"></div>@endfor
             </div>
         @endif
     </div>
