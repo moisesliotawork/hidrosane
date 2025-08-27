@@ -326,6 +326,10 @@ class VentaDesdeCeroResource extends Resource
                 TextInput::make('accesorio_entregado')
                     ->label('¿Haz entregado algun ACCESORIO AL CLIENTE?')
                     ->placeholder('Ej.: Almohada viscoelástica'),
+
+                Toggle::make('crema')
+                    ->label('¿Incluye crema?')
+                    ->default(false),
             ])->columns(2),
 
             Section::make('Informe al REPARTIDOR')->schema([

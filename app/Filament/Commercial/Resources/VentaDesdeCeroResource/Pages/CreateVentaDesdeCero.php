@@ -93,6 +93,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'num_cuotas' => $data['num_cuotas'] ?? null,
                 'cuota_mensual' => $cuotaMensual,
                 'accesorio_entregado' => $data['accesorio_entregado'] ?? null,
+                "crema" => $data['crema'] ?? null,
                 'motivo_venta' => $data['motivo_venta'] ?? null,
                 'motivo_horario' => $data['motivo_horario'] ?? null,
                 'interes_art' => $data['interes_art'] ?? false,

@@ -138,6 +138,7 @@ class Venta extends Model
         'pas_comercial',
         'pas_repartidor',
         'repartidor_2',
+        'crema',
     ];
 
     protected $casts = [
@@ -158,6 +159,7 @@ class Venta extends Model
         'com_venta' => 'decimal:2',
         'com_entrega' => 'decimal:2',
         'com_conpago' => 'decimal:2',
+        'crema' => 'boolean',
 
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
@@ -173,6 +175,11 @@ class Venta extends Model
         'pension_url',
         'contrato_firmado_url',
     ];
+
+    protected $attributes = [
+        'crema' => false,
+    ];
+
 
     protected static function boot()
     {

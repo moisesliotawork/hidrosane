@@ -300,6 +300,10 @@ class EntregaSimpleResource extends Resource
                         ->reactive(),
 
                     TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
+
+                    Toggle::make('crema')
+                        ->label('¿Incluye crema?')
+                        ->default(false),
                 ])
                 ->columns(2),
 

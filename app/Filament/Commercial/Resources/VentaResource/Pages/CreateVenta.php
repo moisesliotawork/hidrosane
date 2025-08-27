@@ -108,6 +108,8 @@ class CreateVenta extends CreateRecord
                     ->filter()          // quita vacíos
                     ->values()
                     ->all(),
+                
+                "crema" => $data['crema'] ?? null,
 
                 'fecha_entrega' => $data['fecha_entrega'],
                 'horario_entrega' => $data['horario_entrega'],
@@ -119,6 +121,7 @@ class CreateVenta extends CreateRecord
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
+                
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

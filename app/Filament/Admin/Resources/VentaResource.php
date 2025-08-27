@@ -368,6 +368,10 @@ class VentaResource extends Resource
                         ->reactive(),
 
                     TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
+
+                    Toggle::make('crema')
+                        ->label('¿Incluye crema?')
+                        ->default(false),
                 ])
                 ->columns(2),
 
@@ -651,7 +655,7 @@ class VentaResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                
+
                 Tables\Actions\DeleteAction::make()
                     ->label('') // sin texto, solo ícono
                     ->icon('heroicon-o-trash')

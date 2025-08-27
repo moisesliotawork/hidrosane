@@ -613,6 +613,10 @@ class VentaResource extends Resource
                         ->label('¿Haz entregado algun ACCESORIO AL CLIENTE?')
                         ->placeholder('Ej.: Almohada viscoelástica'),
 
+                    Toggle::make('crema')
+                        ->label('¿Incluye crema?')
+                        ->default(false),
+
 
                 ])->columns(2),
 
