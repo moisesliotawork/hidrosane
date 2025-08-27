@@ -177,7 +177,7 @@ class VentaResource extends Resource
                             ->native(false)
                             ->columnSpanFull(),
 
-                        TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
+                        TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
                         TextInput::make('parish')->label('Parroquia'),
 

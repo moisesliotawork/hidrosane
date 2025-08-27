@@ -68,7 +68,7 @@ class VentaDesdeCeroResource extends Resource
                             ->mapWithKeys(fn($item) => [$item->id => "{$item->city_title} - {$item->code}"]))
                         ->searchable(['code', 'city.title'])->preload()->native(false)->columnSpanFull()
                         ->validationMessages(['required' => 'El código postal es obligatorio']),
-                    TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
+                    TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
                     TextInput::make('parish')->label('Parroquia'),
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')

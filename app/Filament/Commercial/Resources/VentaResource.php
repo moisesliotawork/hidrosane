@@ -135,6 +135,7 @@ class VentaResource extends Resource
 
                                     TextInput::make('primary_address')
                                         ->label('Dirección 1')
+                                        ->required()
                                         ->columnSpanFull(),
 
                                     TextInput::make('secondary_address')
