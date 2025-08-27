@@ -269,19 +269,6 @@
             {{-- <div class="field" style="top:{{ $yLugar }}mm; left:25mm; width:170mm; text-align:center;"> ... </div>
             --}}
 
-            <div class="field field--sm"
-                style="top:{{ $yLugarLinea }}mm; left:{{ $xLugarCiudad }}mm; width:{{ $wLugarCiudad }}mm;">
-                {{ $lugarCiudad }}
-            </div>
-            <div class="field"
-                style="top:{{ $yLugarLinea }}mm; left:{{ $xLugarDia }}mm; width:{{ $wLugarDia }}mm; text-align:center;">
-                {{ $lugarDia }}
-            </div>
-            <div class="field" style="top:{{ $yLugarLinea }}mm; left:{{ $xLugarMes }}mm; width:{{ $wLugarMes }}mm;">
-                {{ $lugarMes }}
-            </div>
-            {{-- ================================== --}}
-
         </div>
 
         @if($debug)
