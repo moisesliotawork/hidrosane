@@ -16,8 +16,12 @@ class ContratoPreviewController extends Controller
             'ventaOfertas.productos.producto',
         ]);
 
-        $pdf = Pdf::loadView('pdf', ['venta' => $venta])
-                  ->setPaper('letter');        // o 'a4'
+        $pdf = Pdf::setOption('isRemoteEnabled', true)
+            ->setOption('defaultFont', 'DejaVu Sans')
+            ->setOption('dpi', 96)
+            ->loadView('pdf_pos', ['venta' => $venta])
+            ->setPaper('a4');
+
 
         //  ⬇⬇⬇  **INLINE** para que el navegador lo muestre
         return $pdf->stream(

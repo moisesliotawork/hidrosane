@@ -75,10 +75,8 @@ class EditVenta extends EditRecord
         ];
     }
 
-    /** Genera y envía el PDF sin alterar el front-end */
     protected function downloadPdf(Venta $venta)
     {
-        // Carga relaciones necesarias
         $venta->load([
             'note',
             'customer.postalCode.city',
@@ -86,16 +84,27 @@ class EditVenta extends EditRecord
             'ventaOfertas.productos.producto',
         ]);
 
-        // Renderiza la vista Blade que ya tienes
-        $pdf = Pdf::loadView('pdf', ['venta' => $venta])
-            ->setPaper('letter');   // o 'a4', 'legal', etc.
+        // Rutas absolutas de las imágenes de fondo (normalizadas)
+        $bg1 = str_replace('\\', '/', public_path('templates/contrato-ohana-vacio-1.png'));
+        $bg2 = str_replace('\\', '/', public_path('templates/contrato-ohana-vacio-2.png'));
 
-        // Descarga directa
+        $pdf = Pdf::setOptions([
+            'isRemoteEnabled' => true,   // por si usas asset() en otros lados
+            'dpi' => 96,
+            'defaultFont' => 'DejaVu Sans',
+            'chroot' => public_path(), // permite leer archivos locales dentro de /public
+        ])
+            ->loadView('pdf_pos', compact('venta', 'bg1', 'bg2'))
+            ->setPaper('a4', 'portrait');
+
         return response()->streamDownload(
             fn() => print ($pdf->output()),
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
     }
+
+
+
 
     protected function afterSave(): void
     {
