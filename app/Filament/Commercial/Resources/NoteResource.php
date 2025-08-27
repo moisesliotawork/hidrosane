@@ -350,13 +350,29 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $commercials = \App\Models\User::role('commercial')
-                                    ->select('id', 'name', 'last_name', 'empleado_id')
-                                    ->get();
+                                $users = \App\Models\User::query()
+                                    ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                                    ->with(['roles:id,name'])                 // cargamos roles
+                                    ->role(['commercial', 'team_leader'])     // cualquiera de los dos
+                                    ->orderBy('empleado_id')
+                                    ->get()
+                                    ->unique('id');
 
-                                return [null => 'Sin asignar'] + $commercials->mapWithKeys(function ($user) {
-                                    return [$user->id => "{$user->empleado_id} {$user->name} {$user->last_name}"];
-                                })->toArray();
+                                $options = $users->mapWithKeys(
+                                    /** @param \App\Models\User $user */
+                                    function (\App\Models\User $user) {
+                                        $hasTL = $user->roles->contains('name', 'team_leader');
+                                        $hasCOM = $user->roles->contains('name', 'commercial');
+
+                                        $tag = $hasTL && $hasCOM ? 'TL/COM' : ($hasTL ? 'TL' : 'COM');
+
+                                        return [
+                                            $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
+                                        ];
+                                    }
+                                )->toArray();
+
+                                return [null => 'Sin asignar'] + $options;
                             })
                             ->searchable()
                             ->native(false),
