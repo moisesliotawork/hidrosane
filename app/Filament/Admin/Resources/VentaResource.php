@@ -244,10 +244,11 @@ class VentaResource extends Resource
                         ->default(null)
                         ->options(
                             fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                            + User::role('commercial')
+                            + User::role(['commercial', 'team_leader'])
                                 ->whereKeyNot(auth()->id())
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->orderBy('name')
+                                ->distinct()
                                 ->get()
                                 ->mapWithKeys(fn($u) => [
                                     $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
