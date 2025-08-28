@@ -41,7 +41,7 @@ class CustomerResource extends Resource
             Section::make('Vision Global del Cliente')
                 ->columns(6)
                 ->schema([
-                    TextEntry::make('id')->label('CLIENTE'),
+                    TextEntry::make('nro_cliente')->label('CLIENTE'),
 
                     TextEntry::make('name')
                         ->label('NOMBRE')
@@ -89,7 +89,7 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
+                TextColumn::make('nro_cliente')
                     ->label('CLIENTE')
                     ->sortable()
                     ->searchable(),
