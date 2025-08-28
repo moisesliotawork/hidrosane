@@ -25,68 +25,82 @@
     $colA = $columns->get(0, collect());
     $colB = $columns->get(1, collect());
 
+    // Tamaño de fuente para la descripción según longitud (11 → 8 pt)
+    $descFont = function (string $text): float {
+        $len = mb_strlen(trim($text), 'UTF-8');
+        if ($len <= 30)
+            return 11;
+        if ($len <= 36)
+            return 10;
+        if ($len <= 42)
+            return 9;
+        if ($len <= 50)
+            return 8.5;
+        return 8; // muy largo
+    };
+
     // ===== Coordenadas fijas en mm (las existentes NO se tocan) =====
-    $yCodContrato = 11.5;
+    $yCodContrato = 12.5;
     $xCodContrato = 134.5;
-    $yFecPromo = 11.5;
+    $yFecPromo = 12.5;
     $xFecPromo = 171.4;
-    $yFecEntr = 16;
+    $yFecEntr = 17;
     $xFecEntr = 166.5;
-    $yHoraEntr = 20;
+    $yHoraEntr = 21;
     $xHoraEntr = 168.3;
-    $yCodCliente = 15.6;
+    $yCodCliente = 16.6;
     $xCodCliente = 131.5;
-    $yComercial = 24.3;
+    $yComercial = 25.3;
     $xComercial = 121.0;
 
-    $yA_Nombre = 47.3;
+    $yA_Nombre = 48.3;
     $xA_Nombre = 45;
-    $yA_Dni = 51.2;
+    $yA_Dni = 52.2;
     $xA_Dni = 25.5;
-    $yA_Nac = 55.6;
+    $yA_Nac = 56.6;
     $xA_Nac = 42.5;
-    $yA_Dir = 47;
+    $yA_Dir = 48;
     $xA_Dir = 129.5;
 
     // ===== NUEVOS CAMPOS (coordenadas sugeridas) =====
     // Izquierda
-    $yA_EstadoCivil = 59.8;
+    $yA_EstadoCivil = 60.8;
     $xA_EstadoCivil = 42.5;   // “Estado civil:”
-    $yA_SitLab = 64.0;
+    $yA_SitLab = 65.0;
     $xA_SitLab = 42.5;   // “Situación laboral:”
     // Derecha
-    $yA_Telefonos = 55.4;
+    $yA_Telefonos = 56.4;
     $xA_Telefonos = 129.5;  // “Teléfonos:”
 
-    $yA_Vivienda = 59.8;
+    $yA_Vivienda = 60.8;
     $xA_Vivienda = 129.5;  // “Vivienda:”
 
-    $yA_Ingresos = 64.1;
+    $yA_Ingresos = 65.1;
     $xA_Ingresos = 129.5;  // “Ingresos:”
 
-    $yBase = 93.1;     // origen tabla artículos
+    $yBase = 94.1;     // origen tabla artículos
     $xPosA = 15.0;
     $xDesA = 32.0;
     $xPosB = 111.0;
     $xDesB = 130.0;
 
-    $yPagoFila = 150.5;
-    $xNumCuotas = 52.4;
+    $yPagoFila = 151.5;
+    $xNumCuotas = 53.4;
     $wNumCuotas = 30;
-    $xCuota = 90.8;
+    $xCuota = 91.8;
     $wCuota = 28.0;
-    $xMes1 = 129.2;
+    $xMes1 = 130.2;
     $wMes1 = 28.0;
-    $xImporte = 167.6;
+    $xImporte = 168.6;
     $wImporte = 25.0;
 
-    $yIban = 158.4;
+    $yIban = 159.4;
     $xIban = 88.8;
     $wIban = 110.0;
 
-    $yFirmas = 266;
-    $xFirmaCli = 10.0;
-    $xFirmaEmp = 130.0;
+    $yFirmas = 267;
+    $xFirmaCli = 11.0;
+    $xFirmaEmp = 131.0;
     $wFirma = 70.0;
 
     // Lugar/fecha desglosado (si lo usas más adelante)
@@ -159,13 +173,16 @@
         .field {
             position: absolute;
             z-index: 1;
-            font-family: "DejaVu Sans", sans-serif;
-            font-size: 10.5pt;
+            font-family: Helvetica, Arial, sans-serif;
+            /* ⬅️ aquí */
+            font-size: 11pt;
             line-height: 1;
             white-space: nowrap;
         }
 
         .field--sm {
+            font-family: Helvetica, Arial, sans-serif;
+            /* ⬅️ y aquí */
             font-size: 8pt;
         }
 
@@ -249,18 +266,34 @@
 
             {{-- B. Artículos (duplicados por cantidad, sin columna CANT) --}}
             @for ($i = 0; $i < 5; $i++)
-                @php $y = $yBase + $i * $row; @endphp
-                <div class="field" style="top:{{ $y }}mm; left:{{ $xPosA }}mm; width:10mm; text-align:center;">
+                @php
+                    $y = $yBase + $i * $row;
+
+                    $textA = isset($colA[$i]) ? mb_strtoupper($colA[$i]->producto->nombre, 'UTF-8') : '';
+                    $fsA = $descFont($textA);
+
+                    $textB = isset($colB[$i]) ? mb_strtoupper($colB[$i]->producto->nombre, 'UTF-8') : '';
+                    $fsB = $descFont($textB);
+                @endphp
+
+                {{-- POS A --}}
+                <div class="field" style="top:{{$y}}mm; left:{{$xPosA}}mm; width:10mm; text-align:center;">
                     {{ isset($colA[$i]) ? $i + 1 : '' }}
                 </div>
-                <div class="field" style="top:{{ $y }}mm; left:{{ $xDesA }}mm; width:60mm;">
-                    {{ isset($colA[$i]) ? strtoupper($colA[$i]->producto->nombre) : '' }}
+                {{-- DESCRIPCIÓN A (auto-shrink) --}}
+                <div class="field"
+                    style="top:{{$y}}mm; left:{{$xDesA}}mm; width:60mm; overflow:hidden; font-size:{{$fsA}}pt;">
+                    {{ $textA }}
                 </div>
-                <div class="field" style="top:{{ $y }}mm; left:{{ $xPosB }}mm; width:10mm; text-align:center;">
+
+                {{-- POS B --}}
+                <div class="field" style="top:{{$y}}mm; left:{{$xPosB}}mm; width:10mm; text-align:center;">
                     {{ isset($colB[$i]) ? $i + 6 : '' }}
                 </div>
-                <div class="field" style="top:{{ $y }}mm; left:{{ $xDesB }}mm; width:60mm;">
-                    {{ isset($colB[$i]) ? strtoupper($colB[$i]->producto->nombre) : '' }}
+                {{-- DESCRIPCIÓN B (auto-shrink) --}}
+                <div class="field"
+                    style="top:{{$y}}mm; left:{{$xDesB}}mm; width:60mm; overflow:hidden; font-size:{{$fsB}}pt;">
+                    {{ $textB }}
                 </div>
             @endfor
 
@@ -275,7 +308,14 @@
             </div>
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xMes1 }}mm; width:{{ $wMes1 }}mm; text-align:center;">
-                {{ Carbon::parse($venta->created_at)->locale('es')->addMonth()->isoFormat('MMMM') }}
+                {{ mb_strtoupper(
+    Carbon::parse($venta->created_at)
+        ->locale('es')
+        ->addMonth()
+        ->isoFormat('MMMM'),
+    'UTF-8'
+) 
+                }}
             </div>
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xImporte }}mm; width:{{ $wImporte }}mm; text-align:center;">

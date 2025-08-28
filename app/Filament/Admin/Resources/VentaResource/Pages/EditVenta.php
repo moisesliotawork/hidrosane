@@ -91,7 +91,7 @@ class EditVenta extends EditRecord
         $pdf = Pdf::setOptions([
             'isRemoteEnabled' => true,   // por si usas asset() en otros lados
             'dpi' => 96,
-            'defaultFont' => 'DejaVu Sans',
+            'defaultFont' => 'Helvetica',
             'chroot' => public_path(), // permite leer archivos locales dentro de /public
         ])
             ->loadView('pdf_pos', compact('venta', 'bg1', 'bg2'))
