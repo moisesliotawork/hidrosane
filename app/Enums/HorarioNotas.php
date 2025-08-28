@@ -7,6 +7,8 @@ use Filament\Support\Contracts\HasColor;
 
 enum HorarioNotas: string implements HasLabel
 {
+
+    case ILOCALIZABLE = 'ilocalizable';
     case _11_13 = '11-13';
     case _10_12 = '10-12';
     case _12_14 = '12-14';
@@ -19,12 +21,10 @@ enum HorarioNotas: string implements HasLabel
     case TT = 'TT';
     case TD = 'TD';
 
-    case ILOCALIZABLE = 'ilocalizable';
-
     public function getLabel(): string
     {
         return match ($this) {
-            
+
             self::ILOCALIZABLE => 'ILOCALIZABLE',
             self::_11_13 => '11-13',
             self::_10_12 => '10-12',
