@@ -517,6 +517,7 @@ class NoteResource extends Resource
                             ->with([
                                 'customer.postalCode.city',
                                 'user',
+                                'user',
                                 'comercial',
                             ])
                             ->orderBy('nro_nota')
