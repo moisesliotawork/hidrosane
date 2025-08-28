@@ -149,6 +149,7 @@ class UserResource extends Resource
                 TextColumn::make('role')
                     ->label('Rol')
                     ->badge()
+                    ->sortable()
                     ->color(fn(string $state): string => match ($state) {
                         'admin' => 'info',
                         'gerente_general' => 'info',
