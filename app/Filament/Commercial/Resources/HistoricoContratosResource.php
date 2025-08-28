@@ -627,9 +627,16 @@ class HistoricoContratosResource extends Resource
     {
         return $table
             ->query(function (): Builder {
+                // Usa el timezone de tu app; si necesitas forzarlo:
+                // $inicio = now('Europe/Madrid')->startOfDay();
+                // $fin    = now('Europe/Madrid')->setTime(23, 0, 0);
+                $inicio = now()->startOfDay();
+                $fin = now()->setTime(23, 0, 0);
+
                 return Venta::query()
                     ->with(['note.customer.postalCode.city', 'comercial', 'reparto'])
                     ->where('comercial_id', auth()->id())
+                    ->whereBetween('fecha_venta', [$inicio, $fin]) // ⬅️ solo hoy hasta 23:00
                     ->latest('id');
             })
             ->columns([

@@ -125,7 +125,13 @@
 
     // ===== Valores formateados para nuevos campos =====
     $estadoCivil = mb_strtoupper($venta->customer->estado_civil ?? '', 'UTF-8');
-    $sitLab = mb_strtoupper($venta->customer->situacion_laboral ?? '', 'UTF-8');
+    // Forzar MAYÚSCULAS y conservar el "/A" usando el label del enum
+    $sitLab = mb_strtoupper(
+        (\App\Enums\SituacionLaboral::tryFrom($venta->customer->situacion_laboral ?? '')
+                ?->label()) ?? ($venta->customer->situacion_laboral ?? ''),
+        'UTF-8'
+    );
+
 
     $telefonos = collect([
         $venta->customer->phone ?? null,
@@ -245,11 +251,17 @@
             <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
                 {{ strtoupper($venta->horario_entrega ?? '') }}
             </div>
-            <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">{{ $venta->customer->nro_cliente }}
+            <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">
+                {{ $venta->customer->nro_cliente }}
             </div>
             <div class="field" style="top:{{ $yComercial }}mm; left:{{ $xComercial }}mm;">
-                {{ $venta->comercial->empleado_id ?? '' }}
+                @php
+                    $codCom = $venta->comercial->empleado_id ?? '';
+                    $codComp = $venta->companion_id ? (optional($venta->companion)->empleado_id ?? $venta->companion_id) : null;
+                @endphp
+                {{ $codComp ? ($codCom . ' - ' . $codComp) : $codCom }}
             </div>
+
 
             {{-- A. Datos personales --}}
             <div class="field" style="top:{{ $yA_Nombre }}mm; left:{{ $xA_Nombre }}mm;">

@@ -10,6 +10,8 @@ enum SituacionLaboral: string
     case AUTONOMO = 'autonomo';
     case FUNCIONARIO = 'funcionario';
 
+    case DESEMPLEADO = "desempleado";
+
     public function label(): string
     {
         return match ($this) {
@@ -18,6 +20,7 @@ enum SituacionLaboral: string
             self::EMPLEADO => 'Empleado/a',
             self::AUTONOMO => 'Autónomo/a',
             self::FUNCIONARIO => 'Funcionario/a',
+            self::DESEMPLEADO => 'Desempleado/a',
         };
     }
 
