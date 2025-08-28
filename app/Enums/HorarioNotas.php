@@ -19,9 +19,13 @@ enum HorarioNotas: string implements HasLabel
     case TT = 'TT';
     case TD = 'TD';
 
+    case ILOCALIZABLE = 'ilocalizable';
+
     public function getLabel(): string
     {
         return match ($this) {
+            
+            self::ILOCALIZABLE => 'ILOCALIZABLE',
             self::_11_13 => '11-13',
             self::_10_12 => '10-12',
             self::_12_14 => '12-14',
