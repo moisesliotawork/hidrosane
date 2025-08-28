@@ -245,7 +245,7 @@
             <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
                 {{ strtoupper($venta->horario_entrega ?? '') }}
             </div>
-            <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">{{ $venta->customer->id }}
+            <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">{{ $venta->customer->nro_cliente }}
             </div>
             <div class="field" style="top:{{ $yComercial }}mm; left:{{ $xComercial }}mm;">
                 {{ $venta->comercial->empleado_id ?? '' }}

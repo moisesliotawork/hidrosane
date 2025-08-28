@@ -73,7 +73,7 @@ class Customer extends Model
         'primary_address',
         'secondary_address',
         'parish',
-        'dni', 
+        'dni',
         'fecha_nac',
         'iban',
         'tipo_vivienda',
@@ -82,6 +82,22 @@ class Customer extends Model
         'ingresos_rango',
         'num_hab_casa',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Customer $customer) {
+            // Si ya viene seteado (p.ej., import), no lo recalculamos
+            if (!empty($customer->nro_cliente)) {
+                return;
+            }
+
+            // Crea el string de 5 cifras: id + 525 con ceros a la izquierda
+            $nro = str_pad($customer->id + 525, 5, '0', STR_PAD_LEFT);
+
+            // Guardar sin disparar eventos
+            $customer->forceFill(['nro_cliente' => $nro])->saveQuietly();
+        });
+    }
 
     public function name(): Attribute
     {
