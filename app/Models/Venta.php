@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
 use Illuminate\Support\Collection;
 use App\Enums\VendidoPor;
+use Illuminate\Support\Facades\DB;
+
 
 /**
  * @property int $id
@@ -200,6 +202,74 @@ class Venta extends Model
                 // Rellenar con ceros hasta 5 caracteres
                 $venta->nro_contrato = str_pad($next, 5, '0', STR_PAD_LEFT);
             }
+        });
+
+        static::created(function (Venta $venta) {
+            if (!$venta->customer_id) {
+                return;
+            }
+
+            DB::transaction(function () use ($venta) {
+                // Bloquea el customer para evitar asignaciones dobles en concurrencia
+                /** @var \App\Models\Customer|null $customer */
+                $customer = Customer::whereKey($venta->customer_id)->lockForUpdate()->first();
+
+                // Si ya tiene nro_cliente, no hacemos nada
+                if (!$customer || !empty($customer->nro_cliente)) {
+                    return;
+                }
+
+                $next = null;
+
+                // Si tienes la tabla app_counters, úsala (más auditable)
+                if (DB::getSchemaBuilder()->hasTable('app_counters')) {
+                    $row = DB::table('app_counters')
+                        ->where('name', 'nro_cliente')
+                        ->lockForUpdate()
+                        ->first();
+
+                    $current = $row ? (int) $row->value : 525;
+
+                    // Por si alguien asignó números manuales o quedó un backfill previo
+                    $tableMax = (int) (DB::table('customers')
+                        ->whereNotNull('nro_cliente')
+                        ->max(DB::raw('CAST(nro_cliente AS UNSIGNED)')) ?? 0);
+
+                    $base = max(525, $current, $tableMax);
+                    $next = $base + 1;
+
+                    if ($row) {
+                        DB::table('app_counters')
+                            ->where('name', 'nro_cliente')
+                            ->update(['value' => $next, 'updated_at' => now()]);
+                    } else {
+                        DB::table('app_counters')->insert([
+                            'name' => 'nro_cliente',
+                            'value' => $next,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                } else {
+                    // ✅ Sin tabla extra: usa un candado global para evitar carreras
+                    DB::statement("SELECT GET_LOCK('nro_cliente_lock', 5)");
+                    try {
+                        $max = (int) (DB::table('customers')
+                            ->whereNotNull('nro_cliente')
+                            ->max(DB::raw('CAST(nro_cliente AS UNSIGNED)')) ?? 0);
+                        $base = max(525, $max);
+                        $next = $base + 1;
+                    } finally {
+                        DB::statement("SELECT RELEASE_LOCK('nro_cliente_lock')");
+                    }
+                }
+
+                // Formato 5 cifras con ceros a la izquierda
+                $nro = str_pad($next, 5, '0', STR_PAD_LEFT);
+
+                // Guarda sin disparar eventos
+                $customer->forceFill(['nro_cliente' => $nro])->saveQuietly();
+            });
         });
 
     }
