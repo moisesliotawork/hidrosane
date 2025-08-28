@@ -1,6 +1,12 @@
 @php
     use Carbon\Carbon;
 
+    $yRep = 25;   // misma línea que "Com."
+    $xRep = 159.3;  // columna derecha (donde dice Rep.: en el fondo)
+
+    // Empleado del repartidor asociado a esta venta
+    $repEmpleado = $venta->repartidor?->empleado_id;
+
     $debug = request()->boolean('debug');
 
     // ====== controles de calibración ======
@@ -42,41 +48,41 @@
     // ===== Coordenadas fijas en mm (las existentes NO se tocan) =====
     $yCodContrato = 12.5;
     $xCodContrato = 134.5;
-    $yFecPromo = 12.5;
+    $yFecPromo = 12.3;
     $xFecPromo = 171.4;
-    $yFecEntr = 17;
+    $yFecEntr = 16.5;
     $xFecEntr = 166.5;
-    $yHoraEntr = 21;
+    $yHoraEntr = 20.8;
     $xHoraEntr = 168.3;
-    $yCodCliente = 16.6;
+    $yCodCliente = 16.5;
     $xCodCliente = 131.5;
-    $yComercial = 25.3;
+    $yComercial = 25;
     $xComercial = 121.0;
 
-    $yA_Nombre = 48.3;
+    $yA_Nombre = 47.7;
     $xA_Nombre = 45;
-    $yA_Dni = 52.2;
+    $yA_Dni = 51.7;
     $xA_Dni = 25.5;
-    $yA_Nac = 56.6;
+    $yA_Nac = 56.3;
     $xA_Nac = 42.5;
-    $yA_Dir = 48;
+    $yA_Dir = 47.7;
     $xA_Dir = 129.5;
 
     // ===== NUEVOS CAMPOS (coordenadas sugeridas) =====
     // Izquierda
-    $yA_EstadoCivil = 60.8;
-    $xA_EstadoCivil = 42.5;   // “Estado civil:”
-    $yA_SitLab = 65.0;
-    $xA_SitLab = 42.5;   // “Situación laboral:”
+    $yA_EstadoCivil = 60.3;
+    $xA_EstadoCivil = 31.5;   // “Estado civil:”
+    $yA_SitLab = 64.7;
+    $xA_SitLab = 40.1;   // “Situación laboral:”
     // Derecha
-    $yA_Telefonos = 56.4;
+    $yA_Telefonos = 56.2;
     $xA_Telefonos = 129.5;  // “Teléfonos:”
 
-    $yA_Vivienda = 60.8;
-    $xA_Vivienda = 129.5;  // “Vivienda:”
+    $yA_Vivienda = 60.3;
+    $xA_Vivienda = 128.1;  // “Vivienda:”
 
-    $yA_Ingresos = 65.1;
-    $xA_Ingresos = 129.5;  // “Ingresos:”
+    $yA_Ingresos = 64.6;
+    $xA_Ingresos = 128.5;  // “Ingresos:”
 
     $yBase = 94.1;     // origen tabla artículos
     $xPosA = 15.0;
@@ -111,6 +117,11 @@
     $wLugarDia = 12.0;
     $xLugarMes = 76.0;
     $wLugarMes = 42.0;
+
+    // ===== Página 2: DNI (ajusta solo si lo necesitas) =====
+    $yP2_Dni = 245;   // mm
+    $xP2_Dni = 45;   // mm
+
 
     // ===== Valores formateados para nuevos campos =====
     $estadoCivil = mb_strtoupper($venta->customer->estado_civil ?? '', 'UTF-8');
@@ -264,6 +275,10 @@
             <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
             <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
 
+            <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">
+                {{ $repEmpleado }}
+            </div>
+
             {{-- B. Artículos (duplicados por cantidad, sin columna CANT) --}}
             @for ($i = 0; $i < 5; $i++)
                 @php
@@ -357,6 +372,13 @@
     {{-- Página 2 (si aplica) --}}
     <div class="page">
         <img class="bg" src="{{ public_path('templates/contrato-ohana-vacio-2.png') }}" alt="Fondo P2">
+
+        {{-- Overlay de la P2 (mismo dx/dy/scale) --}}
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+            <div class="field" style="top:{{ $yP2_Dni }}mm; left:{{ $xP2_Dni }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+        </div>
     </div>
 
 </body>
