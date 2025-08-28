@@ -631,7 +631,9 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
+                TextColumn::make('nro_contrato')->label('Nº Contrato')->sortable()->searchable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
@@ -639,6 +641,7 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
+                TextColumn::make('customer.nro_cliente')->label('Nº Cliente'),
                 TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
                 TextColumn::make('hora_venta')
