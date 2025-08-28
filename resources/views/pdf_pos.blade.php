@@ -146,6 +146,68 @@
     $lugarCiudad = mb_strtoupper($venta->customer->postalCode?->city?->title ?? 'VIGO', 'UTF-8');
     $lugarDia = now()->format('d');
     $lugarMes = mb_strtoupper(now()->locale('es')->isoFormat('MMMM'), 'UTF-8');
+
+
+    // ===== Dirección en 2 líneas con auto-shrink =====
+    $dirRaw = mb_strtoupper($venta->customer->primary_address ?? '', 'UTF-8');
+
+    // Límite de “anchura” medido en caracteres aprox. (ajusta si ves que cabe más)
+    $DIR_MAX = 46;
+
+    [$dirL1, $dirL2, $dirFS] = (function (string $text, int $max) {
+        $text = trim(preg_replace('/\s+/u', ' ', $text));
+        if ($text === '')
+            return ['', '', 11];
+
+        $words = preg_split('/\s+/u', $text);
+        $acc = '';
+        $best1 = '';
+        $best2 = '';
+
+        // Buscamos la división que deje la 1ª línea lo más llena posible
+        // y la 2ª <= $max si es posible.
+        for ($i = 0; $i < count($words); $i++) {
+            $cand1 = trim($acc . ($acc === '' ? '' : ' ') . $words[$i]);
+            $rest = implode(' ', array_slice($words, $i + 1));
+            if (mb_strlen($cand1, 'UTF-8') <= $max && mb_strlen($rest, 'UTF-8') <= $max) {
+                $best1 = $cand1;
+                $best2 = $rest;
+            }
+            $acc = $cand1;
+        }
+
+        // Si no encontramos split “perfecto”, partimos a la fuerza en $max chars.
+        if ($best1 === '') {
+            $best1 = trim(mb_substr($text, 0, $max, 'UTF-8'));
+            $best2 = trim(mb_substr($text, mb_strlen($best1, 'UTF-8'), null, 'UTF-8'));
+        }
+
+        // Tamaño de fuente solo para dirección (auto-shrink si la 2ª se pasa)
+        // Auto-shrink si CUALQUIERA de las dos líneas se pasa
+        // Auto-shrink si CUALQUIERA de las dos líneas o algún "chunk" sin separadores se pasa
+        $fs = 7;
+        $len1 = mb_strlen($best1, 'UTF-8');
+        $len2 = mb_strlen($best2, 'UTF-8');
+        $over = max($len1, $len2);
+
+        // penaliza trozos sin separadores (p.ej., 'PESNCPAWENCNAPI...')
+        $chunkLen = function (string $s): int{
+            $parts = preg_split('/[^\p{L}\p{N}]+/u', $s, -1, PREG_SPLIT_NO_EMPTY);
+            return $parts ? max(array_map(fn($w) => mb_strlen($w, 'UTF-8'), $parts)) : 0;
+        };
+        $over = max($over, $chunkLen($best1), $chunkLen($best2));
+
+        if ($over > $max)
+            $fs = 10;
+        if ($over > $max + 8)
+            $fs = 9;
+        if ($over > $max + 16)
+            $fs = 8;
+
+
+        return [$best1, $best2, $fs];
+    })($dirRaw, $DIR_MAX);
+
 @endphp
 
 <!DOCTYPE html>
@@ -280,9 +342,17 @@
             <div class="field" style="top:{{ $yA_SitLab }}mm; left:{{ $xA_SitLab }}mm;">{{ $sitLab }}</div>
 
             {{-- Domicilio + Teléfonos + Vivienda + Ingresos (derecha) --}}
-            <div class="field" style="top:{{ $yA_Dir }}mm; left:{{ $xA_Dir }}mm;">
-                {{ strtoupper($venta->customer->primary_address ?? '') }}
+            <div class="field" style="top:{{ $yA_Dir }}mm; left:{{ $xA_Dir }}mm; width:75mm;
+    white-space:normal; line-height:1.05; font-size:{{ $dirFS }}pt;
+    overflow-wrap:anywhere; word-break:break-word;
+    max-height: calc(2 * 1.05em); overflow: hidden;">
+                @if($dirL2 !== '')
+                    {{ $dirL1 }}<br>{{ $dirL2 }}
+                @else
+                    {{ $dirL1 }}
+                @endif
             </div>
+
             <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
             <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
             <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
