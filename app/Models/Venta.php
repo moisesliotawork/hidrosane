@@ -228,14 +228,14 @@ class Venta extends Model
                         ->lockForUpdate()
                         ->first();
 
-                    $current = $row ? (int) $row->value : 525;
+                    $current = $row ? (int) $row->value : 526;
 
                     // Por si alguien asignó números manuales o quedó un backfill previo
                     $tableMax = (int) (DB::table('customers')
                         ->whereNotNull('nro_cliente')
                         ->max(DB::raw('CAST(nro_cliente AS UNSIGNED)')) ?? 0);
 
-                    $base = max(525, $current, $tableMax);
+                    $base = max(526, $current, $tableMax);
                     $next = $base + 1;
 
                     if ($row) {
@@ -257,7 +257,7 @@ class Venta extends Model
                         $max = (int) (DB::table('customers')
                             ->whereNotNull('nro_cliente')
                             ->max(DB::raw('CAST(nro_cliente AS UNSIGNED)')) ?? 0);
-                        $base = max(525, $max);
+                        $base = max(526, $max);
                         $next = $base + 1;
                     } finally {
                         DB::statement("SELECT RELEASE_LOCK('nro_cliente_lock')");
