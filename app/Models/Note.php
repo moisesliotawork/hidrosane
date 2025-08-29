@@ -115,6 +115,7 @@ class Note extends Model
     protected $attributes = [
         'fuente' => 'CALLE',
         'estado_terminal' => null,
+        'show_phone' => false,
     ];
 
     protected static function boot()
