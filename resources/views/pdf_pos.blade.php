@@ -91,6 +91,8 @@
     $xDesB = 130.0;
 
     $yPagoFila = 151.5;
+    $xEntrada = 16.8;
+    $wEntrada = 30.0;
     $xNumCuotas = 53.4;
     $wNumCuotas = 30;
     $xCuota = 91.8;
@@ -395,6 +397,11 @@
             @endfor
 
             {{-- C. Pagos / IBAN / Firmas --}}
+            <div class="field"
+                style="top:{{ $yPagoFila }}mm; left:{{ $xEntrada }}mm; width:{{ $wEntrada }}mm; text-align:center;">
+                {{ number_format((float) ($venta->entrada ?? 0), 2, ',', '.') }} €
+            </div>
+
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xNumCuotas }}mm; width:{{ $wNumCuotas }}mm; text-align:center;">
                 {{ $venta->num_cuotas }}

@@ -309,6 +309,19 @@ class VentaResource extends Resource
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn(Get $get, Set $set) => self::recalcTotales($get, $set)),
 
+                    Forms\Components\TextInput::make('entrada')
+                        ->label('Entrada')
+                        ->numeric()
+                        ->prefix('€')
+                        ->default(0)
+                        ->minValue(0)
+                        ->maxValue(fn(Get $get) => (float) ($get('importe_total') ?? 0) + (float) ($get('monto_extra') ?? 0))
+                        ->reactive()
+                        ->live(onBlur: true)
+                        ->helperText('Importe entregado como entrada. Se resta del total.')
+                        ->afterStateUpdated(fn(Get $get, Set $set) => self::recalcTotales($get, $set)),
+
+
 
                     Forms\Components\TextInput::make('total_final')
                         ->label('Total final')
@@ -736,12 +749,18 @@ class VentaResource extends Resource
     {
         $importe = (float) ($get('importe_total') ?? 0);
         $extra = (float) ($get('monto_extra') ?? 0);
-        $total = round($importe + $extra, 2);
+        $entrada = max(0.0, (float) ($get('entrada') ?? 0)); // nunca negativa
+        $cuotas = max((int) ($get('num_cuotas') ?? 0), 1);   // evita división por cero
 
-        $set('total_final', number_format($total, 2, '.', ''));
-        $cuotas = (int) ($get('num_cuotas') ?? 0);
-        $set('cuota_final', number_format($cuotas > 0 ? $total / $cuotas : 0, 2, '.', ''));
+        // TOTAL FINAL = importe + extra - entrada (nunca negativo)
+        $base = $importe + $extra;
+        $totalFinal = max(0.0, round($base - $entrada, 2));
+
+        $set('total_final', number_format($totalFinal, 2, '.', ''));
+        $set('cuota_final', number_format($totalFinal / $cuotas, 2, '.', ''));
     }
+
+
 
 
     protected static function docCard(string $field, string $label, bool $required = false): Group
