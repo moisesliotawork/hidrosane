@@ -148,9 +148,7 @@ class EditNote extends EditRecord
             'parish' => $customer->parish,
 
             'ayuntamiento' => $customer->ayuntamiento,
-
-            'fecha_nac' => $fechaNacStr,
-            'age' => $computedAge,
+            'edadTelOp' => $customer->edadTelOp,
 
             'observations' => $observations,
         ]);
@@ -160,7 +158,7 @@ class EditNote extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         // En el panel Commercial NO persistimos fecha_nac ni age
-         unset($data['fecha_nac'], $data['age'], $data['ayuntamiento']);
+        unset($data['fecha_nac'], $data['age'], $data['ayuntamiento'], $data["edadTelOp"]);
         return $data;
     }
 

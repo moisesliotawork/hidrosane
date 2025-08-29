@@ -147,6 +147,10 @@ class VentaResource extends Resource
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
                         TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                        TextInput::make('customer.edadTelOp')
+                            ->label('Edad (Tel. Op.)')
+                            ->readOnly()
+                            ->dehydrated(false),
 
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')

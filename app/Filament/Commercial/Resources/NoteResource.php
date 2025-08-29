@@ -84,22 +84,12 @@ class NoteResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
-                        Forms\Components\DatePicker::make('fecha_nac')
-                            ->label('Fecha de nacimiento')
-                            ->native(false)
-                            ->timezone('Europe/Madrid')
-                            ->disabled()         // solo lectura en Commercial
-                            ->dehydrated(false)  // NO enviar al backend desde este form
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Forms\Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
-
-                        Forms\Components\TextInput::make('age')
+                        Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
-                            ->label('Edad')
-                            ->disabled()         // solo lectura
-                            ->dehydrated(false), // NO enviar al backend desde este form
+                            ->label('Edad Tel. Op')
+                            ->required()
+                            ->maxValue(120)
+                            ->minValue(0),
 
                         Forms\Components\TextInput::make('email')
                             ->email()
@@ -469,7 +459,7 @@ class NoteResource extends Resource
                 $query->where('comercial_id', $comId);
             }
         }
-        
+
         // 5) Filtrar siempre estado_terminal vacío ó '' y sin venta asociada
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')

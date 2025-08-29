@@ -96,27 +96,12 @@ class NoteResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
-                        Forms\Components\DatePicker::make('fecha_nac')
-                            ->label('Fecha de nacimiento')
-                            ->native(false)
-                            ->timezone('Europe/Madrid')
-                            ->maxDate(now()) // no permitir futuras
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Forms\Set $set) {
-                                // al cargar el formulario (editar), recalcula edad si ya hay fecha
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                // al cambiar la fecha en el formulario, recalcula edad
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
-
-                        // === Edad calculada y NO editable ===
-                        Forms\Components\TextInput::make('age')
+                        Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
-                            ->label('Edad')
-                            ->readOnly()        // no permite editar
-                            ->dehydrated(true), // se guarda en el modelo
+                            ->label('Edad Tel. Op')
+                            ->required()
+                            ->maxValue(120)
+                            ->minValue(0),
 
                         Forms\Components\TextInput::make('email')
                             ->email()

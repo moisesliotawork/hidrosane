@@ -80,10 +80,8 @@ class CreateNote extends CreateRecord
                 'primary_address' => $data['primary_address'] ?? $customer->primary_address,
                 'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
                 'parish' => $data['parish'] ?? $customer->parish,
+                'edadTelOp' => $data['edadTelOp'] ?? $customer->edadTelOp,
 
-                // clave: persistir fecha_nac y recalcular edad
-                'fecha_nac' => $fechaNac ?? $customer->fecha_nac,
-                'age' => $fechaNac ? $computedAge : $customer->age,
             ]);
         } else {
             $customer = Customer::create([
@@ -96,10 +94,7 @@ class CreateNote extends CreateRecord
                 'primary_address' => $data['primary_address'] ?? null,
                 'secondary_address' => $data['secondary_address'] ?? null,
                 'parish' => $data['parish'] ?? null,
-
-                // clave: persistir fecha_nac y edad calculada
-                'fecha_nac' => $fechaNac,
-                'age' => $computedAge,
+                'edadTelOp' => $data['edadTelOp'] ?? null,
             ]);
         }
 
@@ -108,8 +103,8 @@ class CreateNote extends CreateRecord
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
 
-        // Importante: no guardar estos campos en notes si no existen allí
-        unset($data['age'], $data['fecha_nac']);
+        // Eliminar campos no usados
+        unset($data['edadTelOp']);
 
         return $data;
     }

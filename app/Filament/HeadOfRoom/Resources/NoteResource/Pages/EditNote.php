@@ -47,10 +47,7 @@ class EditNote extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-
-            // NUEVO: cargar en el form
-            'fecha_nac' => $fechaNac ? Carbon::parse($fechaNac)->toDateString() : null,
-            'age' => $computedAge,
+            'edadTelOp' => $customer->edadTelOp,
 
             'observations' => $observations,
         ]);
@@ -88,10 +85,7 @@ class EditNote extends EditRecord
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,
-
-            // clave: persistir fecha y edad calculada
-            'fecha_nac' => $fechaNac,
-            'age' => $computedAge,
+            'edadTelOp' => $data['edadTelOp'] ?? null,
         ]);
 
         // Quitar del payload de Note los campos del Customer
@@ -105,8 +99,7 @@ class EditNote extends EditRecord
             $data['primary_address'],
             $data['secondary_address'],
             $data['parish'],
-            $data['fecha_nac'],
-            $data['age'],
+            $data['edadTelOp'],
         );
 
         return $data;

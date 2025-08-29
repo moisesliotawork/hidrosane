@@ -31,11 +31,13 @@ class Customer extends Model
         'ingresos_rango',
         'num_hab_casa',
         'ayuntamiento',
+        'edadTelOp',
     ];
 
     protected $casts = [
         'fecha_nac' => 'date:Y-m-d',
         'age' => 'integer',
+        'edadTelOp' => 'integer',
     ];
 
     protected static function booted()

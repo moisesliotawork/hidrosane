@@ -72,6 +72,11 @@ class VentaResource extends Resource
                                         ->label('DNI')
                                         ->columnSpanFull(),          // ocupa el ancho completo
 
+                                    TextInput::make('customer.edadTelOp')
+                                        ->label('Edad (Tel. Op.)')
+                                        ->readOnly()
+                                        ->dehydrated(false),
+
                                     DatePicker::make('fecha_nac')
                                         ->label('Fec. nac.')
                                         ->timezone('Europe/Madrid')
