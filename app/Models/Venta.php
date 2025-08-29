@@ -145,6 +145,7 @@ class Venta extends Model
         'total_final',
         'cuota_final',
         'entrada',
+        'mostrar_ingresos',
     ];
 
     protected $casts = [
@@ -170,7 +171,7 @@ class Venta extends Model
         'total_final' => 'decimal:2',
         'cuota_final' => 'decimal:2',
         'entrada'     => 'decimal:2',
-        
+        'mostrar_ingresos' => 'boolean',
 
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,

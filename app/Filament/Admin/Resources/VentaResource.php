@@ -210,11 +210,6 @@ class VentaResource extends Resource
                             ->required()
                             ->native(false),
 
-                        Select::make('ingresos_rango')->label('Ingresos netos mensuales')
-                            ->options(\App\Enums\IngresosRango::options())
-                            ->required()
-                            ->native(false),
-
                         Select::make('num_hab_casa')->label('Número de personas que residen en la casa')
                             ->options(fn() => collect(range(1, 10))
                                 ->mapWithKeys(fn($n) => [$n => $n])
@@ -243,8 +238,21 @@ class VentaResource extends Resource
                                 $clean = str_replace(' ', '', strtoupper($state ?? ''));
                                 $set(implode(' ', str_split($clean, 4)));
                             }),
+
+                        Select::make('ingresos_rango')->label('Ingresos netos mensuales')
+                            ->options(\App\Enums\IngresosRango::options())
+                            ->required()
+                            ->native(false),
                     ]),
                 ]),
+
+            Section::make('')
+                ->schema([
+                    Toggle::make('mostrar_ingresos')
+                        ->label('Mostrar ingresos en contrato PDF')
+                        ->default(true),
+                ])->columns(1),
+
 
 
             /* ------------- Compañero -------------- */
