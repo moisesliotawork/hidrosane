@@ -267,23 +267,45 @@ class VentaResource extends Resource
                         ->disabled()
                         ->dehydrated(false)
                         ->reactive()
-                        ->afterStateUpdated(
-                            fn(Get $get, Set $set, $state) =>
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $set('cuota_mensual', number_format(
-                                (float) $state /
-                                max((int) ($get('num_cuotas') ?? 1), 1),
+                                (float) $state / max((int) ($get('num_cuotas') ?? 1), 1),
                                 2,
                                 '.',
                                 ''
-                            ))
-                        ),
+                            ));
+                            self::recalcTotales($get, $set);
+                        }),
+
+                    Forms\Components\TextInput::make('monto_extra')
+                        ->label('Monto extra')
+                        ->numeric()
+                        ->prefix('€')
+                        ->default(0)
+                        ->reactive()                 
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn(Get $get, Set $set) => self::recalcTotales($get, $set)),
+
+
+                    Forms\Components\TextInput::make('total_final')
+                        ->label('Total final')
+                        ->numeric()
+                        ->prefix('€')
+                        ->readOnly(),
+
+                    Forms\Components\TextInput::make('cuota_final')
+                        ->label('Cuota final')
+                        ->numeric()
+                        ->prefix('€')
+                        ->readOnly(),
+
 
                     Select::make('modalidad_pago')
                         ->label('Modalidad de pago')
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',          // 👈 nueva opción
+                            'NS' => 'NS',          
                         ])
                         ->default('Financiado')
                         ->required()
@@ -348,16 +370,15 @@ class VentaResource extends Resource
                         ->reactive()
                         ->native(false)
                         ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
-                        ->afterStateUpdated(
-                            fn(Get $get, Set $set, $state) =>
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $set('cuota_mensual', number_format(
-                                (float) ($get('importe_total') ?? 0) /
-                                max((int) $state, 1),
+                                (float) ($get('importe_total') ?? 0) / max((int) $state, 1),
                                 2,
                                 '.',
                                 ''
-                            ))
-                        ),
+                            ));
+                            self::recalcTotales($get, $set);   // ← recalcula cuota_final con el nuevo total
+                        }),
 
                     TextInput::make('cuota_mensual')
                         ->label('Cuota mensual (€)')
@@ -695,6 +716,18 @@ class VentaResource extends Resource
     {
         return true;
     }
+
+    protected static function recalcTotales(Get $get, Set $set): void
+    {
+        $importe = (float) ($get('importe_total') ?? 0);
+        $extra = (float) ($get('monto_extra') ?? 0);
+        $total = round($importe + $extra, 2);
+
+        $set('total_final', number_format($total, 2, '.', ''));
+        $cuotas = (int) ($get('num_cuotas') ?? 0);
+        $set('cuota_final', number_format($cuotas > 0 ? $total / $cuotas : 0, 2, '.', ''));
+    }
+
 
     protected static function docCard(string $field, string $label, bool $required = false): Group
     {
