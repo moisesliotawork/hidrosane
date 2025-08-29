@@ -91,6 +91,8 @@
     $xDesB = 130.0;
 
     $yPagoFila = 151.5;
+    $xEntrada = 16.8;
+    $wEntrada = 30.0;
     $xNumCuotas = 53.4;
     $wNumCuotas = 30;
     $xCuota = 91.8;
@@ -124,13 +126,17 @@
 
 
     // ===== Valores formateados para nuevos campos =====
-    $estadoCivil = mb_strtoupper($venta->customer->estado_civil ?? '', 'UTF-8');
+    $estadoCivilRaw = mb_strtoupper(trim((string) ($venta->customer->estado_civil ?? '')), 'UTF-8');
+    $estadoCivil = $estadoCivilRaw === ''
+        ? ''
+        : (mb_strpos($estadoCivilRaw, '/A') !== false ? $estadoCivilRaw : $estadoCivilRaw . '/A');
     // Forzar MAYÚSCULAS y conservar el "/A" usando el label del enum
-    $sitLab = mb_strtoupper(
-        (\App\Enums\SituacionLaboral::tryFrom($venta->customer->situacion_laboral ?? '')
-                ?->label()) ?? ($venta->customer->situacion_laboral ?? ''),
-        'UTF-8'
-    );
+    $slEnum = \App\Enums\SituacionLaboral::tryFrom($venta->customer->situacion_laboral ?? '');
+    $sitLabRaw = $slEnum ? $slEnum->label() : ($venta->customer->situacion_laboral ?? '');
+    $sitLabRaw = mb_strtoupper(trim((string) $sitLabRaw), 'UTF-8');
+    $sitLab = $sitLabRaw === ''
+        ? ''
+        : (mb_strpos($sitLabRaw, '/A') !== false ? $sitLabRaw : $sitLabRaw . '/A');
 
 
     $telefonos = collect([
@@ -395,6 +401,11 @@
             @endfor
 
             {{-- C. Pagos / IBAN / Firmas --}}
+            <div class="field"
+                style="top:{{ $yPagoFila }}mm; left:{{ $xEntrada }}mm; width:{{ $wEntrada }}mm; text-align:center;">
+                {{ number_format((float) ($venta->entrada ?? 0), 2, ',', '.') }} €
+            </div>
+
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xNumCuotas }}mm; width:{{ $wNumCuotas }}mm; text-align:center;">
                 {{ $venta->num_cuotas }}

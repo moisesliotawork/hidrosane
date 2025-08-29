@@ -144,6 +144,7 @@ class Venta extends Model
         'monto_extra',
         'total_final',
         'cuota_final',
+        'entrada',
     ];
 
     protected $casts = [
@@ -168,6 +169,8 @@ class Venta extends Model
         'monto_extra' => 'decimal:2',
         'total_final' => 'decimal:2',
         'cuota_final' => 'decimal:2',
+        'entrada'     => 'decimal:2',
+        
 
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
@@ -189,6 +192,7 @@ class Venta extends Model
         'monto_extra' => 0,
         'total_final' => 0,
         'cuota_final' => 0,
+        'entrada' => 0, 
     ];
 
 
