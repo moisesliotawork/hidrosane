@@ -267,6 +267,7 @@ class VentaResource extends Resource
                         ->disabled()
                         ->dehydrated(false)
                         ->reactive()
+                        ->afterStateHydrated(fn(Get $get, Set $set) => self::recalcTotales($get, $set))   // ← aquí
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $set('cuota_mensual', number_format(
                                 (float) $state / max((int) ($get('num_cuotas') ?? 1), 1),
@@ -277,12 +278,20 @@ class VentaResource extends Resource
                             self::recalcTotales($get, $set);
                         }),
 
+                    TextInput::make('cuota_mensual')
+                        ->label('Cuota mensual (€)')
+                        ->numeric()
+                        ->prefix('€')
+                        ->disabled()
+                        ->dehydrated()
+                        ->reactive(),
+
                     Forms\Components\TextInput::make('monto_extra')
                         ->label('Monto extra')
                         ->numeric()
                         ->prefix('€')
                         ->default(0)
-                        ->reactive()                 
+                        ->reactive()
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn(Get $get, Set $set) => self::recalcTotales($get, $set)),
 
@@ -291,7 +300,8 @@ class VentaResource extends Resource
                         ->label('Total final')
                         ->numeric()
                         ->prefix('€')
-                        ->readOnly(),
+                        ->readOnly()
+                        ->afterStateHydrated(fn(Get $get, Set $set) => self::recalcTotales($get, $set)),
 
                     Forms\Components\TextInput::make('cuota_final')
                         ->label('Cuota final')
@@ -299,13 +309,12 @@ class VentaResource extends Resource
                         ->prefix('€')
                         ->readOnly(),
 
-
                     Select::make('modalidad_pago')
                         ->label('Modalidad de pago')
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',          
+                            'NS' => 'NS',
                         ])
                         ->default('Financiado')
                         ->required()
@@ -326,6 +335,27 @@ class VentaResource extends Resource
                             if ($state !== 'Contado') {
                                 $set('forma_pago', null);
                             }
+                        }),
+
+                    Select::make('num_cuotas')
+                        ->label('Nº de cuotas')
+                        ->options(
+                            collect([1])->merge(range(6, 39))
+                                ->mapWithKeys(fn($num) => [$num => $num])
+                                ->toArray()
+                        )
+                        ->required()
+                        ->reactive()
+                        ->native(false)
+                        ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
+                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            $set('cuota_mensual', number_format(
+                                (float) ($get('importe_total') ?? 0) / max((int) $state, 1),
+                                2,
+                                '.',
+                                ''
+                            ));
+                            self::recalcTotales($get, $set);   // ← recalcula cuota_final con el nuevo total
                         }),
 
                     Select::make('financiera')
@@ -358,35 +388,6 @@ class VentaResource extends Resource
                             $get('modalidad_pago') === 'Contado' ? $state : null
                         ),
 
-
-                    Select::make('num_cuotas')
-                        ->label('Nº de cuotas')
-                        ->options(
-                            collect([1])->merge(range(6, 39))
-                                ->mapWithKeys(fn($num) => [$num => $num])
-                                ->toArray()
-                        )
-                        ->required()
-                        ->reactive()
-                        ->native(false)
-                        ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
-                        ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                            $set('cuota_mensual', number_format(
-                                (float) ($get('importe_total') ?? 0) / max((int) $state, 1),
-                                2,
-                                '.',
-                                ''
-                            ));
-                            self::recalcTotales($get, $set);   // ← recalcula cuota_final con el nuevo total
-                        }),
-
-                    TextInput::make('cuota_mensual')
-                        ->label('Cuota mensual (€)')
-                        ->numeric()
-                        ->prefix('€')
-                        ->disabled()
-                        ->dehydrated()
-                        ->reactive(),
 
                     TextInput::make('accesorio_entregado')->label('¿Has entregado algún accesorio?'),
 
