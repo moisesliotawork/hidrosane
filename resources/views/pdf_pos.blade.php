@@ -209,6 +209,14 @@
 
         return [$l1, $rest];
     })($dirFull, 60);
+
+    // ===== Delegación (NUEVO) =====
+    $yDelegacion = 20.9;     // ajústalo fino con debug si hace falta
+    $xDelegacion = 121.8;    // ajústalo fino con debug si hace falta
+
+    // Nombre a mostrar (prioriza lo que venga del modelo, si existe)
+    $delegacionNombre = 'VIGO';
+
 @endphp
 
 <!DOCTYPE html>
@@ -313,6 +321,9 @@
             <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
             <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
                 {{ strtoupper($venta->horario_entrega ?? '') }}
+            </div>
+            <div class="field" style="top:{{ $yDelegacion }}mm; left:{{ $xDelegacion }}mm;">
+                {{ $delegacionNombre }}
             </div>
             <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">
                 {{ $venta->customer->nro_cliente }}
