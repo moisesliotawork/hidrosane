@@ -28,6 +28,7 @@ use App\Filament\Admin\Resources\VentaResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
 use App\Enums\Financiera;
+use Carbon\Carbon;
 
 class VentaResource extends Resource
 {
@@ -150,9 +151,22 @@ class VentaResource extends Resource
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')
                             ->timezone('Europe/Madrid')
-                            ->native(false),
+                            ->native(false)
+                            ->maxDate(now())          // no permitir fechas futuras
+                            ->reactive()
+                            ->afterStateHydrated(function ($state, Set $set) {
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            })
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            }),
 
-                        TextInput::make('age')->numeric()->label('Edad'),
+                        TextInput::make('age')
+                            ->numeric()
+                            ->label('Edad')
+                            ->readOnly()              // NO editable
+                            ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
+
 
                         TextInput::make('phone')->label('Teléfono')->tel()->required(),
                         TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
