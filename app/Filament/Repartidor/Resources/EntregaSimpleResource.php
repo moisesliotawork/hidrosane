@@ -27,6 +27,8 @@ use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Repartidor\Resources\EntregaSimpleResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\Financiera;
+use Carbon\Carbon;
+
 
 class EntregaSimpleResource extends Resource
 {
@@ -70,9 +72,21 @@ class EntregaSimpleResource extends Resource
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')
                             ->timezone('Europe/Madrid')
-                            ->native(false),
+                            ->native(false)
+                            ->maxDate(now())                 // evita fechas futuras
+                            ->reactive()
+                            ->afterStateHydrated(function ($state, Set $set) {
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            })
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            }),
 
-                        TextInput::make('age')->numeric()->label('Edad'),
+                        TextInput::make('age')
+                            ->numeric()
+                            ->label('Edad')
+                            ->readOnly()                     // no editable
+                            ->dehydrated(false),             // no se envía; la calcula el modelo
 
                         TextInput::make('phone')->label('Teléfono')->tel()->required(),
                         TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),

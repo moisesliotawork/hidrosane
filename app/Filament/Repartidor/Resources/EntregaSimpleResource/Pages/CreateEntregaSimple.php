@@ -19,13 +19,15 @@ class CreateEntregaSimple extends CreateRecord
         /** @var \App\Models\Venta $venta */
         $venta = static::getModel()::create($data);
 
-        // Leemos los toggles NO deshidratados desde el estado completo del formulario
+        // ⬅️ NECESARIO: guardar relaciones (customer, etc.)
+        $this->form->model($venta)->saveRelationships();
+
+        // Leemos toggles no deshidratados
         $state = $this->form->getState();
         $extras = $state['reparto_extras'] ?? [];
 
-        // Crea o actualiza el Reparto vinculado a esta Venta
         $venta->reparto()->updateOrCreate(
-            [], // por clave primaria (venta_id), si no existe lo crea
+            [],
             [
                 'cliente_firma_garantias' => (bool) ($extras['cliente_firma_garantias'] ?? false),
                 'cliente_comentario_goodwork' => (bool) ($extras['cliente_comentario_goodwork'] ?? false),
@@ -35,4 +37,5 @@ class CreateEntregaSimple extends CreateRecord
 
         return $venta;
     }
+
 }
