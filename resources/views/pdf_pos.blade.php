@@ -158,42 +158,38 @@
     $lugarMes = mb_strtoupper(now()->locale('es')->isoFormat('MMMM'), 'UTF-8');
 
 
-    //===== Dirección en 2 líneas (sin mayúsculas, 60 chars por línea) =====
-
-    // 1) Partes de la dirección (respetando el caso original de la BD)
+    // ===== Dirección en 2 líneas (máx 60 caracteres por línea) =====
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
-
-    $pc = $venta->customer->postalCode;         // relación postalCode()
-    $postalCode = trim((string) ($pc->code
-        ?? $pc->codigo
-        ?? $pc->title
-        ?? ''));                             // soporte a distintos nombres de campo
-
+    $pc = $venta->customer->postalCode;
+    $postalCode = trim((string) ($pc->code ?? $pc->codigo ?? $pc->title ?? ''));
     $city = trim((string) ($pc?->city?->title ?? ''));
-    $province = trim((string) ($pc?->city?->state?->title
-        ?? $venta->customer->provincia
-        ?? ''));
+    $province = trim((string) ($pc?->city?->state?->title ?? $venta->customer->provincia ?? ''));
     $ayto = trim((string) ($venta->customer->ayuntamiento ?? ''));
 
-    // 2) Construcción en el orden pedido:
-    //    primary_address, "[CP] ciudad", ayuntamiento, provincia
-    $cpCity = trim(implode(' ', array_filter([$postalCode, $city], fn($v) => $v !== '')));
-    $parts = array_filter([$primary, $cpCity, $ayto, $province], fn($v) => $v !== '');
+    $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
+    $provinceFormatted = $province ? "($province)" : null;
 
-    $dirFull = implode(', ', $parts);  // separador con coma y espacio
+    // Construcción base con guiones
+    $parts = array_filter([$primary, $cpCity, $ayto], fn($v) => $v !== '');
+    $dirFull = implode(' - ', $parts);
 
-    // 3) Partir en dos líneas de 60 caracteres (preferir cortes por espacio)
+    // Añadir provincia siempre al final, pegada al último bloque
+    if ($provinceFormatted) {
+        $dirFull .= " $provinceFormatted";
+    }
+
+    // ===== Corte en dos líneas =====
     [$dirL1, $dirL2] = (function (string $t, int $limit) {
         $t = preg_replace('/\s+/u', ' ', trim($t));
         if ($t === '')
             return ['', ''];
 
-        // Si cabe en una sola línea:
+        // Si todo cabe en una línea
         if (mb_strlen($t, 'UTF-8') <= $limit) {
             return [$t, ''];
         }
 
-        // Cortar en el último espacio antes del límite; si no hay, corte duro.
+        // Buscar corte antes del límite (sin romper "(Provincia)")
         $firstChunk = mb_substr($t, 0, $limit + 1, 'UTF-8');
         $breakPos = mb_strrpos($firstChunk, ' ');
         if ($breakPos === false)
@@ -202,13 +198,19 @@
         $l1 = trim(mb_substr($t, 0, $breakPos, 'UTF-8'));
         $rest = trim(mb_substr($t, $breakPos, null, 'UTF-8'));
 
-        // Asegurar que la segunda línea no exceda el límite (corte duro si hace falta)
-        if (mb_strlen($rest, 'UTF-8') > $limit) {
-            $rest = trim(mb_substr($rest, 0, $limit, 'UTF-8'));
+        // Si la segunda línea empieza con "(" mover también la palabra anterior
+        if (mb_strpos($rest, '(') === 0) {
+            $lastSpace = mb_strrpos($l1, ' ');
+            if ($lastSpace !== false) {
+                $rest = trim(mb_substr($l1, $lastSpace, null, 'UTF-8')) . ' ' . $rest;
+                $l1 = trim(mb_substr($l1, 0, $lastSpace, 'UTF-8'));
+            }
         }
 
         return [$l1, $rest];
-    })($dirFull, 60);
+    })($dirFull, 70);
+
+
 
     // ===== Delegación (NUEVO) =====
     $yDelegacion = 20.9;     // ajústalo fino con debug si hace falta
