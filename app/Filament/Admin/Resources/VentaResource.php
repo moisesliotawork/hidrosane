@@ -667,7 +667,7 @@ class VentaResource extends Resource
                     self::docCard('documento_titularidad', 'Documento de titularidad'),
                     self::docCard('nomina', 'Nómina'),
                     self::docCard('pension', 'Pensión'),
-                    self::docCard('contrato_firmado', 'Contrato firmado'),
+                    self::docCard('contrato_firmado', 'Otro Documento'),
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
