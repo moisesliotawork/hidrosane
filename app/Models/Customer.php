@@ -30,6 +30,7 @@ class Customer extends Model
         'situacion_laboral',
         'ingresos_rango',
         'num_hab_casa',
+        'ayuntamiento',
     ];
 
     protected $casts = [

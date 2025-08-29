@@ -147,18 +147,20 @@ class EditNote extends EditRecord
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
 
-            // Nuevos campos para visualizar
+            'ayuntamiento' => $customer->ayuntamiento,
+
             'fecha_nac' => $fechaNacStr,
             'age' => $computedAge,
 
             'observations' => $observations,
         ]);
+
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
         // En el panel Commercial NO persistimos fecha_nac ni age
-        unset($data['fecha_nac'], $data['age']);
+         unset($data['fecha_nac'], $data['age'], $data['ayuntamiento']);
         return $data;
     }
 

@@ -88,6 +88,10 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
                     TextInput::make('parish')->label('Parroquia'),
+                    TextInput::make('ayuntamiento')
+                        ->label('Ayuntamiento')
+                        ->maxLength(255)
+                        ->required(),
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
                     Select::make('estado_civil')->label('Estado civil')
