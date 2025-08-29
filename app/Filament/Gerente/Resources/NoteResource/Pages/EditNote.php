@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Customer;
 use App\Models\PostalCode;
+use Carbon\Carbon;
 
 class EditNote extends EditRecord
 {
@@ -19,20 +20,22 @@ class EditNote extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        // Obtener el customer relacionado
         $note = $this->record;
         $customer = $note->customer;
 
-        // Obtener las observaciones existentes
+        // Observaciones existentes
         $observations = $note->observations()->get()->map(function ($observation) {
             return [
+                'id' => $observation->id,
                 'author_id' => $observation->author_id,
                 'observation' => $observation->observation,
-                // Agregar campos adicionales si es necesario
             ];
         })->toArray();
 
-        // Combinar los datos de la nota con los del customer y observaciones
+        // Fecha de nacimiento y edad calculada
+        $fechaNac = $customer->fecha_nac ?? null;
+        $computedAge = $fechaNac ? Carbon::parse($fechaNac)->age : null;
+
         return array_merge($data, [
             'first_names' => $customer->first_names,
             'last_names' => $customer->last_names,
@@ -43,19 +46,36 @@ class EditNote extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-            'age' => $customer->age,
+
+            // NUEVO: cargar en el form
+            'fecha_nac' => $fechaNac ? Carbon::parse($fechaNac)->toDateString() : null,
+            'age' => $computedAge,
+
+            'observations' => $observations,
         ]);
     }
 
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Verificar que el postal_code_id existe
+        // Verificar CP
         $postalCode = PostalCode::find($data['postal_code_id']);
         if (!$postalCode) {
             throw new \Exception("El código postal seleccionado no existe");
         }
 
-        // Actualizar el customer con los nuevos datos
+        // Recalcular edad desde fecha_nac (ignorar age del form)
+        $fechaNac = $data['fecha_nac'] ?? null;
+        $computedAge = null;
+        if ($fechaNac) {
+            try {
+                $computedAge = Carbon::parse($fechaNac)->age;
+            } catch (\Throwable $e) {
+                $computedAge = null;
+            }
+        }
+
+        // Actualizar el customer
         $customer = Customer::find($data['customer_id']);
         $customer->update([
             'first_names' => $data['first_names'],
@@ -67,10 +87,13 @@ class EditNote extends EditRecord
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,
-            'age' => $data['age'] ?? null,
+
+            // clave: persistir fecha y edad calculada
+            'fecha_nac' => $fechaNac,
+            'age' => $computedAge,
         ]);
 
-        // Eliminar los campos del customer del array de datos de la nota
+        // Quitar del payload de Note los campos del Customer
         unset(
             $data['first_names'],
             $data['last_names'],
@@ -81,6 +104,7 @@ class EditNote extends EditRecord
             $data['primary_address'],
             $data['secondary_address'],
             $data['parish'],
+            $data['fecha_nac'],
             $data['age'],
         );
 

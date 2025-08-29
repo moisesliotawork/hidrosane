@@ -11,6 +11,8 @@ use App\Models\PostalCode;
 use Illuminate\Support\Str;
 use Filament\Actions;
 use Filament\Actions\Action;
+use Carbon\Carbon;
+
 
 class CreateNote extends CreateRecord
 {
@@ -56,14 +58,24 @@ class CreateNote extends CreateRecord
             ->where('phone', $data['phone'])
             ->first();
 
-        // Verificar que el postal_code_id existe
+        // Verificar CP
         $postalCode = PostalCode::find($data['postal_code_id']);
         if (!$postalCode) {
             throw new \Exception("El código postal seleccionado no existe");
         }
 
+        // Calcular edad desde fecha_nac (si viene)
+        $fechaNac = $data['fecha_nac'] ?? null;
+        $computedAge = null;
+        if ($fechaNac) {
+            try {
+                $computedAge = Carbon::parse($fechaNac)->age;
+            } catch (\Throwable $e) {
+                $computedAge = null;
+            }
+        }
+
         if ($customer) {
-            // Actualizar solo los campos permitidos (excluyendo nombres y teléfono)
             $customer->update([
                 'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
                 'email' => $data['email'] ?? $customer->email,
@@ -71,28 +83,36 @@ class CreateNote extends CreateRecord
                 'primary_address' => $data['primary_address'] ?? $customer->primary_address,
                 'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
                 'parish' => $data['parish'] ?? $customer->parish,
-                'age' => $data['age'] ?? $customer->age,
+
+                // clave: persistir fecha_nac y recalcular edad
+                'fecha_nac' => $fechaNac ?? $customer->fecha_nac,
+                'age' => $fechaNac ? $computedAge : $customer->age,
             ]);
         } else {
-            // Crear nuevo cliente con todos los datos
             $customer = Customer::create([
                 'first_names' => $data['first_names'],
                 'last_names' => $data['last_names'],
                 'phone' => $data['phone'],
                 'secondary_phone' => $data['secondary_phone'] ?? null,
-                'email' => $data['email'],
+                'email' => $data['email'] ?? null,
                 'postal_code_id' => $postalCode->id,
-                'primary_address' => $data['primary_address'],
+                'primary_address' => $data['primary_address'] ?? null,
                 'secondary_address' => $data['secondary_address'] ?? null,
                 'parish' => $data['parish'] ?? null,
-                'age' => $data['age'] ?? null,
+
+                // clave: persistir fecha_nac y edad calculada
+                'fecha_nac' => $fechaNac,
+                'age' => $computedAge,
             ]);
         }
 
-        // Asignar los IDs necesarios
+        // Asignar IDs en la Note
         $data['user_id'] = Auth::id();
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
+
+        // Importante: no guardar estos campos en notes si no existen allí
+        unset($data['age'], $data['fecha_nac']);
 
         return $data;
     }

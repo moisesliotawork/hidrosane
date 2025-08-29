@@ -80,18 +80,32 @@ class NoteResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
+                        Forms\Components\DatePicker::make('fecha_nac')
+                            ->label('Fecha de nacimiento')
+                            ->native(false)
+                            ->timezone('Europe/Madrid')
+                            ->maxDate(now()) // no permitir futuras
+                            ->reactive()
+                            ->afterStateHydrated(function ($state, Forms\Set $set) {
+                                // al cargar el formulario (editar), recalcula edad si ya hay fecha
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            })
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                // al cambiar la fecha en el formulario, recalcula edad
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            }),
+
+                        // === Edad calculada y NO editable ===
+                        Forms\Components\TextInput::make('age')
+                            ->numeric()
+                            ->label('Edad')
+                            ->readOnly()        // no permite editar
+                            ->dehydrated(true), // se guarda en el modelo
+
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->maxLength(255)
                             ->label('Correo electrónico'),
-
-                        Forms\Components\TextInput::make('age')
-                            ->numeric()
-                            ->maxLength(20)
-                            ->label('Edad')
-                            ->validationMessages([
-                                'required' => 'La edad es obligatoria',
-                            ]),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Información de Contacto')
