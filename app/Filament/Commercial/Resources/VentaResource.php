@@ -35,6 +35,7 @@ use Filament\Forms\Components\{
     Placeholder,
     FileUpload
 };
+use Carbon\Carbon;
 
 class VentaResource extends Resource
 {
@@ -74,11 +75,22 @@ class VentaResource extends Resource
                                     DatePicker::make('fecha_nac')
                                         ->label('Fec. nac.')
                                         ->timezone('Europe/Madrid')
-                                        ->native(false),
+                                        ->native(false)
+                                        ->maxDate(now())              // no permitir fechas futuras
+                                        ->reactive()
+                                        ->afterStateHydrated(function ($state, Set $set) {
+                                            $set('age', $state ? Carbon::parse($state)->age : null);
+                                        })
+                                        ->afterStateUpdated(function ($state, Set $set) {
+                                            $set('age', $state ? Carbon::parse($state)->age : null);
+                                        }),
 
                                     TextInput::make('age')
                                         ->numeric()
-                                        ->label('Edad'),
+                                        ->label('Edad')
+                                        ->readOnly()                  // no editable
+                                        ->dehydrated(false),          // NO enviar al backend; el modelo la calcula
+
 
                                     // ➋ Contacto
                                     TextInput::make('phone')

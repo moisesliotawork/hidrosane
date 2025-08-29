@@ -9,10 +9,12 @@ use App\Models\Observation;
 use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Filament\Commercial\Resources\VentaResource;
+use Carbon\Carbon;
 
 class EditNote extends EditRecord
 {
     protected static string $resource = NoteResource::class;
+
     public function getTitle(): string
     {
         return 'Nro de Nota: ' . $this->record->nro_nota;
@@ -50,6 +52,7 @@ class EditNote extends EditRecord
                 ->action(function () {
                     $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
                     $this->record->save();
+
                     Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
                         ->success()
@@ -66,18 +69,16 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
-                    
 
                     Notification::make()
                         ->title('Nota marcada como VENTA')
                         ->success()
                         ->send();
 
-                    // 2. Redirigir al formulario de venta con la nota
                     $url = VentaResource::getUrl(
                         'create',
                         ['note' => $this->record->id],
-                        panel: 'comercial'      // ← si tu panel es “comercial”
+                        panel: 'comercial'
                     );
 
                     $this->redirect($url);
@@ -93,6 +94,7 @@ class EditNote extends EditRecord
                 ->action(function () {
                     $this->record->estado_terminal = EstadoTerminal::SALA;
                     $this->record->save();
+
                     Notification::make()
                         ->title('Nota marcada como SALA')
                         ->success()
@@ -105,21 +107,35 @@ class EditNote extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        // Obtener el customer relacionado
         $note = $this->record;
         $customer = $note->customer;
 
-        // Obtener las observaciones existentes
+        // Observaciones existentes
         $observations = $note->observations()->get()->map(function ($observation) {
             return [
-                'id' => $observation->id, // Asegúrate de incluir el ID para edición
+                'id' => $observation->id,
                 'author_id' => $observation->author_id,
                 'observation' => $observation->observation,
-                // Agregar campos adicionales si es necesario
             ];
         })->toArray();
 
-        // Combinar los datos de la nota con los del customer y observaciones
+        // Fecha de nacimiento y edad calculada para mostrar en el form
+        $fechaNac = $customer->fecha_nac; // si tienes $casts, será Carbon|null
+        $fechaNacStr = $fechaNac
+            ? ($fechaNac instanceof \Carbon\Carbon ? $fechaNac->toDateString() : (string) $fechaNac)
+            : null;
+
+        $computedAge = null;
+        if ($fechaNacStr) {
+            try {
+                $computedAge = Carbon::parse($fechaNacStr)->age;
+            } catch (\Throwable $e) {
+                $computedAge = $customer->age; // fallback
+            }
+        } else {
+            $computedAge = $customer->age;
+        }
+
         return array_merge($data, [
             'first_names' => $customer->first_names,
             'last_names' => $customer->last_names,
@@ -130,9 +146,20 @@ class EditNote extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-            'age' => $customer->age,
-            'observations' => $observations, // Asegúrate de incluir este campo
+
+            // Nuevos campos para visualizar
+            'fecha_nac' => $fechaNacStr,
+            'age' => $computedAge,
+
+            'observations' => $observations,
         ]);
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // En el panel Commercial NO persistimos fecha_nac ni age
+        unset($data['fecha_nac'], $data['age']);
+        return $data;
     }
 
     protected function afterSave(): void

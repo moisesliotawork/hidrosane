@@ -23,6 +23,8 @@ class CreateVentaDesdeCero extends CreateRecord
     {
         return DB::transaction(function () use ($data) {
 
+            unset($data['age']);
+
             // 1) Validaciones
             if (!PostalCode::find($data['postal_code_id'] ?? 0)) {
                 throw ValidationException::withMessages([

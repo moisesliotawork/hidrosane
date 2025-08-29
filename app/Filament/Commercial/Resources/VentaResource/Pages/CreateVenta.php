@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, PostalCode, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
 use App\Enums\EstadoTerminal;
+use Carbon\Carbon;
 
 
 class CreateVenta extends CreateRecord
@@ -31,15 +32,23 @@ class CreateVenta extends CreateRecord
         $note = Note::with('customer')->findOrFail($this->noteId);
         $customer = $note->customer;
 
-        $this->form->fill(array_merge(
+        $payload = array_merge(
             ['note_id' => $note->id],
-            $customer->only($customer->getFillable())
-        ));
+            $customer->only($customer->getFillable()),
+            [
+                // opcional: precargar edad para mostrarla desde el inicio
+                'age' => $customer->fecha_nac ? Carbon::parse($customer->fecha_nac)->age : null,
+            ]
+        );
+
+        $this->form->fill($payload);
     }
 
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
+
+            unset($data['age']);
 
             /* 2.1 Validar que exista el código postal */
             if (!PostalCode::find($data['postal_code_id'])) {
@@ -108,7 +117,7 @@ class CreateVenta extends CreateRecord
                     ->filter()          // quita vacíos
                     ->values()
                     ->all(),
-                
+
                 "crema" => $data['crema'] ?? null,
 
                 'fecha_entrega' => $data['fecha_entrega'],
@@ -121,7 +130,7 @@ class CreateVenta extends CreateRecord
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
-                
+
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

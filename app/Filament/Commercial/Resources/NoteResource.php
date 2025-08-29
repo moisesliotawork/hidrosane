@@ -84,20 +84,28 @@ class NoteResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
+                        Forms\Components\DatePicker::make('fecha_nac')
+                            ->label('Fecha de nacimiento')
+                            ->native(false)
+                            ->timezone('Europe/Madrid')
+                            ->disabled()         // solo lectura en Commercial
+                            ->dehydrated(false)  // NO enviar al backend desde este form
+                            ->reactive()
+                            ->afterStateHydrated(function ($state, Forms\Set $set) {
+                                $set('age', $state ? Carbon::parse($state)->age : null);
+                            }),
+
+                        Forms\Components\TextInput::make('age')
+                            ->numeric()
+                            ->label('Edad')
+                            ->disabled()         // solo lectura
+                            ->dehydrated(false), // NO enviar al backend desde este form
+
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->disabled()
                             ->maxLength(255)
                             ->label('Correo electrónico'),
-
-                        Forms\Components\TextInput::make('age')
-                            ->numeric()
-                            ->disabled()
-                            ->maxLength(20)
-                            ->label('Edad')
-                            ->validationMessages([
-                                'required' => 'La edad es obligatoria',
-                            ]),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Información de Contacto')

@@ -22,6 +22,7 @@ class CreateVentaDesdeCero extends CreateRecord
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
+            unset($data['age']);
 
             // 1) Validaciones
             if (!PostalCode::find($data['postal_code_id'] ?? 0)) {

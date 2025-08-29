@@ -25,6 +25,7 @@ use Filament\Forms\Components\{
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
+use Carbon\Carbon;
 
 class VentaDesdeCeroResource extends Resource
 {
@@ -53,8 +54,24 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
-                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
-                    TextInput::make('age')->numeric()->label('Edad'),
+                    DatePicker::make('fecha_nac')
+                        ->label('Fec. nac.')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
+                        ->maxDate(now())            // evita fechas futuras
+                        ->reactive()
+                        ->afterStateHydrated(function ($state, Set $set) {
+                            $set('age', $state ? Carbon::parse($state)->age : null);
+                        })
+                        ->afterStateUpdated(function ($state, Set $set) {
+                            $set('age', $state ? Carbon::parse($state)->age : null);
+                        }),
+
+                    TextInput::make('age')
+                        ->numeric()
+                        ->label('Edad')
+                        ->readOnly()                // no editable
+                        ->dehydrated(false),        // no se envía al backend (la calcula el modelo)
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
