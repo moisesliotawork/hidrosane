@@ -16,26 +16,36 @@ class ListTeleoperadoras extends ListRecords
     public function getTabs(): array
     {
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
-            return $query->withCount([
-                // CONFIRMADAS = confirmado
-                'notes as confirmadas_count' => function ($n) use ($start, $end) {
-                    $n->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                        ->whereBetween('created_at', [$start, $end]);
-                },
-                // VENTAS = venta
-                'notes as vendidas_count' => function ($n) use ($start, $end) {
-                    $n->where('estado_terminal', EstadoTerminal::VENTA->value)
-                        ->whereBetween('created_at', [$start, $end]);
-                },
-            ]);
+            // Aseguramos users.* disponible aunque vengan joins previos
+            $query->select('users.*');
+
+            // CONFIRMADAS
+            $query->selectSub(function ($q) use ($start, $end) {
+                $q->from('notes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('notes.user_id', 'users.id')
+                    ->where('notes.estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                    ->whereBetween('notes.created_at', [$start, $end]);
+            }, 'confirmadas_count');
+
+            // VENTAS
+            $query->selectSub(function ($q) use ($start, $end) {
+                $q->from('notes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('notes.user_id', 'users.id')
+                    ->where('notes.estado_terminal', EstadoTerminal::VENTA->value)
+                    ->whereBetween('notes.created_at', [$start, $end]);
+            }, 'vendidas_count');
+
+            return $query;
         };
 
         $currStart = now()->startOfMonth();
         $currEnd = now()->endOfMonth();
-        $prevStart = now()->subMonth()->startOfMonth();
-        $prevEnd = now()->subMonth()->endOfMonth();
-        $prev2Start = now()->subMonths(2)->startOfMonth();
-        $prev2End = now()->subMonths(2)->endOfMonth();
+        $prevStart = now()->clone()->subMonth()->startOfMonth();
+        $prevEnd = now()->clone()->subMonth()->endOfMonth();
+        $prev2Start = now()->clone()->subMonths(2)->startOfMonth();
+        $prev2End = now()->clone()->subMonths(2)->endOfMonth();
 
         return [
             'actual' => Tab::make('MES ACTUAL')
