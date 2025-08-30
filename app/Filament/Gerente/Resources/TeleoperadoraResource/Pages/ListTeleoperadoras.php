@@ -15,8 +15,12 @@ class ListTeleoperadoras extends ListRecords
 
     public function getTabs(): array
     {
+        /**
+         * Aplica conteos por subconsultas para evitar withCount()
+         * y no depender de la relación notes() con scopes previos (Spatie->role()).
+         */
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
-            // Aseguramos users.* disponible aunque vengan joins previos
+            // Garantiza que tengamos users.* aunque el builder venga con joins/scopes
             $query->select('users.*');
 
             // CONFIRMADAS
@@ -40,22 +44,24 @@ class ListTeleoperadoras extends ListRecords
             return $query;
         };
 
-        $currStart = now()->startOfMonth();
-        $currEnd = now()->endOfMonth();
-        $prevStart = now()->clone()->subMonth()->startOfMonth();
-        $prevEnd = now()->clone()->subMonth()->endOfMonth();
-        $prev2Start = now()->clone()->subMonths(2)->startOfMonth();
-        $prev2End = now()->clone()->subMonths(2)->endOfMonth();
+        // Rangos temporales
+        $now = now();
+        $currStart  = $now->copy()->startOfMonth();
+        $currEnd    = $now->copy()->endOfMonth();
+        $prevStart  = $now->copy()->subMonth()->startOfMonth();
+        $prevEnd    = $now->copy()->subMonth()->endOfMonth();
+        $prev2Start = $now->copy()->subMonths(2)->startOfMonth();
+        $prev2End   = $now->copy()->subMonths(2)->endOfMonth();
 
         return [
             'actual' => Tab::make('MES ACTUAL')
-                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $currStart, $currEnd)),
+                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $currStart, $currEnd)),
 
             'mes_pasado' => Tab::make('MES PASADO')
-                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $prevStart, $prevEnd)),
+                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $prevStart, $prevEnd)),
 
             'hace_2_meses' => Tab::make('HACE 2 MESES')
-                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $prev2Start, $prev2End)),
+                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $prev2Start, $prev2End)),
         ];
     }
 }
