@@ -11,30 +11,23 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListTeleoperadoras extends ListRecords
 {
-    protected static string $resource = 'App\Filament\Gerente\Resources\TeleoperadoraResource';
+    protected static string $resource = TeleoperadoraResource::class;
 
     public function getTabs(): array
     {
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
-            // CONFIRMADAS
-            $query->selectSub(function ($q) use ($start, $end) {
-                $q->from('notes')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('notes.user_id', 'users.id')
-                    ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                    ->whereBetween('created_at', [$start, $end]);
-            }, 'confirmadas_count');
-
-            // VENTAS
-            $query->selectSub(function ($q) use ($start, $end) {
-                $q->from('notes')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('notes.user_id', 'users.id')
-                    ->where('estado_terminal', EstadoTerminal::VENTA->value)
-                    ->whereBetween('created_at', [$start, $end]);
-            }, 'vendidas_count');
-
-            return $query;
+            return $query->withCount([
+                // CONFIRMADAS = confirmado
+                'notes as confirmadas_count' => function ($n) use ($start, $end) {
+                    $n->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                        ->whereBetween('created_at', [$start, $end]);
+                },
+                // VENTAS = venta
+                'notes as vendidas_count' => function ($n) use ($start, $end) {
+                    $n->where('estado_terminal', EstadoTerminal::VENTA->value)
+                        ->whereBetween('created_at', [$start, $end]);
+                },
+            ]);
         };
 
         $currStart = now()->startOfMonth();
@@ -56,4 +49,3 @@ class ListTeleoperadoras extends ListRecords
         ];
     }
 }
-
