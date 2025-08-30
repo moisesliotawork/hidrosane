@@ -112,9 +112,18 @@ class TeleoperadoraResource extends Resource
     // App\Filament\HeadOfRoom\Resources\TeleoperadoraResource.php
     public static function getEloquentQuery(): Builder
     {
-        return User::query()
+        return \App\Models\User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
+            ->withCount([
+                // CONFIRMADAS = 'confirmado' (histórico, sin fechas)
+                'notes as confirmadas_count' => fn($q) =>
+                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+
+                // VENTAS = 'venta' (histórico, sin fechas)
+                'notes as vendidas_count' => fn($q) =>
+                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
+            ])
             ->distinct('users.id');
     }
 
