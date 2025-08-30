@@ -17,15 +17,15 @@ class ListTeleoperadoras extends ListRecords
     {
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
             return $query->withCount([
-                // CONFIRMADAS = CONFIRMADO  (antes tenías SALA)
+                // CONFIRMADAS = confirmado
                 'notes as confirmadas_count' => function ($n) use ($start, $end) {
-                    $n->whereBetween('created_at', [$start, $end])
-                        ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value);
+                    $n->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                        ->whereBetween('updated_at', [$start, $end]);
                 },
-                // VENTAS = VENTA
+                // VENTAS = venta
                 'notes as vendidas_count' => function ($n) use ($start, $end) {
-                    $n->whereBetween('created_at', [$start, $end])
-                        ->where('estado_terminal', EstadoTerminal::VENTA->value);
+                    $n->where('estado_terminal', EstadoTerminal::VENTA->value)
+                        ->whereBetween('updated_at', [$start, $end]);
                 },
             ]);
         };
