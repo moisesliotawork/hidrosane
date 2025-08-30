@@ -17,42 +17,44 @@ class ListTeleoperadoras extends ListRecords
 
     public function getTabs(): array
     {
-        // helper: aplica selects calculados por rango
-        $applyCounts = function (Builder $q, Carbon $start, Carbon $end): void {
-            $q->addSelect([
-                // CONFIRMADAS
-                'confirmadas_count' => Note::query()
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('notes.user_id', 'users.id')
-                    ->whereBetween('notes.created_at', [$start, $end])
-                    ->where('notes.estado_terminal', EstadoTerminal::CONFIRMADO->value),
-                // VENTAS
-                'vendidas_count' => Note::query()
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('notes.user_id', 'users.id')
-                    ->whereBetween('notes.created_at', [$start, $end])
-                    ->where('notes.estado_terminal', EstadoTerminal::VENTA->value),
+        // helper opcional (devuelve el mismo Builder que recibe)
+        $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
+            return $query->withCount([
+                // CONFIRMADAS = SALA
+                'notes as confirmadas_count' => function ($n) use ($start, $end) {
+                    $n->whereBetween('created_at', [$start, $end])
+                        ->where('estado_terminal', EstadoTerminal::SALA->value);
+                },
+                // VENTAS = VENTA
+                'notes as vendidas_count' => function ($n) use ($start, $end) {
+                    $n->whereBetween('created_at', [$start, $end])
+                        ->where('estado_terminal', EstadoTerminal::VENTA->value);
+                },
             ]);
         };
 
         $currStart = now()->startOfMonth();
-        $currEnd   = now()->endOfMonth();
-
+        $currEnd = now()->endOfMonth();
         $prevStart = now()->subMonth()->startOfMonth();
-        $prevEnd   = now()->subMonth()->endOfMonth();
-
+        $prevEnd = now()->subMonth()->endOfMonth();
         $prev2Start = now()->subMonths(2)->startOfMonth();
-        $prev2End   = now()->subMonths(2)->endOfMonth();
+        $prev2End = now()->subMonths(2)->endOfMonth();
 
         return [
             'actual' => Tab::make('MES ACTUAL')
-                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $currStart, $currEnd)),
+                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $currStart, $currEnd) {
+                    $applyCounts($query, $currStart, $currEnd);
+                }),
 
             'mes_pasado' => Tab::make('MES PASADO')
-                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $prevStart, $prevEnd)),
+                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $prevStart, $prevEnd) {
+                    $applyCounts($query, $prevStart, $prevEnd);
+                }),
 
             'hace_2_meses' => Tab::make('HACE 2 MESES')
-                ->modifyQueryUsing(fn (Builder $q) => $applyCounts($q, $prev2Start, $prev2End)),
+                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $prev2Start, $prev2End) {
+                    $applyCounts($query, $prev2Start, $prev2End);
+                }),
         ];
     }
 }

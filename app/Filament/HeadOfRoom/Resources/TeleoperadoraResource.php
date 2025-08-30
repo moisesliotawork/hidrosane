@@ -112,9 +112,10 @@ class TeleoperadoraResource extends Resource
     // App\Filament\HeadOfRoom\Resources\TeleoperadoraResource.php
     public static function getEloquentQuery(): Builder
     {
-        return \App\Models\User::query()
-            ->select('users.*')        // ⬅️ garantizamos modelo correcto
-            ->role('teleoperator');    // Spatie
+        return User::query()
+            ->select('users.*')
+            ->role(['teleoperator', 'head_of_room'])
+            ->distinct('users.id');
     }
 
 
