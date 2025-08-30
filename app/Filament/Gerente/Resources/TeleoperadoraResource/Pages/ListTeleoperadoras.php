@@ -16,18 +16,25 @@ class ListTeleoperadoras extends ListRecords
     public function getTabs(): array
     {
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
-            return $query->withCount([
-                // CONFIRMADAS = confirmado
-                'notes as confirmadas_count' => function ($n) use ($start, $end) {
-                    $n->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                        ->whereBetween('created_at', [$start, $end]);
-                },
-                // VENTAS = venta
-                'notes as vendidas_count' => function ($n) use ($start, $end) {
-                    $n->where('estado_terminal', EstadoTerminal::VENTA->value)
-                        ->whereBetween('created_at', [$start, $end]);
-                },
-            ]);
+            // CONFIRMADAS
+            $query->selectSub(function ($q) use ($start, $end) {
+                $q->from('notes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('notes.user_id', 'users.id')
+                    ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                    ->whereBetween('created_at', [$start, $end]);
+            }, 'confirmadas_count');
+
+            // VENTAS
+            $query->selectSub(function ($q) use ($start, $end) {
+                $q->from('notes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('notes.user_id', 'users.id')
+                    ->where('estado_terminal', EstadoTerminal::VENTA->value)
+                    ->whereBetween('created_at', [$start, $end]);
+            }, 'vendidas_count');
+
+            return $query;
         };
 
         $currStart = now()->startOfMonth();
@@ -49,3 +56,4 @@ class ListTeleoperadoras extends ListRecords
         ];
     }
 }
+
