@@ -465,7 +465,7 @@ class NoteResource extends Resource
             $q->whereNull('estado_terminal')
                 ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
         })
-            ->whereDoesntHave('ventas'); // relación inversa
+            ->whereDoesntHave('venta'); // relación inversa
 
 
         return $query;
