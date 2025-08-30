@@ -115,15 +115,6 @@ class TeleoperadoraResource extends Resource
         return User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
-            ->withCount([
-                // CONFIRMADAS = 'confirmado' (histórico, sin fechas)
-                'notes as confirmadas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-
-                // VENTAS = 'venta' (histórico, sin fechas)
-                'notes as vendidas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
-            ])
             ->distinct('users.id');
     }
 
