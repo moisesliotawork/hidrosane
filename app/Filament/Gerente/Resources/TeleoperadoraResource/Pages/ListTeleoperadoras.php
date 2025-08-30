@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListTeleoperadoras extends ListRecords
 {
-    protected static string $resource = TeleoperadoraResource::class;
+    protected static string $resource = 'App\Filament\Gerente\Resources\TeleoperadoraResource';
 
     public function getTabs(): array
     {
