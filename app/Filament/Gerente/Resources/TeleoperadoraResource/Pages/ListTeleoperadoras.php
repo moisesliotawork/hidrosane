@@ -20,12 +20,12 @@ class ListTeleoperadoras extends ListRecords
                 // CONFIRMADAS = confirmado
                 'notes as confirmadas_count' => function ($n) use ($start, $end) {
                     $n->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                        ->whereBetween('updated_at', [$start, $end]);
+                        ->whereBetween('created_at', [$start, $end]);
                 },
                 // VENTAS = venta
                 'notes as vendidas_count' => function ($n) use ($start, $end) {
                     $n->where('estado_terminal', EstadoTerminal::VENTA->value)
-                        ->whereBetween('updated_at', [$start, $end]);
+                        ->whereBetween('created_at', [$start, $end]);
                 },
             ]);
         };
