@@ -15,13 +15,12 @@ class ListTeleoperadoras extends ListRecords
 
     public function getTabs(): array
     {
-        // helper opcional (devuelve el mismo Builder que recibe)
         $applyCounts = function (Builder $query, Carbon $start, Carbon $end): Builder {
             return $query->withCount([
-                // CONFIRMADAS = SALA
+                // CONFIRMADAS = CONFIRMADO  (antes tenías SALA)
                 'notes as confirmadas_count' => function ($n) use ($start, $end) {
                     $n->whereBetween('created_at', [$start, $end])
-                        ->where('estado_terminal', EstadoTerminal::SALA->value);
+                        ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value);
                 },
                 // VENTAS = VENTA
                 'notes as vendidas_count' => function ($n) use ($start, $end) {
@@ -40,19 +39,13 @@ class ListTeleoperadoras extends ListRecords
 
         return [
             'actual' => Tab::make('MES ACTUAL')
-                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $currStart, $currEnd) {
-                    $applyCounts($query, $currStart, $currEnd);
-                }),
+                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $currStart, $currEnd)),
 
             'mes_pasado' => Tab::make('MES PASADO')
-                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $prevStart, $prevEnd) {
-                    $applyCounts($query, $prevStart, $prevEnd);
-                }),
+                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $prevStart, $prevEnd)),
 
             'hace_2_meses' => Tab::make('HACE 2 MESES')
-                ->modifyQueryUsing(function (Builder $query) use ($applyCounts, $prev2Start, $prev2End) {
-                    $applyCounts($query, $prev2Start, $prev2End);
-                }),
+                ->modifyQueryUsing(fn(Builder $q) => $applyCounts($q, $prev2Start, $prev2End)),
         ];
     }
 }
