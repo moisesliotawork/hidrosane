@@ -49,8 +49,6 @@ class NoteDescResource extends Resource
             ->with(['observations.author'])
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,          // 'nulo'
-                EstadoTerminal::CONFIRMADO->value,   // 'confirmado'
-                EstadoTerminal::VENTA->value
             ]);
     }
 
