@@ -141,8 +141,7 @@
 
     $telefonos = collect([
         $venta->customer->phone ?? null,
-        $venta->customer->phone2 ?? null,
-        $venta->customer->mobile ?? null,
+        $venta->customer->secondary_phone ?? null,
     ])->filter()->implode(' / ');
 
     $vivienda = mb_strtoupper($venta->customer->tipo_vivienda ?? '', 'UTF-8');
