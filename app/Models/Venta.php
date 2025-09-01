@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
 use Illuminate\Support\Collection;
 use App\Enums\VendidoPor;
+use App\Enums\MesesEnum;
 use Illuminate\Support\Facades\DB;
 
 
@@ -146,6 +147,9 @@ class Venta extends Model
         'cuota_final',
         'entrada',
         'mostrar_ingresos',
+        'mes_contr',
+        'nro_contr_adm',
+        'nro_cliente_adm',
     ];
 
     protected $casts = [
@@ -170,8 +174,9 @@ class Venta extends Model
         'monto_extra' => 'decimal:2',
         'total_final' => 'decimal:2',
         'cuota_final' => 'decimal:2',
-        'entrada'     => 'decimal:2',
+        'entrada' => 'decimal:2',
         'mostrar_ingresos' => 'boolean',
+        'mes_contr' => MesesEnum::class,
 
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
@@ -193,7 +198,7 @@ class Venta extends Model
         'monto_extra' => 0,
         'total_final' => 0,
         'cuota_final' => 0,
-        'entrada' => 0, 
+        'entrada' => 0,
     ];
 
 

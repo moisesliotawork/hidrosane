@@ -29,6 +29,8 @@ use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
 use App\Enums\Financiera;
 use Carbon\Carbon;
+use App\Enums\MesesEnum;
+
 
 class VentaResource extends Resource
 {
@@ -70,6 +72,34 @@ class VentaResource extends Resource
 
             /* guarda la relación con la nota; no se muestra */
             Hidden::make('note_id')->required(),
+
+            Section::make('Administración')
+                ->collapsible(false)
+                ->schema([
+                    Grid::make(3)->schema([
+                        TextInput::make('nro_contr_adm')
+                            ->label('NRO CONTRATO')
+                            ->maxLength(50)
+                            ->placeholder('Ej. 01023'),
+
+                        TextInput::make('nro_cliente_adm')
+                            ->label('NRO CLIENTE')
+                            ->maxLength(50)
+                            ->placeholder('Ej. 00527'),
+
+                        Select::make('mes_contr')
+                            ->label('MES')
+                            ->options(
+                                collect(MesesEnum::cases())
+                                    ->mapWithKeys(fn($m) => [$m->value => $m->label()])
+                                    ->toArray()
+                            )
+                            ->placeholder('Selecciona…')
+                            ->native(false)
+                            ->searchable()
+                            ->nullable(),
+                    ]),
+                ]),
 
 
             Section::make('Informe al repartidor')
@@ -698,7 +728,7 @@ class VentaResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('nro_contrato')->label('Nº Contrato')->sortable()->searchable(),
+                TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
@@ -706,7 +736,7 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
-                TextColumn::make('customer.nro_cliente')->label('Nº Cliente'),
+                TextColumn::make('nro_cliente_adm')->label('Nº Cliente'),
                 TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
                 TextColumn::make('hora_venta')

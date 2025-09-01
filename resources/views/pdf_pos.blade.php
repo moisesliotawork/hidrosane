@@ -317,7 +317,8 @@
         <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
 
             {{-- Encabezado --}}
-            <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">{{ $venta->nro_contrato }}
+            <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">
+                {{ $venta->nro_contr_adm }}
             </div>
             <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecPromo }}</div>
             <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
@@ -328,7 +329,7 @@
                 {{ $delegacionNombre }}
             </div>
             <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">
-                {{ $venta->customer->nro_cliente }}
+                {{ $venta->nro_cliente_adm }}
             </div>
             <div class="field" style="top:{{ $yComercial }}mm; left:{{ $xComercial }}mm;">
                 @php
@@ -424,14 +425,7 @@
             </div>
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xMes1 }}mm; width:{{ $wMes1 }}mm; text-align:center;">
-                {{ mb_strtoupper(
-    Carbon::parse($venta->created_at)
-        ->locale('es')
-        ->addMonth()
-        ->isoFormat('MMMM'),
-    'UTF-8'
-) 
-                }}
+                {{ $venta->mes_contr?->label() }}
             </div>
             <div class="field"
                 style="top:{{ $yPagoFila }}mm; left:{{ $xImporte }}mm; width:{{ $wImporte }}mm; text-align:center;">
