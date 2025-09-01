@@ -50,6 +50,7 @@ class NoteDescResource extends Resource
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,          // 'nulo'
                 EstadoTerminal::CONFIRMADO->value,   // 'confirmado'
+                EstadoTerminal::VENTA->value
             ]);
     }
 

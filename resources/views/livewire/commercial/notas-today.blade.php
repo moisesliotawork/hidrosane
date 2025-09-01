@@ -310,7 +310,7 @@
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
-                            <button class="action-button" wire:click="redirigirAVenta({{ $note['id'] }})">
+                            <button class="action-button" onclick="getUbicacionDentro({{ $note['id'] }})">
                                 Dentro
                             </button>
                             <button class=" action-button">Llévame</button>
@@ -318,7 +318,8 @@
 
                         <!-- Nuevo botón que ocupa todo el ancho -->
                         <div class="mt-1"> <!-- Margen superior pequeño para separar -->
-                            <button class="action-button w-full"> <!-- w-full para que ocupe todo el ancho -->
+                            <button class="action-button w-full" wire:click="redirigirAVenta({{ $note['id'] }})">
+                                <!-- w-full para que ocupe todo el ancho -->
                                 Gestionar
                             </button>
                         </div>
@@ -377,6 +378,51 @@
                     lng: -66.9036
                 });
                 alert('Geolocalización no soportada, se usó Caracas.');
+            }
+        }
+
+        function getUbicacionDentro(notaId) {
+            if (location.protocol !== 'https:')
+            {
+                Livewire.dispatch('guardarUbicacionDentro', {
+                    notaId: notaId,
+                    lat: 10.4806,   // Caracas
+                    lng: -66.9036
+                });
+                alert('Entorno no HTTPS, se usó ubicación de Caracas (DENTRO).');
+                return;
+            }
+
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        Livewire.dispatch('guardarUbicacionDentro', {
+                            notaId: notaId,
+                            lat: lat,
+                            lng: lng
+                        });
+                    },
+                    function (error) {
+                        Livewire.dispatch('guardarUbicacionDentro', {
+                            notaId: notaId,
+                            lat: 10.4806,
+                            lng: -66.9036
+                        });
+                        alert('No se pudo obtener ubicación (DENTRO), se usó Caracas. Error: ' + error.message);
+                    }
+                );
+            } else
+            {
+                Livewire.dispatch('guardarUbicacionDentro', {
+                    notaId: notaId,
+                    lat: 10.4806,
+                    lng: -66.9036
+                });
+                alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
             }
         }
     </script>

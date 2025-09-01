@@ -10,7 +10,38 @@ use App\Filament\Commercial\Resources\NoteResource;
 
 class NotasToday extends Component
 {
-    protected $listeners = ['notaActualizada' => '$refresh', 'guardarUbicacion' => 'guardarUbicacion'];
+    protected $listeners = [
+        'notaActualizada' => '$refresh',
+        'guardarUbicacion' => 'guardarUbicacion',
+        'guardarUbicacionDentro' => 'guardarUbicacionDentro',
+    ];
+
+    public function guardarUbicacionDentro($notaId, $lat, $lng)
+    {
+        $note = Note::find($notaId);
+        if (!$note) {
+            return;
+        }
+
+        $note->lat_dentro = $lat;
+        $note->lng_dentro = $lng;
+        $note->save();
+
+        AnotacionVisita::create([
+            'nota_id' => $notaId,
+            'author_id' => auth()->id(),
+            'asunto' => 'DENTRO',
+            'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
+        ]);
+
+        \Filament\Notifications\Notification::make()
+            ->title('Ubicación DENTRO capturada')
+            ->success()
+            ->body("Guardada para nota #$notaId: [$lat, $lng]")
+            ->send();
+
+        $this->dispatch('notaActualizada');
+    }
 
 
     public ?float $ubicacionLat = null;

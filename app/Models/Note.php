@@ -88,6 +88,8 @@ class Note extends Model
         'assignment_date',
         'lat',
         'lng',
+        'lat_dentro',
+        'lng_dentro',
         'show_phone',
         'estado_terminal',
         'productos_externos',
@@ -212,6 +214,23 @@ class Note extends Model
     public function hasCoordinates()
     {
         return !empty($this->lat) && !empty($this->lng);
+    }
+    
+
+    public function getCoordinatesDentroAttribute()
+    {
+        if ($this->lat_dentro && $this->lng_dentro) {
+            return [
+                'lat' => $this->lat_dentro,
+                'lng' => $this->lng_dentro,
+            ];
+        }
+        return null;
+    }
+
+    public function hasCoordinatesDentro(): bool
+    {
+        return !empty($this->lat_dentro) && !empty($this->lng_dentro);
     }
 
     /**
