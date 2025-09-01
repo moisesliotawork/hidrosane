@@ -23,6 +23,7 @@ use Filament\Support\Colors\Color;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Team;
+use Filament\Forms\Get;
 
 class NoteResource extends Resource
 {
@@ -71,7 +72,8 @@ class NoteResource extends Resource
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
                                 'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                            ])
+                            ->visible(fn(Get $get, ?Note $record) => $record?->canShowPhone() ?? (bool) $get('show_phone')),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
@@ -82,7 +84,8 @@ class NoteResource extends Resource
                             ->label('Teléfono secundario (opcional)')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                            ])
+                            ->visible(fn(Get $get, ?Note $record) => $record?->canShowPhone() ?? (bool) $get('show_phone')),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -309,9 +312,23 @@ class NoteResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('customer.phone')
-                    ->searchable()
                     ->label('Teléfono')
-                    ->formatStateUsing(fn($state) => chunk_split(str_replace(' ', '', $state), 3, ' ')),
+                    // 1) Definimos el "state" explícitamente (condicional por fila)
+                    ->state(function (Note $record) {
+                        return $record->canShowPhone()
+                            ? ($record->customer?->phone)   // muestra el tel si está permitido
+                            : '—';                         // oculta si show_phone = false
+                    })
+                    // 2) Formateo solo si hay valor
+                    ->formatStateUsing(function (?string $state) {
+                        if (blank($state))
+                            return "—";
+                        $digits = preg_replace('/\s+/', '', $state);
+                        return trim(chunk_split($digits, 3, ' ')); // 999 999 999
+                    })
+                    // 3) Evita filtrar/buscar por teléfono para no filtrar datos ocultos
+                    ->searchable(false)
+                    ->alignCenter(),
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),
