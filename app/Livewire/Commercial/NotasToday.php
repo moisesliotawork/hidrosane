@@ -14,7 +14,17 @@ class NotasToday extends Component
         'notaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
+        'avisarSinDentro' => 'avisarSinDentro',
     ];
+
+    public function avisarSinDentro($notaId): void
+    {
+        \Filament\Notifications\Notification::make()
+            ->title('Sin ubicación DENTRO')
+            ->body("La nota #{$notaId} no tiene coordenadas DENTRO guardadas.")
+            ->danger()
+            ->send();
+    }
 
     public function guardarUbicacionDentro($notaId, $lat, $lng)
     {
@@ -171,6 +181,9 @@ class NotasToday extends Component
                     'show_phone' => $note->show_phone,
                     'phone' => $note->customer->phone ?? null,
                     'secondary_phone' => $note->customer->secondary_phone ?? null,
+
+                    'lat_dentro' => $note->lat_dentro,
+                    'lng_dentro' => $note->lng_dentro,
                 ];
             });
     }

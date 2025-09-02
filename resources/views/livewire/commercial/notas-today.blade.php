@@ -313,7 +313,10 @@
                             <button class="action-button" onclick="getUbicacionDentro({{ $note['id'] }})">
                                 Dentro
                             </button>
-                            <button class=" action-button">Llévame</button>
+                            <button class="action-button"
+                                onclick="llevarme({{ $note['id'] }}, {{ $note['lat_dentro'] ?? 'null' }}, {{ $note['lng_dentro'] ?? 'null' }})">
+                                Llévame
+                            </button>
                         </div>
 
                         <!-- Nuevo botón que ocupa todo el ancho -->
@@ -424,6 +427,37 @@
                 });
                 alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
             }
+        }
+
+        function llevarme(notaId, lat, lng) {
+            // ¿Tenemos coordenadas DENTRO?
+            if (!lat || !lng)
+            {
+                // Notificar desde backend con Filament Notifications
+                Livewire.dispatch('avisarSinDentro', { notaId: notaId });
+                return;
+            }
+
+            // 1) Intento abrir app nativa (Android/iOS) con esquema geo:
+            //    geo:lat,lng?q=lat,lng (funciona muy bien en móviles)
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile)
+            {
+                const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
+                // Abrimos la app si está disponible
+                window.location.href = geoUrl;
+
+                // Fallback a web (si no hay app)
+                setTimeout(() => {
+                    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                    window.open(webUrl, '_blank');
+                }, 600);
+                return;
+            }
+
+            // 2) En desktop (o si no quieres esquema geo), abre Google Maps Web directamente:
+            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            window.open(webUrl, '_blank');
         }
     </script>
 
