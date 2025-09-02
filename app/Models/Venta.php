@@ -147,6 +147,8 @@ class Venta extends Model
         'cuota_final',
         'entrada',
         'mostrar_ingresos',
+        'mostrar_tipo_vivienda',
+        'mostrar_situacion_lab',
         'mes_contr',
         'nro_contr_adm',
         'nro_cliente_adm',
@@ -176,6 +178,8 @@ class Venta extends Model
         'cuota_final' => 'decimal:2',
         'entrada' => 'decimal:2',
         'mostrar_ingresos' => 'boolean',
+        'mostrar_tipo_vivienda' => 'boolean',
+        'mostrar_situacion_lab' => 'boolean',
         'mes_contr' => MesesEnum::class,
 
         'estado_venta' => EstadoVenta::class,
@@ -199,6 +203,8 @@ class Venta extends Model
         'total_final' => 0,
         'cuota_final' => 0,
         'entrada' => 0,
+        'mostrar_tipo_vivienda' => true,
+        'mostrar_situacion_lab' => true,
     ];
 
 

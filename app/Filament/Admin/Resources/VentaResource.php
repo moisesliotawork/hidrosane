@@ -306,8 +306,18 @@ class VentaResource extends Resource
                 ->schema([
                     Toggle::make('mostrar_ingresos')
                         ->label('Mostrar ingresos en contrato PDF')
-                        ->default(true),
-                ])->columns(1),
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_ingresos ?? true)),
+
+                    Toggle::make('mostrar_tipo_vivienda')
+                        ->label('Mostrar Tipo de Vivienda')
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_tipo_vivienda ?? true)),
+
+                    Toggle::make('mostrar_situacion_lab')
+                        ->label('Mostrar Situación Laboral')
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_situacion_lab ?? true)),
+                ])
+                ->columns(3),
+
 
 
 

@@ -131,15 +131,21 @@
         return $e ? $e->label() : '';
     })($venta->customer->estado_civil ?? null);
 
-    $sitLab = (function ($v) {
-        $e = \App\Enums\SituacionLaboral::tryFrom($v ?? '');
-        return $e ? $e->label() : '';
-    })($venta->customer->situacion_laboral ?? null);
+    $mostrarSitLab = (bool) ($venta->mostrar_situacion_lab ?? true);
+    $sitLab = $mostrarSitLab
+        ? (function ($v) {
+            $e = \App\Enums\SituacionLaboral::tryFrom($v ?? '');
+            return $e ? $e->label() : '';
+        })($venta->customer->situacion_laboral ?? null)
+        : '';
 
-    $vivienda = (function ($v) {
-        $e = \App\Enums\TipoVivienda::tryFrom($v ?? '');
-        return $e ? $e->label() : '';
-    })($venta->customer->tipo_vivienda ?? null);
+    $mostrarVivienda = (bool) ($venta->mostrar_tipo_vivienda ?? true);
+    $vivienda = $mostrarVivienda
+        ? (function ($v) {
+            $e = \App\Enums\TipoVivienda::tryFrom($v ?? '');
+            return $e ? $e->label() : '';
+        })($venta->customer->tipo_vivienda ?? null)
+        : '';
 
 
 
