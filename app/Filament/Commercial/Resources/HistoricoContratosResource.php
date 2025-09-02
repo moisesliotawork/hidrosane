@@ -629,8 +629,8 @@ class HistoricoContratosResource extends Resource
             ->query(function (): Builder {
                 // Usa el timezone de tu app; si necesitas forzarlo:
                 $inicio = now('Europe/Madrid')->startOfDay();
-                $fin    = now('Europe/Madrid')->setTime(23, 0, 0);
-                
+                $fin = now('Europe/Madrid')->setTime(23, 0, 0);
+
                 return Venta::query()
                     ->with(['note.customer.postalCode.city', 'comercial', 'reparto'])
                     ->where('comercial_id', auth()->id())
@@ -655,9 +655,19 @@ class HistoricoContratosResource extends Resource
                     ->label('Cliente')
                     ->state(function (Venta $record) {
                         $c = $record->note?->customer;
-                        return $c?->full_name ?? trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
+                        return trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
                     })
-                    ->searchable(),
+                    ->searchable(
+                        query: function (Builder $query, string $search) {
+                            $query->whereHas('note.customer', function (Builder $q) use ($search) {
+                                $like = '%' . str_replace('%', '\%', $search) . '%';
+                                $q->whereRaw("CONCAT(COALESCE(first_names,''),' ',COALESCE(last_names,'')) LIKE ?", [$like])
+                                    ->orWhere('dni', 'like', $like)
+                                    ->orWhere('phone', 'like', $like)
+                                    ->orWhere('secondary_phone', 'like', $like);
+                            });
+                        }
+                    ),
 
                 // Estado venta (enum con label/color)
                 TextColumn::make('estado_venta')

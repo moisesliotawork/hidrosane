@@ -33,17 +33,26 @@ class MisNumerosResource extends Resource
         return $table
             ->query(fn() => static::getEloquentQuery())
             ->columns([
-                TextColumn::make('nro_contrato')
+                TextColumn::make('nro_contr_adm')
                     ->label('CONTRATO')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('customer_name')
+                TextColumn::make('customer.name')
                     ->label('CLIENTE')
-                    ->state(fn(Venta $r) => $r->customer->full_name
-                        ?? $r->customer->name
-                        ?? ($r->customer->nombre ?? '-'))
-                    ->searchable(),
+                    ->state(
+                        fn(Venta $r) =>
+                        $r->customer?->full_name
+                        ?? $r->customer?->name
+                        ?? ($r->customer?->nombre ?? '-')
+                    )
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function (Builder $q) use ($search) {
+                            $q->where('first_names', 'like', "%{$search}%")
+                                ->orWhere('last_names', 'like', "%{$search}%")
+                                ->orWhereRaw("CONCAT(first_names,' ',last_names) LIKE ?", ["%{$search}%"]);
+                        });
+                    }),
 
                 TextColumn::make('fecha_entrega')
                     ->label('F. ENTR')

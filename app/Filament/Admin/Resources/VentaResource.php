@@ -736,8 +736,8 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
-                TextColumn::make('nro_cliente_adm')->label('Nº Cliente'),
-                TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
+                TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
+                TextColumn::make('customer.name')->label('Nombre')->searchable(['first_names', 'last_names'])->sortable(),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')

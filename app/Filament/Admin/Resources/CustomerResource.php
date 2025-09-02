@@ -97,16 +97,18 @@ class CustomerResource extends Resource
                     ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
                     ->searchable(query: function (Builder $query, string $search) {
                         $query->whereHas('ventas', function ($q) use ($search) {
-                            $q->where('nro_cliente_admin', 'like', "%{$search}%");
+                            // antes: nro_cliente_admin
+                            $q->where('nro_cliente_adm', 'like', "%{$search}%");
                         });
                     })
                     ->sortable(query: function (Builder $query, string $direction) {
-                        $firstVentaAdmin = Venta::select('nro_cliente_admin')
+                        $firstVentaAdmin = Venta::select('nro_cliente_adm') // antes: nro_cliente_admin
                             ->whereColumn('ventas.customer_id', 'customers.id')
+                            ->whereNotNull('nro_cliente_adm')
+                            ->where('nro_cliente_adm', '!=', '')
                             ->orderBy('created_at', 'asc')
                             ->limit(1);
 
-                        // orderBy(Subselect, direction)
                         $query->orderBy($firstVentaAdmin, $direction);
                     }),
 

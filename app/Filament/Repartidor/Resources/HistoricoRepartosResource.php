@@ -84,10 +84,18 @@ class HistoricoRepartosResource extends Resource
                     ->label('Cliente')
                     ->state(function ($record) {
                         $c = $record->venta?->customer;
-                        // usa accessor full_name si existe; si no, concatenamos
                         return $c?->full_name ?? trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
                     })
-                    ->searchable(),
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('venta.customer', function (Builder $q) use ($search) {
+                            $like = "%{$search}%";
+                            $q->where('first_names', 'like', $like)
+                                ->orWhere('last_names', 'like', $like)
+                                ->orWhere('dni', 'like', $like)
+                                // si quieres buscar por el nombre completo “First Last”:
+                                ->orWhereRaw("CONCAT(COALESCE(first_names,''),' ',COALESCE(last_names,'')) LIKE ?", [$like]);
+                        });
+                    }),
 
                 // Estado del reparto (campo "estado" en Reparto)
                 TextColumn::make('estado')
