@@ -213,6 +213,20 @@
         $dirL2 = '';
     }
 
+    $toTitleCase = function (?string $text): string {
+        $t = trim((string) $text);
+        if ($t === '')
+            return '';
+        $t = mb_strtolower($t, 'UTF-8'); // todo a minúscula
+        // convierte cada palabra a capitalizada
+        return mb_convert_case($t, MB_CASE_TITLE, "UTF-8");
+    };
+
+    // Aplicar SOLO a dirección
+    $dirL1 = $toTitleCase($dirL1);
+    $dirL2 = $toTitleCase($dirL2);
+
+
 
     // ===== Delegación (NUEVO) =====
     $yDelegacion = 20.9;     // ajústalo fino con debug si hace falta
@@ -363,7 +377,7 @@
             @if($dirL1 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL1 }}mm; left:{{ $xA_DirL1 }}mm; width:{{ $wDirL1 }}mm;
-                                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL1 }}
                 </div>
             @endif
@@ -372,7 +386,7 @@
             @if($dirL2 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL2 }}mm; left:{{ $xA_DirL2 }}mm; width:{{ $wDirL2 }}mm;
-                                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL2 }}
                 </div>
             @endif
