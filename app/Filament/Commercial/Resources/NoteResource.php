@@ -489,7 +489,8 @@ class NoteResource extends Resource
         // 5) Filtrar siempre estado_terminal vacío ó '' y sin venta asociada
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')
-                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
+                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                ->orWhere('estado_terminal', EstadoTerminal::AUSENTE->value);
         })
             ->whereDoesntHave('venta'); // relación inversa
 
