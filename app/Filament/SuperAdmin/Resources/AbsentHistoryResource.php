@@ -33,7 +33,7 @@ class AbsentHistoryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn () => static::getEloquentQuery())
+            ->query(fn() => static::getEloquentQuery())
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100, 'all'])
             ->columns([
@@ -51,8 +51,8 @@ class AbsentHistoryResource extends Resource
                     ->searchable(query: function (Builder $query, string $search) {
                         $query->whereHas('note.customer', function (Builder $q) use ($search) {
                             $q->where('customers.first_names', 'like', "%{$search}%")
-                              ->orWhere('customers.last_names', 'like', "%{$search}%")
-                              ->orWhereRaw("CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?", ["%{$search}%"]);
+                                ->orWhere('customers.last_names', 'like', "%{$search}%")
+                                ->orWhereRaw("CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?", ["%{$search}%"]);
                         });
                     }),
 
@@ -113,15 +113,15 @@ class AbsentHistoryResource extends Resource
 
                 Tables\Columns\TextColumn::make('mapa')
                     ->label('Mapa')
-                    ->state(fn ($record) => ($record->latitud && $record->longitud) ? 'Abrir mapa' : '—')
-                    ->url(fn ($record) => ($record->latitud && $record->longitud)
+                    ->state(fn($record) => ($record->latitud && $record->longitud) ? 'Abrir mapa' : '—')
+                    ->url(fn($record) => ($record->latitud && $record->longitud)
                         ? "https://www.google.com/maps?q={$record->latitud},{$record->longitud}"
                         : null, shouldOpenInNewTab: true)
                     ->badge()
-                    ->color(fn ($record) => ($record->latitud && $record->longitud) ? Color::Green : Color::Gray),
+                    ->color(fn($record) => ($record->latitud && $record->longitud) ? Color::Green : Color::Gray),
             ])
             ->filters([
-                
+
             ])
             ->actions([])       // Solo lectura
             ->bulkActions([]);  // Solo lectura
@@ -147,5 +147,22 @@ class AbsentHistoryResource extends Resource
             'create' => Pages\CreateAbsentHistory::route('/create'),
             'edit' => Pages\EditAbsentHistory::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 }

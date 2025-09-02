@@ -33,7 +33,7 @@ class AbsentHistoryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->query(fn () => static::getEloquentQuery())
+            ->query(fn() => static::getEloquentQuery())
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100, 'all'])
             ->columns([
@@ -43,43 +43,49 @@ class AbsentHistoryResource extends Resource
                     ->badge()
                     ->color(Color::Gray)
                     ->sortable()
+                    ->toggleable()
                     ->searchable(),
-
-                // Nombre del cliente (first_names + last_names usando accessor name en Customer)
-                Tables\Columns\TextColumn::make('note.customer.name')
-                    ->label('Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('note.customer', function (Builder $q) use ($search) {
-                            $q->where('customers.first_names', 'like', "%{$search}%")
-                              ->orWhere('customers.last_names', 'like', "%{$search}%")
-                              ->orWhereRaw("CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?", ["%{$search}%"]);
-                        });
-                    }),
 
                 // Código TelOP (teleoperadora que generó la nota)
                 Tables\Columns\TextColumn::make('note.user.empleado_id')
                     ->label('TelOP')
                     ->badge()
+                    ->toggleable()
                     ->color(Color::Pink)
                     ->sortable(),
 
                 // Código Comercial
                 Tables\Columns\TextColumn::make('note.comercial.empleado_id')
                     ->label('Comercial')
+                    ->toggleable()
                     ->badge()
                     ->color(Color::Blue)
                     ->sortable(),
+
+                // Nombre del cliente (first_names + last_names usando accessor name en Customer)
+                Tables\Columns\TextColumn::make('note.customer.name')
+                    ->label('Cliente')
+                    ->toggleable()
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('note.customer', function (Builder $q) use ($search) {
+                            $q->where('customers.first_names', 'like', "%{$search}%")
+                                ->orWhere('customers.last_names', 'like', "%{$search}%")
+                                ->orWhereRaw("CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?", ["%{$search}%"]);
+                        });
+                    }),
 
                 // CP del cliente
                 Tables\Columns\TextColumn::make('note.customer.postalCode.code')
                     ->label('CP')
                     ->sortable()
+                    ->toggleable()
                     ->searchable(),
 
                 // Horario de visita (de la nota)
                 Tables\Columns\TextColumn::make('note.visit_schedule')
                     ->label('Horario')
                     ->badge()
+                    ->toggleable()
                     ->color(Color::Gray)
                     ->sortable(),
 
@@ -87,6 +93,7 @@ class AbsentHistoryResource extends Resource
                 Tables\Columns\TextColumn::make('note.assignment_date')
                     ->label('Asig.')
                     ->date('d/m/Y')
+                    ->toggleable()
                     ->sortable(),
 
                 // Campos propios del historial de ausencia:
@@ -94,6 +101,7 @@ class AbsentHistoryResource extends Resource
                     ->label('Fecha Aus')
                     ->date('d/m/Y')
                     ->badge()
+                    ->toggleable()
                     ->color(Color::Gray)
                     ->sortable(),
 
@@ -101,6 +109,7 @@ class AbsentHistoryResource extends Resource
                     ->label('Hora Aus')
                     ->badge()
                     ->color(Color::Green)
+                    ->toggleable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('latitud')
@@ -113,15 +122,15 @@ class AbsentHistoryResource extends Resource
 
                 Tables\Columns\TextColumn::make('mapa')
                     ->label('Mapa')
-                    ->state(fn ($record) => ($record->latitud && $record->longitud) ? 'Abrir mapa' : '—')
-                    ->url(fn ($record) => ($record->latitud && $record->longitud)
+                    ->state(fn($record) => ($record->latitud && $record->longitud) ? 'Abrir mapa' : '—')
+                    ->url(fn($record) => ($record->latitud && $record->longitud)
                         ? "https://www.google.com/maps?q={$record->latitud},{$record->longitud}"
                         : null, shouldOpenInNewTab: true)
                     ->badge()
-                    ->color(fn ($record) => ($record->latitud && $record->longitud) ? Color::Green : Color::Gray),
+                    ->color(fn($record) => ($record->latitud && $record->longitud) ? Color::Green : Color::Gray),
             ])
             ->filters([
-                
+
             ])
             ->actions([])       // Solo lectura
             ->bulkActions([]);  // Solo lectura
@@ -147,5 +156,22 @@ class AbsentHistoryResource extends Resource
             'create' => Pages\CreateAbsentHistory::route('/create'),
             'edit' => Pages\EditAbsentHistory::route('/{record}/edit'),
         ];
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 }
