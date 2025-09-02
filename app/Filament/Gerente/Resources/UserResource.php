@@ -20,6 +20,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Set;
 use Illuminate\Support\Carbon;
 use Filament\Support\Colors\Color;
+use App\Enums\UserRole;
 
 class UserResource extends Resource
 {
@@ -124,52 +125,73 @@ class UserResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('empleado_id')
+                    ->label('ID Empleado')
                     ->badge()
                     ->color(Color::Blue)
-                    ->label('ID Empleado')
-                    ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(
+                        query: fn(Builder $query, string $search)
+                        => $query->orWhere('users.empleado_id', 'like', "%{$search}%")
+                    ),
 
                 TextColumn::make('dni')
                     ->label('DNI')
-                    ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(
+                        query: fn(Builder $query, string $search)
+                        => $query->orWhere('users.dni', 'like', "%{$search}%")
+                    ),
 
-                TextColumn::make('name')->label('NOMBRE')->searchable()->sortable()
-                    ->sortable(),
-                TextColumn::make('email')->label('Correo Electrónico')->searchable(),
-                Tables\Columns\TextColumn::make('phone')
-                    ->searchable()
+                TextColumn::make('name')
+                    ->label('NOMBRE')
+                    ->sortable()
+                    ->searchable(
+                        query: fn(Builder $query, string $search)
+                        => $query->orWhere('users.name', 'like', "%{$search}%")
+                    ),
+                TextColumn::make('email')
+                    ->label('Correo Electrónico')
+                    ->searchable(
+                        query: fn(Builder $query, string $search)
+                        => $query->orWhere('users.email', 'like', "%{$search}%")
+                    ),
+
+                TextColumn::make('phone')
                     ->label('Teléfono')
+                    ->searchable(
+                        query: fn(Builder $query, string $search)
+                        => $query->orWhere('users.phone', 'like', "%{$search}%")
+                    )
                     ->html()
-                    ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
-                        chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
+                    ->formatStateUsing(
+                        fn($state) =>
+                        '<span style="font-size: 1rem; font-weight: bold;">' .
+                        chunk_split(str_replace(' ', '', $state), 3, ' ') .
+                        '</span>'
+                    ),
 
                 TextColumn::make('role')
                     ->label('Rol')
                     ->badge()
-                    ->sortable()
-                    ->color(fn(string $state): string => match ($state) {
-                        'admin' => 'info',
-                        'gerente_general' => 'info',
-                        'head_of_room' => 'pink',
-                        'commercial' => 'success',
-                        'teleoperator' => 'pink',
-                        'delivery' => 'orange',
-                        default => 'gray',
+                    ->getStateUsing(fn(User $record) => $record->getRoleNames()->first() ?? null)
+                    ->formatStateUsing(function (?string $state) {
+                        $enum = $state ? UserRole::tryFrom($state) : null;
+                        return $enum?->label() ?? ($state ? ucfirst(str_replace('_', ' ', $state)) : '—');
                     })
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
-                        'admin' => 'ADMIN',
-                        'gerente_general' => 'GERENTE GENERAL',
-                        'head_of_room' => 'JEFE DE SALA',
-                        'commercial' => 'COMERCIAL',
-                        'teleoperator' => 'TELEOPERADOR',
-                        'delivery' => 'REPARTIDOR',
-                        'delegate' => 'DELEGADO',
-                        'team_leader' => 'JEFE DE EQUIPO',
-                        'sales_manager' => 'JEFE DE VENTAS',
-                        "app_support" => "SOPORTE",
-                        default => strtoupper($state),
+                    ->color(fn(?string $state) => UserRole::tryFrom((string) $state)?->filamentColor() ?? 'gray')
+                    ->sortable(query: function (Builder $query, string $direction) {
+                        $modelHasRoles = config('permission.table_names.model_has_roles');
+                        $roleModel = config('permission.models.role');
+                        $rolesTable = (new $roleModel)->getTable();
+
+                        return $query
+                            ->leftJoin("{$modelHasRoles} as mhr", function ($join) {
+                                $join->on('mhr.model_id', '=', 'users.id')
+                                    ->where('mhr.model_type', '=', User::class);
+                            })
+                            ->leftJoin("{$rolesTable} as r", 'r.id', '=', 'mhr.role_id')
+                            ->orderBy('r.name', $direction)
+                            ->select('users.*');
                     }),
                 TextColumn::make('alta_empleado')
                     ->label('Fecha de alta')
