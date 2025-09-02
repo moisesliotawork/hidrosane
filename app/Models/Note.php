@@ -142,6 +142,18 @@ class Note extends Model
         });
     }
 
+    protected static function booted()
+    {
+        static::saving(function (Note $note) {
+            // Consideramos "reasignación" si cambia el comercial o la fecha de asignación
+            $reasignacion = $note->isDirty('comercial_id') || $note->isDirty('assignment_date');
+
+            if ($reasignacion && $note->estado_terminal === \App\Enums\EstadoTerminal::SALA) {
+                $note->estado_terminal = \App\Enums\EstadoTerminal::SIN_ESTADO; // ''
+            }
+        });
+    }
+
 
     /**
      * Get the user that owns the note.
@@ -310,7 +322,7 @@ class Note extends Model
         return $this->hasOne(\App\Models\Venta::class, 'note_id');
     }
 
-    public function ausencias() 
+    public function ausencias()
     {
         return $this->hasMany(\App\Models\AbsentHistory::class, 'note_id');
     }
