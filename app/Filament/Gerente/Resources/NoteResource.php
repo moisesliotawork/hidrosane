@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
 use App\Models\PostalCode;
+use App\Enums\EstadoTerminal;
 
 class NoteResource extends Resource
 {
@@ -401,19 +402,23 @@ class NoteResource extends Resource
                     ])
                     ->action(function (Note $record, array $data): void {
                         try {
-                            $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
-                                    ? ($data['assignment_date'] ?? now())
-                                    : null,
-                            ]);
+                            $comercialId = $data['comercial_id'] ?? null;
+                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
 
-                            $message = is_null($data['comercial_id'] ?? null)
-                                ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . \App\Models\User::find($data['comercial_id'])->name;
+                            $updates = [
+                                'comercial_id' => $comercialId ?: null,
+                                'assignment_date' => $assignmentDate,
+                            ];
+
+                            if ($record->estado_terminal === EstadoTerminal::SALA) {
+                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value; // redundancia segura
+                            }
+
+                            $record->update($updates);
 
                             Notification::make()
-                                ->title($message)
+                                ->title(empty($comercialId) ? 'Comercial removido correctamente'
+                                    : 'Comercial asignado correctamente: ' . \App\Models\User::find($comercialId)?->name)
                                 ->success()
                                 ->send();
 
@@ -460,33 +465,39 @@ class NoteResource extends Resource
                     ->action(function (iterable $records, array $data): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
 
-                            // Asignar fecha según lógica
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
-                                : null;
+                            $recordIds = collect($records)->pluck('id')->all();
 
-                            // IDs a actualizar
-                            $recordIds = collect($records)->pluck('id')->toArray();
-
-                            Note::whereIn('id', $recordIds)->update([
-                                'comercial_id' => !empty($comercialId) ? $comercialId : null,
+                            // 1) Reasignar comercial/fecha
+                            \App\Models\Note::whereIn('id', $recordIds)->update([
+                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
                             ]);
 
-                            $message = empty($comercialId)
-                                ? 'Comercial removido de las notas seleccionadas'
-                                : 'Comercial asignado correctamente a múltiples notas: ' .
-                                \App\Models\User::find($comercialId)->name;
+                            // 2) Resetear TN a S/E para TODAS las que estén en SALA (cambie o no el comercial)
+                            $toResetIds = \App\Models\Note::whereIn('id', $recordIds)
+                                ->where('estado_terminal', \App\Enums\EstadoTerminal::SALA->value)
+                                ->pluck('id')
+                                ->all();
 
-                            Notification::make()
+                            if ($toResetIds) {
+                                \App\Models\Note::whereIn('id', $toResetIds)->update([
+                                    'estado_terminal' => \App\Enums\EstadoTerminal::SIN_ESTADO->value,
+                                ]);
+                            }
+
+                            \Filament\Notifications\Notification::make()
                                 ->title('Asignación masiva completada')
-                                ->body($message)
+                                ->body(
+                                    (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado') .
+                                    (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                )
                                 ->success()
                                 ->send();
 
                         } catch (\Exception $e) {
-                            Notification::make()
+                            \Filament\Notifications\Notification::make()
                                 ->title('Error en asignación masiva')
                                 ->body($e->getMessage())
                                 ->danger()
