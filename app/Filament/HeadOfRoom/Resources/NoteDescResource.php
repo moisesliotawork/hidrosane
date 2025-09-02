@@ -36,9 +36,9 @@ class NoteDescResource extends Resource
 {
     protected static ?string $model = Note::class;
 
-    protected static ?string $navigationLabel = 'N. Declarada';
-    protected static ?string $pluralModelLabel = 'N Declarada';
-    protected static ?string $modelLabel = 'N Declarada';
+    protected static ?string $navigationLabel = 'Nulos - Ausentes';
+    protected static ?string $pluralModelLabel = 'Nulos - Ausentes';
+    protected static ?string $modelLabel = 'Nulos - Ausentes';
     protected static ?string $slug = 'notas-desc';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -48,7 +48,8 @@ class NoteDescResource extends Resource
             ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with(['observations.author'])
             ->whereIn('estado_terminal', [
-                EstadoTerminal::NUL->value,          // 'nulo'
+                EstadoTerminal::NUL->value,
+                EstadoTerminal::AUSENTE->value,
             ]);
     }
 
