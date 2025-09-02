@@ -10,6 +10,8 @@ use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Filament\Commercial\Resources\VentaResource;
 use Carbon\Carbon;
+use App\Models\AbsentHistory;
+use Illuminate\Support\Facades\App;
 
 class EditNote extends EditRecord
 {
@@ -25,15 +27,45 @@ class EditNote extends EditRecord
         return [
             Actions\Action::make('ausente')
                 ->label('Ausente')
-                ->color('gray') // puedes cambiarlo a otro color (secondary, warning, etc.)
+                ->color('gray')
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar acción')
                 ->modalDescription('¿Estás seguro de marcar esta nota como AUSENTE?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
+                    // 1) Cambiar estado
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->save();
 
+                    // 2) Resolver ubicación
+                    // Si estás en local, usa una ubicación por defecto
+                    if (App::environment('local')) {
+                        $lat = '42.2405';
+                        $lng = '-8.7200';
+                    } else {
+                        // Intenta tomar de request (si implementas captura en el front)
+                        $lat = request()->input('latitud');
+                        $lng = request()->input('longitud');
+
+                        // Si no vienen por request, intenta de campos existentes en la nota (ajusta a tu esquema real)
+                        if (empty($lat) && property_exists($this->record, 'dentro_latitude')) {
+                            $lat = $this->record->dentro_latitude;
+                        }
+                        if (empty($lng) && property_exists($this->record, 'dentro_longitude')) {
+                            $lng = $this->record->dentro_longitude;
+                        }
+                    }
+
+                    // 3) Crear historial
+                    AbsentHistory::create([
+                        'note_id' => $this->record->id,
+                        'fecha' => Carbon::now()->toDateString(),
+                        'hora' => Carbon::now()->format('H:i:s'),
+                        'latitud' => $lat,
+                        'longitud' => $lng,
+                    ]);
+
+                    // 4) Notificación + redirect
                     Notification::make()
                         ->title('Nota marcada como AUSENTE')
                         ->success()

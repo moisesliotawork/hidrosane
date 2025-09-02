@@ -3,6 +3,7 @@
 namespace App\Filament\Commercial\Resources;
 
 use App\Filament\Commercial\Resources\NoteResource\Pages;
+use App\Filament\Commercial\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
 use App\Models\PostalCode;
 use App\Enums\NoteStatus;
@@ -442,7 +443,9 @@ class NoteResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            RelationManagers\AusenciasRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

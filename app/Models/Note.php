@@ -310,5 +310,8 @@ class Note extends Model
         return $this->hasOne(\App\Models\Venta::class, 'note_id');
     }
 
-
+    public function ausencias() 
+    {
+        return $this->hasMany(\App\Models\AbsentHistory::class, 'note_id');
+    }
 }
