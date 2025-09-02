@@ -650,6 +650,14 @@ class HistoricoContratosResource extends Resource
                     ->label('Fecha declaración')
                     ->dateTime('Y-m-d H:i'),
 
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contr. ADM')
+                    ->badge()
+                    ->alignCenter()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(fn($state) => $state ? str_pad((string) $state, 5, '0', STR_PAD_LEFT) : '—'),
+
                 // Cliente (nombre completo)
                 TextColumn::make('cliente')
                     ->label('Cliente')
@@ -666,6 +674,16 @@ class HistoricoContratosResource extends Resource
                                     ->orWhere('phone', 'like', $like)
                                     ->orWhere('secondary_phone', 'like', $like);
                             });
+                        }
+                    ),
+
+                TextColumn::make('note.customer.dni')
+                    ->label('DNI')
+                    ->sortable()
+                    ->searchable(
+                        query: function (Builder $query, string $search) {
+                            $like = '%' . str_replace('%', '\%', $search) . '%';
+                            $query->whereHas('note.customer', fn(Builder $q) => $q->where('dni', 'like', $like));
                         }
                     ),
 
