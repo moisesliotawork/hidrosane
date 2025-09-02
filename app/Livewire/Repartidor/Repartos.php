@@ -4,6 +4,7 @@ namespace App\Livewire\Repartidor;
 
 use Livewire\Component;
 use App\Models\Reparto;
+use App\Models\Venta;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
@@ -11,7 +12,28 @@ use App\Enums\EstadoEntrega;
 
 class Repartos extends Component
 {
-    protected $listeners = ['ventaActualizada' => '$refresh', 'guardarUbicacion' => 'guardarUbicacion'];
+    protected $listeners = [
+        'ventaActualizada' => '$refresh',
+        'guardarUbicacion' => 'guardarUbicacion',
+        'guardarUbicacionDentro' => 'guardarUbicacionDentro',
+        'avisarSinGPS' => 'avisarSinGPS',
+    ];
+
+    public function avisarSinGPS($payload): void
+    {
+        $ventaId = is_array($payload) && isset($payload['ventaId']) ? $payload['ventaId'] : $payload;
+
+        $venta = Venta::find($ventaId);
+
+        $mostrar = $venta?->nro_contr_adm
+            ?: ($venta?->nro_contrato ?? '—');
+
+        Notification::make()
+            ->title('Sin ubicación en GPS')
+            ->body("La venta {$mostrar} no tiene coordenadas de GPS guardadas.")
+            ->danger()
+            ->send();
+    }
 
     public function guardarUbicacion($repartoId, $lat, $lng)
     {
@@ -37,6 +59,33 @@ class Repartos extends Component
             ->title('Ubicación guardada')
             ->success()
             ->body("Ubicación registrada para el reparto #{$reparto->id}")
+            ->send();
+    }
+
+    public function guardarUbicacionDentro($repartoId, $lat, $lng)
+    {
+        $reparto = Reparto::with('venta')->find($repartoId);
+        if (!$reparto || $reparto->venta?->repartidor_id !== auth()->id()) {
+            Notification::make()->title('No autorizado')->danger()->body('No puedes modificar este reparto.')->send();
+            return;
+        }
+
+        $reparto->update([
+            'dentro_lat' => $lat,
+            'dentro_lng' => $lng,
+        ]);
+
+        AnotacionVisita::create([
+            'nota_id' => $reparto->venta->note_id,
+            'author_id' => auth()->id(),
+            'asunto' => 'GPS-DENTRO',
+            'cuerpo' => "Ubicación DENTRO: [$lat, $lng]",
+        ]);
+
+        Notification::make()
+            ->title('Ubicación DENTRO guardada')
+            ->success()
+            ->body("Ubicación DENTRO registrada para el reparto #{$reparto->id}")
             ->send();
     }
 
@@ -115,6 +164,8 @@ class Repartos extends Component
                     'show_phone' => $note->show_phone,
                     'phone' => $customer->phone,
                     'secondary_phone' => $customer->secondary_phone,
+                    'lat_dentro' => $note->lat_dentro,
+                    'lng_dentro' => $note->lng_dentro,
                 ];
             });
     }

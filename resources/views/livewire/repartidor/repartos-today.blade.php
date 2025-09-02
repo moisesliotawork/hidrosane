@@ -220,7 +220,8 @@
                 padding: 0.25rem 0;
             }
         }
-    </style><div class="overflow-x-auto">
+    </style>
+    <div class="overflow-x-auto">
         <div class="mobile-optimized">
             <div class="space-y-4">
                 @forelse($this->repartos as $reparto)
@@ -315,15 +316,21 @@
                             <button class="action-button" onclick="getUbicacion({{ $reparto['reparto_id'] }})">
                                 GPS
                             </button>
-                            <button class="action-button" wire:click="redirigirAVenta({{ $reparto['venta_id'] }})">
+                            <button class="action-button" onclick="getUbicacionDentro({{ $reparto['reparto_id'] }})">
                                 Dentro
                             </button>
-                            <button class=" action-button">Llévame</button>
+                            <button class="action-button" onclick="llevarme(
+                                        {{ $reparto['venta_id'] }},
+                                        {{ $reparto['lat'] ?? 'null' }},
+                                        {{ $reparto['lng'] ?? 'null' }}
+                                    )">
+                                Llévame
+                            </button>
                         </div>
 
                         <!-- Nuevo botón que ocupa todo el ancho -->
                         <div class="mt-1">
-                            <button class="action-button w-full">
+                            <button class="action-button w-full" wire:click="redirigirAVenta({{ $reparto['venta_id'] }})">
                                 Gestionar
                             </button>
                         </div>
@@ -338,8 +345,10 @@
     </div>
 
     <script>
-        function getUbicacion(repartoId) {
-            if (location.protocol !== 'https:') {
+        // GPS normal
+        window.getUbicacion = function (repartoId) {
+            if (location.protocol !== 'https:')
+            {
                 Livewire.dispatch('guardarUbicacion', {
                     repartoId: repartoId,
                     lat: 10.4806,
@@ -349,37 +358,89 @@
                 return;
             }
 
-            if (navigator.geolocation) {
+            if (navigator.geolocation)
+            {
                 navigator.geolocation.getCurrentPosition(
                     function (position) {
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
-
-                        Livewire.dispatch('guardarUbicacion', {
-                            repartoId: repartoId,
-                            lat: lat,
-                            lng: lng
-                        });
+                        Livewire.dispatch('guardarUbicacion', { repartoId, lat, lng });
                     },
                     function (error) {
                         Livewire.dispatch('guardarUbicacion', {
-                            repartoId: repartoId,
-                            lat: 10.4806,
-                            lng: -66.9036
+                            repartoId, lat: 10.4806, lng: -66.9036
                         });
-
                         alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
                     }
                 );
-            } else {
+            } else
+            {
                 Livewire.dispatch('guardarUbicacion', {
+                    repartoId, lat: 10.4806, lng: -66.9036
+                });
+                alert('Geolocalización no soportada, se usó Caracas.');
+            }
+        };
+
+        // GPS DENTRO (idéntico, pero dispara otro evento y mensaje)
+        window.getUbicacionDentro = function (repartoId) {
+            if (location.protocol !== 'https:')
+            {
+                Livewire.dispatch('guardarUbicacionDentro', {
                     repartoId: repartoId,
                     lat: 10.4806,
                     lng: -66.9036
                 });
-
-                alert('Geolocalización no soportada, se usó Caracas.');
+                alert('Estás en entorno local, se usó ubicación de Caracas (DENTRO).');
+                return;
             }
-        }
+
+            if (navigator.geolocation)
+            {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        Livewire.dispatch('guardarUbicacionDentro', { repartoId, lat, lng });
+                    },
+                    function (error) {
+                        Livewire.dispatch('guardarUbicacionDentro', {
+                            repartoId, lat: 10.4806, lng: -66.9036
+                        });
+                        alert('No se pudo obtener ubicación (DENTRO), se usó Caracas. Error: ' + error.message);
+                    }
+                );
+            } else
+            {
+                Livewire.dispatch('guardarUbicacionDentro', {
+                    repartoId, lat: 10.4806, lng: -66.9036
+                });
+                alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
+            }
+        };
+        window.llevarme = function (ventaId, lat, lng) {
+            const hasGps = (typeof lat === 'number' && typeof lng === 'number');
+
+            if (!hasGps)
+            {
+                // Si no hay GPS, avisamos al backend pasando la VENTA
+                Livewire.dispatch('avisarSinGPS', { ventaId: ventaId });
+                return;
+            }
+
+            // Abrir Google Maps (prioriza app móvil; si no, web)
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile)
+            {
+                const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
+                window.location.href = geoUrl;
+                setTimeout(() => {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                }, 600);
+                return;
+            }
+
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+        };
     </script>
 </div>

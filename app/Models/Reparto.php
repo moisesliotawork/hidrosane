@@ -17,6 +17,8 @@ class Reparto extends Model
         'de_camino',
         'lat',
         'lng',
+        'dentro_lat',
+        'dentro_lng',
         'estado_entrega',
         'cliente_firma_garantias',
         'cliente_comentario_goodwork',
@@ -28,7 +30,7 @@ class Reparto extends Model
         'cliente_firma_garantias' => 'boolean',
         'cliente_comentario_goodwork' => 'boolean',
         'cliente_firma_digital' => 'boolean',
-        
+
         'estado' => EstadoReparto::class,
     ];
 
