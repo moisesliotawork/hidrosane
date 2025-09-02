@@ -60,9 +60,15 @@ class Customer extends Model
     public function name(): Attribute
     {
         return Attribute::make(
-            get: fn() => $this->first_names . ' ' . $this->last_names,
+            get: function () {
+                $full = trim(($this->first_names ?? '') . ' ' . ($this->last_names ?? ''));
+                // por si acaso, colapsa espacios y recorta
+                $full = preg_replace('/\s+/u', ' ', $full);
+                return $full;
+            },
         );
     }
+
 
     public function postalCode(): BelongsTo
     {
@@ -88,6 +94,59 @@ class Customer extends Model
             ->orderBy('created_at', 'asc')
             ->orderBy('id', 'asc')
             ->value('nro_cliente_adm') ?? '-';
+    }
+
+    protected function firstNames(): Attribute
+    {
+        return Attribute::set(fn($v) => self::properCase($v));
+    }
+
+    protected function lastNames(): Attribute
+    {
+        return Attribute::set(fn($v) => self::properCase($v));
+    }
+
+    /** 
+     * Normaliza mayúsculas/minúsculas en nombres 
+     * con reglas castellanas.
+     */
+    protected static function properCase(?string $s): ?string
+    {
+        if ($s === null)
+            return null;
+
+        // Limpiar espacios de más
+        $s = preg_replace('/\s+/u', ' ', trim($s));
+
+        // Poner todo en "Title Case"
+        $t = mb_convert_case(mb_strtolower($s, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+
+        // Palabras que deben quedar minúsculas salvo si son la primera
+        $particles = [
+            'De',
+            'Del',
+            'La',
+            'Las',
+            'Los',
+            'Y',
+            'Da',
+            'Do',
+            'Dos',
+            'Das',
+            'Di',
+            'Du',
+            'Von',
+            'Van'
+        ];
+
+        $words = explode(' ', $t);
+        foreach ($words as $i => &$w) {
+            if ($i > 0 && in_array($w, $particles, true)) {
+                $w = mb_strtolower($w, 'UTF-8');
+            }
+        }
+
+        return implode(' ', $words);
     }
 
 }
