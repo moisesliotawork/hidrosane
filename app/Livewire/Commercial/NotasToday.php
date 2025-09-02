@@ -182,8 +182,9 @@ class NotasToday extends Component
                     'show_phone' => $note->show_phone,
                     'phone' => $note->customer->phone ?? null,
                     'secondary_phone' => $note->customer->secondary_phone ?? null,
-
                     'lat_dentro' => $note->lat_dentro,
+                    'lng' => $note->lng,
+                    'lat' => $note->lat,
                     'lng_dentro' => $note->lng_dentro,
                 ];
             });
