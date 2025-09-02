@@ -23,6 +23,25 @@ class EditNote extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('ausente')
+                ->label('Ausente')
+                ->color('gray') // puedes cambiarlo a otro color (secondary, warning, etc.)
+                ->requiresConfirmation()
+                ->modalHeading('Confirmar acción')
+                ->modalDescription('¿Estás seguro de marcar esta nota como AUSENTE?')
+                ->modalSubmitActionLabel('Sí, confirmar')
+                ->action(function () {
+                    $this->record->estado_terminal = EstadoTerminal::AUSENTE;
+                    $this->record->save();
+
+                    Notification::make()
+                        ->title('Nota marcada como AUSENTE')
+                        ->success()
+                        ->send();
+
+                    $this->redirect(static::getResource()::getUrl('index'));
+                }),
+
             Actions\Action::make('nulo')
                 ->label('Nulo')
                 ->color('danger')
