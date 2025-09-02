@@ -219,8 +219,13 @@ class NoteDescResource extends Resource
                     ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->searchable()
-                    ->label('Nombre Cliente'),
+                    ->label('Nombre Cliente')
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function ($q) use ($search) {
+                            $q->where('first_names', 'like', "%{$search}%")
+                                ->orWhere('last_names', 'like', "%{$search}%");
+                        });
+                    }),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->searchable()
