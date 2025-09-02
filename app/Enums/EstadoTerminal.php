@@ -9,6 +9,7 @@ enum EstadoTerminal: string
     case VENTA = 'venta';
     case CONFIRMADO = 'confirmado';
     case SALA = 'sala';
+    case AUSENTE = 'ausente';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum EstadoTerminal: string
             self::VENTA => 'VTA',
             self::CONFIRMADO => 'CONF',
             self::SALA => 'OF',
+            self::AUSENTE => 'AUS',
         };
     }
 }

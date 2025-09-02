@@ -17,6 +17,7 @@ use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
+use App\Models\Venta;
 
 class CustomerResource extends Resource
 {
@@ -41,7 +42,9 @@ class CustomerResource extends Resource
             Section::make('Vision Global del Cliente')
                 ->columns(6)
                 ->schema([
-                    TextEntry::make('nro_cliente')->label('CLIENTE'),
+                    TextEntry::make('nro_cliente')
+                        ->label('CLIENTE')
+                        ->state(fn(Customer $r) => $r->firstVentaClienteAdmin()),
 
                     TextEntry::make('name')
                         ->label('NOMBRE')
@@ -91,8 +94,21 @@ class CustomerResource extends Resource
             ->columns([
                 TextColumn::make('nro_cliente')
                     ->label('CLIENTE')
-                    ->sortable()
-                    ->searchable(),
+                    ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('ventas', function ($q) use ($search) {
+                            $q->where('nro_cliente_admin', 'like', "%{$search}%");
+                        });
+                    })
+                    ->sortable(query: function (Builder $query, string $direction) {
+                        $firstVentaAdmin = Venta::select('nro_cliente_admin')
+                            ->whereColumn('ventas.customer_id', 'customers.id')
+                            ->orderBy('created_at', 'asc')
+                            ->limit(1);
+
+                        // orderBy(Subselect, direction)
+                        $query->orderBy($firstVentaAdmin, $direction);
+                    }),
 
                 TextColumn::make('name')
                     ->label('NOMBRE')
