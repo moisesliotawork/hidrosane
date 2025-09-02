@@ -314,7 +314,7 @@
                                 Dentro
                             </button>
                             <button class="action-button"
-                                onclick="llevarme({{ $note['id'] }}, {{ $note['lat_dentro'] ?? 'null' }}, {{ $note['lng_dentro'] ?? 'null' }})">
+                                onclick="llevarme({{ $note['id'] }}, {{ $note['lat'] ?? 'null' }}, {{ $note['lng'] ?? 'null' }})">
                                 Llévame
                             </button>
                         </div>

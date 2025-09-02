@@ -65,8 +65,20 @@
     $xA_Dni = 25.5;
     $yA_Nac = 56.3;
     $xA_Nac = 42.5;
+
     $yA_Dir = 47.7;
     $xA_Dir = 129.5;
+
+    // Direccion en 2 líneas (cada una con su propia posición)
+    $yA_DirL1 = $yA_Dir;     // misma altura que usabas para la dirección
+    $xA_DirL1 = 129.5;       // misma X actual (línea 1)
+
+    $yA_DirL2 = $yA_Dir + 4.2; // ~4.2mm debajo (ajusta a tu hoja)
+    $xA_DirL2 = 111.5;         // MÁS A LA IZQUIERDA para la línea 2 (ajustable)
+
+    // Anchos independientes (para “meter” más palabras en L2 puedes darle más ancho)
+    $wDirL1 = 75.0;  // el que ya usabas
+    $wDirL2 = 90.0;  // más ancho => caben más palabras en la segunda línea
 
     // ===== NUEVOS CAMPOS (coordenadas sugeridas) =====
     // Izquierda
@@ -164,59 +176,42 @@
     $lugarDia = now()->format('d');
     $lugarMes = mb_strtoupper(now()->locale('es')->isoFormat('MMMM'), 'UTF-8');
 
-
-    // ===== Dirección en 2 líneas (máx 60 caracteres por línea) =====
+    // ===== Dirección: partir SIEMPRE en 2 líneas lógicas =====
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
-    $pc = $venta->customer->postalCode;
+
+    $pc = $venta->customer->postalCode ?? null;
     $postalCode = trim((string) ($pc->code ?? $pc->codigo ?? $pc->title ?? ''));
     $city = trim((string) ($pc?->city?->title ?? ''));
     $province = trim((string) ($pc?->city?->state?->title ?? $venta->customer->provincia ?? ''));
     $ayto = trim((string) ($venta->customer->ayuntamiento ?? ''));
 
+    // CP + Ciudad en un bloque
     $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
+
+    // 🔥 FIX: quitar letra huérfana después del CP (ej: "33559 A Altamira" → "33559 Altamira")
+    $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
+
     $provinceFormatted = $province ? "($province)" : null;
 
-    // Construcción base con guiones
-    $parts = array_filter([$primary, $cpCity, $ayto], fn($v) => $v !== '');
-    $dirFull = implode(' - ', $parts);
+    // Línea 1 = dirección principal
+    $dirL1 = $primary;
 
-    // Añadir provincia siempre al final, pegada al último bloque
+    // Línea 2 = CP + Ciudad [+ Ayto] [+ (Provincia)]
+    $dirL2Parts = array_filter([$cpCity, $ayto], fn($v) => $v !== '');
+    $dirL2 = implode(' - ', $dirL2Parts);
     if ($provinceFormatted) {
-        $dirFull .= " $provinceFormatted";
+        $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
     }
 
-    // ===== Corte en dos líneas =====
-    [$dirL1, $dirL2] = (function (string $t, int $limit) {
-        $t = preg_replace('/\s+/u', ' ', trim($t));
-        if ($t === '')
-            return ['', ''];
+    // Limpieza final (evitar guiones colgando, espacios dobles, etc.)
+    $dirL1 = preg_replace('/\s+/u', ' ', trim(preg_replace('/\s*-\s*$/u', '', $dirL1)));
+    $dirL2 = preg_replace('/\s+/u', ' ', trim(preg_replace('/^\s*-\s*/u', '', $dirL2)));
 
-        // Si todo cabe en una línea
-        if (mb_strlen($t, 'UTF-8') <= $limit) {
-            return [$t, ''];
-        }
-
-        // Buscar corte antes del límite (sin romper "(Provincia)")
-        $firstChunk = mb_substr($t, 0, $limit + 1, 'UTF-8');
-        $breakPos = mb_strrpos($firstChunk, ' ');
-        if ($breakPos === false)
-            $breakPos = $limit;
-
-        $l1 = trim(mb_substr($t, 0, $breakPos, 'UTF-8'));
-        $rest = trim(mb_substr($t, $breakPos, null, 'UTF-8'));
-
-        // Si la segunda línea empieza con "(" mover también la palabra anterior
-        if (mb_strpos($rest, '(') === 0) {
-            $lastSpace = mb_strrpos($l1, ' ');
-            if ($lastSpace !== false) {
-                $rest = trim(mb_substr($l1, $lastSpace, null, 'UTF-8')) . ' ' . $rest;
-                $l1 = trim(mb_substr($l1, 0, $lastSpace, 'UTF-8'));
-            }
-        }
-
-        return [$l1, $rest];
-    })($dirFull, 70);
-
+    // Si por algún motivo no hay L1 pero sí L2, sube L2 a L1
+    if ($dirL1 === '' && $dirL2 !== '') {
+        $dirL1 = $dirL2;
+        $dirL2 = '';
+    }
 
 
     // ===== Delegación (NUEVO) =====
@@ -364,16 +359,23 @@
             <div class="field" style="top:{{ $yA_SitLab }}mm; left:{{ $xA_SitLab }}mm;">{{ $sitLab }}</div>
 
             {{-- Domicilio + Teléfonos + Vivienda + Ingresos (derecha) --}}
-            <div class="field" style="top:{{ $yA_Dir }}mm; left:{{ $xA_Dir }}mm; width:75mm;
-            white-space:normal; line-height:1.05; font-size:11pt;
-            overflow-wrap:normal; word-break:normal;
-            max-height: calc(2 * 1.05em); overflow:hidden;">
-                @if($dirL2 !== '')
-                    {{ $dirL1 }}<br>{{ $dirL2 }}
-                @else
+            {{-- Dirección Línea 1 --}}
+            @if($dirL1 !== '')
+                <div class="field"
+                    style="top:{{ $yA_DirL1 }}mm; left:{{ $xA_DirL1 }}mm; width:{{ $wDirL1 }}mm;
+                                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL1 }}
-                @endif
-            </div>
+                </div>
+            @endif
+
+            {{-- Dirección Línea 2 (más a la izquierda y con más ancho) --}}
+            @if($dirL2 !== '')
+                <div class="field"
+                    style="top:{{ $yA_DirL2 }}mm; left:{{ $xA_DirL2 }}mm; width:{{ $wDirL2 }}mm;
+                                            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                    {{ $dirL2 }}
+                </div>
+            @endif
 
             <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
             <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>

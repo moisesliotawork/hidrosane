@@ -20,8 +20,8 @@ class NotasToday extends Component
     public function avisarSinDentro($notaId): void
     {
         \Filament\Notifications\Notification::make()
-            ->title('Sin ubicación DENTRO')
-            ->body("La nota #{$notaId} no tiene coordenadas DENTRO guardadas.")
+            ->title('Sin ubicación en GPS')
+            ->body("La nota #{$notaId} no tiene coordenadas de GPS guardadas.")
             ->danger()
             ->send();
     }
