@@ -154,7 +154,8 @@ class NotasToday extends Component
             ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
-                    ->orWhere('estado_terminal', '');
+                    ->orWhere('estado_terminal', '')
+                    ->orWhere('estado_terminal', 'ausente');
             })
             ->whereDoesntHave('venta')
             ->latest('assignment_date')
