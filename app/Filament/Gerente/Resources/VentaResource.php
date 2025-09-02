@@ -268,6 +268,22 @@ class VentaResource extends Resource
                     ]),
                 ]),
 
+            Section::make('')
+                ->schema([
+                    Toggle::make('mostrar_ingresos')
+                        ->label('Mostrar ingresos en contrato PDF')
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_ingresos ?? true)),
+
+                    Toggle::make('mostrar_tipo_vivienda')
+                        ->label('Mostrar Tipo de Vivienda')
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_tipo_vivienda ?? true)),
+
+                    Toggle::make('mostrar_situacion_lab')
+                        ->label('Mostrar Situación Laboral')
+                        ->default(fn(?Venta $record) => (bool) ($record->mostrar_situacion_lab ?? true)),
+                ])
+                ->columns(3),
+
 
             /* ------------- Compañero -------------- */
             Section::make('¿Estás en pareja con otro compañero?')
