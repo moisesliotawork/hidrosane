@@ -215,7 +215,7 @@ class Note extends Model
     {
         return !empty($this->lat) && !empty($this->lng);
     }
-    
+
 
     public function getCoordinatesDentroAttribute()
     {
@@ -238,9 +238,17 @@ class Note extends Model
      *
      * @return bool
      */
-    public function canShowPhone()
+    public function canShowPhone(): bool
     {
-        return $this->show_phone;
+        $user = auth()->user();
+
+        // Si es jefe de equipo, siempre puede ver teléfonos
+        if ($user && $user->hasRole('team_leader')) {
+            return true;
+        }
+
+        // Comportamiento normal: respeta el flag de la nota
+        return (bool) $this->show_phone;
     }
 
     public function observations()

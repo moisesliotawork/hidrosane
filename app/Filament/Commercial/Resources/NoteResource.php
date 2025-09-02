@@ -62,6 +62,7 @@ class NoteResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
+                        // Teléfono
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->disabled()
@@ -73,7 +74,11 @@ class NoteResource extends Resource
                                 'required' => 'El telefono es obligatorio',
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ])
-                            ->visible(fn(Get $get, ?Note $record) => $record?->canShowPhone() ?? (bool) $get('show_phone')),
+                            ->visible(
+                                fn(Get $get, ?Note $record) =>
+                                auth()->user()?->hasRole('team_leader')
+                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                            ),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
@@ -85,7 +90,11 @@ class NoteResource extends Resource
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ])
-                            ->visible(fn(Get $get, ?Note $record) => $record?->canShowPhone() ?? (bool) $get('show_phone')),
+                            ->visible(
+                                fn(Get $get, ?Note $record) =>
+                                auth()->user()?->hasRole('team_leader')
+                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                            ),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -313,22 +322,22 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->label('Teléfono')
-                    // 1) Definimos el "state" explícitamente (condicional por fila)
                     ->state(function (Note $record) {
-                        return $record->canShowPhone()
-                            ? ($record->customer?->phone)   // muestra el tel si está permitido
-                            : '—';                         // oculta si show_phone = false
+                        $viewer = auth()->user();
+                        $canSee = $viewer?->hasRole('team_leader') ? true : $record->canShowPhone();
+
+                        return $canSee ? ($record->customer?->phone) : '—';
                     })
-                    // 2) Formateo solo si hay valor
                     ->formatStateUsing(function (?string $state) {
-                        if (blank($state))
-                            return "—";
+                        if (blank($state) || $state === '—') {
+                            return '—';
+                        }
                         $digits = preg_replace('/\s+/', '', $state);
                         return trim(chunk_split($digits, 3, ' ')); // 999 999 999
                     })
-                    // 3) Evita filtrar/buscar por teléfono para no filtrar datos ocultos
                     ->searchable(false)
                     ->alignCenter(),
+
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
                     ->label('CP'),

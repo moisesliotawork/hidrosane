@@ -125,26 +125,28 @@
     $xP2_Dni = 45;   // mm
 
 
-    // ===== Valores formateados para nuevos campos =====
-    $estadoCivilRaw = mb_strtoupper(trim((string) ($venta->customer->estado_civil ?? '')), 'UTF-8');
-    $estadoCivil = $estadoCivilRaw === ''
-        ? ''
-        : (mb_strpos($estadoCivilRaw, '/A') !== false ? $estadoCivilRaw : $estadoCivilRaw . '/A');
-    // Forzar MAYÚSCULAS y conservar el "/A" usando el label del enum
-    $slEnum = \App\Enums\SituacionLaboral::tryFrom($venta->customer->situacion_laboral ?? '');
-    $sitLabRaw = $slEnum ? $slEnum->label() : ($venta->customer->situacion_laboral ?? '');
-    $sitLabRaw = mb_strtoupper(trim((string) $sitLabRaw), 'UTF-8');
-    $sitLab = $sitLabRaw === ''
-        ? ''
-        : (mb_strpos($sitLabRaw, '/A') !== false ? $sitLabRaw : $sitLabRaw . '/A');
+    // ===== Valores formateados (usar label() del enum) =====
+    $estadoCivil = (function ($v) {
+        $e = \App\Enums\EstadoCivil::tryFrom($v ?? '');
+        return $e ? $e->label() : '';
+    })($venta->customer->estado_civil ?? null);
+
+    $sitLab = (function ($v) {
+        $e = \App\Enums\SituacionLaboral::tryFrom($v ?? '');
+        return $e ? $e->label() : '';
+    })($venta->customer->situacion_laboral ?? null);
+
+    $vivienda = (function ($v) {
+        $e = \App\Enums\TipoVivienda::tryFrom($v ?? '');
+        return $e ? $e->label() : '';
+    })($venta->customer->tipo_vivienda ?? null);
+
 
 
     $telefonos = collect([
         $venta->customer->phone ?? null,
         $venta->customer->secondary_phone ?? null,
     ])->filter()->implode(' / ');
-
-    $vivienda = mb_strtoupper($venta->customer->tipo_vivienda ?? '', 'UTF-8');
 
     $mostrarIngresos = (bool) ($venta->mostrar_ingresos ?? true);
     $ingresos = $mostrarIngresos

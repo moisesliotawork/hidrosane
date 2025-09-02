@@ -5,19 +5,15 @@ namespace App\Filament\SuperAdmin\Resources\TeamResource\Pages;
 use App\Filament\SuperAdmin\Resources\TeamResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use App\Models\{User, Team};
+use App\Models\{User, Team, Note};
 
 class EditTeam extends EditRecord
 {
     protected static string $resource = TeamResource::class;
 
-    /** Miembros que vienen del formulario */
     protected array $miembros = [];
-
-    /** Para saber si cambió el líder */
     protected ?int $oldLeaderId = null;
 
-    /*───────────────── Actions de cabecera ─────────────────*/
     protected function getHeaderActions(): array
     {
         return [
@@ -26,15 +22,11 @@ class EditTeam extends EditRecord
                 ->icon('heroicon-o-trash')
                 ->action(fn() => $this->record->delete())
                 ->requiresConfirmation()
-                ->after(function (): void {
-                    // Redirige al index después del borrado lógico
-                    $this->redirect($this->getResource()::getUrl('index'));
-                })
+                ->after(fn() => $this->redirect($this->getResource()::getUrl('index')))
                 ->color('danger'),
         ];
     }
 
-    /*───────────────── Poblar el formulario ────────────────*/
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['miembros'] = $this->record->members->map(fn($u) => [
@@ -44,52 +36,59 @@ class EditTeam extends EditRecord
         return $data;
     }
 
-    /*───────────────── Antes de guardar ────────────────────*/
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Guardamos miembros
         $this->miembros = $data['miembros'] ?? [];
         unset($data['miembros']);
 
-        $this->oldLeaderId = $this->record->team_leader_id;   // líder previo
+        // Líder actual (antes del cambio)
+        $this->oldLeaderId = $this->record->team_leader_id;
+
+        // Si el líder CAMBIA, APAGAMOS show_phone del líder anterior ANTES de guardar
+        if ($this->oldLeaderId && isset($data['team_leader_id']) && (int) $data['team_leader_id'] !== (int) $this->oldLeaderId) {
+            Note::where('comercial_id', $this->oldLeaderId)
+                // ->whereNull('venta_id') // ← si quieres excluir notas con venta
+                ->update(['show_phone' => false]);
+        }
+
         return $data;
     }
 
-    /*───────────────── Después de guardar ──────────────────*/
     protected function afterSave(): void
     {
-        /* 1 ▸ Sincronizar miembros en la tabla pivote ---------- */
+        // 1) Sincronizar miembros
         $ids = collect($this->miembros)->pluck('user_id')->all();
-
-        // syncWithoutDetaching + detach de los que salieron
         $this->record->members()->sync(
             collect($ids)->mapWithKeys(fn($id) => [
-                $id => [
-                    'joined_at' => now(),
-                    'is_active' => true,
-                ]
+                $id => ['joined_at' => now(), 'is_active' => true],
             ])->toArray()
         );
 
-        /* 2 ▸ Gestionar el rol team_leader --------------------- */
+        // 2) Roles del líder
         $newLeaderId = $this->record->team_leader_id;
-
-        // (a) Asignar el rol al nuevo líder si no lo tiene
         $newLeader = User::find($newLeaderId);
+
         if ($newLeader && !$newLeader->hasRole('team_leader')) {
             $newLeader->assignRole('team_leader');
         }
 
-        // (b) Si cambió el líder, retirar el rol al anterior
         if ($this->oldLeaderId && $this->oldLeaderId !== $newLeaderId) {
             $oldLeader = User::find($this->oldLeaderId);
-
             if (
                 $oldLeader &&
                 $oldLeader->hasRole('team_leader') &&
-                !Team::where('team_leader_id', $oldLeader->id)->exists()  // ya no lidera ningún equipo
+                !Team::where('team_leader_id', $oldLeader->id)->exists()
             ) {
                 $oldLeader->removeRole('team_leader');
             }
+        }
+
+        // 3) ENCENDER show_phone SOLO para el NUEVO líder (después de guardar)
+        if ($newLeader) {
+            Note::where('comercial_id', $newLeader->id)
+                // ->whereNull('venta_id') // ← si quieres excluir notas con venta
+                ->update(['show_phone' => true]);
         }
     }
 }

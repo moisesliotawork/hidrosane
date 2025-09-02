@@ -13,11 +13,11 @@ enum EstadoCivil: string
     public function label(): string
     {
         return match ($this) {
-            self::SOLTERO => 'Soltero(a)',
-            self::CASADO => 'Casado(a)',
-            self::SEPARADO => 'Separado(a)',
-            self::DIVORCIADO => 'Divorciado(a)',
-            self::VIUDO => 'Viudo(a)',
+            self::SOLTERO => 'Soltero/a',
+            self::CASADO => 'Casado/a',
+            self::SEPARADO => 'Separado/a',
+            self::DIVORCIADO => 'Divorciado/a',
+            self::VIUDO => 'Viudo/a',
         };
     }
 
