@@ -101,8 +101,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('parish')->label('Parroquia'),
                     TextInput::make('ayuntamiento')
                         ->label('Ayuntamiento')
-                        ->maxLength(255)
-                        ->required(),
+                        ->maxLength(255),
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
                     Select::make('estado_civil')->label('Estado civil')
@@ -156,7 +155,6 @@ class VentaDesdeCeroResource extends Resource
                     ->native(false)->searchable()
                     ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value),
 
-                TextInput::make('nota_ayuntamiento')->label('Ayuntamiento')->required(),
                 Toggle::make('nota_de_camino')->label('¿De camino?')->default(false),
             ])->columns(2),
 

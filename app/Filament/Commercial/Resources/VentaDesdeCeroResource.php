@@ -191,8 +191,6 @@ class VentaDesdeCeroResource extends Resource
                     ->native(false)->searchable()
                     ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value),
 
-                TextInput::make('nota_ayuntamiento')->label('Ayuntamiento')->required(),
-
                 Toggle::make('nota_de_camino')->label('¿De camino?')->default(false),
             ])->columns(2),
 

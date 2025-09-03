@@ -214,8 +214,7 @@ class VentaResource extends Resource
                         TextInput::make('parish')->label('Parroquia'),
                         TextInput::make('ayuntamiento')
                             ->label('Ayuntamiento')
-                            ->maxLength(255)
-                            ->required(),
+                            ->maxLength(255),
 
                         Select::make('tipo_vivienda')->label('Tipo de vivienda')
                             ->options(\App\Enums\TipoVivienda::options())
