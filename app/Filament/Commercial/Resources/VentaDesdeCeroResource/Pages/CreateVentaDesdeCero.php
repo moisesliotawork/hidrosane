@@ -113,6 +113,20 @@ class CreateVentaDesdeCero extends CreateRecord
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
             ]);
 
+            // Si el usuario especial 911 indicó una fecha manual, forzamos timestamps:
+            $esUsuarioEspecial = auth()->user()?->empleado_id === '911';
+            if ($esUsuarioEspecial && !empty($data['manual_created_at'])) {
+                $ts = \Carbon\Carbon::parse($data['manual_created_at'], 'Europe/Madrid')->utc(); // guardamos en UTC
+                // Desactivar timestamps para este insert y asignarlos manualmente
+                $venta->timestamps = false;
+                $venta->created_at = $ts;
+                $venta->updated_at = $ts;
+                $venta->save();
+            } else {
+                // Comportamiento normal (Laravel pondrá created_at/updated_at = now)
+                $venta->save();
+            }
+
             // 6) Relaciones (ofertas/productos)
             $this->form->model($venta)->saveRelationships();
 
