@@ -8,6 +8,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
+// use App\Filament\Gerente\Pages\NotasDeComercial; // opcional; como está en el mismo namespace no es necesario
 
 class ComercialesVerNotas extends Page implements HasTable
 {
@@ -19,14 +20,11 @@ class ComercialesVerNotas extends Page implements HasTable
     protected static ?string $slug = 'comerciales-ver-notas';
     protected static ?int $navigationSort = 10;
 
-    // Usa un blade simple que renderiza $this->table
     protected static string $view = 'filament.gerente.pages.comerciales-ver-notas';
 
     public function table(Table $table): Table
     {
         return $table
-            // 👉 Usuarios que tengan el rol "comercial" o "team_leader"
-            // Si tus nombres de rol difieren, cámbialos aquí.
             ->query(
                 User::query()->role(['commercial', 'team_leader'])
             )
@@ -48,8 +46,11 @@ class ComercialesVerNotas extends Page implements HasTable
                     ->button()
                     ->outlined()
                     ->color('primary')
-                    // Por ahora no hace nada
-                    ->action(fn() => null),
+                    ->url(fn($record) => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
+                        ['comercial_id' => $record->id],
+                        panel: 'gerente'
+                    ))
+                    ->openUrlInNewTab(false),
             ])
             ->striped()
             ->paginated(true)
