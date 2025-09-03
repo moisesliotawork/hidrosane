@@ -48,18 +48,4 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::VIP_EXT->value => self::VIP_EXT->getLabel(),
         ];
     }
-
-    public static function optionsForUser(?User $user): array
-    {
-        $base = [
-            self::CALLE->value => self::CALLE->getLabel(),
-        ];
-
-        if ($user?->canSeeVipSources()) {
-            $base[self::VIP_INT->value] = self::VIP_INT->getLabel();
-            $base[self::VIP_EXT->value] = self::VIP_EXT->getLabel();
-        }
-
-        return $base;
-    }
 }

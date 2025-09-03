@@ -155,14 +155,12 @@ class NoteResource extends Resource
 
                         Forms\Components\Select::make('fuente')
                             ->label('Tipo')
-                            ->required()
                             ->native(false)
-                            ->options(fn() => FuenteNotas::optionsForUser(auth()->user()))
-                            // Validación extra por si alguien intenta forzar un valor VIP:
-                            ->rules(function () {
-                                $allowed = array_keys(FuenteNotas::optionsForUser(auth()->user()));
-                                return [\Illuminate\Validation\Rule::in($allowed)];
-                            }),
+                            ->options(FuenteNotas::options()) // sin filtrar opciones
+                            // === visibilidad y comportamiento ===
+                            ->hidden(fn() => !auth()->user()?->canSeeVipSources())
+                            ->dehydrated(fn() => auth()->user()?->canSeeVipSources())   // solo envía el valor si se muestra
+                            ->required(fn() => auth()->user()?->canSeeVipSources()),    // solo es requerido si se muestra
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())
