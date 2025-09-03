@@ -172,10 +172,16 @@ class NoteResource extends Resource
                     ->schema([
 
                         Forms\Components\Select::make('fuente')
-                            ->options(FuenteNotas::options())
+                            ->label('Tipo')
                             ->required()
                             ->native(false)
-                            ->label('Tipo'),
+                            ->options(fn() => FuenteNotas::optionsForUser(auth()->user()))
+                            // Validación extra por si alguien intenta forzar un valor VIP:
+                            ->rules(function () {
+                                $allowed = array_keys(FuenteNotas::optionsForUser(auth()->user()));
+                                return [\Illuminate\Validation\Rule::in($allowed)];
+                            }),
+
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())

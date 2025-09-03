@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
+use App\Models\User;
 
 enum FuenteNotas: string implements HasLabel, HasColor
 {
@@ -46,5 +47,19 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::VIP_INT->value => self::VIP_INT->getLabel(),
             self::VIP_EXT->value => self::VIP_EXT->getLabel(),
         ];
+    }
+
+    public static function optionsForUser(?User $user): array
+    {
+        $base = [
+            self::CALLE->value => self::CALLE->getLabel(),
+        ];
+
+        if ($user?->canSeeVipSources()) {
+            $base[self::VIP_INT->value] = self::VIP_INT->getLabel();
+            $base[self::VIP_EXT->value] = self::VIP_EXT->getLabel();
+        }
+
+        return $base;
     }
 }

@@ -187,5 +187,11 @@ class User extends Authenticatable implements FilamentUser
     {
         return "{$this->empleado_id} - {$this->name} {$this->last_name}";
     }
+    
+    public function canSeeVipSources(): bool
+    {
+        return $this->hasRole('head_of_room') || $this->empleado_id === '020';
+    }
+
 
 }
