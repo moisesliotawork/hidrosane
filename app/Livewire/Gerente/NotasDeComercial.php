@@ -4,13 +4,18 @@ namespace App\Livewire\Gerente;
 
 use Livewire\Component;
 use App\Models\Note;
+use App\Models\User;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
-use App\Filament\Commercial\Resources\NoteResource;
 
 class NotasDeComercial extends Component
 {
     public int $comercialId;
+
+    /** Modal de reasignación */
+    public bool $showReassignModal = false;
+    public ?int $reassignNoteId = null;
+    public ?int $newComercialId = null;
 
     protected $listeners = [
         'notaActualizada' => '$refresh',
@@ -22,6 +27,62 @@ class NotasDeComercial extends Component
     public function mount(int $comercialId): void
     {
         $this->comercialId = $comercialId;
+    }
+
+    /** ====== Botón Reasignar ====== */
+    public function openReassignModal(int $noteId): void
+    {
+        $this->reassignNoteId = $noteId;
+        $this->newComercialId = null;
+        $this->showReassignModal = true;
+    }
+
+    /** Reasignar SIN cambiar assignment_date */
+    public function reassignVisit(): void
+    {
+        if (!$this->reassignNoteId || !$this->newComercialId) {
+            Notification::make()->title('Selecciona un comercial')->warning()->send();
+            return;
+        }
+
+        $note = Note::find($this->reassignNoteId);
+        if (!$note) {
+            Notification::make()->title('Nota no encontrada')->danger()->send();
+            return;
+        }
+
+        // Solo cambiamos el comercial_id, NO tocamos assignment_date
+        $note->update(['comercial_id' => $this->newComercialId]);
+
+        // Anotación de auditoría (opcional)
+        AnotacionVisita::create([
+            'nota_id' => $note->id,
+            'author_id' => auth()->id(),
+            'asunto' => 'REASIGNACIÓN',
+            'cuerpo' => 'Nota reasignada al comercial ID: ' . $this->newComercialId . ' (sin cambiar fecha de asignación)',
+        ]);
+
+        $this->showReassignModal = false;
+
+        Notification::make()
+            ->title('Visita reasignada')
+            ->body('Se mantuvo la fecha de asignación original.')
+            ->success()
+            ->send();
+
+        $this->dispatch('notaActualizada');
+    }
+
+    /** Opciones para el select del modal */
+    public function getComercialesProperty(): array
+    {
+        return User::role(['commercial', 'team_leader'])
+            ->orderBy('empleado_id')
+            ->get()
+            ->mapWithKeys(fn($u) => [
+                $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
+            ])
+            ->toArray();
     }
 
     public function avisarSinDentro($notaId): void
@@ -91,7 +152,6 @@ class NotasDeComercial extends Component
             return;
         }
 
-        // ⚠️ Igual que el comercial, pero el Gerente puede forzar el cambio
         $puede = auth()->user()?->hasRole('gerente') || $note->comercial_id === auth()->id();
         if (!$puede) {
             Notification::make()
@@ -115,14 +175,13 @@ class NotasDeComercial extends Component
         Notification::make()
                     ->title('Estado actualizado')
             ->{$note->de_camino ? 'success' : 'warning'}()
-                ->body($note->de_camino ? 'La nota ha sido marcada como EN CAMINO'
-                    : 'La nota ha sido marcada como NO EN CAMINO')
+                ->body($note->de_camino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
                 ->send();
 
         $this->dispatch('notaActualizada');
     }
 
-    public function redirigirAVenta(int $noteId) // o renómbralo a gestionar()
+    public function redirigirAVenta(int $noteId)
     {
         $url = \App\Filament\Gerente\Resources\NotasGerenteResource::getUrl(
             'edit',
@@ -150,17 +209,16 @@ class NotasDeComercial extends Component
             ->map(fn($note) => $this->mapNote($note));
     }
 
-    /** Todas las notas */
+    /** TODAS (excepto hoy) */
     public function getNotesAllProperty()
     {
-        return \App\Models\Note::with(['customer', 'comercial'])
+        return Note::with(['customer', 'comercial'])
             ->where('comercial_id', $this->comercialId)
-            ->whereDate('assignment_date', '<>', today())   // ⬅️ excluye las de hoy
+            ->whereDate('assignment_date', '<>', today())
             ->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
     }
-
 
     private function mapNote(Note $note): array
     {

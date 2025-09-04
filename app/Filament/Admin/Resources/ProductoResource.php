@@ -75,7 +75,7 @@ class ProductoResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('nombre')->searchable(),
+                TextColumn::make('nombre')->sortable()->searchable(),
                 TextColumn::make('puntos'),
                 TextColumn::make('medidas.valor')
                     ->label('Medidas')

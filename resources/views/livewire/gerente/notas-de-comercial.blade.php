@@ -72,6 +72,16 @@
             color: #ffffff;
         }
 
+        /* Botón verde del mismo estilo */
+        .action-button.green {
+            background-color: #16a34a;
+        }
+
+        /* green-600 */
+        .action-button.green:hover {
+            background-color: #15803d;
+        }
+
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
             .mobile-optimized {
@@ -404,6 +414,13 @@
                         </div>
 
                         <div class="mt-1">
+                            <button class="action-button w-full green" wire:click="openReassignModal({{ $note['id'] }})">
+                                Reasignar Visita
+                            </button>
+                        </div>
+
+                        <div class="mt-1">
+
                             <button class="action-button w-full"
                                 wire:click="redirigirAVenta({{ $note['id'] }})">Gestionar</button>
                         </div>
@@ -416,6 +433,37 @@
             </div>
         </x-filament::section>
     </div>
+
+    {{-- ===== Modal de Reasignación ===== --}}
+    @if($showReassignModal)
+        <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+            wire:keydown.escape="$set('showReassignModal', false)">
+            <div class="bg-white dark:bg-gray-900 dark:text-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h3 class="text-lg font-semibold mb-4">Reasignar visita (no cambia la fecha)</h3>
+
+                <label class="block text-sm mb-2">Nuevo comercial</label>
+                <select wire:model="newComercialId"
+                    class="w-full border rounded p-2 bg-white dark:bg-gray-900 dark:text-white">
+                    <option value="">-- Elegir comercial --</option>
+                    @foreach($this->comerciales as $id => $label)
+                        <option value="{{ $id }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+
+                <div class="mt-6 flex gap-2">
+                    <button wire:click="$set('showReassignModal', false)"
+                        class="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-700">
+                        Cancelar
+                    </button>
+                    <button wire:click="reassignVisit" class="flex-1 px-3 py-2 rounded text-white"
+                        style="background-color:#16a34a">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
 
     <script>
         function getUbicacion(notaId) {
