@@ -8,9 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, PostalCode, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
-use App\Enums\EstadoTerminal;
+use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
-
 
 class CreateVenta extends CreateRecord
 {
@@ -57,7 +56,7 @@ class CreateVenta extends CreateRecord
                 ]);
             }
 
-            /* 2.1.b Valida que venga el detalle si activaron el toggle ---------- */
+            /* 2.1.b Valida que venga el detalle si activaron el toggle */
             if (($data['interes_art'] ?? false) && blank($data['interes_art_detalle'] ?? null)) {
                 throw ValidationException::withMessages([
                     'interes_art_detalle' => 'Especifica los artículos de interés.',
@@ -68,7 +67,6 @@ class CreateVenta extends CreateRecord
             $note = Note::with('customer')->findOrFail($this->noteId);
             $customer = $note->customer;
 
-            /* 2.3 Actualizar datos del cliente */
             /* 2.3 Actualizar datos del cliente */
             $customer->update(array_intersect_key(
                 $data,
@@ -98,7 +96,7 @@ class CreateVenta extends CreateRecord
                 'importe_total' => $data['importe_total'],
                 'importe_comercial' => $data['importe_total'],
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
-                'forma_pago' => $data['modalidad_pago'] === 'Contado'
+                'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado'
                     ? ($data['forma_pago'] ?? null)
                     : null,
                 'num_cuotas' => $data['num_cuotas'] ?? null,
@@ -107,21 +105,21 @@ class CreateVenta extends CreateRecord
                 'motivo_venta' => $data['motivo_venta'] ?? null,
                 'motivo_horario' => $data['motivo_horario'] ?? null,
                 'interes_art' => $data['interes_art'] ?? false,
-                'interes_art_detalle' => $data['interes_art']
+                'interes_art_detalle' => ($data['interes_art'] ?? false)
                     ? ($data['interes_art_detalle'] ?? null)
                     : null,
                 'observaciones_repartidor' => $data['observaciones_repartidor'] ?? null,
 
                 // ahora guardamos el array limpio (el modelo lo castea a array)
                 'productos_externos' => collect($data['productos_externos'] ?? [])
-                    ->filter()          // quita vacíos
+                    ->filter()
                     ->values()
                     ->all(),
 
-                "crema" => $data['crema'] ?? null,
+                'crema' => (bool) ($data['crema'] ?? false),
 
-                'fecha_entrega' => $data['fecha_entrega'],
-                'horario_entrega' => $data['horario_entrega'],
+                'fecha_entrega' => $data['fecha_entrega'] ?? null,
+                'horario_entrega' => $data['horario_entrega'] ?? null,
 
                 'precontractual' => $data['precontractual'] ?? null,
                 'dni_anverso' => $data['dni_anverso'] ?? null,
@@ -130,13 +128,53 @@ class CreateVenta extends CreateRecord
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
-
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */
             $this->form->model($venta)->saveRelationships();
-            $note->update(['estado_terminal' => EstadoTerminal::VENTA]);
+
+            /* 2.6 Cálculos derivados (orden recomendado) ---------------------- */
+
+            // a) Importes por origen + recalcular cuota_mensual según ofertas reales
+            $venta->recomputarImportesDesdeOfertas();
+
+            // b) Comisiones (venta repartidor + entrega)
+            $venta->calcularComisiones(true);
+
+            // c) Ventas del repartidor (rep/esp) y acumuladas
+            $venta->recomputarVtasRepYEsp()
+                ->recalcularVtasAcumuladas(true);
+
+            // d) PAS (puntos adicionales) para rep y com
             $venta->calcularPas(true);
+
+            // f) Totales finales según entrada / monto_extra
+            $entrada = (float) ($venta->entrada ?? 0);
+            $montoExtra = (float) ($venta->monto_extra ?? 0);
+            $venta->total_final = round(((float) $venta->importe_total - $entrada) + $montoExtra, 2);
+
+            if ((int) $venta->num_cuotas > 0) {
+                $venta->cuota_final = round($venta->total_final / (int) $venta->num_cuotas, 2);
+            } else {
+                $venta->cuota_final = null;
+            }
+
+            // g) Espejos administrativos en la venta (si los manejas)
+            if (empty($venta->nro_contr_adm) && !empty($venta->nro_contrato)) {
+                $venta->nro_contr_adm = $venta->nro_contrato;
+            }
+            if (empty($venta->nro_cliente_adm) && !empty($customer->nro_cliente)) {
+                $venta->nro_cliente_adm = $customer->nro_cliente;
+            }
+
+            // h) Estado de entrega del reparto (si hay detalle suficiente)
+            $venta->refreshEstadoEntrega();
+
+            // i) Guardar todo lo anterior
+            $venta->save();
+
+            // j) Estado de la nota
+            $note->update(['estado_terminal' => EstadoTerminal::VENTA]);
 
             return $venta;
         });
