@@ -14,6 +14,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Columns\TextColumn;
 use App\Enums\EstadoTerminal;
+use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\Select;
 
 
 class TeleoperadoraResource extends Resource
@@ -36,6 +41,46 @@ class TeleoperadoraResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                // Lee el filtro, soportando claves viejas y nuevas
+                $filters = request()->input('tableFilters', []);
+                $choice =
+                    data_get($filters, 'periodo.period') // filtro nuevo (Filter::make('periodo')->form(Select 'period'))
+                    ?? data_get($filters, 'period.value') // filtro viejo (Filter::make('period')->form(Select 'value'))
+                    ?? 'prev';
+
+                // Desde siempre (sin fechas)
+                if ($choice === 'all') {
+                    return $query->withCount([
+                        'notes as confirmadas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
+                        'notes as vendidas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
+                    ]);
+                }
+
+                // Mes actual / anterior / hace dos meses
+                $offset = match ($choice) {
+                    'this' => 0,
+                    'prev' => 1,
+                    'two' => 2,
+                    default => 0,
+                };
+
+                // Normaliza a UTC y usa límites de día completos
+                $tz = config('app.timezone', 'UTC'); // si tu app está en Europe/Madrid, cámbialo en config/app.php
+                $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
+                $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
+
+                return $query->withCount([
+                    'notes as confirmadas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
+                            ->whereBetween('created_at', [$start, $end]), // campo de la relación notes
+                    'notes as vendidas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
+                            ->whereBetween('created_at', [$start, $end]),
+                ]);
+            })
             ->columns([
                 TextColumn::make('empleado_id')
                     ->label('Empleado')
@@ -58,14 +103,14 @@ class TeleoperadoraResource extends Resource
 
                 TextColumn::make('confirmadas_count')
                     ->label('CONFIRMADAS')
-                    ->state(fn($record) => (int) ($record->confirmadas_count ?? 0)) // <= nunca null
+                    ->state(fn($record) => (int) ($record->confirmadas_count ?? 0))
                     ->badge()
                     ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'info')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('confirmadas_count', $dir)),
 
                 TextColumn::make('vendidas_count')
                     ->label('VENTAS')
-                    ->state(fn($record) => (int) ($record->vendidas_count ?? 0))     // <= nunca null
+                    ->state(fn($record) => (int) ($record->vendidas_count ?? 0))
                     ->badge()
                     ->color(fn($record) => ((int) ($record->vendidas_count ?? 0)) === 0 ? 'gray' : 'success')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('vendidas_count', $dir)),
@@ -82,17 +127,35 @@ class TeleoperadoraResource extends Resource
                         query: fn(Builder $q, string $dir) =>
                         $q->orderByRaw('(COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) ' . $dir)
                     ),
-
-
             ])
             ->filters([
-                //
+                // Filtro solo UI (NO mete WHERE). Cambia 'period' si quieres otro nombre interno.
+                Filter::make('periodo')
+                    ->label('Periodo')
+                    ->form([
+                        Select::make('period')
+                            ->label('Periodo')
+                            ->options([
+                                'this' => 'Mes actual',
+                                'prev' => 'Mes anterior',
+                                'two' => 'Hace dos meses',
+                                'all' => 'Desde siempre',
+                            ])
+                            ->default('prev')
+                            ->native(false),
+                    ])
+                    ->indicateUsing(function (array $data): ?string {
+                        return match ($data['period'] ?? 'prev') {
+                            'this' => 'Periodo: Mes actual',
+                            'prev' => 'Periodo: Mes anterior',
+                            'two' => 'Periodo: Hace dos meses',
+                            'all' => 'Periodo: Desde siempre',
+                            default => null,
+                        };
+                    }),
             ])
-            ->actions([
-
-            ])
-            ->bulkActions([
-            ]);
+            ->actions([])
+            ->bulkActions([]);
     }
 
     public static function getRelations(): array
@@ -109,25 +172,13 @@ class TeleoperadoraResource extends Resource
         ];
     }
 
-    // App\Filament\HeadOfRoom\Resources\TeleoperadoraResource.php
     public static function getEloquentQuery(): Builder
     {
         return \App\Models\User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
-            ->withCount([
-                // CONFIRMADAS = 'confirmado' (histórico, sin fechas)
-                'notes as confirmadas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-
-                // VENTAS = 'venta' (histórico, sin fechas)
-                'notes as vendidas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
-            ])
             ->distinct('users.id');
     }
-
-
 
     public static function canEdited(): bool
     {
