@@ -94,7 +94,9 @@ class TeleoperadoraResource extends Resource
                         'two' => 'Hace dos meses',
                         'all' => 'Desde siempre',
                     ])
-                    ->default('this'), // o 'all' si quieres el histórico por defecto
+                    ->default('this')
+                    // MUY IMPORTANTE: no aplicar condición a BD (evita WHERE `period` = ...)
+                    ->query(fn(\Illuminate\Database\Eloquent\Builder $q, array $data) => $q),
             ])
             ->actions([])
             ->bulkActions([]);
@@ -121,8 +123,9 @@ class TeleoperadoraResource extends Resource
             ->role(['teleoperator', 'head_of_room'])
             ->distinct('users.id');
 
-        // Lee el filtro desde la querystring de Filament
-        $choice = request('tableFilters.period.value', 'this'); // cámbialo a 'all' si prefieres
+        // Lee el filtro desde la URL de Filament
+        $filters = request()->input('tableFilters', []);
+        $choice = data_get($filters, 'period.value', 'this'); // 'all' si prefieres histórico
 
         if ($choice === 'all') {
             return $query->withCount([
@@ -140,9 +143,8 @@ class TeleoperadoraResource extends Resource
             default => 0,
         };
 
-        // Ajusta el timezone si tus fechas "humanas" son Europe/Madrid pero guardas en UTC
+        // Ajusta TZ si hace falta (guardas en UTC normalmente)
         $tz = config('app.timezone', 'UTC');
-
         $start = Carbon::now($tz)->subMonths($offset)->startOfMonth()->utc();
         $end = Carbon::now($tz)->subMonths($offset)->endOfMonth()->utc();
 
