@@ -47,7 +47,7 @@ class TeleoperadoraResource extends Resource
                 $choice =
                     data_get($filters, 'periodo.period') // filtro nuevo (Filter::make('periodo')->form(Select 'period'))
                     ?? data_get($filters, 'period.value') // filtro viejo (Filter::make('period')->form(Select 'value'))
-                    ?? 'this';
+                    ?? 'prev';
 
                 // Desde siempre (sin fechas)
                 if ($choice === 'all') {
@@ -141,11 +141,11 @@ class TeleoperadoraResource extends Resource
                                 'two' => 'Hace dos meses',
                                 'all' => 'Desde siempre',
                             ])
-                            ->default('this')
+                            ->default('prev')
                             ->native(false),
                     ])
                     ->indicateUsing(function (array $data): ?string {
-                        return match ($data['period'] ?? 'this') {
+                        return match ($data['period'] ?? 'prev') {
                             'this' => 'Periodo: Mes actual',
                             'prev' => 'Periodo: Mes anterior',
                             'two' => 'Periodo: Hace dos meses',
