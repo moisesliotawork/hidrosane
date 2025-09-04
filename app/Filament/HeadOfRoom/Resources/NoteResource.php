@@ -508,7 +508,7 @@ class NoteResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('pdfSalaSeleccionadas')
-                    ->label('PDF (SALA) seleccionadas')
+                    ->label('PDF (Oficina) seleccionadas')
                     ->icon('heroicon-o-printer')
                     ->color('pink')
                     ->requiresConfirmation()

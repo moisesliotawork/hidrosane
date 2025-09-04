@@ -23,7 +23,7 @@ class ListNotes extends ListRecords
             \Filament\Actions\CreateAction::make(),
 
             \Filament\Actions\Action::make('pdfSala')
-                ->label('Generar PDF (SALA)')
+                ->label('Generar PDF (Oficina)')
                 ->icon('heroicon-o-printer')
                 ->color('pink')
                 ->url(route('notas.sala.pdf'))     // ← abrir GET
@@ -42,7 +42,7 @@ class ListNotes extends ListRecords
         });
 
         return [
-            'sala' => Tab::make('SALA')
+            'sala' => Tab::make('Oficina')
                 ->icon('heroicon-o-building-office')
                 ->badge(
                     $baseScope(Note::query())

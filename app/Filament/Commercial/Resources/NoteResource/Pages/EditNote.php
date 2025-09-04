@@ -136,7 +136,7 @@ class EditNote extends EditRecord
                 }),
 
             Actions\Action::make('sala')
-                ->label('Sala')
+                ->label('Oficina')
                 ->color('pink')
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar acción')
