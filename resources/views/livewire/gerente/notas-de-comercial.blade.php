@@ -315,6 +315,12 @@
                         </div>
 
                         <div class="mt-1">
+                            <button class="action-button w-full green" wire:click="openReassignModal({{ $note['id'] }})">
+                                Reasignar Visita
+                            </button>
+                        </div>
+
+                        <div class="mt-1">
                             <button class="action-button w-full"
                                 wire:click="redirigirAVenta({{ $note['id'] }})">Gestionar</button>
                         </div>
