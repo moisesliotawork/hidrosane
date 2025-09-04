@@ -16,6 +16,9 @@ use Filament\Tables\Columns\TextColumn;
 use App\Enums\EstadoTerminal;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\Select;
 
 
 class TeleoperadoraResource extends Resource
@@ -38,6 +41,46 @@ class TeleoperadoraResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                // Lee el filtro, soportando claves viejas y nuevas
+                $filters = request()->input('tableFilters', []);
+                $choice =
+                    data_get($filters, 'periodo.period') // filtro nuevo (Filter::make('periodo')->form(Select 'period'))
+                    ?? data_get($filters, 'period.value') // filtro viejo (Filter::make('period')->form(Select 'value'))
+                    ?? 'this';
+
+                // Desde siempre (sin fechas)
+                if ($choice === 'all') {
+                    return $query->withCount([
+                        'notes as confirmadas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
+                        'notes as vendidas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
+                    ]);
+                }
+
+                // Mes actual / anterior / hace dos meses
+                $offset = match ($choice) {
+                    'this' => 0,
+                    'prev' => 1,
+                    'two' => 2,
+                    default => 0,
+                };
+
+                // Normaliza a UTC y usa límites de día completos
+                $tz = config('app.timezone', 'UTC'); // si tu app está en Europe/Madrid, cámbialo en config/app.php
+                $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
+                $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
+
+                return $query->withCount([
+                    'notes as confirmadas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
+                            ->whereBetween('created_at', [$start, $end]), // campo de la relación notes
+                    'notes as vendidas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
+                            ->whereBetween('created_at', [$start, $end]),
+                ]);
+            })
             ->columns([
                 TextColumn::make('empleado_id')
                     ->label('Empleado')
@@ -86,17 +129,30 @@ class TeleoperadoraResource extends Resource
                     ),
             ])
             ->filters([
-                SelectFilter::make('period')
+                // Filtro solo UI (NO mete WHERE). Cambia 'period' si quieres otro nombre interno.
+                Filter::make('periodo')
                     ->label('Periodo')
-                    ->options([
-                        'this' => 'Mes actual',
-                        'prev' => 'Mes anterior',
-                        'two' => 'Hace dos meses',
-                        'all' => 'Desde siempre',
+                    ->form([
+                        Select::make('period')
+                            ->label('Periodo')
+                            ->options([
+                                'this' => 'Mes actual',
+                                'prev' => 'Mes anterior',
+                                'two' => 'Hace dos meses',
+                                'all' => 'Desde siempre',
+                            ])
+                            ->default('this')
+                            ->native(false),
                     ])
-                    ->default('this')
-                    // MUY IMPORTANTE: no aplicar condición a BD (evita WHERE `period` = ...)
-                    ->query(fn(\Illuminate\Database\Eloquent\Builder $q, array $data) => $q),
+                    ->indicateUsing(function (array $data): ?string {
+                        return match ($data['period'] ?? 'this') {
+                            'this' => 'Periodo: Mes actual',
+                            'prev' => 'Periodo: Mes anterior',
+                            'two' => 'Periodo: Hace dos meses',
+                            'all' => 'Periodo: Desde siempre',
+                            default => null,
+                        };
+                    }),
             ])
             ->actions([])
             ->bulkActions([]);
@@ -118,48 +174,11 @@ class TeleoperadoraResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = User::query()
+        return \App\Models\User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
             ->distinct('users.id');
-
-        // Lee el filtro desde la URL de Filament
-        $filters = request()->input('tableFilters', []);
-        $choice = data_get($filters, 'period.value', 'this'); // 'all' si prefieres histórico
-
-        if ($choice === 'all') {
-            return $query->withCount([
-                'notes as confirmadas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-                'notes as vendidas_count' => fn($q) =>
-                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
-            ]);
-        }
-
-        $offset = match ($choice) {
-            'this' => 0,
-            'prev' => 1,
-            'two' => 2,
-            default => 0,
-        };
-
-        // Ajusta TZ si hace falta (guardas en UTC normalmente)
-        $tz = config('app.timezone', 'UTC');
-        $start = Carbon::now($tz)->subMonths($offset)->startOfMonth()->utc();
-        $end = Carbon::now($tz)->subMonths($offset)->endOfMonth()->utc();
-
-        return $query->withCount([
-            'notes as confirmadas_count' => fn($q) =>
-                $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                    ->whereBetween('notes.created_at', [$start, $end]),
-            'notes as vendidas_count' => fn($q) =>
-                $q->where('estado_terminal', EstadoTerminal::VENTA->value)
-                    ->whereBetween('notes.created_at', [$start, $end]),
-        ]);
     }
-
-
-
 
     public static function canEdited(): bool
     {
