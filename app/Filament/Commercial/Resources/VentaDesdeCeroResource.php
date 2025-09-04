@@ -336,15 +336,15 @@ class VentaDesdeCeroResource extends Resource
 
             /* ==================== DATOS DE LA VENTA ==================== */
             Section::make('Datos de la venta')->schema([
-                DateTimePicker::make('manual_created_at')
-                    ->label('Fecha de creación manual')
-                    ->seconds(false)
-                    ->native(false)
-                    ->timezone('Europe/Madrid')
-                    ->default(now('Europe/Madrid')->startOfDay())
-                    ->withoutTime()
-                    ->visible(fn() => auth()->user()?->empleado_id === '911')
-                    ->helperText('Fecha de creacion del contrato'),
+                //DateTimePicker::make('manual_created_at')
+                //    ->label('Fecha de creación manual')
+                //    ->seconds(false)
+                //    ->native(false)
+                //    ->timezone('Europe/Madrid')
+                //    ->default(now('Europe/Madrid')->startOfDay())
+                //    ->withoutTime()
+                //    ->visible(fn() => auth()->user()?->empleado_id === '911')
+                //    ->helperText('Fecha de creacion del contrato'),
 
                 TextInput::make('importe_total')->label('Importe total (€)')
                     ->numeric()->prefix('€')->disabled()->dehydrated()->reactive()
