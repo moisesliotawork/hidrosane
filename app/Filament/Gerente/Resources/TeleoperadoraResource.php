@@ -94,44 +94,7 @@ class TeleoperadoraResource extends Resource
                         'two' => 'Hace dos meses',
                         'all' => 'Desde siempre',
                     ])
-                    ->default('this') // cambia a 'all' si quieres que sea el default global
-                    ->query(function (Builder $query, array $data) {
-                        $choice = $data['value'] ?? 'this';
-
-                        if ($choice === 'all') {
-                            // SIN rango de fechas
-                            $query->withCount([
-                                'notes as confirmadas_count' => fn($q) =>
-                                    $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
-
-                                'notes as vendidas_count' => fn($q) =>
-                                    $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
-                            ]);
-
-                            return;
-                        }
-
-                        // Con rango de fechas por mes (actual, anterior, hace dos meses)
-                        $offset = match ($choice) {
-                            'this' => 0,
-                            'prev' => 1,
-                            'two' => 2,
-                            default => 0,
-                        };
-
-                        $start = Carbon::now()->subMonths($offset)->startOfMonth();
-                        $end = Carbon::now()->subMonths($offset)->endOfMonth();
-
-                        $query->withCount([
-                            'notes as confirmadas_count' => fn($q) =>
-                                $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
-                                    ->whereBetween('created_at', [$start, $end]),
-
-                            'notes as vendidas_count' => fn($q) =>
-                                $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
-                                    ->whereBetween('created_at', [$start, $end]),
-                        ]);
-                    }),
+                    ->default('this'), // o 'all' si quieres el histórico por defecto
             ])
             ->actions([])
             ->bulkActions([]);
@@ -153,11 +116,46 @@ class TeleoperadoraResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return User::query()
+        $query = User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
             ->distinct('users.id');
+
+        // Lee el filtro desde la querystring de Filament
+        $choice = request('tableFilters.period.value', 'this'); // cámbialo a 'all' si prefieres
+
+        if ($choice === 'all') {
+            return $query->withCount([
+                'notes as confirmadas_count' => fn($q) =>
+                    $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+                'notes as vendidas_count' => fn($q) =>
+                    $q->where('estado_terminal', EstadoTerminal::VENTA->value),
+            ]);
+        }
+
+        $offset = match ($choice) {
+            'this' => 0,
+            'prev' => 1,
+            'two' => 2,
+            default => 0,
+        };
+
+        // Ajusta el timezone si tus fechas "humanas" son Europe/Madrid pero guardas en UTC
+        $tz = config('app.timezone', 'UTC');
+
+        $start = Carbon::now($tz)->subMonths($offset)->startOfMonth()->utc();
+        $end = Carbon::now($tz)->subMonths($offset)->endOfMonth()->utc();
+
+        return $query->withCount([
+            'notes as confirmadas_count' => fn($q) =>
+                $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                    ->whereBetween('notes.created_at', [$start, $end]),
+            'notes as vendidas_count' => fn($q) =>
+                $q->where('estado_terminal', EstadoTerminal::VENTA->value)
+                    ->whereBetween('notes.created_at', [$start, $end]),
+        ]);
     }
+
 
 
 
