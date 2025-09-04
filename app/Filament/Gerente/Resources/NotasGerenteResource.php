@@ -32,11 +32,11 @@ class NotasGerenteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Notas';
+    protected static ?string $navigationLabel = 'Reasignar Visitas';
 
-    protected static ?string $modelLabel = 'Nota';
+    protected static ?string $modelLabel = 'Reasignar Visitas';
 
-    protected static ?string $pluralModelLabel = 'Notas';
+    protected static ?string $pluralModelLabel = 'Reasignar Visitas';
 
     public static function form(Form $form): Form
     {

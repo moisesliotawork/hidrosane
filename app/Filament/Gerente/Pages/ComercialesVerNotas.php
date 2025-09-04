@@ -15,8 +15,8 @@ class ComercialesVerNotas extends Page implements HasTable
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    protected static ?string $navigationLabel = 'Notas Gerente';
-    protected static ?string $title = 'Notas Gerente';
+    protected static ?string $navigationLabel = 'Reasignar Visitas';
+    protected static ?string $title = 'Reasignar Visitas';
     protected static ?string $slug = 'comerciales-ver-notas';
     protected static ?int $navigationSort = 10;
 

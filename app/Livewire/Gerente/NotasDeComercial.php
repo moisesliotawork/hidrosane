@@ -51,27 +51,34 @@ class NotasDeComercial extends Component
             return;
         }
 
-        // Solo cambiamos el comercial_id, NO tocamos assignment_date
+        // Datos del nuevo comercial (para el mensaje)
+        $nuevo = User::find($this->newComercialId);
+        $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
+        $empleado = $nuevo->empleado_id ?? 'SIN-ID';
+
+        // Reasigna SIN tocar la fecha de asignación
         $note->update(['comercial_id' => $this->newComercialId]);
 
-        // Anotación de auditoría (opcional)
+        // Bitácora
         AnotacionVisita::create([
             'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'REASIGNACIÓN',
-            'cuerpo' => 'Nota reasignada al comercial ID: ' . $this->newComercialId . ' (sin cambiar fecha de asignación)',
+            'cuerpo' => "Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado} (sin cambiar fecha de asignación).",
         ]);
 
         $this->showReassignModal = false;
 
+        // ✅ Notificación con el formato solicitado
         Notification::make()
-            ->title('Visita reasignada')
-            ->body('Se mantuvo la fecha de asignación original.')
+            ->title("Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado}")
             ->success()
+            ->body('Se ha reasignado coreectamente la nota.')
             ->send();
 
         $this->dispatch('notaActualizada');
     }
+
 
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
