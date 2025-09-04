@@ -278,21 +278,17 @@ class VentaResource extends Resource
                             ->label('IBAN')
                             ->columnSpanFull()
                             ->formatStateUsing(
-                                fn($state) =>
-                                $state
-                                ? implode(' ', str_split(strtoupper($state), 4))
-                                : null
+                                fn($state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null
                             )
                             ->dehydrateStateUsing(
-                                fn($state) =>
-                                $state
-                                ? str_replace(' ', '', strtoupper($state))
-                                : null
+                                fn($state) => $state ? str_replace(' ', '', strtoupper($state)) : null
                             )
+                            ->reactive()
                             ->afterStateUpdated(function (Set $set, ?string $state) {
                                 $clean = str_replace(' ', '', strtoupper($state ?? ''));
-                                $set(implode(' ', str_split($clean, 4)));
+                                $set('iban', implode(' ', str_split($clean, 4))); // ← clave + valor
                             }),
+
 
                         Select::make('ingresos_rango')->label('Ingresos netos mensuales')
                             ->options(\App\Enums\IngresosRango::options())

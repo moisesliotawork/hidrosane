@@ -122,10 +122,14 @@ class NotasDeComercial extends Component
         $this->dispatch('notaActualizada');
     }
 
-    public function redirigirAVenta(int $noteId)
+    public function redirigirAVenta(int $noteId) // o renómbralo a gestionar()
     {
-        // Igual que el comercial: abre el recurso del panel comercial
-        $url = NoteResource::getUrl('edit', ['record' => $noteId], panel: 'comercial');
+        $url = \App\Filament\Gerente\Resources\NotasGerenteResource::getUrl(
+            'edit',
+            ['record' => $noteId],
+            panel: 'gerente'
+        );
+
         return redirect()->to($url);
     }
 
