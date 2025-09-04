@@ -220,9 +220,24 @@ class VentaDesdeCeroResource extends Resource
                                 })
                                 ->schema([
                                     Grid::make(3)->schema([
-                                        Select::make('producto_id')->label('Producto')
-                                            ->relationship('producto', 'nombre')
-                                            ->searchable()->preload()->reactive()->required()
+                                        Select::make('producto_id')
+                                            ->label('Producto')
+                                            ->options(
+                                                fn() => Producto::query()
+                                                    ->where('delete', false)        // ← ocultar los borrados lógicos
+                                                    ->orderBy('nombre')
+                                                    ->pluck('nombre', 'id')
+                                                    ->all()
+                                            )
+                                            ->getOptionLabelUsing(
+                                                fn($value) =>
+                                                Producto::find($value)?->nombre
+                                                ?? 'Producto eliminado (no disponible)' // si vienes editando algo viejo
+                                            )
+                                            ->searchable()
+                                            ->preload()
+                                            ->reactive()
+                                            ->required()
                                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                 $nombre = Producto::query()->whereKey($state)->value('nombre');
                                                 $puntosUnidad = (int) Producto::query()->whereKey($state)->value('puntos');

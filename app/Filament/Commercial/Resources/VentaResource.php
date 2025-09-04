@@ -367,7 +367,18 @@ class VentaResource extends Resource
                                                     /* ─── Producto ─── */
                                                     Select::make('producto_id')
                                                         ->label('Producto')
-                                                        ->relationship('producto', 'nombre')
+                                                        ->options(
+                                                            fn() => Producto::query()
+                                                                ->where('delete', false)         // <-- ocultar eliminados lógicamente
+                                                                ->orderBy('nombre')
+                                                                ->pluck('nombre', 'id')
+                                                                ->all()
+                                                        )
+                                                        ->getOptionLabelUsing(
+                                                            fn($value) =>
+                                                            Producto::find($value)?->nombre  // si la venta trae un id antiguo eliminado, mostrarlo
+                                                            ?? 'Producto eliminado (no disponible)'
+                                                        )
                                                         ->searchable()
                                                         ->preload()
                                                         ->reactive()

@@ -30,6 +30,7 @@ use App\Enums\EstadoVenta;
 use App\Enums\Financiera;
 use Carbon\Carbon;
 use App\Enums\MesesEnum;
+use Illuminate\Database\Eloquent\Builder;
 
 
 class VentaResource extends Resource
@@ -574,7 +575,17 @@ class VentaResource extends Resource
                                                 /* PRODUCTO */
                                                 Select::make('producto_id')
                                                     ->label('Producto')
-                                                    ->relationship('producto', 'nombre')
+                                                    ->options(
+                                                        fn() => Producto::query()
+                                                            ->where('delete', false)
+                                                            ->orderBy('nombre')
+                                                            ->pluck('nombre', 'id')
+                                                            ->all()
+                                                    )
+                                                    ->getOptionLabelUsing(
+                                                        fn($value) =>
+                                                        Producto::find($value)?->nombre ?? 'Producto eliminado (no disponible)'
+                                                    )
                                                     ->searchable()
                                                     ->preload()
                                                     ->reactive()

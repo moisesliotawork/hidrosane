@@ -179,7 +179,7 @@ class EntregaSimpleResource extends Resource
                             )
                             ->afterStateUpdated(function (Set $set, ?string $state) {
                                 $clean = str_replace(' ', '', strtoupper($state ?? ''));
-                                $set(implode(' ', str_split($clean, 4)));
+                                $set('iban', implode(' ', str_split($clean, 4))); // ← clave + valor
                             }),
                     ]),
                 ]),
@@ -384,10 +384,21 @@ class EntregaSimpleResource extends Resource
                                                 /* PRODUCTO (solo lectura) */
                                                 Select::make('producto_id')
                                                     ->label('Producto')
-                                                    ->relationship('producto', 'nombre')
+                                                    ->options(
+                                                        fn() => Producto::query()
+                                                            ->where('delete', false)        // ← ocultar eliminados lógicamente
+                                                            ->orderBy('nombre')
+                                                            ->pluck('nombre', 'id')
+                                                            ->all()
+                                                    )
+                                                    ->getOptionLabelUsing(
+                                                        fn($value) =>
+                                                        Producto::find($value)?->nombre
+                                                        ?? 'Producto eliminado (no disponible)' // si el registro guardado ya fue eliminado
+                                                    )
                                                     ->searchable()
                                                     ->preload()
-                                                    ->disabled(),          // no editable
+                                                    ->disabled(),
 
                                                 /* CANTIDAD VENDIDA (solo lectura) */
                                                 TextInput::make('cantidad')

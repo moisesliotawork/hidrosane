@@ -56,4 +56,10 @@ class EditEntregaSimple extends EditRecord
         $venta->refreshEstadoEntrega();
     }
 
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index', panel: 'repartidor') 
+            ?? route('filament.repartidor.pages.repartos-hoy');
+    }
+
 }

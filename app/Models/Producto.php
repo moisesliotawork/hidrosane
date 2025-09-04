@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property string $nombre   Nombre del producto
@@ -30,11 +31,18 @@ class Producto extends Model
     protected $fillable = [
         'nombre',
         'puntos',
+        'delete',
     ];
 
     protected $casts = [
         'puntos' => 'integer',
+        'delete' => 'boolean',
     ];
+
+    public function scopeActivos(Builder $query): Builder
+    {
+        return $query->where('delete', false);
+    }
 
     public function medidas()
     {

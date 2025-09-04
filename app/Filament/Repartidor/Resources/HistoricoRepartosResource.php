@@ -132,7 +132,10 @@ class HistoricoRepartosResource extends Resource
                 Action::make('gestionarParcial')
                     ->label('Modificar Entrega')
                     ->icon('heroicon-o-square-3-stack-3d')
-                    ->visible(fn(Reparto $record) => $record->estado_entrega === EstadoEntrega::PARCIAL)
+                    ->visible(fn(Reparto $record) => in_array(
+                        $record->estado_entrega,
+                        [EstadoEntrega::PARCIAL, EstadoEntrega::NO_ENTREGADO]
+                    ))
                     ->modalHeading('Entrega parcial')
                     ->modalSubmitActionLabel('Siguiente')
                     ->form([

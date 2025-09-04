@@ -122,18 +122,24 @@ class NoteResource extends Resource
                                     ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                                     ->orderBy('cities.title')
                                     ->orderBy('postal_codes.code')
-                                    ->limit(500) // Limitar resultados para mejor rendimiento
+                                    ->limit(500)
                                     ->get()
                                     ->mapWithKeys(fn($item) => [
-                                        $item->id => "{$item->city_title} - {$item->code}"
+                                        $item->id => "{$item->code} - {$item->city_title}", // ← CP - Ciudad
                                     ]);
                             })
-                            ->searchable(['code', 'city.title'])
+                            ->getOptionLabelUsing(function ($value) {
+                                // Asegura el label correcto aunque no esté en options()
+                                $pc = \App\Models\PostalCode::with('city')->find($value);
+                                return $pc ? "{$pc->code} - {$pc->city->title}" : null;
+                            })
+                            ->searchable() // búsqueda en el desplegable
                             ->preload()
                             ->native(false)
                             ->validationMessages([
                                 'required' => 'El código postal es obligatorio',
                             ]),
+
                         Forms\Components\TextInput::make('primary_address')
                             ->disabled()
                             ->maxLength(255)

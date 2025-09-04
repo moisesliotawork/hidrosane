@@ -17,12 +17,19 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Group;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\Action;
+use Illuminate\Support\Collection;
 
 class ProductoResource extends Resource
 {
     protected static ?string $model = Producto::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->activos();
+    }
 
     public static function form(Form $form): Form
     {
@@ -83,11 +90,31 @@ class ProductoResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->label(""),
-                Tables\Actions\DeleteAction::make()->label(""),
+                Action::make('eliminar')
+                    ->label('')
+                    ->icon('heroicon-m-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar eliminación')
+                    ->modalSubheading('¿Estás seguro de que deseas eliminar este producto?')
+                    ->modalButton('Sí, eliminar')
+                    ->action(function (Producto $record) {
+                        $record->update(['delete' => true]);
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('eliminarSeleccionados')
+                        ->label('Eliminar seleccionados')
+                        ->icon('heroicon-m-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Confirmar eliminación múltiple')
+                        ->modalSubheading('¿Seguro que quieres eliminar todos los productos seleccionados?')
+                        ->modalButton('Sí, eliminar seleccionados')
+                        ->action(function (Collection $records) {
+                            $records->each->update(['delete' => true]);
+                        }),
                 ]),
             ]);
     }

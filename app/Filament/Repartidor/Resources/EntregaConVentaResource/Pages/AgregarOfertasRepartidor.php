@@ -99,13 +99,22 @@ class AgregarOfertasRepartidor extends EditRecord
 
                                                 Select::make('producto_id')
                                                     ->label('Producto')
-                                                    ->options(fn() => Producto::query()
-                                                        ->orderBy('nombre')
-                                                        ->pluck('nombre', 'id'))
-                                                    ->required()
+                                                    ->options(
+                                                        fn() => Producto::query()
+                                                            ->where('delete', false)           // ← ocultar eliminados lógicamente
+                                                            ->orderBy('nombre')
+                                                            ->pluck('nombre', 'id')
+                                                            ->all()
+                                                    )
+                                                    ->getOptionLabelUsing(
+                                                        fn($value) =>
+                                                        Producto::find($value)?->nombre
+                                                        ?? 'Producto eliminado (no disponible)' // si quedara alguno antiguo
+                                                    )
                                                     ->searchable()
                                                     ->preload()
                                                     ->reactive()
+                                                    ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $nombre = Producto::query()->whereKey($state)->value('nombre');
                                                         $pts = (int) Producto::query()->whereKey($state)->value('puntos');

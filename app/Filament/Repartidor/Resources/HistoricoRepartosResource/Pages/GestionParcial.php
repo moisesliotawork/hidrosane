@@ -96,8 +96,21 @@ class GestionParcial extends Page implements HasForms
 
                                                     Select::make('producto_id')
                                                         ->label('Producto')
-                                                        ->relationship('producto', 'nombre')
-                                                        ->searchable()->preload()->disabled(),
+                                                        ->options(
+                                                            fn() => Producto::query()
+                                                                ->where('delete', false)           // ← oculta los borrados lógicos
+                                                                ->orderBy('nombre')
+                                                                ->pluck('nombre', 'id')
+                                                                ->all()
+                                                        )
+                                                        ->getOptionLabelUsing(
+                                                            fn($value) =>
+                                                            Producto::find($value)?->nombre
+                                                            ?? 'Producto eliminado (no disponible)'  // si el registro apunta a uno eliminado
+                                                        )
+                                                        ->searchable()
+                                                        ->preload()
+                                                        ->disabled(),
 
                                                     TextInput::make('cantidad')
                                                         ->numeric()->label('Cant. vendida')->disabled(),
@@ -156,5 +169,9 @@ class GestionParcial extends Page implements HasForms
             ->title('Cantidades entregadas actualizadas')
             ->success()
             ->send();
+
+        redirect()->to(
+            HistoricoRepartosResource::getUrl('index', panel: 'repartidor')
+        );
     }
 }
