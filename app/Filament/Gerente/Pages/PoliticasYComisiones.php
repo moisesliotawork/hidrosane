@@ -20,6 +20,7 @@ class PoliticasYComisiones extends Page implements HasForms
     protected static ?string $title = 'Ofertas Comerciales en Rigor';
     protected static ?string $slug = 'politicas-comisiones';
     protected static string $view = 'filament.gerente.pages.politicas-comisiones';
+    protected static ?int $navigationSort = 16;
 
     /** Estado del formulario */
     public ?array $data = [];

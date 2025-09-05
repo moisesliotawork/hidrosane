@@ -24,6 +24,8 @@ class AbsentHistoryResource extends Resource
     protected static ?string $modelLabel = 'Ausente';
     protected static ?string $slug = 'ausentes';
 
+    protected static ?int $navigationSort = 14;
+
     public static function form(Form $form): Form
     {
         // No usamos formularios (solo lectura)

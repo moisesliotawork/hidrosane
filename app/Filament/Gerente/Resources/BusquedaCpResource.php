@@ -15,6 +15,8 @@ class BusquedaCpResource extends Resource
     protected static ?string $modelLabel = 'Búsqueda CP';
     protected static ?string $pluralModelLabel = 'Búsqueda CP';
 
+    protected static ?int $navigationSort = 13;
+
     public static function getPages(): array
     {
         // Página única tipo buscador

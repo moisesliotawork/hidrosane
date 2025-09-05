@@ -25,6 +25,8 @@ class ComercialResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-phone';
     protected static ?string $navigationLabel = 'Ver Tlf COM';
 
+    protected static ?int $navigationSort = 12;
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()

@@ -293,14 +293,13 @@
                         <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
                         <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
 
-                        @if($note['show_phone'])
-                            <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                                @endif
-                            </div>
-                        @endif
+
+                        <div class="mt-1">
+                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
+                            @if($note['secondary_phone'])
+                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                            @endif
+                        </div>
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -398,14 +397,14 @@
                         <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
                         <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
 
-                        @if($note['show_phone'])
-                            <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                                @endif
-                            </div>
-                        @endif
+
+                        <div class="mt-1">
+                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
+                            @if($note['secondary_phone'])
+                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                            @endif
+                        </div>
+
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 

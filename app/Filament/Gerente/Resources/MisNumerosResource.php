@@ -22,6 +22,8 @@ class MisNumerosResource extends Resource
     protected static ?string $breadcrumb = 'Mis Numeros';
     protected static ?string $slug = 'mis-numeros';
 
+    protected static ?int $navigationSort = 10;
+
     /** No usaremos formularios en este resource */
     public static function form(Form $form): Form
     {

@@ -30,6 +30,8 @@ class TeleoperadoraResource extends Resource
     protected static ?string $pluralModelLabel = 'Teleoperadoras';
     protected static ?string $modelLabel = 'Teleoperadora';
 
+    protected static ?int $navigationSort = 6;
+
     public static function form(Form $form): Form
     {
         return $form

@@ -27,6 +27,8 @@ class CustomerResource extends Resource
     protected static ?string $navigationLabel = 'Posicion Global de Cliente';
     protected static ?string $modelLabel = 'Posicion Global de Cliente';
 
+    protected static ?int $navigationSort = 11;
+
 
     public static function form(Form $form): Form
     {

@@ -21,6 +21,7 @@ class VentasPorEstado extends Page implements HasTable
     protected static ?string $title = 'Supervision de Estados de Contratos';
     protected static ?string $slug = 'ventas-por-estado';
     protected static string $view = 'filament.gerente.pages.ventas-por-estado';
+    protected static ?int $navigationSort = 17;
 
     public function table(Table $table): Table
     {
