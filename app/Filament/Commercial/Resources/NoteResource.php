@@ -140,8 +140,9 @@ class NoteResource extends Resource
                                 'required' => 'El código postal es obligatorio',
                             ]),
 
-                        Forms\Components\TextInput::make('primary_address')
+                        Forms\Components\Textarea::make('primary_address')
                             ->disabled()
+                            ->rows(4)
                             ->maxLength(255)
                             ->label('Dirección principal'),
 
