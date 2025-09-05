@@ -503,6 +503,7 @@ class NoteResource extends Resource
         })
             ->whereDoesntHave('venta'); // relación inversa
 
+        $query->where('assignment_date', '>=', now()->subDays(5));
 
         return $query;
     }

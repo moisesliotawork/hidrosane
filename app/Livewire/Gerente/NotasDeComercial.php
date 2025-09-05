@@ -228,6 +228,7 @@ class NotasDeComercial extends Component
                     ->orWhere('estado_terminal', 'ausente');
             })
             ->whereDoesntHave('venta')
+            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay())
             ->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
