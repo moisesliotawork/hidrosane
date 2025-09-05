@@ -49,35 +49,30 @@ class HistoricoRepartosResource extends Resource
                 $panelId = filament()->getCurrentPanel()?->getId();
 
                 return Reparto::query()
+                    ->leftJoin('ventas', 'ventas.id', '=', 'repartos.venta_id')
+                    ->leftJoin('customers', 'customers.id', '=', 'ventas.customer_id')
+                    ->leftJoin('postal_codes as pc', 'pc.id', '=', 'customers.postal_code_id') // <-- NUEVO
+                    ->leftJoin('cities as c', 'c.id', '=', 'pc.city_id')                      // <-- NUEVO
                     ->with([
                         'venta.note.customer.postalCode.city',
                         'venta.comercial',
                     ])
-                    // Igual que tu Livewire: si es panel "repartidor", solo mis repartos
-                    ->when($panelId === 'repartidor', function (Builder $q) {
-                        $q->whereHas(
-                            'venta',
-                            fn($qq) =>
-                            $qq->where('repartidor_id', auth()->id())
-                        );
-                    }, function (Builder $q) {
-                        // En otros paneles: solo aseguramos que exista la venta
-                        $q->whereHas('venta');
-                    })
-                    ->latest('id');
+                    ->when(
+                        $panelId === 'repartidor',
+                        fn(Builder $q) => $q->where('ventas.repartidor_id', auth()->id()),
+                        fn(Builder $q) => $q->whereNotNull('ventas.id')
+                    )
+                    ->select('repartos.*');
             })
+
             ->columns([
                 // ID / Nº de Nota
                 TextColumn::make('venta.note.nro_nota')
-                    ->label('ID Nota')
+                    ->label('# Nota')
                     ->badge()
-                    ->formatStateUsing(fn($state) => $state ? "Nota {$state}" : '-')
+                    ->color('info')
+                    ->formatStateUsing(fn($state) => $state ? "{$state}" : '-')
                     ->searchable(),
-
-                // Fecha declaración de la venta
-                TextColumn::make('venta.fecha_venta')
-                    ->label('Fecha declaración')
-                    ->dateTime('Y-m-d H:i'),
 
                 // Nombre completo del cliente
                 TextColumn::make('cliente')
@@ -87,19 +82,112 @@ class HistoricoRepartosResource extends Resource
                         return $c?->full_name ?? trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('venta.customer', function (Builder $q) use ($search) {
-                            $like = "%{$search}%";
-                            $q->where('first_names', 'like', $like)
-                                ->orWhere('last_names', 'like', $like)
-                                ->orWhere('dni', 'like', $like)
-                                // si quieres buscar por el nombre completo “First Last”:
-                                ->orWhereRaw("CONCAT(COALESCE(first_names,''),' ',COALESCE(last_names,'')) LIKE ?", [$like]);
+                        $like = "%{$search}%";
+                        return $query->where(function ($qq) use ($like) {
+                            $qq->where('customers.first_names', 'like', $like)
+                                ->orWhere('customers.last_names', 'like', $like)
+                                ->orWhereRaw(
+                                    "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
+                                    [$like]
+                                )
+                                ->orWhere('customers.dni', 'like', $like);
                         });
+                    })
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderByRaw(
+                            "TRIM(CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,''))) " .
+                            ($direction === 'desc' ? 'DESC' : 'ASC')
+                        );
                     }),
+
+
+                TextColumn::make('venta.customer.primary_address')
+                    ->label('Dirección')
+                    ->formatStateUsing(function ($state) {
+                        if (!$state)
+                            return '-';
+                        return wordwrap($state, 40, "\n", true);
+                    })
+                    ->extraAttributes(['style' => 'white-space: pre-line;']) // respeta \n
+                    ->wrap()
+
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->where('customers.primary_address', 'like', "%{$search}%");
+                    })
+
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('customers.primary_address', $direction);
+                    }),
+
+                // Teléfono 1
+                TextColumn::make('telefono_1')
+                    ->label('Teléfono 1')
+                    ->state(function ($record) {
+                        $tel = $record->venta?->customer?->phone;
+                        return blank($tel) ? '-' : $tel;
+                    })
+                    // Búsqueda robusta por dígitos (ignora espacios, guiones, paréntesis, puntos)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $digits = preg_replace('/\D+/', '', $search ?? '');
+                        // Si el usuario no introdujo dígitos, usa LIKE normal
+                        if ($digits === '') {
+                            return $query->where('customers.phone', 'like', "%{$search}%");
+                        }
+                        $norm = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(customers.phone, ' ', ''), '-', ''), '.', ''), '(', ''), ')', '')";
+                        return $query->whereRaw("{$norm} LIKE ?", ["%{$digits}%"]);
+                    })
+                    // Orden por el valor directo en BD
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('customers.phone', $direction);
+                    }),
+
+                // Teléfono 2
+                TextColumn::make('telefono_2')
+                    ->label('Teléfono 2')
+                    ->state(function ($record) {
+                        $tel = $record->venta?->customer?->secondary_phone;
+                        return blank($tel) ? '-' : $tel;
+                    })
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $digits = preg_replace('/\D+/', '', $search ?? '');
+                        if ($digits === '') {
+                            return $query->where('customers.secondary_phone', 'like', "%{$search}%");
+                        }
+                        $norm = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(customers.secondary_phone, ' ', ''), '-', ''), '.', ''), '(', ''), ')', '')";
+                        return $query->whereRaw("{$norm} LIKE ?", ["%{$digits}%"]);
+                    })
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('customers.secondary_phone', $direction);
+                    }),
+
+
+                // Fecha declaración de la venta
+                TextColumn::make('venta.fecha_venta')
+                    ->label('Fecha Venta')
+                    ->sortable()
+                    ->dateTime('d/m/Y'),
+
+                // FECHA DE ENTREGA
+                TextColumn::make('venta.fecha_entrega')
+                    ->label('Fecha Entr.')
+                    ->date('d/m/Y') // si tu columna es DATE/DATETIME; si es string, dímelo y lo adapto
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('ventas.fecha_entrega', $direction);
+                    }),
+
+                // HORARIO DE ENTREGA
+                TextColumn::make('venta.horario_entrega')
+                    ->label('Horario Entr.')
+                    ->state(function ($record) {
+                        $h = $record->venta?->horario_entrega;
+                        return blank($h) ? '-' : $h;
+                    }),
+
 
                 // Estado del reparto (campo "estado" en Reparto)
                 TextColumn::make('estado')
                     ->label('Estado reparto')
+                    ->toggleable()
                     ->badge()
                     ->formatStateUsing(fn(?EstadoReparto $state) => $state?->label())
                     ->color(fn(?EstadoReparto $state) => $state?->color()),
@@ -107,6 +195,7 @@ class HistoricoRepartosResource extends Resource
                 // Estado de la entrega (enum EstadoEntrega casteado en Reparto)
                 TextColumn::make('estado_entrega')
                     ->label('Estado de la entrega')
+                    ->toggleable()
                     ->badge()
                     ->formatStateUsing(function ($state) {
                         // Si tu enum tiene ->label(), úsalo; si no, mostramos el valor de forma legible
@@ -121,8 +210,31 @@ class HistoricoRepartosResource extends Resource
                 TextColumn::make('venta.estado_venta')
                     ->label('Estado venta')
                     ->badge()
+                    ->toggleable()
                     ->formatStateUsing(fn($record) => $record->venta?->estado_venta?->label() ?? '')
                     ->color(fn($record) => $record->venta?->estado_venta?->color()),
+
+                TextColumn::make('cp_ciudad')
+                    ->label('CP – Ciudad')
+                    ->state(function ($record) {
+                        $pc = $record->venta?->customer?->postalCode;
+                        $cp = $pc?->code ?? null;      // ← usa 'code'
+                        $city = $pc?->city?->title ?? null; // ← City usa 'title'
+                        return $cp || $city ? (($cp ?? '-') . ' - ' . ($city ?? '-')) : '-';
+                    })
+                    // BUSCAR por CP (pc.code) o por ciudad (c.title)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $like = "%{$search}%";
+                        return $query->where(function ($qq) use ($like) {
+                            $qq->where('pc.code', 'like', $like)   // ← QUITA pc.cp
+                                ->orWhere('c.title', 'like', $like);
+                        });
+                    })
+                    // ORDENAR por CP y luego Ciudad
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('pc.code', $direction)   // ← QUITA COALESCE con pc.cp
+                            ->orderBy('c.title', $direction);
+                    }),
             ])
             ->defaultSort('id', 'desc')
             ->actions([
@@ -181,7 +293,73 @@ class HistoricoRepartosResource extends Resource
                     )
                     ->openUrlInNewTab(false)
                     ->disabled(fn($record) => blank($record->venta)),
-            ])      // sin acciones
+
+                Action::make('llevame')
+                    ->label('Llévame')
+                    ->icon('heroicon-o-map-pin')
+                    ->color('success')
+                    ->modalHeading('¿Qué destino quieres usar?')
+                    ->modalDescription('Elige la fuente para navegar en Google Maps.')
+                    // Oculta el submit por defecto y usa solo los botones personalizados
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Cerrar')
+                    // El action principal solo se muestra si existe al menos 1 opción
+                    ->visible(function (\App\Models\Reparto $record) {
+                        $tieneDentro = filled($record->dentro_lat) && filled($record->dentro_lng);
+                        $tieneGps = filled($record->lat) && filled($record->lng);
+                        $c = $record->venta?->customer;
+                        $tieneDir = filled($c?->primary_address);
+                        return $tieneDentro || $tieneGps || $tieneDir;
+                    })
+                    ->modalActions([
+                        // 1) DENTRO (dentro_lat/dentro_lng)
+                        \Filament\Tables\Actions\Action::make('usarDentro')
+                            ->label('Usar DENTRO')
+                            ->icon('heroicon-o-cursor-arrow-rays')
+                            ->color('success')
+                            ->visible(fn(\App\Models\Reparto $record) => filled($record->dentro_lat) && filled($record->dentro_lng))
+                            ->url(
+                                fn(\App\Models\Reparto $record) =>
+                                "https://www.google.com/maps/dir/?api=1&destination={$record->dentro_lat},{$record->dentro_lng}&travelmode=driving",
+                                shouldOpenInNewTab: true
+                            ),
+
+                        // 2) GPS (lat/lng del reparto)
+                        \Filament\Tables\Actions\Action::make('usarGps')
+                            ->label('Usar GPS (lat/lng)')
+                            ->icon('heroicon-o-map')
+                            ->color('warning')
+                            ->visible(fn(\App\Models\Reparto $record) => filled($record->lat) && filled($record->lng))
+                            ->url(
+                                fn(\App\Models\Reparto $record) =>
+                                "https://www.google.com/maps/dir/?api=1&destination={$record->lat},{$record->lng}&travelmode=driving",
+                                shouldOpenInNewTab: true
+                            ),
+
+                        // 3) DIRECCIÓN (primary_address + CP + Ciudad + España)
+                        \Filament\Tables\Actions\Action::make('usarDireccion')
+                            ->label('Usar Dirección')
+                            ->icon('heroicon-o-building-storefront')
+                            ->color('info')
+                            ->visible(function (\App\Models\Reparto $record) {
+                                return filled($record->venta?->customer?->primary_address);
+                            })
+                            ->url(function (\App\Models\Reparto $record) {
+                                $c = $record->venta?->customer;
+                                $addr = trim((string) ($c?->primary_address ?? ''));
+                                $cp = $c?->postalCode?->code ?? null;
+                                $city = $c?->postalCode?->city?->title ?? null; // City.title
+                                $parts = array_filter([$addr, $city, 'España']);
+                                if (empty($parts))
+                                    return null;
+
+                                $dest = rawurlencode(implode(', ', $parts));
+                                return "https://www.google.com/maps/dir/?api=1&destination={$dest}&travelmode=driving";
+                            }, shouldOpenInNewTab: true),
+                    ]),
+
+
+            ])
             ->bulkActions([]); // sin bulk
     }
 
