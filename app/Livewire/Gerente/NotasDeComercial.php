@@ -222,6 +222,12 @@ class NotasDeComercial extends Component
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', $this->comercialId)
             ->whereDate('assignment_date', '<>', today())
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhere('estado_terminal', 'ausente');
+            })
+            ->whereDoesntHave('venta')
             ->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
