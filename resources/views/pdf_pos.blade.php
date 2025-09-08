@@ -235,6 +235,105 @@
     // Nombre a mostrar (prioriza lo que venga del modelo, si existe)
     $delegacionNombre = 'VIGO';
 
+
+
+    /* =========================
+     *  PÁGINA 3 – ALBARÁN
+     * ========================= */
+
+    // Fondo y escala heredan $dx, $dy, $sx, $sy
+
+    // Dirección en UNA SOLA LÍNEA (misma de P1 → L1 + L2)
+    $dirOneLine = trim(preg_replace('/\s+/', ' ', trim($dirL1 . ($dirL2 ? ' - ' . $dirL2 : ''))), ' -');
+
+    // Coordenadas sugeridas (mm) — afínalas con debug si hace falta
+    $yAlbTitulo = 12.5;
+    $xAlbTitulo = 15.0;   // (opcional) si tu JPG trae título, ignóralo
+    $yAlbContrato = 117.0;
+    $xAlbContrato = 156.3;  // Nº contrato adm
+    $yAlbNombre = 78;
+    $xAlbNombre = 53.0;   // Nombre completo
+    $yAlbDni = 82.2;
+    $xAlbDni = 36.0;   // DNI/NIE
+    $yAlbTelf = 103.4;
+    $xAlbTelf = 38.0;   // Teléfonos
+    $yAlbDir = 86.4;
+    $xAlbDir = 38.0;
+    $wAlbDir = 165.0; // Dirección una sola línea (con elipsis)
+
+    // Tabla de productos: UNA sola columna (duplicados por cantidad, como P1)
+    $yAlbBase = 124.0;    // primera fila
+    $xAlbPos = 23.0;    // columna POS.
+    $xAlbDesc = 40.0;    // columna DESCRIPCIÓN
+    $wAlbDesc = 150.0;   // ancho de descripción
+    $rowAlb = 8; // reutiliza tu step de fila
+    $maxAlbRows = 14;      // cuántas filas caben en tu JPG
+
+    $itemsAlb = $rawLines
+        ->flatMap(function ($line) {
+            $qty = max((int) ($line->cantidad ?? 1), 1);
+            return collect(array_fill(0, $qty, $line));
+        })
+        ->values()
+        ->take($maxAlbRows);
+
+
+
+
+    /* ===============================
+     *  PÁGINA 4 – ALBARÁN (PAG-2)
+     * =============================== */
+
+    // Dirección en una sola línea (misma que P1: L1 + L2)
+    if (!isset($dirOneLine)) {
+        $dirOneLine = trim(preg_replace('/\s+/', ' ', trim(($dirL1 ?? '') . (($dirL2 ?? '') ? ' - ' . $dirL2 : ''))), ' -');
+    }
+
+    // === Coordenadas sugeridas (mm) — ajústalas fino con ?debug=1 ===
+    $yB2_Nombre = 113.3;
+    $xB2_Nombre = 53.0;          // Nombre completo
+    $yB2_DNI_1 = 117.5;
+    $xB2_DNI_1 = 36.0;          // DNI (arriba)
+    $yB2_Telf = 143;
+    $xB2_Telf = 38.0;          // Teléfonos
+    $yB2_Dir = 121.7;
+    $xB2_Dir = 38.0;
+    $wB2_Dir = 165.0; // Dirección una sola línea
+
+    // Segundo DNI en el “recibí” (parte baja)
+    $yB2_DNI_2 = 210.3;
+    $xB2_DNI_2 = 44.8;          // DNI (abajo)
+
+
+    /* ===========================================
+     *  PÁGINA – APERTURA / DESEMBALAJE
+     *  Fondo: templates/Apertura_de_productos.jpg
+     * =========================================== */
+
+    // Dirección en UNA sola línea (misma que P1 → L1 + L2)
+    if (!isset($dirOneLine)) {
+        $dirOneLine = trim(preg_replace('/\s+/', ' ', trim(($dirL1 ?? '') . (($dirL2 ?? '') ? ' - ' . $dirL2 : ''))), ' -');
+    }
+
+    // ===== Coordenadas Y (fijas) =====
+    $yAp_Contrato = 59.9;   // Nº contrato
+    $yAp_Nombre = 64.1;
+    $yAp_Dni1 = 68.3;
+    $yAp_Dir = 72.5;
+    $yAp_Tel = 80.9;
+    $yAp_Dni2 = 227.1;
+
+    // ===== Offsets X por campo (ajustables por query) =====
+    $xApContrato = (float) request('xap_contrato', 47.0);
+    $xApNombre = (float) request('xap_nombre', 43.0);
+    $xApDni1 = (float) request('xap_dni1', 25.4);
+    $xApDir = (float) request('xap_dir', 28.7);
+    $xApTel = (float) request('xap_tel', 27.0);
+    $xApDni2 = (float) request('xap_dni2', 120.0);
+
+    // Ancho para dirección (también ajustable)
+    $wApDir = (float) request('wap_dir', 160.0);
+
 @endphp
 
 <!DOCTYPE html>
@@ -377,7 +476,7 @@
             @if($dirL1 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL1 }}mm; left:{{ $xA_DirL1 }}mm; width:{{ $wDirL1 }}mm;
-                                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                                                                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL1 }}
                 </div>
             @endif
@@ -386,7 +485,7 @@
             @if($dirL2 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL2 }}mm; left:{{ $xA_DirL2 }}mm; width:{{ $wDirL2 }}mm;
-                                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                                                                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL2 }}
                 </div>
             @endif
@@ -497,6 +596,162 @@
                 {{ strtoupper($venta->customer->dni ?? '') }}
             </div>
         </div>
+    </div>
+
+
+
+    {{-- =========================
+    PÁGINA 3 – ALBARÁN
+    ========================= --}}
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-1.jpg')) }}" alt="Fondo P3">
+
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+
+            {{-- Nº de contrato administrativo --}}
+            <div class="field" style="top:{{ $yAlbContrato }}mm; left:{{ $xAlbContrato }}mm;">
+                {{ $venta->nro_contr_adm }}
+            </div>
+
+            {{-- Datos del cliente --}}
+            <div class="field" style="top:{{ $yAlbNombre }}mm; left:{{ $xAlbNombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+
+            <div class="field" style="top:{{ $yAlbDni }}mm; left:{{ $xAlbDni }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+
+            <div class="field" style="top:{{ $yAlbTelf }}mm; left:{{ $xAlbTelf }}mm;">
+                {{ $telefonos }}
+            </div>
+
+            {{-- Dirección en una sola línea (misma que P1) --}}
+            <div class="field"
+                style="top:{{ $yAlbDir }}mm; left:{{ $xAlbDir }}mm; width:{{ $wAlbDir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ $dirOneLine }}
+            </div>
+
+            {{-- Tabla de productos: una sola columna, numerada --}}
+            @for ($i = 0; $i < $itemsAlb->count(); $i++)
+                @php
+                    $y = $yAlbBase + $i * $rowAlb;
+                    $txt = mb_strtoupper($itemsAlb[$i]->producto->nombre ?? '', 'UTF-8');
+                    $fs = $descFont($txt);
+                @endphp
+
+                <div class="field" style="top:{{ $y }}mm; left:{{ $xAlbPos }}mm; width:10mm; text-align:center;">
+                    {{ $i + 1 }}
+                </div>
+
+                <div class="field"
+                    style="top:{{ $y }}mm; left:{{ $xAlbDesc }}mm; width:{{ $wAlbDesc }}mm; overflow:hidden; font-size:{{ $fs }}pt;">
+                    {{ $txt }}
+                </div>
+            @endfor
+        </div>
+
+        @if($debug)
+            <div class="grid">
+                @for($y = 0; $y <= 297; $y += 5)
+                <div class="h" style="top:{{ $y }}mm"></div>@endfor
+                @for($x = 0; $x <= 210; $x += 5)
+                <div class="v" style="left:{{ $x }}mm"></div>@endfor
+            </div>
+        @endif
+    </div>
+
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-2.jpg')) }}" alt="Fondo P4">
+
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+
+            {{-- Nombre completo --}}
+            <div class="field" style="top:{{ $yB2_Nombre }}mm; left:{{ $xB2_Nombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+
+            {{-- DNI (arriba) --}}
+            <div class="field" style="top:{{ $yB2_DNI_1 }}mm; left:{{ $xB2_DNI_1 }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+
+            {{-- Teléfonos --}}
+            <div class="field" style="top:{{ $yB2_Telf }}mm; left:{{ $xB2_Telf }}mm;">
+                {{ $telefonos }}
+            </div>
+
+            {{-- Dirección en una sola línea (misma que P1) --}}
+            <div class="field"
+                style="top:{{ $yB2_Dir }}mm; left:{{ $xB2_Dir }}mm; width:{{ $wB2_Dir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ $dirOneLine }}
+            </div>
+
+            {{-- DNI (segunda vez, en el recibí) --}}
+            <div class="field" style="top:{{ $yB2_DNI_2 }}mm; left:{{ $xB2_DNI_2 }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+
+        </div>
+
+        @if($debug)
+            <div class="grid">
+                @for($y = 0; $y <= 297; $y += 5)
+                <div class="h" style="top:{{ $y }}mm"></div>@endfor
+                @for($x = 0; $x <= 210; $x += 5)
+                <div class="v" style="left:{{ $x }}mm"></div>@endfor
+            </div>
+        @endif
+    </div>
+
+
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/Apertura_de_productos.jpg')) }}"
+            alt="Fondo Apertura">
+
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+
+            {{-- Nº de contrato administrativo --}}
+            <div class="field" style="top:{{ $yAp_Contrato }}mm; left:{{ $xApContrato }}mm;">
+                {{ $venta->nro_contr_adm }}
+            </div>
+
+            {{-- Nombre completo --}}
+            <div class="field" style="top:{{ $yAp_Nombre }}mm; left:{{ $xApNombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+
+            {{-- DNI (arriba) --}}
+            <div class="field" style="top:{{ $yAp_Dni1 }}mm; left:{{ $xApDni1 }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+
+            {{-- Dirección en una sola línea --}}
+            <div class="field" style="top:{{ $yAp_Dir }}mm; left:{{ $xApDir }}mm; width:{{ $wApDir }}mm;
+                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                {{ $dirOneLine }}
+            </div>
+
+            {{-- Teléfonos --}}
+            <div class="field" style="top:{{ $yAp_Tel }}mm; left:{{ $xApTel }}mm;">
+                {{ $telefonos }}
+            </div>
+
+            {{-- DNI (segunda vez, zona de recibí) --}}
+            <div class="field" style="top:{{ $yAp_Dni2 }}mm; left:{{ $xApDni2 }}mm;">
+                {{ strtoupper($venta->customer->dni ?? '') }}
+            </div>
+
+        </div>
+
+        @if($debug)
+            <div class="grid">
+                @for($y = 0; $y <= 297; $y += 5)
+                <div class="h" style="top:{{ $y }}mm"></div>@endfor
+                @for($x = 0; $x <= 210; $x += 5)
+                <div class="v" style="left:{{ $x }}mm"></div>@endfor
+            </div>
+        @endif
     </div>
 
 </body>
