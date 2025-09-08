@@ -12,6 +12,11 @@ use App\Filament\Commercial\Resources\VentaResource;
 use Carbon\Carbon;
 use App\Models\AbsentHistory;
 use Illuminate\Support\Facades\App;
+use Filament\Forms;
+use Filament\Forms\Components\Textarea;
+use Illuminate\Support\Facades\DB;
+use App\Models\NoteNullReason;
+use Illuminate\Support\Facades\Auth;
 
 class EditNote extends EditRecord
 {
@@ -77,16 +82,38 @@ class EditNote extends EditRecord
             Actions\Action::make('nulo')
                 ->label('Nulo')
                 ->color('danger')
+                ->icon('heroicon-o-x-circle')
+                ->form([
+                    Textarea::make('reason')
+                        ->label('Motivo de nulidad')
+                        ->placeholder('Describe por qué esta nota se declara NULA...')
+                        ->rows(4)
+                        ->required()
+                        ->maxLength(2000),
+                ])
+                // Tras completar el formulario, Filament mostrará el modal de confirmación:
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como NULO?')
+                ->modalHeading('Motivo de nulidad')
+                ->modalDescription('Confirma que deseas marcar la nota como NULA con el motivo indicado.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
-                    $this->record->estado_terminal = EstadoTerminal::NUL;
-                    $this->record->save();
+                ->action(function (array $data): void {
+                    DB::transaction(function () use ($data) {
+                        // 1) Guardar el motivo en la nueva tabla
+                        NoteNullReason::create([
+                            'note_id' => $this->record->id,
+                            'comercial_id' => Auth::id(),
+                            'reason' => $data['reason'],
+                        ]);
+
+                        // 2) Cambiar el estado de la nota a NULO
+                        // Ajusta la constante según tu enum real: NULO o NUL
+                        $this->record->estado_terminal = EstadoTerminal::NUL; // o ::NUL
+                        $this->record->save();
+                    });
 
                     Notification::make()
-                        ->title('Nota marcada como NULO')
+                        ->title('Nota marcada como NULA')
+                        ->body('Se guardó el motivo y se actualizó el estado.')
                         ->success()
                         ->send();
 

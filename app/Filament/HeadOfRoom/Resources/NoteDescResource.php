@@ -29,6 +29,7 @@ use App\Enums\{
     HorarioNotas
 };
 use App\Models\User;
+use Illuminate\Support\Str;
 
 
 
@@ -46,7 +47,7 @@ class NoteDescResource extends Resource
     {
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class])
-            ->with(['observations.author'])
+            ->with(['observations.author', 'nullReasons.comercial'])
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,
                 EstadoTerminal::AUSENTE->value,
@@ -141,34 +142,47 @@ class NoteDescResource extends Resource
             /* 8. Observaciones */
             Section::make('Observaciones')
                 ->schema([
+                    // --- Observaciones ---
                     RepeatableEntry::make('observations')
-                        ->label('')            // sin etiqueta de grupo
+                        ->label('')
                         ->schema([
-                            TextEntry::make('author_id')
-                                ->label('Autor')
-                                ->formatStateUsing(function ($state) {     //  ✅  $state en vez de $id
-                                    static $cache = [];
-
-                                    if (blank($state)) {
-                                        return '—';
-                                    }
-
-                                    // Cache para evitar N+1 si hay muchas observaciones
-                                    return $cache[$state] ??= \App\Models\User::find($state)?->name
-                                        ?? "ID $state";
-                                })
-                                ->badge()
-                                ->color('info'),
-
-                            // Texto de la observación
-                            TextEntry::make('observation')
-                                ->label('Comentarios')
-                                ->columnSpanFull(),
+                            TextEntry::make('author_name')->label('Autor')->badge()->color('info'),
+                            TextEntry::make('created_at')->label('Fecha')->dateTime('d/m/Y H:i'),
+                            TextEntry::make('observation')->label('Comentarios')->columnSpanFull(),
                         ])
                         ->columns(2)
-                        ->visible(fn($state) => filled($state)),
-                ]),
+                        ->state(function (\App\Models\Note $record) {
+                            // Fuerza a usar la RELACIÓN, incluso si existe una columna "observations"
+                            $obs = $record->observations;
 
+                            if (!$obs instanceof \Illuminate\Support\Collection) {
+                                $obs = $record->observations()->with('author')->get();
+                            }
+
+                            return $obs
+                                ->sortByDesc('created_at')
+                                ->map(function ($o) {
+                                    // Si por algún dato viejo llega string, lo convertimos a fila básica
+                                    if (!is_object($o)) {
+                                        return [
+                                            'author_name' => '—',
+                                            'created_at' => null,
+                                            'observation' => (string) $o,
+                                        ];
+                                    }
+
+                                    return [
+                                        'author_name' => optional($o->author)->name ?? '—',
+                                        'created_at' => $o->created_at,
+                                        'observation' => (string) ($o->observation ?? ''),
+                                    ];
+                                })
+                                ->values()
+                                ->all();
+                        })
+                        ->visible(fn(\App\Models\Note $record) => $record->observations()->exists()),
+
+                ]),
 
 
             /* 7. Estado terminal */
@@ -186,6 +200,48 @@ class NoteDescResource extends Resource
                         })
                         ->formatStateUsing(fn($record) => $record->estado_terminal->label()),
                 ]),
+
+
+
+            Section::make('Motivos de Nulidad')
+                ->schema([
+                    TextEntry::make('nulreasons_md')
+                        ->label('')                 // sin título interno
+                        ->state(function (\App\Models\Note $record): string {
+                            $rows = $record->nullReasons()
+                                ->with('comercial')
+                                ->orderByDesc('created_at')
+                                ->get();
+
+                            if ($rows->isEmpty()) {
+                                return '_Sin motivos registrados._'; // markdown itálica
+                            }
+
+                            // Ej: "- 08/09/2025 05:22 · Juan Pérez: no encontré"
+                            return $rows->map(function ($r) {
+                                $fecha = optional($r->created_at)->format('d/m/Y H:i') ?? '—';
+                                $autor = optional($r->comercial)->name ?? '—';
+                                $motivo = (string) $r->reason;
+
+                                return "- **{$fecha}** · {$autor}: {$motivo}";
+                            })->implode("\n");
+                        })
+                        ->markdown()                // renderiza como Markdown
+                        ->prose(),                  // (opcional) tipografía bonita
+                ])
+                ->visible(function (\App\Models\Note $record) {
+                    // muéstralo si es NUL o si hay razones
+                    $isEnumNul = $record->estado_terminal instanceof \App\Enums\EstadoTerminal
+                        ? $record->estado_terminal === \App\Enums\EstadoTerminal::NUL
+                        : false;
+
+                    $isStringNul = !($record->estado_terminal instanceof \App\Enums\EstadoTerminal)
+                        ? (string) $record->estado_terminal === \App\Enums\EstadoTerminal::NUL->value
+                        : false;
+
+                    return $isEnumNul || $record->nullReasons()->exists();
+                }),
+
         ]);
     }
 
