@@ -37,7 +37,7 @@ class NoteDescResource extends Resource
 {
     protected static ?string $model = Note::class;
 
-    protected static ?string $navigationLabel = 'Nulos - Ausentes';
+    protected static ?string $navigationLabel = 'Notas Nulos - Ausentes';
     protected static ?string $pluralModelLabel = 'Nulos - Ausentes';
     protected static ?string $modelLabel = 'Nulos - Ausentes';
     protected static ?string $slug = 'notas-desc';
