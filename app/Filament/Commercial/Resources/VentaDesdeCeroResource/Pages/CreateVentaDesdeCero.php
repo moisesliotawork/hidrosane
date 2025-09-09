@@ -78,13 +78,18 @@ class CreateVentaDesdeCero extends CreateRecord
             }
 
             // 5) Venta
+            $manual = $data['manual_created_at'] ?? null;
+            $fechaVenta = $manual
+                ? \Carbon\Carbon::parse($manual, 'Europe/Madrid')->utc()
+                : now();
+
             /** @var Venta $venta */
             $venta = Venta::create([
                 'note_id' => $note->id,
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
-                'fecha_venta' => \Carbon\Carbon::parse($data['manual_created_at'], 'Europe/Madrid')->utc() ?? now(),
+                'fecha_venta' => $fechaVenta,
                 'importe_comercial' => $data['importe_total'],
                 'importe_repartidor' => 0,
                 'importe_total' => $data['importe_total'] ?? 0,
@@ -115,17 +120,13 @@ class CreateVentaDesdeCero extends CreateRecord
 
             // Si el usuario especial 911 indicó una fecha manual, forzamos timestamps:
             $esUsuarioEspecial = auth()->user()?->empleado_id === '911';
-            if ($esUsuarioEspecial && !empty($data['manual_created_at'])) {
-                $ts = \Carbon\Carbon::parse($data['manual_created_at'], 'Europe/Madrid')->utc(); // guardamos en UTC
-                // Desactivar timestamps para este insert y asignarlos manualmente
+            if ($esUsuarioEspecial && $manual) {
+                $ts = \Carbon\Carbon::parse($manual, 'Europe/Madrid')->utc();
                 $venta->timestamps = false;
                 $venta->created_at = $ts;
                 $venta->updated_at = $ts;
-                $venta->save();
-            } else {
-                // Comportamiento normal (Laravel pondrá created_at/updated_at = now)
-                $venta->save();
             }
+            $venta->save();
 
             // 6) Relaciones (ofertas/productos)
             $this->form->model($venta)->saveRelationships();
