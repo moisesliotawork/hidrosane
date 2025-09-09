@@ -23,6 +23,7 @@ use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Collection;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\HtmlString;
 
 class NoteResource extends Resource
 {
@@ -264,6 +265,45 @@ class NoteResource extends Resource
                             }),
 
                     ]),
+                Forms\Components\Section::make('Observaciones en Sala')
+                    ->visible(function (?Note $record) {
+                        if (!$record)
+                            return false;
+
+                        // Enum o string, ambos casos:
+                        $isEnum = $record->estado_terminal instanceof \App\Enums\EstadoTerminal;
+                        return $isEnum
+                            ? $record->estado_terminal === \App\Enums\EstadoTerminal::SALA
+                            : (string) $record->estado_terminal === \App\Enums\EstadoTerminal::SALA->value;
+                    })
+                    ->schema([
+                        Forms\Components\Placeholder::make('sala_observations_list')
+                            ->label('')
+                            ->content(function (?Note $record) {
+                                if (!$record) {
+                                    return new HtmlString('<em>—</em>');
+                                }
+
+                                $rows = $record->observacionesSala()
+                                    ->with('author')
+                                    ->orderByDesc('created_at')
+                                    ->get();
+
+                                if ($rows->isEmpty()) {
+                                    return new HtmlString('<em>Sin observaciones de sala.</em>');
+                                }
+
+                                $items = $rows->map(function ($r) {
+                                    $fecha = optional($r->created_at)->format('d/m/Y H:i') ?? '—';
+                                    $autor = e(optional($r->author)->name ?? '—');
+                                    $txt = e((string) ($r->observation ?? ''));
+                                    return "<li><strong>{$fecha}</strong> · {$autor}: {$txt}</li>";
+                                })->implode('');
+
+                                return new HtmlString("<ul style='margin:0;padding-left:1.25rem'>{$items}</ul>");
+                            }),
+                    ]),
+
             ]);
     }
 

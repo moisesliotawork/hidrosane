@@ -357,4 +357,10 @@ class Note extends Model
         return count($items) ? '• ' . implode("\n• ", $items) : '';
     }
 
+    public function observacionesSala()
+    {
+        return $this->hasMany(\App\Models\NoteSalaObservation::class, 'note_id');
+    }
+
+
 }

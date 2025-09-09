@@ -17,6 +17,7 @@ use Filament\Forms\Components\Textarea;
 use Illuminate\Support\Facades\DB;
 use App\Models\NoteNullReason;
 use Illuminate\Support\Facades\Auth;
+use App\Models\NoteSalaObservation;
 
 class EditNote extends EditRecord
 {
@@ -165,16 +166,36 @@ class EditNote extends EditRecord
             Actions\Action::make('sala')
                 ->label('Oficina')
                 ->color('pink')
+                ->icon('heroicon-o-building-office-2')
+                ->form([
+                    Textarea::make('observation')
+                        ->label('Observación de sala')
+                        ->placeholder('Escribe la observación para sala…')
+                        ->rows(4)
+                        ->required()
+                        ->maxLength(2000),
+                ])
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como SALA?')
+                ->modalHeading('Marcar como SALA')
+                ->modalDescription('Confirma que deseas marcar la nota como SALA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
-                    $this->record->estado_terminal = EstadoTerminal::SALA;
-                    $this->record->save();
+                ->action(function (array $data) {
+                    DB::transaction(function () use ($data) {
+                        // 1) Guardar observación de sala
+                        NoteSalaObservation::create([
+                            'note_id' => $this->record->id,
+                            'author_id' => Auth::id(),
+                            'observation' => $data['observation'],
+                        ]);
+
+                        // 2) Cambiar estado a SALA
+                        $this->record->estado_terminal = EstadoTerminal::SALA;
+                        $this->record->save();
+                    });
 
                     Notification::make()
                         ->title('Nota marcada como SALA')
+                        ->body('Se guardó la observación y se actualizó el estado.')
                         ->success()
                         ->send();
 
