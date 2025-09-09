@@ -33,6 +33,17 @@ class ListNotes extends ListRecords
     {
         $user = auth()->user();
 
+        // RANGO: desde hoy-5 hasta hoy (INCLUSIVO)
+        $desde = now()->subDays(5)->toDateString();
+        $hasta = now()->toDateString();
+
+        // Filtro de estado_terminal
+        $estadoFiltro = function ($q) {
+            $q->whereNull('estado_terminal')
+                ->orWhere('estado_terminal', '')
+                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+        };
+
         // CALCULAR IDs visibles: propio + equipo (si es líder)
         $visibleIds = [$user->id];
         if ($user->hasRole('team_leader')) {
@@ -49,20 +60,17 @@ class ListNotes extends ListRecords
                 ->badge(
                     Note::query()
                         ->whereIn('comercial_id', $visibleIds)
-                        ->where(function ($q) {
-                            $q->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
+                        ->where($estadoFiltro)
+                        ->whereDoesntHave('venta')
+                        ->whereNotNull('assignment_date')
+                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($visibleIds) {
-                    // 1) Filtrar IDs visibles
-                    $query->whereIn('comercial_id', $visibleIds);
-                    // 2) Filtrar estado_terminal vacío
-                    $query->where(function ($q) {
-                        $q->whereNull('estado_terminal')
-                            ->orWhere('estado_terminal', '');
-                    });
+                ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro, $desde, $hasta) {
+                    $query->whereIn('comercial_id', $visibleIds)
+                        ->where($estadoFiltro)
+                        ->whereNotNull('assignment_date')
+                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
                 }),
         ];
 
@@ -94,18 +102,17 @@ class ListNotes extends ListRecords
                 ->badge(
                     Note::query()
                         ->where('comercial_id', $c->id)
-                        ->where(function ($q) {
-                            $q->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
+                        ->where($estadoFiltro)
+                        ->whereDoesntHave('venta')
+                        ->whereNotNull('assignment_date')
+                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($c) {
+                ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro, $desde, $hasta) {
                     $query->where('comercial_id', $c->id)
-                        ->where(function ($q) {
-                            $q->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        });
+                        ->where($estadoFiltro)
+                        ->whereNotNull('assignment_date')
+                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
                 });
         }
 

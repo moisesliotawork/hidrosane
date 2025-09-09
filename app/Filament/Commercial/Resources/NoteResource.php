@@ -496,14 +496,19 @@ class NoteResource extends Resource
         }
 
         // 5) Filtrar siempre estado_terminal vacío ó '' y sin venta asociada
+        // 5) Estado terminal: incluir null, '', y AUSENTE (sin importar may/min/espacios)
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')
-                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
-                ->orWhere('estado_terminal', EstadoTerminal::AUSENTE->value);
+                ->orWhere('estado_terminal', '') // vacío exacto
+                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
         })
-            ->whereDoesntHave('venta'); // relación inversa
+            ->whereDoesntHave('venta'); // sin venta
 
-        $query->where('assignment_date', '>=', now()->subDays(5));
+        // 4) Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO), forzando DATE(...)
+        $desde = now()->subDays(5)->toDateString();
+        $hasta = now()->toDateString();
+
+        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
 
         return $query;
     }
