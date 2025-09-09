@@ -334,6 +334,26 @@
                         'detalle' => trim((string) ($o->observation ?? '')),
                     ];
                 })->filter(fn($r) => $r['detalle'] !== '')->values()->all();
+
+                /** ===== Observaciones de Sala (relación salaObservations con author) ===== */
+                if ($note->relationLoaded('salaObservations')) {
+                    $sala = $note->getRelation('salaObservations');
+                } else {
+                    $sala = $note->observacionesSala()->with('author')->get();
+                }
+
+                $salaRows = $sala->sortBy('created_at')->map(function ($o) {
+                    $autor = null;
+                    if ($o->author) {
+                        $autor = trim(($o->author->empleado_id ? ($o->author->empleado_id . ' - ') : '')
+                            . ($o->author->name . ' ' . $o->author->last_name));
+                    }
+                    return [
+                        'fecha' => $o->created_at ? $o->created_at->format('d/m/Y H:i') : null,
+                        'autor' => $autor,
+                        'detalle' => trim((string) ($o->observation ?? '')),
+                    ];
+                })->filter(fn($r) => $r['detalle'] !== '')->values()->all();
             @endphp
 
             {{-- ========= TABLA: Tel Op. / Jefe de Sala (JSON) ========= --}}
@@ -392,6 +412,39 @@
                     @endif
                 </tbody>
             </table>
+
+            {{-- ========= TABLA: Observaciones de Sala (relación) ========= --}}
+            @if(
+                    ($note->estado_terminal instanceof \App\Enums\EstadoTerminal
+                        ? $note->estado_terminal === \App\Enums\EstadoTerminal::SALA
+                        : (string) $note->estado_terminal === \App\Enums\EstadoTerminal::SALA->value)
+                )
+                <div class="section-title">Observaciones de Sala</div>
+                <table class="subgrid">
+                    <thead>
+                        <tr>
+                            <th style="width:22%">Fecha</th>
+                            <th style="width:28%">Autor</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if(empty($salaRows))
+                            <tr>
+                                <td class="empty" colspan="3">No existen observaciones de sala.</td>
+                            </tr>
+                        @else
+                            @foreach($salaRows as $r)
+                                <tr>
+                                    <td>{{ $r['fecha'] ?? '—' }}</td>
+                                    <td>{{ $r['autor'] ?? '—' }}</td>
+                                    <td>• {{ $r['detalle'] }}</td>
+                                </tr>
+                            @endforeach
+                        @endif
+                    </tbody>
+                </table>
+            @endif
 
             <div class="footer">Generado: {{ now()->format('d/m/Y H:i') }}</div>
         </div>
