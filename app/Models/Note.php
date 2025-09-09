@@ -331,4 +331,30 @@ class Note extends Model
     {
         return $this->hasMany(\App\Models\NoteNullReason::class);
     }
+
+    public function getObservacionesEnTextoAttribute(): string
+    {
+        $items = [];
+
+        // Tabla
+        foreach ($this->observations()->orderBy('created_at')->get() as $ob) {
+            $t = trim((string) ($ob->observation ?? ''));
+            if ($t !== '')
+                $items[] = $t;
+        }
+
+        // JSON legacy
+        $legacy = $this->getAttribute('observations');
+        if (is_array($legacy)) {
+            foreach ($legacy as $row) {
+                $t = is_array($row) ? ($row['observation'] ?? null) : $row;
+                $t = trim((string) $t);
+                if ($t !== '')
+                    $items[] = $t;
+            }
+        }
+
+        return count($items) ? '• ' . implode("\n• ", $items) : '';
+    }
+
 }

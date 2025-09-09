@@ -527,6 +527,7 @@ class NoteResource extends Resource
                                 'user',
                                 'user',
                                 'comercial',
+                                'observations.author',
                             ])
                             ->orderBy('nro_nota')
                             ->get();
