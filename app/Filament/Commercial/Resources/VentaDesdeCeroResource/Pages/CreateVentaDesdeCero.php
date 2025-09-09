@@ -84,7 +84,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
-                'fecha_venta' => \Carbon\Carbon::parse($data['manual_created_at'], 'Europe/Madrid')->utc() ?? null,
+                'fecha_venta' => \Carbon\Carbon::parse($data['manual_created_at'], 'Europe/Madrid')->utc() ?? now(),
                 'importe_comercial' => $data['importe_total'],
                 'importe_repartidor' => 0,
                 'importe_total' => $data['importe_total'] ?? 0,
