@@ -21,6 +21,7 @@ use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Filament\Repartidor\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
+use App\Filament\Widgets\RepartidorStats;
 
 class RepartidorPanelProvider extends PanelProvider
 {
@@ -48,6 +49,7 @@ class RepartidorPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Repartidor/Widgets'), for: 'App\\Filament\\Repartidor\\Widgets')
             ->widgets([
+                RepartidorStats::class,
                 ActiveWorkSessionWidget::class,
             ])
             ->middleware([
