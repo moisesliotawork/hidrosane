@@ -5,6 +5,7 @@ namespace App\Filament\HeadOfRoom\Resources;
 use App\Filament\HeadOfRoom\Resources\TeleoperadoraResource\Pages;
 use App\Filament\HeadOfRoom\Resources\TeleoperadoraResource\RelationManagers;
 use App\Models\User;
+use App\Models\Note;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -20,7 +21,6 @@ use Illuminate\Support\Facades\DB;
 use Filament\Tables\Filters\Filter;
 use Filament\Forms\Components\Select;
 
-
 class TeleoperadoraResource extends Resource
 {
     protected static ?string $model = User::class;
@@ -32,34 +32,23 @@ class TeleoperadoraResource extends Resource
 
     public static function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                //
-            ]);
+        return $form->schema([
+            //
+        ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                // Lee el filtro, soportando claves viejas y nuevas
+                // Lee el filtro (compatible con claves viejas y nuevas)
                 $filters = request()->input('tableFilters', []);
                 $choice =
-                    data_get($filters, 'periodo.period') // filtro nuevo (Filter::make('periodo')->form(Select 'period'))
-                    ?? data_get($filters, 'period.value') // filtro viejo (Filter::make('period')->form(Select 'value'))
+                    data_get($filters, 'periodo.period') // filtro nuevo
+                    ?? data_get($filters, 'period.value') // filtro viejo
                     ?? 'prev';
 
-                // Desde siempre (sin fechas)
-                if ($choice === 'all') {
-                    return $query->withCount([
-                        'notes as confirmadas_count' => fn($q) =>
-                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
-                        'notes as vendidas_count' => fn($q) =>
-                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
-                    ]);
-                }
-
-                // Mes actual / anterior / hace dos meses
+                // Calcula mes objetivo (this/prev/two). Para "all" no habrá filtro de fecha.
                 $offset = match ($choice) {
                     'this' => 0,
                     'prev' => 1,
@@ -67,19 +56,39 @@ class TeleoperadoraResource extends Resource
                     default => 0,
                 };
 
-                // Normaliza a UTC y usa límites de día completos
-                $tz = config('app.timezone', 'UTC'); // si tu app está en Europe/Madrid, cámbialo en config/app.php
-                $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
-                $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
+                // Fechas (solo día, sin horas) para usar con DATE(created_at)
+                $startDate = now()->subMonths($offset)->startOfMonth()->toDateString();
+                $endDate = now()->subMonths($offset)->endOfMonth()->toDateString();
 
-                return $query->withCount([
-                    'notes as confirmadas_count' => fn($q) =>
-                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
-                            ->whereBetween('created_at', [$start, $end]), // campo de la relación notes
-                    'notes as vendidas_count' => fn($q) =>
-                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
-                            ->whereBetween('created_at', [$start, $end]),
+                // Subselects que NO dependen de la relación definida en el modelo:
+                // Se comparan columnas directamente: notes.user_id = users.id
+                // Para que coincida con tu SQL:
+                //   SELECT COUNT(*) FROM notes
+                //   WHERE user_id = :id AND estado_terminal = 'venta'
+                //     AND DATE(created_at) BETWEEN :start AND :end
+                $query->addSelect([
+                    'confirmadas_count' => Note::query()
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('notes.user_id', 'users.id')
+                        ->when(
+                            $choice !== 'all',
+                            fn($q) =>
+                            $q->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])
+                        )
+                        ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+
+                    'vendidas_count' => Note::query()
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('notes.user_id', 'users.id')
+                        ->when(
+                            $choice !== 'all',
+                            fn($q) =>
+                            $q->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])
+                        )
+                        ->where('estado_terminal', EstadoTerminal::VENTA->value),
                 ]);
+
+                return $query;
             })
             ->columns([
                 TextColumn::make('empleado_id')
@@ -129,7 +138,6 @@ class TeleoperadoraResource extends Resource
                     ),
             ])
             ->filters([
-                // Filtro solo UI (NO mete WHERE). Cambia 'period' si quieres otro nombre interno.
                 Filter::make('periodo')
                     ->label('Periodo')
                     ->form([
@@ -174,7 +182,7 @@ class TeleoperadoraResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return \App\Models\User::query()
+        return User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
             ->distinct('users.id');
