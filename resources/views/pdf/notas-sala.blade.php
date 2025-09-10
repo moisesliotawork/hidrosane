@@ -419,7 +419,7 @@
                         ? $note->estado_terminal === \App\Enums\EstadoTerminal::SALA
                         : (string) $note->estado_terminal === \App\Enums\EstadoTerminal::SALA->value)
                 )
-                <div class="section-title">Observaciones de Sala</div>
+                <div class="section-title">Observaciones de Oficina</div>
                 <table class="subgrid">
                     <thead>
                         <tr>
@@ -431,7 +431,7 @@
                     <tbody>
                         @if(empty($salaRows))
                             <tr>
-                                <td class="empty" colspan="3">No existen observaciones de sala.</td>
+                                <td class="empty" colspan="3">No existen observaciones de oficina.</td>
                             </tr>
                         @else
                             @foreach($salaRows as $r)
