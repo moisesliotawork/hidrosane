@@ -36,6 +36,7 @@ use Filament\Forms\Components\{
     FileUpload
 };
 use Carbon\Carbon;
+use Illuminate\Support\HtmlString;
 
 class VentaResource extends Resource
 {
@@ -771,12 +772,23 @@ class VentaResource extends Resource
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
                 ->label(""),
 
+            // ↓ Aquí usamos HtmlString para que el <strong> se renderice
             Placeholder::make("{$field}_desc")
-                ->content(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de "
-                    . "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                )
+                ->content(new HtmlString(
+                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
+                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
+                ))
                 ->label(""),
+
+            // ↓ También en el aviso rojo
+            Placeholder::make("{$field}_required_notice")
+                ->label('')
+                ->content(new HtmlString(
+                    '<div class="text-red-500 text-l font-bold leading-6">
+            ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
+        </div>'
+                ))
+                ->visible(fn(Get $get) => $required && blank($get($field))),
 
             FileUpload::make($field)
                 ->label("")
@@ -785,13 +797,11 @@ class VentaResource extends Resource
                 ->preserveFilenames()
                 ->openable()
                 ->downloadable()
-                ->required($required) // ⬅️ aquí se vuelve requerido si $required=true
+                ->required($required)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->extraAttributes([
-                    'class' => 'border-2 border-dashed py-16',
-                ])
+                ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
                 ->columnSpanFull(),
         ])->columns(1);
     }

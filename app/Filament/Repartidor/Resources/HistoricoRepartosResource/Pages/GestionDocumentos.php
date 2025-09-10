@@ -10,6 +10,8 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\{Group, FileUpload, Placeholder, Section};
 use Filament\Notifications\Notification;
 use App\Models\{Reparto, Venta};
+use Illuminate\Support\HtmlString;
+use Filament\Forms\Get;
 
 class GestionDocumentos extends Page implements HasForms
 {
@@ -82,9 +84,23 @@ class GestionDocumentos extends Page implements HasForms
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
                 ->label(""),
 
+            // ↓ Aquí usamos HtmlString para que el <strong> se renderice
             Placeholder::make("{$field}_desc")
-                ->content("Sube o actualiza el archivo de <strong>{$label}</strong>.")
+                ->content(new HtmlString(
+                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
+                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
+                ))
                 ->label(""),
+
+            // ↓ También en el aviso rojo
+            Placeholder::make("{$field}_required_notice")
+                ->label('')
+                ->content(new HtmlString(
+                    '<div class="text-red-500 text-l font-bold leading-6">
+            ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
+        </div>'
+                ))
+                ->visible(fn(Get $get) => $required && blank($get($field))),
 
             FileUpload::make($field)
                 ->label("")

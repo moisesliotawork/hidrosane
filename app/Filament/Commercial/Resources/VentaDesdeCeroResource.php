@@ -27,6 +27,7 @@ use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
+use Illuminate\Support\HtmlString;
 
 class VentaDesdeCeroResource extends Resource
 {
@@ -486,14 +487,36 @@ class VentaDesdeCeroResource extends Resource
                 ->content(strtoupper($label))
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
                 ->label(""),
+
+            // ↓ Aquí usamos HtmlString para que el <strong> se renderice
             Placeholder::make("{$field}_desc")
-                ->content("Este espacio está diseñado para que puedas actualizar y modificar el archivo de <strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día.")
+                ->content(new HtmlString(
+                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
+                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
+                ))
                 ->label(""),
+
+            // ↓ También en el aviso rojo
+            Placeholder::make("{$field}_required_notice")
+                ->label('')
+                ->content(new HtmlString(
+                    '<div class="text-red-500 text-l font-bold leading-6">
+            ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
+        </div>'
+                ))
+                ->visible(fn(Get $get) => $required && blank($get($field))),
+
             FileUpload::make($field)
-                ->label("")->disk('public')->directory('ventas')
-                ->preserveFilenames()->openable()->downloadable()
+                ->label("")
+                ->disk('public')
+                ->directory('ventas')
+                ->preserveFilenames()
+                ->openable()
+                ->downloadable()
                 ->required($required)
-                ->validationMessages(['required' => "El documento {$label} es obligatorio."])
+                ->validationMessages([
+                    'required' => "El documento {$label} es obligatorio.",
+                ])
                 ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
                 ->columnSpanFull(),
         ])->columns(1);
