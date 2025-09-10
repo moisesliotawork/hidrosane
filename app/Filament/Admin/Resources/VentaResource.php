@@ -31,6 +31,7 @@ use App\Enums\Financiera;
 use Carbon\Carbon;
 use App\Enums\MesesEnum;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\TextInput\Mask;
 
 
 class VentaResource extends Resource
@@ -276,19 +277,44 @@ class VentaResource extends Resource
 
                         /* ---------- IBAN con formato ---------- */
                         TextInput::make('iban')
+                        ->columnSpanFull()
                             ->label('IBAN')
-                            ->columnSpanFull()
+                            // Visual: mayúsculas
+                            ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
+                            // Mostrar con espacios al cargar
                             ->formatStateUsing(
-                                fn($state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null
+                                fn($state) => $state
+                                ? trim(chunk_split(strtoupper(preg_replace('/\s+/', '', $state)), 4, ' '))
+                                : null
                             )
+                            // Guardar sin espacios y en mayúsculas
                             ->dehydrateStateUsing(
-                                fn($state) => $state ? str_replace(' ', '', strtoupper($state)) : null
+                                fn($state) => $state
+                                ? strtoupper(preg_replace('/\s+/', '', $state))
+                                : null
                             )
-                            ->reactive()
-                            ->afterStateUpdated(function (Set $set, ?string $state) {
-                                $clean = str_replace(' ', '', strtoupper($state ?? ''));
-                                $set('iban', implode(' ', str_split($clean, 4))); // ← clave + valor
-                            }),
+                            // 24 reales + 5 espacios = 29 visibles
+                            ->maxLength(29)
+                            // No reescribir mientras tecleas; solo al salir
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, ?string $state) {
+                                $raw = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+                                $raw = substr($raw, 0, 24);                       // fuerza máximo 24 (sin espacios)
+                                $set('iban', implode(' ', str_split($raw, 4)));   // agrupa 4 en 4
+                            })
+                            // Validación: exactamente 24 alfanuméricos (sin espacios)
+                            ->rule(function () {
+                                return function (string $attribute, $value, $fail) {
+                                    $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
+                                    if (strlen($raw) !== 24) {
+                                        $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
+                                    }
+                                    if (!preg_match('/^[A-Z0-9]{24}$/', $raw)) {
+                                        $fail('El IBAN solo puede contener letras y números.');
+                                    }
+                                };
+                            })
+                            ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
 
 
                         Select::make('ingresos_rango')->label('Ingresos netos mensuales')
