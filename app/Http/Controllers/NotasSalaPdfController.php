@@ -29,7 +29,7 @@ class NotasSalaPdfController extends Controller
 
         return response()->streamDownload(
             fn () => print($pdf->output()),
-            'notas-sala-' . now()->format('Ymd-His') . '.pdf'
+            'notas-oficina-' . now()->format('Ymd-His') . '.pdf'
         );
     }
 }

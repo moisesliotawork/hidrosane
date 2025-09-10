@@ -548,7 +548,7 @@ class NoteResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('pdfSalaSeleccionadas')
-                    ->label('PDF (Sala) seleccionadas')
+                    ->label('PDF (Oficina) seleccionadas')
                     ->icon('heroicon-o-printer')
                     ->color('pink')
                     ->requiresConfirmation()
@@ -568,7 +568,7 @@ class NoteResource extends Resource
                                 'user',
                                 'comercial',
                                 'observations.author',
-                                'salaObservations.author',
+                                'observacionesSala.author',
                             ])
                             ->orderBy('nro_nota')
                             ->get();
@@ -581,7 +581,7 @@ class NoteResource extends Resource
                         $pdf = Pdf::loadView('pdf.notas-sala', ['notes' => $notes])
                             ->setPaper('a4');
 
-                        $filename = 'sala-' . now()->format('Ymd-His') . '.pdf';
+                        $filename = 'notas-oficina-' . now()->format('Ymd-His') . '.pdf';
 
                         return response()->streamDownload(
                             fn() => print ($pdf->output()),

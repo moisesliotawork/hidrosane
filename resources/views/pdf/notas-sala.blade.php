@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Notas en SALA</title>
+    <title>Notas en Oficina</title>
     <style>
         @page {
             margin: 24mm 18mm;
