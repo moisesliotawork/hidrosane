@@ -59,7 +59,7 @@ class PickingDiarioPage extends Page implements Tables\Contracts\HasTable
                         DatePicker::make('fecha')
                             ->label('Fecha')
                             ->default(today()->toDateString()) // 'YYYY-MM-DD'
-                            ->required()
+                            //->required()
                             ->closeOnDateSelection()
                             ->live(), // refresca tabla al cambiar
                     ])
@@ -81,6 +81,17 @@ class PickingDiarioPage extends Page implements Tables\Contracts\HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('previewPdf')
+                ->label('Previsualizar PDF')
+                ->icon('heroicon-o-eye')
+                ->color('success')
+                ->url(function () {
+                    $state = $this->getTableFiltersForm()?->getState() ?? [];
+                    $date = $this->normalizeDate($state['fecha'] ?? null);
+                    return route('picking-diario.pdf', ['date' => $date]);
+                })
+                ->openUrlInNewTab(),
+
             Actions\Action::make('exportPdf')
                 ->label('Exportar PDF')
                 ->icon('heroicon-o-document-arrow-down')
