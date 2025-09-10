@@ -304,6 +304,11 @@
     $yB2_DNI_2 = 210.3;
     $xB2_DNI_2 = 44.8;          // DNI (abajo)
 
+    // Nº contrato (ALBARÁN-PAG-2) — con overrides por query
+    $yB2_Contrato = (float) request('yb2_contrato', 84.5); // mm (default)
+    $xB2_Contrato = (float) request('xb2_contrato', 150.3); // mm (default)
+
+
 
     /* ===========================================
      *  PÁGINA – APERTURA / DESEMBALAJE
@@ -476,7 +481,7 @@
             @if($dirL1 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL1 }}mm; left:{{ $xA_DirL1 }}mm; width:{{ $wDirL1 }}mm;
-                                                                                                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                                                                        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL1 }}
                 </div>
             @endif
@@ -485,7 +490,7 @@
             @if($dirL2 !== '')
                 <div class="field"
                     style="top:{{ $yA_DirL2 }}mm; left:{{ $xA_DirL2 }}mm; width:{{ $wDirL2 }}mm;
-                                                                                                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
+                                                                                                        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">
                     {{ $dirL2 }}
                 </div>
             @endif
@@ -665,6 +670,11 @@
         <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-2.jpg')) }}" alt="Fondo P4">
 
         <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+
+            {{-- Nº de contrato administrativo --}}
+            <div class="field" style="top:{{ $yB2_Contrato }}mm; left:{{ $xB2_Contrato }}mm;">
+                {{ $venta->nro_contr_adm }}
+            </div>
 
             {{-- Nombre completo --}}
             <div class="field" style="top:{{ $yB2_Nombre }}mm; left:{{ $xB2_Nombre }}mm;">
