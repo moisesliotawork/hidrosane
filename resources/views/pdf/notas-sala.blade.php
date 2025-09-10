@@ -212,7 +212,7 @@
 
         <div class="sheet">
             <div class="header">
-                <div class="brand">HOJA DE SALA</div>
+                <div class="brand">ENVIADAS A OFICINA</div>
                 <div>
                     <span class="badge pink">SALA</span>
                     <span class="badge gray"># Nota: {{ $note->nro_nota }}</span>

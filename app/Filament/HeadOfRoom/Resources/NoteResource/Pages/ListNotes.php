@@ -23,7 +23,7 @@ class ListNotes extends ListRecords
             \Filament\Actions\CreateAction::make(),
 
             \Filament\Actions\Action::make('pdfSala')
-                ->label('Generar PDF (Oficina)')
+                ->label('Generar PDF (Sala)')
                 ->icon('heroicon-o-printer')
                 ->color('pink')
                 ->url(route('notas.sala.pdf'))     // ← abrir GET
