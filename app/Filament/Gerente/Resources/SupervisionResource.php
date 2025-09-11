@@ -5,6 +5,7 @@ namespace App\Filament\Gerente\Resources;
 use App\Filament\Gerente\Resources\SupervisionResource\Pages;
 use App\Filament\Gerente\Resources\SupervisionResource\RelationManagers;
 use App\Models\Supervision;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -26,7 +27,53 @@ class SupervisionResource extends Resource
     {
         return $form
             ->schema([
-                //
+                // SUPERVISOR (commercial / team_leader), label: empleado_id - name
+                Forms\Components\Select::make('supervisor_id')
+                    ->label('Supervisor')
+                    ->options(
+                        fn() => User::query()
+                            ->whereHas('roles', fn($q) => $q->whereIn('name', ['commercial', 'team_leader']))
+                            ->orderBy('empleado_id')
+                            ->get()
+                            ->mapWithKeys(fn(User $u) => [
+                                $u->id => "{$u->empleado_id} - {$u->name}",
+                            ])
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->required(),
+
+                // SUPERVISADO (commercial / team_leader), label: empleado_id - name
+                Forms\Components\Select::make('supervisado_id')
+                    ->label('Supervisado')
+                    ->options(
+                        fn() => User::query()
+                            ->whereHas('roles', fn($q) => $q->whereIn('name', ['commercial', 'team_leader']))
+                            ->orderBy('empleado_id')
+                            ->get()
+                            ->mapWithKeys(fn(User $u) => [
+                                $u->id => "{$u->empleado_id} - {$u->name}",
+                            ])
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->rule('different:supervisor_id'),
+
+                Forms\Components\DatePicker::make('start_date')
+                    ->label('Fecha de inicio')
+                    ->native(false)
+                    ->required(),
+
+                Forms\Components\DatePicker::make('end_date')
+                    ->label('Fecha de fin')
+                    ->native(false)
+                    ->required(),
+
+                // author se setea en el backend; no se muestra
+                Forms\Components\Hidden::make('author_id')
+                    ->dehydrated()
+                    ->default(fn() => auth()->id()),
             ]);
     }
 
