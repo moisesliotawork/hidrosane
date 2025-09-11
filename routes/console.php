@@ -13,3 +13,9 @@ Schedule::command('picking:backfill')
     ->withoutOverlapping()      // evita ejecuciones solapadas
     ->onOneServer()             // si usas varios servers
     ->appendOutputTo(storage_path('logs/picking.log')); // (opcional) log
+
+Schedule::command('supervisiones:purge-expired')
+    ->dailyAt('00:00')                // todos los días a medianoche
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/supervisiones_purge.log'));
