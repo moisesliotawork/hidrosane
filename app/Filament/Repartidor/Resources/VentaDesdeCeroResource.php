@@ -130,16 +130,22 @@ class VentaDesdeCeroResource extends Resource
 
             /* ==================== NOTA ==================== */
             Section::make('Datos de la nota')->schema([
-                Select::make('nota_comercial_id')->label('Comercial asignado a la nota')
+                Select::make('nota_comercial_id')
+                    ->label('Comercial asignado a la nota')
                     ->options(
-                        User::role('commercial')
+                        User::role(['commercial', 'team_leader'])   // 👈 ahora incluye ambos roles
                             ->select('id', 'empleado_id', 'name', 'last_name')
-                            ->orderBy('name')->get()
-                            ->mapWithKeys(fn($u) => [$u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"])
+                            ->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(fn($u) => [
+                                $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"
+                            ])
                             ->all()
                     )
-                    ->searchable()->native(false)
-                    ->default(fn() => auth()->id())->required(),
+                    ->searchable()
+                    ->native(false)
+                    ->default(fn() => auth()->id())
+                    ->required(),
 
                 Select::make('nota_status')->label('Estado de la nota')
                     ->options(NoteStatus::options())
