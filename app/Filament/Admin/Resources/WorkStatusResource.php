@@ -44,13 +44,18 @@ class WorkStatusResource extends Resource
                 // Estado con badge
                 TextColumn::make('estado')
                     ->label('Estado de fichaje')
-                    ->getStateUsing(fn(WorkSession $r) => $r->isActive() ? 'TRABAJANDO' : 'NO TRABAJANDO')
+                    ->state(fn(WorkSession $r) => $r->end_time ? 'NO TRABAJANDO' : 'TRABAJANDO')
                     ->badge()
                     ->color(fn(string $state) => $state === 'TRABAJANDO' ? 'success' : 'danger')
-                    ->sortable(query: function ($query, $direction) {
-                        // ordenar por activo primero
-                        return $query->orderByRaw('CASE WHEN end_time IS NULL THEN 0 ELSE 1 END ' . ($direction === 'asc' ? 'asc' : 'desc'));
-                    }),
+                    ->sortable(
+                        query: fn($q, $dir) =>
+                        $q->orderByRaw('CASE WHEN end_time IS NULL THEN 0 ELSE 1 END ' . ($dir === 'asc' ? 'asc' : 'desc'))
+                    ),
+
+                TextColumn::make('end_time')
+                    ->label('Fin')
+                    ->dateTime('d/m/Y H:i:s')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 // Último fichaje (si está activa, es el start_time; si no, el end_time)
                 TextColumn::make('ultimo_fichaje')

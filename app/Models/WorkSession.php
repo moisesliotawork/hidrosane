@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -69,13 +70,19 @@ class WorkSession extends Model
     {
         return is_null($this->end_time);
     }
-    public function scopeLatestPerUser($query)
+
+    public function scopeLatestPerUser($q)
     {
-        return $query->whereIn('id', function ($q) {
-            $q->from('work_sessions')
-                ->selectRaw('MAX(id)')
-                ->groupBy('user_id');
-        });
+        $sub = DB::table('work_sessions')
+            ->selectRaw('user_id, MAX(start_time) AS max_start')
+            ->groupBy('user_id');
+
+        return $q->joinSub($sub, 'last', function ($join) {
+            $join->on('work_sessions.user_id', '=', 'last.user_id')
+                ->on('work_sessions.start_time', '=', 'last.max_start');
+        })
+            ->select('work_sessions.*'); // importante para no perder columnas
     }
+
 
 }
