@@ -7,6 +7,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Facades\Filament;
 
 class WorkStatusResource extends Resource
 {
@@ -18,10 +19,12 @@ class WorkStatusResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $panelId = Filament::getCurrentPanel()->getId();
+
         return $table
             ->query(
                 WorkSession::query()
-                    ->latestPerUser()
+                    ->latestPerUser($panelId)
                     ->with('user')
             )
             ->defaultSort('start_time', 'desc')
@@ -46,23 +49,24 @@ class WorkStatusResource extends Resource
                     ->label('Estado de fichaje')
                     ->state(fn(WorkSession $r) => $r->end_time ? 'NO TRABAJANDO' : 'TRABAJANDO')
                     ->badge()
-                    ->color(fn(string $state) => $state === 'TRABAJANDO' ? 'success' : 'danger')
+                    ->color(fn(string $s) => $s === 'TRABAJANDO' ? 'success' : 'danger')
                     ->sortable(
                         query: fn($q, $dir) =>
                         $q->orderByRaw('CASE WHEN end_time IS NULL THEN 0 ELSE 1 END ' . ($dir === 'asc' ? 'asc' : 'desc'))
                     ),
+
+                TextColumn::make('ultimo_fichaje')
+                    ->label('Último fichaje')
+                    ->state(fn(WorkSession $r) => $r->end_time ?? $r->start_time)
+                    ->dateTime('d/m/Y H:i:s')
+                    ->sortable(),
 
                 TextColumn::make('end_time')
                     ->label('Fin')
                     ->dateTime('d/m/Y H:i:s')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // Último fichaje (si está activa, es el start_time; si no, el end_time)
-                TextColumn::make('ultimo_fichaje')
-                    ->label('Último fichaje')
-                    ->getStateUsing(fn(WorkSession $r) => $r->end_time ?? $r->start_time)
-                    ->dateTime('d/m/Y H:i:s')
-                    ->sortable(),
+
 
                 TextColumn::make('maps_link')
                     ->label('Lugar de fichaje')

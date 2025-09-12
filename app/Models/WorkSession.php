@@ -71,17 +71,26 @@ class WorkSession extends Model
         return is_null($this->end_time);
     }
 
-    public function scopeLatestPerUser($q)
+    public function scopeLatestPerUser($q, ?string $panelId = null)
     {
         $sub = DB::table('work_sessions')
-            ->selectRaw('user_id, MAX(start_time) AS max_start')
-            ->groupBy('user_id');
+            ->when($panelId, fn($qq) => $qq->where('panel_id', $panelId))
+            ->selectRaw(
+                $panelId
+                ? 'user_id, panel_id, MAX(start_time) AS max_start'
+                : 'user_id, MAX(start_time) AS max_start'
+            )
+            ->groupBy($panelId ? ['user_id', 'panel_id'] : ['user_id']);
 
-        return $q->joinSub($sub, 'last', function ($join) {
-            $join->on('work_sessions.user_id', '=', 'last.user_id')
-                ->on('work_sessions.start_time', '=', 'last.max_start');
+        return $q->joinSub($sub, 'last', function ($join) use ($panelId) {
+            $join->on('work_sessions.user_id', '=', 'last.user_id');
+            if ($panelId) {
+                $join->on('work_sessions.panel_id', '=', 'last.panel_id');
+            }
+            $join->on('work_sessions.start_time', '=', 'last.max_start');
         })
-            ->select('work_sessions.*'); // importante para no perder columnas
+            ->when($panelId, fn($qq) => $qq->where('work_sessions.panel_id', $panelId))
+            ->select('work_sessions.*');
     }
 
 
