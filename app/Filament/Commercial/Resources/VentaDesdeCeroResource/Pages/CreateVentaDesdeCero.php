@@ -80,7 +80,9 @@ class CreateVentaDesdeCero extends CreateRecord
             // 5) Venta
             $manual = $data['manual_created_at'] ?? null;
             $fechaVenta = $manual
-                ? \Carbon\Carbon::parse($manual, 'Europe/Madrid')->utc()
+                ? \Carbon\Carbon::parse($manual, config('app.timezone', 'Europe/Madrid'))
+                    ->setTime(12, 0) // mediodía local
+                    ->utc()
                 : now();
 
             /** @var Venta $venta */
@@ -121,10 +123,14 @@ class CreateVentaDesdeCero extends CreateRecord
             // Si el usuario especial 911 indicó una fecha manual, forzamos timestamps:
             $esUsuarioEspecial = auth()->user()?->empleado_id === '911';
             if ($esUsuarioEspecial && $manual) {
-                $ts = \Carbon\Carbon::parse($manual, 'Europe/Madrid')->utc();
+                $ts = \Carbon\Carbon::parse($manual, config('app.timezone', 'Europe/Madrid'))
+                    ->setTime(12, 0)
+                    ->utc();
+
                 $venta->timestamps = false;
                 $venta->created_at = $ts;
                 $venta->updated_at = $ts;
+                $venta->save();
             }
             $venta->save();
 

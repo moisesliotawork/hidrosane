@@ -20,7 +20,7 @@ class PurgeExpiredSupervisiones extends Command
         $total = 0;
 
         // Borrado en chunks para no cargar mucha memoria
-        Supervision::whereDate('end_date', $date)
+        Supervision::whereDate('end_date', '<=', $date)
             ->chunkById(1000, function ($chunk) use (&$total) {
                 $ids = $chunk->pluck('id')->all();
                 $deleted = Supervision::whereIn('id', $ids)->delete();
