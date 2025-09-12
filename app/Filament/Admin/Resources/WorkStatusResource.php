@@ -22,7 +22,7 @@ class WorkStatusResource extends Resource
             ->query(
                 WorkSession::query()
                     ->latestPerUser()
-                    ->with(['user' => fn($q) => $q->select('id', 'name', 'last_name')]) // ajusta los campos que tengas
+                    ->with('user')
             )
             ->defaultSort('start_time', 'desc')
             ->columns([
