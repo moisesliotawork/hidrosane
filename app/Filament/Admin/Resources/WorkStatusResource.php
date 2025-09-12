@@ -49,7 +49,7 @@ class WorkStatusResource extends Resource
                     ->label('Estado de fichaje')
                     ->state(fn(WorkSession $r) => $r->end_time ? 'NO TRABAJANDO' : 'TRABAJANDO')
                     ->badge()
-                    ->color(fn(string $s) => $s === 'TRABAJANDO' ? 'success' : 'danger')
+                    ->color(fn(WorkSession $r) => $r->end_time ? 'danger' : 'success')
                     ->sortable(
                         query: fn($q, $dir) =>
                         $q->orderByRaw('CASE WHEN end_time IS NULL THEN 0 ELSE 1 END ' . ($dir === 'asc' ? 'asc' : 'desc'))
