@@ -27,7 +27,7 @@ class WorkStatusResource extends Resource
             ->defaultSort('start_time', 'desc')
             ->columns([
                 // Código / ID de empleado (ajústalo a tu campo)
-                TextColumn::make('user.id')
+                TextColumn::make('user.empleado_id')
                     ->label('Cod.')
                     ->sortable()
                     ->toggleable(),
