@@ -99,14 +99,14 @@ class VentaResource extends Resource
 
 
                                     // ➋ Contacto
-                                    TextInput::make('phone')
-                                        ->label('Teléfono')
-                                        ->tel()
-                                        ->required(),
+                                    //TextInput::make('phone')
+                                    //    ->label('Teléfono')
+                                    //    ->tel()
+                                    //    ->required(),
 
-                                    TextInput::make('secondary_phone')
-                                        ->label('Teléfono 2')
-                                        ->tel(),
+                                    //TextInput::make('secondary_phone')
+                                    //    ->label('Teléfono 2')
+                                    //    ->tel(),
 
                                     TextInput::make('email')
                                         ->label('Email')

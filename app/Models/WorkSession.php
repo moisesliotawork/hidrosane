@@ -69,4 +69,13 @@ class WorkSession extends Model
     {
         return is_null($this->end_time);
     }
+    public function scopeLatestPerUser($query)
+    {
+        return $query->whereIn('id', function ($q) {
+            $q->from('work_sessions')
+                ->selectRaw('MAX(id)')
+                ->groupBy('user_id');
+        });
+    }
+
 }
