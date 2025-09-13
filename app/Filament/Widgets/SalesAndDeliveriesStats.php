@@ -7,10 +7,29 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
 
 class SalesAndDeliveriesStats extends BaseWidget
 {
     protected static ?string $pollingInterval = '60s';
+
+    protected function ventasUrl(): ?string
+    {
+        $user = Auth::user();
+        if (!$user)
+            return null;
+
+        // Ajusta los FQCN si tus resources están en otro namespace
+        if ($user->hasRole('admin')) {
+            return \App\Filament\Admin\Resources\VentaResource::getUrl(); // index del resource en Admin
+        }
+
+        if ($user->hasRole('gerente')) {
+            return \App\Filament\Gerente\Resources\VentaResource::getUrl(); // index del resource en Gerente
+        }
+
+        return null; // sin enlace para otros roles
+    }
 
     protected function getStats(): array
     {
@@ -86,17 +105,21 @@ class SalesAndDeliveriesStats extends BaseWidget
             fn() => Venta::whereBetween('fecha_entrega', [$pwStart, $pwEnd])->count()
         );
 
+        $ventasUrl = $this->ventasUrl();
+
         return [
             // === DÍA ===
             Stat::make('VENTAS AYER', number_format($ventasAyer))
                 ->description('Total Ventas AYER')
                 ->descriptionIcon('heroicon-o-calendar-days')
-                ->color('success'),
+                ->color('success')
+                ->url($ventasUrl),
 
             Stat::make('VENTAS HOY', number_format($ventasHoy))
                 ->description('Total Ventas HOY')
                 ->descriptionIcon('heroicon-o-sparkles')
-                ->color('success'),
+                ->color('success')
+                ->url($ventasUrl),
 
             Stat::make('VENTAS SEMANA ANTERIOR', number_format($ventasSemanaAnterior))
                 ->description('Total Ventas SEMANA ANTERIOR')
