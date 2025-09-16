@@ -13,7 +13,6 @@ enum HorarioNotas: string implements HasLabel
     case _11_13 = '11-13';
     case _12_14 = '12-14';
     case _13_1430 = '13-14:30';
-    case _14_16 = "14-16";
     case TM = 'TM';
     case _1530_17 = '15:30-17';
     case _16_18 = '16-18';
