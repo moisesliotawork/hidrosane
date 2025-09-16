@@ -63,23 +63,31 @@ class ActiveWorkSessionWidget extends Widget implements HasForms
                                 ->icon('heroicon-o-x-circle')
                                 ->visible(fn() => !empty($this->data))
                                 ->action(function () {
-                                    $activeSession = WorkSession::where('user_id', Auth::id())
-                                        ->active()
-                                        ->where('panel_id', \Filament\Facades\Filament::getCurrentPanel()->getId())
-                                        ->first();
+                                    $user = Auth::user();
 
-                                    if ($activeSession) {
-                                        $activeSession->update(['end_time' => now()]);
+                                    \Illuminate\Support\Facades\DB::transaction(function () use ($user) {
+                                        // Cerrar TODAS las sesiones activas del usuario en cualquier panel
+                                        $closed = \App\Models\WorkSession::where('user_id', $user->id)
+                                            ->whereNull('end_time')
+                                            ->update(['end_time' => now()]);
 
-                                        Notification::make()
-                                            ->title('Sesión finalizada')
-                                            ->success()
-                                            ->body('La sesión de trabajo ha sido cerrada correctamente')
-                                            ->send();
+                                        // Marcar al usuario como inactivo (sin importar en qué panel estaba)
+                                        \App\Models\User::whereKey($user->id)->update(['is_active' => false]);
+                                    });
 
-                                        $this->loadActiveSession();
-                                    }
+                                    // Refrescar estado del usuario y del widget
+                                    $user->refresh();
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Sesiones finalizadas')
+                                        ->success()
+                                        ->body('Se han cerrado todas tus sesiones activas y quedaste inactivo.')
+                                        ->send();
+
+                                    $this->loadActiveSession();
                                 })
+
+
                                 ->extraAttributes(['class' => 'w-full'])
                         ])
                             ->alignment('right') // Esto aplica al contenedor Actions

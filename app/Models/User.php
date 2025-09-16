@@ -12,6 +12,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property int $id
@@ -88,6 +89,7 @@ class User extends Authenticatable implements FilamentUser
         'direccion',
         'baja',
         'dni',
+        'is_active',
     ];
 
     /**
@@ -115,6 +117,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -187,11 +190,30 @@ class User extends Authenticatable implements FilamentUser
     {
         return "{$this->empleado_id} - {$this->name} {$this->last_name}";
     }
-    
+
     public function canSeeVipSources(): bool
     {
         return $this->hasRole('head_of_room') || $this->empleado_id === '020';
     }
 
+    public function workSessions(): HasMany
+    {
+        return $this->hasMany(\App\Models\WorkSession::class);
+    }
+
+    public function lastClosedWorkSession(): HasOne
+    {
+        return $this->hasOne(\App\Models\WorkSession::class)
+            ->whereNotNull('end_time')
+            ->latest('updated_at'); // la más reciente por updated_at
+    }
+
+    public function getLastClosedWorkSession()
+    {
+        return $this->workSessions()
+            ->whereNotNull('end_time')
+            ->orderByDesc('updated_at')
+            ->first();
+    }
 
 }

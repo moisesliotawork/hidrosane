@@ -1,10 +1,12 @@
 <?php
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Models\WorkSession;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Stevebauman\Location\Facades\Location;
 use Filament\Facades\Filament;
 
@@ -14,36 +16,47 @@ class StartWorkSession
     {
         if (Auth::check()) {
             $user = Auth::user();
-            $panelId = Filament::getCurrentPanel()?->getId();
 
-            $activeSession = WorkSession::where('user_id', $user->id)
+            // 👇 A veces en el primer hit Filament aún no resolvió el panel: evita nulls inconsistentes
+            $panelId = Filament::getCurrentPanel()?->getId() ?? 'admin'; // o el slug que prefieras por defecto
+
+            $activeSessionExists = WorkSession::where('user_id', $user->id)
                 ->where('panel_id', $panelId)
                 ->active()
                 ->exists();
 
-            if (!$activeSession) {
-                $ip = $request->ip();
-                $location = Location::get($ip);
+            if (!$activeSessionExists) {
+                DB::transaction(function () use ($request, $user, $panelId) {
+                    $ip = $request->ip();
 
-                // Coordenadas de Caracas, Venezuela por defecto para IPs locales
-                $defaultLocation = (object) [
-                    'latitude' => 10.4806,
-                    'longitude' => -66.9036,
-                ];
+                    // 👇 Aísla geolocalización para que NUNCA tumbe la transacción
+                    try {
+                        $location = Location::get($ip);
+                    } catch (\Throwable $e) {
+                        $location = false;
+                    }
 
-                $location = ($location === false || in_array($ip, ['127.0.0.1', '::1']))
-                    ? $defaultLocation
-                    : $location;
+                    $defaultLocation = (object) ['latitude' => 10.4806, 'longitude' => -66.9036];
+                    $loc = ($location === false || in_array($ip, ['127.0.0.1', '::1']))
+                        ? $defaultLocation
+                        : $location;
 
-                WorkSession::create([
-                    'user_id' => $user->id,
-                    'panel_id' => $panelId, // Guardamos el panel actual
-                    'start_time' => now(),
-                    'latitude' => $location->latitude,
-                    'longitude' => $location->longitude,
-                    'ip_address' => $ip,
-                    'device_info' => $request->userAgent(),
-                ]);
+                    WorkSession::create([
+                        'user_id' => $user->id,
+                        'panel_id' => $panelId,
+                        'start_time' => now(),
+                        'latitude' => $loc->latitude,
+                        'longitude' => $loc->longitude,
+                        'ip_address' => $ip,
+                        'device_info' => $request->userAgent(),
+                    ]);
+
+                    // 👇 Evita issues de modelo cacheado; actualiza directo en DB
+                    User::whereKey($user->id)->update(['is_active' => true]);
+
+                    // 👇 Si luego lo necesitas en memoria:
+                    $user->refresh();
+                });
             }
         }
 

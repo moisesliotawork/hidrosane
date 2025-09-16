@@ -169,15 +169,15 @@ class EditNote extends EditRecord
                 ->icon('heroicon-o-building-office-2')
                 ->form([
                     Textarea::make('observation')
-                        ->label('Observación de sala')
-                        ->placeholder('Escribe la observación para sala…')
+                        ->label('Observación de Oficina')
+                        ->placeholder('Escribe la observación para enviar a oficina...')
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
                 ])
                 ->requiresConfirmation()
-                ->modalHeading('Marcar como SALA')
-                ->modalDescription('Confirma que deseas marcar la nota como SALA y guardar la observación.')
+                ->modalHeading('Marcar como OFICINA')
+                ->modalDescription('Confirma que deseas marcar la nota como OFICINA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
@@ -194,7 +194,7 @@ class EditNote extends EditRecord
                     });
 
                     Notification::make()
-                        ->title('Nota marcada como SALA')
+                        ->title('Nota marcada como OFICINA')
                         ->body('Se guardó la observación y se actualizó el estado.')
                         ->success()
                         ->send();

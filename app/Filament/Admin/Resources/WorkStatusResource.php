@@ -24,50 +24,47 @@ class WorkStatusResource extends Resource
         return $table
             ->query(
                 WorkSession::query()
-                    ->latestPerUser($panelId)
-                    ->with('user')
+                    ->latestPerUser($panelId)              // 1 fila por usuario (último start_time en el panel)
+                    ->with(['user', 'user.lastClosedWorkSession']) // eager load para evitar N+1
             )
             ->defaultSort('start_time', 'desc')
             ->columns([
-                // Código / ID de empleado (ajústalo a tu campo)
+                // Código / ID de empleado
                 TextColumn::make('user.empleado_id')
                     ->label('Cod.')
                     ->sortable()
                     ->toggleable(),
 
+                // Nombre y Apellido
                 TextColumn::make('user.name')
                     ->label('Empleado')
                     ->formatStateUsing(
-                        fn($record) =>
-                        trim(($record->user->name ?? '') . ' ' . ($record->user->last_name ?? ''))
+                        fn($record) => trim(($record->user->name ?? '') . ' ' . ($record->user->last_name ?? ''))
                     )
                     ->searchable()
                     ->sortable(),
 
-                // Estado con badge
+                // Estado leyendo desde user.is_active
                 TextColumn::make('estado')
                     ->label('Estado de fichaje')
-                    ->state(fn(WorkSession $r) => $r->end_time ? 'NO TRABAJANDO' : 'TRABAJANDO')
+                    ->state(fn(WorkSession $r) => ($r->user?->is_active ?? false) ? 'TRABAJANDO' : 'NO TRABAJANDO')
                     ->badge()
-                    ->color(fn(WorkSession $r) => $r->end_time ? 'danger' : 'success')
+                    ->color(fn(WorkSession $r) => ($r->user?->is_active ?? false) ? 'success' : 'danger')
                     ->sortable(
                         query: fn($q, $dir) =>
-                        $q->orderByRaw('CASE WHEN end_time IS NULL THEN 0 ELSE 1 END ' . ($dir === 'asc' ? 'asc' : 'desc'))
+                        // Ordena TRABAJANDO (true) arriba cuando desc
+                        $q->orderByRaw('CASE WHEN EXISTS (SELECT 1 FROM users u WHERE u.id = work_sessions.user_id AND u.is_active = 1) THEN 0 ELSE 1 END ' . ($dir === 'asc' ? 'asc' : 'desc'))
                     ),
 
-                TextColumn::make('ultimo_fichaje')
-                    ->label('Último fichaje')
-                    ->state(fn(WorkSession $r) => $r->end_time ?? $r->start_time)
+                // Fin (end_time) de la última sesión cerrada (no de la fila).
+                TextColumn::make('fin_ultima_sesion')
+                    ->label('Fin (última sesión)')
+                    ->state(fn(WorkSession $r) => $r->user?->lastClosedWorkSession?->end_time)
                     ->dateTime('d/m/Y H:i:s')
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
 
-                TextColumn::make('end_time')
-                    ->label('Fin')
-                    ->dateTime('d/m/Y H:i:s')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-
-
+                // Ubicación del fichaje de ESTA fila (la sesión "última por panel" del join latestPerUser)
                 TextColumn::make('maps_link')
                     ->label('Lugar de fichaje')
                     ->getStateUsing(function (WorkSession $r) {
@@ -79,8 +76,7 @@ class WorkStatusResource extends Resource
                             : null;
                     }, shouldOpenInNewTab: true)
                     ->badge()
-                    ->color(fn(WorkSession $r) => ($r->latitude && $r->longitude) ? 'info' : 'gray')
-
+                    ->color(fn(WorkSession $r) => ($r->latitude && $r->longitude) ? 'info' : 'gray'),
             ])
             ->filters([
                 //

@@ -5,7 +5,7 @@ use App\Http\Controllers\ContratoPreviewController;
 use App\Http\Controllers\NotasSalaPdfController;
 use App\Models\PickingDiario;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Carbon;
+use App\Http\Controllers\Auth\LogoutController;
 
 Route::get('/', function () {
     return redirect('/admin');
@@ -42,4 +42,11 @@ Route::get('/picking-diario/pdf/{date}', function (string $date) {
     return $pdf->stream($filename);
 })->name('picking-diario.pdf');
 
+// Logout global de Laravel
+Route::post('/logout', LogoutController::class)->name('logout');
 
+// Logout de todos los paneles Filament (apuntan al mismo controlador)
+foreach (['admin', 'comercial', 'teleoperador', 'jefe-sala', 'gerente', 'repartidor', 'superAdmin'] as $panel) {
+    Route::post("/{$panel}/logout", LogoutController::class)
+        ->name("filament.{$panel}.auth.logout");
+}
