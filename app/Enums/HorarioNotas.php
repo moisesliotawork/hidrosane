@@ -9,10 +9,11 @@ enum HorarioNotas: string implements HasLabel
 {
 
     case ILOCALIZABLE = 'ilocalizable';
-    case _11_13 = '11-13';
     case _10_12 = '10-12';
+    case _11_13 = '11-13';
     case _12_14 = '12-14';
     case _13_1430 = '13-14:30';
+    case _14_16 = "14-16";
     case TM = 'TM';
     case _1530_17 = '15:30-17';
     case _16_18 = '16-18';
@@ -26,8 +27,8 @@ enum HorarioNotas: string implements HasLabel
         return match ($this) {
 
             self::ILOCALIZABLE => 'ILOCALIZABLE',
-            self::_11_13 => '11-13',
             self::_10_12 => '10-12',
+            self::_11_13 => '11-13',
             self::_12_14 => '12-14',
             self::_13_1430 => '13-14:30',
             self::TM => 'TM',
@@ -49,3 +50,6 @@ enum HorarioNotas: string implements HasLabel
         );
     }
 }
+
+// []
+// ["ILOCALIZABLE", 11-13, 10-12, ]

@@ -204,7 +204,7 @@ class NoteResource extends Resource
                                 $get('status') !== NoteStatus::CONTACTED->value),
 
                         Forms\Components\Select::make('visit_schedule')
-                            ->options(HorarioNotas::options())
+                            ->options(HorarioNotas::options()) //Llama a la funcion options del enum HorarioNotas
                             ->label('Horario de visita')
                             ->default(HorarioNotas::TD->value) // Default TD
                             ->native(false)
