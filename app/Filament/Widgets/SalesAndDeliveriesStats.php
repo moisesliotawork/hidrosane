@@ -24,7 +24,7 @@ class SalesAndDeliveriesStats extends BaseWidget
             return \App\Filament\Admin\Resources\VentaResource::getUrl(); // index del resource en Admin
         }
 
-        if ($user->hasRole('gerente')) {
+        if ($user->hasRole('gerente_general')) {
             return \App\Filament\Gerente\Resources\VentaResource::getUrl(); // index del resource en Gerente
         }
 
