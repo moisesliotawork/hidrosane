@@ -20,3 +20,10 @@ Schedule::command('supervisiones:purge-expired')
     ->withoutOverlapping()
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/supervisiones_purge.log'));
+
+Schedule::command('notes:sala-overdue')
+    ->dailyAt('23:30')
+    ->timezone('Europe/Madrid') // ajusta si prefieres otra zona
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/notes_sala_overdue.log'));
