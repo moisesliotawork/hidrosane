@@ -299,6 +299,20 @@ class Venta extends Model
 
     }
 
+    protected static function booted()
+    {
+        static::saving(function (Venta $venta) {
+            // Asegura importes y derivados antes de cualquier save()
+            $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
+            $venta->calcularComisiones(false);             // ← sin persistir
+            $venta->recomputaVTAsSiCorresponde();          // opcional (ver debajo)
+            $venta->recalcularTotalesDerivados();          // fija total_final y cuota_final
+            // Si quieres que el estado de entrega se mantenga siempre al día:
+            // $venta->refreshEstadoEntrega();  // toca modelo relacionado; es seguro
+        });
+    }
+
+
     public function getEstadoVentaLabelAttribute(): string
     {
         return $this->estado_venta?->label() ?? '';
