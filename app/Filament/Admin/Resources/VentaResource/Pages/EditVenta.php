@@ -103,24 +103,25 @@ class EditVenta extends EditRecord
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
     }
-
-
-
-
+    
     protected function afterSave(): void
     {
         $venta = $this->record;
 
-        // 🔁 Recalcula importes según lo que quedó en venta_ofertas y sus productos
-        $venta->recomputarImportesDesdeOfertas();
+        // Por si algo externo cambió el repeater, aunque el hook saved ya lo hace:
+        $venta->recomputarImportesDesdeOfertas(false)
+            ->calcularComisiones(false)
+            ->recomputarVtasRepYEsp(false)
+            ->recalcularVtasAcumuladas(false)
+            ->recalcularTotalesDerivados();
+
+        $venta->saveQuietly();
 
         if (!Reparto::where('venta_id', $venta->id)->exists()) {
-            Reparto::create([
-                'venta_id' => $venta->id,
-                'estado_entrega' => EstadoEntrega::NO_ENTREGADO,
-            ]);
+            Reparto::create(['venta_id' => $venta->id, 'estado_entrega' => EstadoEntrega::NO_ENTREGADO]);
         }
     }
+
 
 
 }
