@@ -124,14 +124,43 @@ class CreateVentaDesdeCero extends CreateRecord
                 }
             }
 
-            // Recalcular importes y comisiones derivadas de que vende el Repartidor
+            // a) Importes por origen + recalcular cuota_mensual según ofertas reales
             $venta->recomputarImportesDesdeOfertas();
+
+            // b) Comisiones (venta repartidor + entrega)
             $venta->calcularComisiones(true);
-            $venta->recomputarVtasRepYEsp(true)
+
+            // c) Ventas del repartidor (rep/esp) y acumuladas
+            $venta->recomputarVtasRepYEsp()
                 ->recalcularVtasAcumuladas(true);
 
-
+            // d) PAS (puntos adicionales) para rep y com
             $venta->calcularPas(true);
+
+            // f) Totales finales según entrada / monto_extra
+            $entrada = (float) ($venta->entrada ?? 0);
+            $montoExtra = (float) ($venta->monto_extra ?? 0);
+            $venta->total_final = round(((float) $venta->importe_total - $entrada) + $montoExtra, 2);
+
+            if ((int) $venta->num_cuotas > 0) {
+                $venta->cuota_final = round($venta->total_final / (int) $venta->num_cuotas, 2);
+            } else {
+                $venta->cuota_final = null;
+            }
+
+            // g) Espejos administrativos en la venta (si los manejas)
+            if (empty($venta->nro_contr_adm) && !empty($venta->nro_contrato)) {
+                $venta->nro_contr_adm = $venta->nro_contrato;
+            }
+            if (empty($venta->nro_cliente_adm) && !empty($customer->nro_cliente)) {
+                $venta->nro_cliente_adm = $customer->nro_cliente;
+            }
+
+            // h) Estado de entrega del reparto (si hay detalle suficiente)
+            $venta->refreshEstadoEntrega();
+
+            // i) Guardar todo lo anterior
+            $venta->save();
 
             return $venta;
         });
