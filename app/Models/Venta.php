@@ -305,10 +305,6 @@ class Venta extends Model
             // Asegura importes y derivados antes de cualquier save()
             $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
             $venta->calcularComisiones(false);             // ← sin persistir
-            $venta->recomputaVTAsSiCorresponde();          // opcional (ver debajo)
-            $venta->recalcularTotalesDerivados();          // fija total_final y cuota_final
-            // Si quieres que el estado de entrega se mantenga siempre al día:
-            // $venta->refreshEstadoEntrega();  // toca modelo relacionado; es seguro
         });
     }
 
@@ -433,24 +429,22 @@ class Venta extends Model
         }
     }
 
-    public function recomputarImportesDesdeOfertas(): void
+    // En App\Models\Venta
+    public function recomputarImportesDesdeOfertas(bool $persist = true): self
     {
         $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
 
         $impCom = 0.0;
         $impRep = 0.0;
-
         foreach ($this->ventaOfertas as $vo) {
             $precio = (float) ($vo->oferta->precio_base ?? 0);
-
             $tieneCom = $vo->productos->contains(fn($p) => $p->vendido_por === \App\Enums\VendidoPor::Comercial);
             $tieneRep = $vo->productos->contains(fn($p) => $p->vendido_por === \App\Enums\VendidoPor::Repartidor);
 
-            if ($tieneCom || (!$tieneCom && !$tieneRep)) {
+            if ($tieneCom || (!$tieneCom && !$tieneRep))
                 $impCom += $precio;
-            } else {
+            else
                 $impRep += $precio;
-            }
         }
 
         $this->importe_comercial = $impCom;
@@ -460,7 +454,9 @@ class Venta extends Model
             ? round($this->importe_total / (int) $this->num_cuotas, 2)
             : null;
 
-        $this->save();
+        if ($persist)
+            $this->saveQuietly();
+        return $this;
     }
 
     protected function esOfertaExcepcional(string $nombre): bool

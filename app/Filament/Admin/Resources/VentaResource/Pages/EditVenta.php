@@ -112,8 +112,7 @@ class EditVenta extends EditRecord
         $venta->recomputarImportesDesdeOfertas(false)
             ->calcularComisiones(false)
             ->recomputarVtasRepYEsp(false)
-            ->recalcularVtasAcumuladas(false)
-            ->recalcularTotalesDerivados();
+            ->recalcularVtasAcumuladas(false);
 
         $venta->saveQuietly();
 
