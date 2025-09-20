@@ -256,8 +256,8 @@
     $xApDni2 = (float) request('xap_dni2', 120.0);
     $wApDir = (float) request('wap_dir', 160.0);
 
-    // ===== Pasadas: 0 = Original (con anexos), 1 = Copia (con anexos, sin productos ni importes) =====
-    $__passes = [0, 1];
+    // ===== Pasadas: 0 = Original (con anexos), 1 = Copia (con anexos, sin productos ni importes), 2 = Copia-B (igual que copia, pero nro_contr_adm -B) =====
+    $__passes = [0, 1, 2];
 @endphp
 
 <!DOCTYPE html>
@@ -347,7 +347,12 @@
 <body>
 
     @foreach($__passes as $__pass)
-        @php $isCopia = ($__pass === 1); @endphp
+        @php
+            // En 0 = original; 1 y 2 son copias (ocultan artículos e importes)
+            $isCopia = ($__pass !== 0);
+            // Solo en la tercera pasada (2) agregamos el sufijo -B al nro de contrato
+            $contratoFmt = $venta->nro_contr_adm . ($__pass === 2 ? '-B' : '');
+        @endphp
 
         {{-- ================= PÁGINA 1 – CONTRATO ================= --}}
         <div class="page">
@@ -357,7 +362,7 @@
 
                 {{-- Encabezado --}}
                 <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">
-                    {{ $venta->nro_contr_adm }}</div>
+                    {{ $contratoFmt }}</div>
                 <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecPromo }}</div>
                 <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
                 <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
@@ -483,7 +488,7 @@
                 <div class="field" style="top:{{ $yP2_Dni }}mm; left:{{ $xP2_Dni }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
             </div>
-            
+
         </div>
 
         {{-- ================= PÁGINA 3 – ALBARÁN PAG-1 ================= --}}
@@ -492,7 +497,7 @@
             <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
 
                 <div class="field" style="top:{{ $yAlbContrato }}mm; left:{{ $xAlbContrato }}mm;">
-                    {{ $venta->nro_contr_adm }}</div>
+                    {{ $contratoFmt }}</div>
                 <div class="field" style="top:{{ $yAlbNombre }}mm; left:{{ $xAlbNombre }}mm;">
                     {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
                 </div>
@@ -521,7 +526,7 @@
                     @endfor
                 @endunless
             </div>
-            
+
         </div>
 
         {{-- ================= PÁGINA 4 – ALBARÁN PAG-2 ================= --}}
@@ -529,7 +534,7 @@
             <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-2.jpg')) }}" alt="Fondo P4">
             <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
                 <div class="field" style="top:{{ $yB2_Contrato }}mm; left:{{ $xB2_Contrato }}mm;">
-                    {{ $venta->nro_contr_adm }}</div>
+                    {{ $contratoFmt }}</div>
                 <div class="field" style="top:{{ $yB2_Nombre }}mm; left:{{ $xB2_Nombre }}mm;">
                     {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
                 </div>
@@ -543,7 +548,7 @@
                 <div class="field" style="top:{{ $yB2_DNI_2 }}mm; left:{{ $xB2_DNI_2 }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
             </div>
-            
+
         </div>
 
         {{-- ================= PÁGINA 5 – APERTURA / DESEMBALAJE ================= --}}
@@ -551,7 +556,7 @@
             <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/Apertura_de_productos.jpg')) }}"
                 alt="Fondo Apertura">
             <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
-                <div class="field" style="top:{{ $yAp_Contrato }}mm; left:{{ $xApContrato }}mm;">{{ $venta->nro_contr_adm }}
+                <div class="field" style="top:{{ $yAp_Contrato }}mm; left:{{ $xApContrato }}mm;">{{ $contratoFmt }}
                 </div>
                 <div class="field" style="top:{{ $yAp_Nombre }}mm; left:{{ $xApNombre }}mm;">
                     {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
@@ -566,7 +571,7 @@
                 <div class="field" style="top:{{ $yAp_Dni2 }}mm; left:{{ $xApDni2 }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
             </div>
-            
+
         </div>
 
     @endforeach
