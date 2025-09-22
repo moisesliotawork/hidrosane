@@ -22,27 +22,34 @@ class NotesSalaOverdue extends Command
     public function handle(): int
     {
         $days = (int) $this->option('days');
-        $cutoff = Carbon::now()->subDays($days);
+        $cutoff = \Carbon\Carbon::now()->subDays($days);
 
-        // Importante: los updates masivos NO disparan mutators, así que usamos el string del enum.
-        $valorSala = EstadoTerminal::SALA->value; // 'sala'
+        $valorSala = \App\Enums\EstadoTerminal::SALA->value;     // 'sala'
+        $valorAusente = \App\Enums\EstadoTerminal::AUSENTE->value;  // 'ausente'
+        $valorVacio = \App\Enums\EstadoTerminal::SIN_ESTADO->value; // ''
 
-        // Evitamos tocar las que ya están en SALA o que no tienen fecha
-        $query = DB::table('notes')
+        $base = \Illuminate\Support\Facades\DB::table('notes')
             ->whereNotNull('assignment_date')
             ->where('assignment_date', '<=', $cutoff)
-            ->where('estado_terminal', '!=', $valorSala);
+            // excluir las que ya están en SALA
+            ->where('estado_terminal', '!=', $valorSala)
+            // permitir SOLO: NULL, '', 'ausente'
+            ->where(function ($q) use ($valorAusente, $valorVacio) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', $valorVacio)
+                    ->orWhere('estado_terminal', $valorAusente);
+            });
 
-        $count = (clone $query)->count();
+        $count = (clone $base)->count();
 
-        // Actualizamos estado y updated_at
-        $updated = $query->update([
+        $updated = $base->update([
             'estado_terminal' => $valorSala,
-            'updated_at'      => now(),
+            'updated_at' => now(),
         ]);
 
         $this->info("Corte: {$cutoff->toDateTimeString()} | Candidatas: {$count} | Actualizadas: {$updated}");
 
         return self::SUCCESS;
     }
+
 }
