@@ -704,4 +704,12 @@ class Venta extends Model
         return $this;
     }
 
+    public function getCompanionLabelAttribute(): string
+    {
+        $u = $this->companion; // relación belongsTo('User', 'companion_id')
+        return $u
+            ? trim("{$u->empleado_id} - {$u->name} {$u->last_name}")
+            : '-';
+    }
+
 }

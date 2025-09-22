@@ -802,7 +802,45 @@ class VentaResource extends Resource
                     ->label('Hora')
                     ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
                     ->sortable(),
-                TextColumn::make('comercial.name')->label('Comercial')->sortable()->searchable(),
+                TextColumn::make('comercial.empleado_id')
+                    ->label('Comercial')
+                    ->state(function (Venta $r) {
+                        $u = $r->comercial;
+                        return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
+                    })
+                    ->formatStateUsing(fn($state) => $state ?: '--')
+                    ->searchable(query: function ($query, string $search) {
+                        $query->whereHas('comercial', function ($q) use ($search) {
+                            $q->where('empleado_id', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                    })
+                    ->sortable(query: function ($query, string $direction) {
+                        $query->leftJoin('users as com', 'com.id', '=', 'ventas.comercial_id')
+                            ->orderBy('com.empleado_id', $direction)
+                            ->select('ventas.*');
+                    }),
+                TextColumn::make('companion.empleado_id')
+                    ->label('Compañero')
+                    ->state(function (Venta $r) {
+                        $u = $r->companion;
+                        return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
+                    })
+                    ->formatStateUsing(fn($state) => $state ?: '--')
+                    ->searchable(query: function ($query, string $search) {
+                        $query->whereHas('companion', function ($q) use ($search) {
+                            $q->where('empleado_id', 'like', "%{$search}%")
+                                ->orWhere('name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                    })
+                    ->sortable(query: function ($query, string $direction) {
+                        // Ordena por empleado_id del compañero
+                        $query->leftJoin('users as comp', 'comp.id', '=', 'ventas.companion_id')
+                            ->orderBy('comp.empleado_id', $direction)
+                            ->select('ventas.*');
+                    }),
                 TextColumn::make('fecha_entrega')->label('F. repartidor')->date('d/m/Y'),
                 TextColumn::make('horario_entrega')->label('Horario rep.'),
                 TextColumn::make('customer.primary_address')
