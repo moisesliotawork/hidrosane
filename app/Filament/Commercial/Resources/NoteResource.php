@@ -443,7 +443,53 @@ class NoteResource extends Resource
 
             ])
             ->bulkActions([
-                // No bulk actions for commercial panel
+                \Filament\Tables\Actions\BulkAction::make('enviarASala')
+                    ->label('Enviar a Sala')
+                    ->icon('heroicon-o-building-office-2')
+                    ->color('pink')
+                    ->requiresConfirmation()
+                    ->modalHeading('Enviar a Sala')
+                    ->modalDescription('Se enviarán a Sala las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
+                    ->action(function (iterable $records): void {
+                        $allIds = collect($records)->pluck('id')->all();
+
+                        // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
+                        $eligible = \App\Models\Note::query()
+                            ->whereIn('id', $allIds)
+                            ->whereDoesntHave('venta')
+                            ->where(function ($q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
+                                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+                        })
+                            ->pluck('id')
+                            ->all();
+
+                        $skipped = count($allIds) - count($eligible);
+
+                        if (empty($eligible)) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No hay notas válidas para enviar a Sala')
+                                ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        \DB::transaction(function () use ($eligible) {
+                            \App\Models\Note::whereIn('id', $eligible)->update([
+                                'estado_terminal' => \App\Enums\EstadoTerminal::SALA->value,
+                            ]);
+                        });
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Notas enviadas a Sala')
+                            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion()
+                
             ]);
     }
 
