@@ -10,6 +10,7 @@ use App\Models\{Venta, PostalCode, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
 use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
+use Filament\Notifications\Notification;
 
 class CreateVenta extends CreateRecord
 {
@@ -48,6 +49,38 @@ class CreateVenta extends CreateRecord
         return DB::transaction(function () use ($data) {
 
             unset($data['age']);
+            
+            /* 🔒 VALIDAR QUE CADA OFERTA TENGA ≥ 1 PRODUCTO -------------------- */
+            $state = $this->form->getRawState(); // <-- trae ventaOfertas y productos
+            $errores = [];
+
+            foreach (($state['ventaOfertas'] ?? []) as $i => $oferta) {
+                $productos = collect($oferta['productos'] ?? [])
+                    ->filter(fn($p) => !empty($p['producto_id']))
+                    ->values();
+
+                if ($productos->isEmpty()) {
+                    $errores["ventaOfertas.$i.productos"] = 'Debes agregar al menos un producto a esta oferta.';
+                }
+
+                // recalcula puntos (evitar NULL)
+                $state['ventaOfertas'][$i]['puntos'] = (int) $productos->sum(
+                    fn($p) => (int) ($p['puntos_linea'] ?? 0)
+                );
+            }
+
+            if (!empty($errores)) {
+                $this->form->fill($state); // reflejar puntos=0 si corresponde
+                \Filament\Notifications\Notification::make()
+                    ->title('Faltan productos')
+                    ->body('Cada oferta debe tener al menos un producto.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                throw \Illuminate\Validation\ValidationException::withMessages($errores);
+            }
+
 
             /* 2.1 Validar que exista el código postal */
             if (!PostalCode::find($data['postal_code_id'])) {
