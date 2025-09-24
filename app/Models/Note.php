@@ -362,5 +362,8 @@ class Note extends Model
         return $this->hasMany(\App\Models\NoteSalaObservation::class, 'note_id');
     }
 
-
+    public function confirmations()
+    {
+        return $this->hasMany(\App\Models\NoteConfirmation::class, 'note_id');
+    }
 }

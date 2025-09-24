@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\NoteNullReason;
 use Illuminate\Support\Facades\Auth;
 use App\Models\NoteSalaObservation;
+use App\Models\NoteConfirmation;
+use Filament\Forms\Components\Select;
 
 class EditNote extends EditRecord
 {
@@ -121,19 +123,48 @@ class EditNote extends EditRecord
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
 
+
             Actions\Action::make('confirmada')
                 ->label('Confirmada')
                 ->color('orange')
+                ->icon('heroicon-o-check-circle')
+                ->form([
+                    Select::make('dio_crema')
+                        ->label('¿Dio crema?')
+                        ->options([
+                            1 => 'Sí',
+                            0 => 'No',
+                        ])
+                        ->required()
+                        ->native(false),
+                    Textarea::make('observation')
+                        ->label('Observación (opcional)')
+                        ->placeholder('Escribe una observación (opcional)…')
+                        ->rows(3)
+                        ->maxLength(2000),
+                ])
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como CONFIRMADA?')
+                ->modalHeading('Confirmar nota')
+                ->modalDescription('Confirma que deseas marcar la nota como CONFIRMADA.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
-                    $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
-                    $this->record->save();
+                ->action(function (array $data) {
+                    DB::transaction(function () use ($data) {
+                        // 1) Guardar el registro de confirmación
+                        NoteConfirmation::create([
+                            'note_id' => $this->record->id,
+                            'author_id' => Auth::id(),
+                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),   // 1 => true, 0 => false
+                            'observation' => $data['observation'] ?? null,
+                        ]);
 
-                    Notification::make()
+                        // 2) Cambiar estado
+                        $this->record->estado_terminal = \App\Enums\EstadoTerminal::CONFIRMADO;
+                        $this->record->save();
+                    });
+
+                    \Filament\Notifications\Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
+                        ->body('Se guardó la confirmación.')
                         ->success()
                         ->send();
 
