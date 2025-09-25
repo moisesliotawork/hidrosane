@@ -130,7 +130,7 @@ class EditNote extends EditRecord
                 ->icon('heroicon-o-check-circle')
                 ->form([
                     Select::make('dio_crema')
-                        ->label('¿Haz entregado crema crema?')
+                        ->label('¿Haz entregado crema?')
                         ->options([
                             1 => 'Sí',
                             0 => 'No',
