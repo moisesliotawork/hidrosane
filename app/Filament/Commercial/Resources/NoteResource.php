@@ -444,12 +444,12 @@ class NoteResource extends Resource
             ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkAction::make('enviarASala')
-                    ->label('Enviar a Sala')
+                    ->label('Enviar a Oficina')
                     ->icon('heroicon-o-building-office-2')
                     ->color('pink')
                     ->requiresConfirmation()
-                    ->modalHeading('Enviar a Sala')
-                    ->modalDescription('Se enviarán a Sala las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
+                    ->modalHeading('Enviar a Oficina')
+                    ->modalDescription('Se enviarán a OFICINA las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
                     ->action(function (iterable $records): void {
                         $allIds = collect($records)->pluck('id')->all();
 
@@ -469,7 +469,7 @@ class NoteResource extends Resource
 
                         if (empty($eligible)) {
                             \Filament\Notifications\Notification::make()
-                                ->title('No hay notas válidas para enviar a Sala')
+                                ->title('No hay notas válidas para enviar a Oficina')
                                 ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA.')
                                 ->warning()
                                 ->send();
@@ -483,7 +483,7 @@ class NoteResource extends Resource
                         });
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Notas enviadas a Sala')
+                            ->title('Notas enviadas a Oficina')
                             ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
                             ->success()
                             ->send();
