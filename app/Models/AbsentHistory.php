@@ -15,6 +15,7 @@ class AbsentHistory extends Model
         'hora',
         'latitud',
         'longitud',
+        'observacion',
     ];
 
     protected $casts = [

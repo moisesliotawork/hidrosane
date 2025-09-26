@@ -36,26 +36,31 @@ class EditNote extends EditRecord
             Actions\Action::make('ausente')
                 ->label('Ausente')
                 ->color('gray')
+                ->icon('heroicon-o-user-minus')
+                ->form([
+                    Textarea::make('observacion')
+                        ->label('Observación (opcional)')
+                        ->placeholder('Escribe una observación si lo consideras necesario…')
+                        ->rows(3)
+                        ->maxLength(2000),
+                ])
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como AUSENTE?')
+                ->modalHeading('Marcar como AUSENTE')
+                ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
+                ->action(function (array $data) {
                     // 1) Cambiar estado
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->save();
 
                     // 2) Resolver ubicación
-                    // Si estás en local, usa una ubicación por defecto
-                    if (App::environment('local')) {
+                    if (\Illuminate\Support\Facades\App::environment('local')) {
                         $lat = '42.2405';
                         $lng = '-8.7200';
                     } else {
-                        // Intenta tomar de request (si implementas captura en el front)
                         $lat = request()->input('latitud');
                         $lng = request()->input('longitud');
 
-                        // Si no vienen por request, intenta de campos existentes en la nota (ajusta a tu esquema real)
                         if (empty($lat) && property_exists($this->record, 'dentro_latitude')) {
                             $lat = $this->record->dentro_latitude;
                         }
@@ -64,17 +69,18 @@ class EditNote extends EditRecord
                         }
                     }
 
-                    // 3) Crear historial
+                    // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
                         'note_id' => $this->record->id,
-                        'fecha' => Carbon::now()->toDateString(),
-                        'hora' => Carbon::now()->format('H:i:s'),
+                        'fecha' => \Carbon\Carbon::now()->toDateString(),
+                        'hora' => \Carbon\Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
+                        'observacion' => $data['observacion'] ?? null, // 👈 NUEVO
                     ]);
 
                     // 4) Notificación + redirect
-                    Notification::make()
+                    \Filament\Notifications\Notification::make()
                         ->title('Nota marcada como AUSENTE')
                         ->success()
                         ->send();

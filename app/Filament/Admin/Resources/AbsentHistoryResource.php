@@ -105,6 +105,12 @@ class AbsentHistoryResource extends Resource
                     ->color(Color::Gray)
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('observacion')
+                    ->label('Observación')
+                    ->toggleable()
+                    ->formatStateUsing(fn($state) => $state ? wordwrap($state, 60, "\n", true) : null)
+                    ->html(), // para que respete los saltos de línea
+
                 Tables\Columns\TextColumn::make('hora')
                     ->label('Hora Aus')
                     ->badge()
