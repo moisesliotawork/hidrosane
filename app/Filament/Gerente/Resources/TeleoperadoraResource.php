@@ -90,7 +90,9 @@ class TeleoperadoraResource extends Resource
             })
             ->columns([
                 TextColumn::make('empleado_id')
-                    ->label('Empleado')
+                    ->label('ID')
+                    ->badge()
+                    ->color("pink")
                     ->sortable()
                     ->searchable(),
 
@@ -112,26 +114,27 @@ class TeleoperadoraResource extends Resource
                     ->label('CONFIRMADAS')
                     ->state(fn($record) => (int) ($record->confirmadas_count ?? 0))
                     ->badge()
-                    ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'info')
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'warning')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('confirmadas_count', $dir)),
 
                 TextColumn::make('vendidas_count')
                     ->label('VENTAS')
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->state(fn($record) => (int) ($record->vendidas_count ?? 0))
                     ->badge()
                     ->color(fn($record) => ((int) ($record->vendidas_count ?? 0)) === 0 ? 'gray' : 'success')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('vendidas_count', $dir)),
 
-                // NUEVA COLUMNA
                 TextColumn::make('aproduccion_count')
-                    ->label('PRODUCCIÓN')
+                    ->label('Produccion')
                     ->state(fn($record) => (int) ($record->aproduccion_count ?? 0))
                     ->badge()
-                    ->color(fn($record) => ((int) ($record->aproduccion_count ?? 0)) === 0 ? 'gray' : 'warning')
+                    ->color(fn($record) => ((int) ($record->aproduccion_count ?? 0)) === 0 ? 'gray' : 'success')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('aproduccion_count', $dir)),
 
                 TextColumn::make('total_cv')
-                    ->label('TOTAL')
+                    ->label('Vtas/Conf.')
                     ->state(
                         fn($record) =>
                         (int) ($record->confirmadas_count ?? 0)
@@ -143,6 +146,42 @@ class TeleoperadoraResource extends Resource
                         query: fn(Builder $q, string $dir) =>
                         $q->orderByRaw('(COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) ' . $dir)
                     ),
+
+                TextColumn::make('pct_conf')
+                    ->label('% Conf.')
+                    ->state(function ($record) {
+                        $conf = (int) ($record->confirmadas_count ?? 0);
+                        $vent = (int) ($record->vendidas_count ?? 0);
+                        $prod = (int) ($record->aproduccion_count ?? 0);
+
+                        if ($prod === 0) {
+                            return 0;
+                        }
+
+                        $pct = (($conf + $vent) / $prod) * 100;
+                        // Redondeo a 2 decimal
+                        return round($pct, 2);
+                    })
+                    ->suffix('%')
+                    ->badge()
+                    ->color(function ($state) {
+                        // Colorea según el %
+                        $v = (float) $state;
+                        return $v === 0.0 ? 'gray'
+                            : ($v >= 70 ? 'success'
+                                : ($v >= 40 ? 'warning' : 'danger'));
+                    })
+                    ->sortable(query: function (Builder $q, string $dir) {
+                        // Ordena por ((confirmadas + vendidas) / produccion) * 100, manejando nulos/cero
+                        $expr = <<<SQL
+CASE
+  WHEN COALESCE(aproduccion_count, 0) = 0 THEN 0
+  ELSE ( (COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) * 100.0 / COALESCE(aproduccion_count,1) )
+END
+SQL;
+                        $q->orderByRaw("$expr $dir");
+                    }),
+
             ])
             ->filters([
                 Filter::make('periodo')
