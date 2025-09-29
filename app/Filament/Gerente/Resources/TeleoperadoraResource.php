@@ -47,17 +47,19 @@ class TeleoperadoraResource extends Resource
                 // Lee el filtro, soportando claves viejas y nuevas
                 $filters = request()->input('tableFilters', []);
                 $choice =
-                    data_get($filters, 'periodo.period') // filtro nuevo (Filter::make('periodo')->form(Select 'period'))
-                    ?? data_get($filters, 'period.value') // filtro viejo (Filter::make('period')->form(Select 'value'))
+                    data_get($filters, 'periodo.period') // filtro nuevo
+                    ?? data_get($filters, 'period.value') // filtro viejo
                     ?? 'prev';
 
-                // Desde siempre (sin fechas)
                 if ($choice === 'all') {
+                    // Desde siempre (sin fechas)
                     return $query->withCount([
                         'notes as confirmadas_count' => fn($q) =>
                             $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
                         'notes as vendidas_count' => fn($q) =>
                             $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
+                        //total de notas asociadas
+                        'notes as aproduccion_count' => fn($q) => $q,
                     ]);
                 }
 
@@ -70,17 +72,20 @@ class TeleoperadoraResource extends Resource
                 };
 
                 // Normaliza a UTC y usa límites de día completos
-                $tz = config('app.timezone', 'UTC'); // si tu app está en Europe/Madrid, cámbialo en config/app.php
+                $tz = config('app.timezone', 'UTC');
                 $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
                 $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
 
                 return $query->withCount([
                     'notes as confirmadas_count' => fn($q) =>
                         $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
-                            ->whereBetween('created_at', [$start, $end]), // campo de la relación notes
+                            ->whereBetween('created_at', [$start, $end]),
                     'notes as vendidas_count' => fn($q) =>
                         $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
                             ->whereBetween('created_at', [$start, $end]),
+                    // NUEVO: total de notas asociadas dentro del período
+                    'notes as aproduccion_count' => fn($q) =>
+                        $q->whereBetween('created_at', [$start, $end]),
                 ]);
             })
             ->columns([
@@ -117,11 +122,20 @@ class TeleoperadoraResource extends Resource
                     ->color(fn($record) => ((int) ($record->vendidas_count ?? 0)) === 0 ? 'gray' : 'success')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('vendidas_count', $dir)),
 
+                // NUEVA COLUMNA
+                TextColumn::make('aproduccion_count')
+                    ->label('PRODUCCIÓN')
+                    ->state(fn($record) => (int) ($record->aproduccion_count ?? 0))
+                    ->badge()
+                    ->color(fn($record) => ((int) ($record->aproduccion_count ?? 0)) === 0 ? 'gray' : 'warning')
+                    ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('aproduccion_count', $dir)),
+
                 TextColumn::make('total_cv')
                     ->label('TOTAL')
                     ->state(
                         fn($record) =>
-                        (int) ($record->confirmadas_count ?? 0) + (int) ($record->vendidas_count ?? 0)
+                        (int) ($record->confirmadas_count ?? 0)
+                        + (int) ($record->vendidas_count ?? 0)
                     )
                     ->badge()
                     ->color(fn($state) => ((int) $state) === 0 ? 'gray' : 'primary')
@@ -131,7 +145,6 @@ class TeleoperadoraResource extends Resource
                     ),
             ])
             ->filters([
-                // Filtro solo UI (NO mete WHERE). Cambia 'period' si quieres otro nombre interno.
                 Filter::make('periodo')
                     ->label('Periodo')
                     ->form([
