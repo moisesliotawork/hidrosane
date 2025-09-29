@@ -41,14 +41,26 @@ class TeleoperadoraResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                // Lee el filtro (compatible con claves viejas y nuevas)
+                // Lee el filtro, soportando claves viejas y nuevas
                 $filters = request()->input('tableFilters', []);
                 $choice =
                     data_get($filters, 'periodo.period') // filtro nuevo
                     ?? data_get($filters, 'period.value') // filtro viejo
                     ?? 'prev';
 
-                // Calcula mes objetivo (this/prev/two). Para "all" no habrá filtro de fecha.
+                if ($choice === 'all') {
+                    // Desde siempre (sin fechas)
+                    return $query->withCount([
+                        'notes as confirmadas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
+                        'notes as vendidas_count' => fn($q) =>
+                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
+                        //total de notas asociadas
+                        'notes as aproduccion_count' => fn($q) => $q,
+                    ]);
+                }
+
+                // Mes actual / anterior / hace dos meses
                 $offset = match ($choice) {
                     'this' => 0,
                     'prev' => 1,
@@ -56,43 +68,28 @@ class TeleoperadoraResource extends Resource
                     default => 0,
                 };
 
-                // Fechas (solo día, sin horas) para usar con DATE(created_at)
-                $startDate = now()->subMonths($offset)->startOfMonth()->toDateString();
-                $endDate = now()->subMonths($offset)->endOfMonth()->toDateString();
+                // Normaliza a UTC y usa límites de día completos
+                $tz = config('app.timezone', 'UTC');
+                $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
+                $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
 
-                // Subselects que NO dependen de la relación definida en el modelo:
-                // Se comparan columnas directamente: notes.user_id = users.id
-                // Para que coincida con tu SQL:
-                //   SELECT COUNT(*) FROM notes
-                //   WHERE user_id = :id AND estado_terminal = 'venta'
-                //     AND DATE(created_at) BETWEEN :start AND :end
-                $query->addSelect([
-                    'confirmadas_count' => Note::query()
-                        ->selectRaw('COUNT(*)')
-                        ->whereColumn('notes.user_id', 'users.id')
-                        ->when(
-                            $choice !== 'all',
-                            fn($q) =>
-                            $q->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])
-                        )
-                        ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-
-                    'vendidas_count' => Note::query()
-                        ->selectRaw('COUNT(*)')
-                        ->whereColumn('notes.user_id', 'users.id')
-                        ->when(
-                            $choice !== 'all',
-                            fn($q) =>
-                            $q->whereBetween(DB::raw('DATE(created_at)'), [$startDate, $endDate])
-                        )
-                        ->where('estado_terminal', EstadoTerminal::VENTA->value),
+                return $query->withCount([
+                    'notes as confirmadas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
+                            ->whereBetween('created_at', [$start, $end]),
+                    'notes as vendidas_count' => fn($q) =>
+                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
+                            ->whereBetween('created_at', [$start, $end]),
+                    // NUEVO: total de notas asociadas dentro del período
+                    'notes as aproduccion_count' => fn($q) =>
+                        $q->whereBetween('created_at', [$start, $end]),
                 ]);
-
-                return $query;
             })
             ->columns([
                 TextColumn::make('empleado_id')
-                    ->label('Empleado')
+                    ->label('ID')
+                    ->badge()
+                    ->color("pink")
                     ->sortable()
                     ->searchable(),
 
@@ -114,21 +111,31 @@ class TeleoperadoraResource extends Resource
                     ->label('CONFIRMADAS')
                     ->state(fn($record) => (int) ($record->confirmadas_count ?? 0))
                     ->badge()
-                    ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'info')
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->color(fn($record) => ((int) ($record->confirmadas_count ?? 0)) === 0 ? 'gray' : 'warning')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('confirmadas_count', $dir)),
 
                 TextColumn::make('vendidas_count')
                     ->label('VENTAS')
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->state(fn($record) => (int) ($record->vendidas_count ?? 0))
                     ->badge()
                     ->color(fn($record) => ((int) ($record->vendidas_count ?? 0)) === 0 ? 'gray' : 'success')
                     ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('vendidas_count', $dir)),
 
+                TextColumn::make('aproduccion_count')
+                    ->label('Produccion')
+                    ->state(fn($record) => (int) ($record->aproduccion_count ?? 0))
+                    ->badge()
+                    ->color(fn($record) => ((int) ($record->aproduccion_count ?? 0)) === 0 ? 'gray' : 'success')
+                    ->sortable(query: fn(Builder $q, string $dir) => $q->orderBy('aproduccion_count', $dir)),
+
                 TextColumn::make('total_cv')
-                    ->label('TOTAL')
+                    ->label('Vtas/Conf.')
                     ->state(
                         fn($record) =>
-                        (int) ($record->confirmadas_count ?? 0) + (int) ($record->vendidas_count ?? 0)
+                        (int) ($record->confirmadas_count ?? 0)
+                        + (int) ($record->vendidas_count ?? 0)
                     )
                     ->badge()
                     ->color(fn($state) => ((int) $state) === 0 ? 'gray' : 'primary')
@@ -136,6 +143,42 @@ class TeleoperadoraResource extends Resource
                         query: fn(Builder $q, string $dir) =>
                         $q->orderByRaw('(COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) ' . $dir)
                     ),
+
+                TextColumn::make('pct_conf')
+                    ->label('% Conf.')
+                    ->state(function ($record) {
+                        $conf = (int) ($record->confirmadas_count ?? 0);
+                        $vent = (int) ($record->vendidas_count ?? 0);
+                        $prod = (int) ($record->aproduccion_count ?? 0);
+
+                        if ($prod === 0) {
+                            return 0;
+                        }
+
+                        $pct = (($conf + $vent) / $prod) * 100;
+                        // Redondeo a 2 decimal
+                        return round($pct, 2);
+                    })
+                    ->suffix('%')
+                    ->badge()
+                    ->color(function ($state) {
+                        // Colorea según el %
+                        $v = (float) $state;
+                        return $v === 0.0 ? 'gray'
+                            : ($v >= 70 ? 'success'
+                                : ($v >= 40 ? 'warning' : 'danger'));
+                    })
+                    ->sortable(query: function (Builder $q, string $dir) {
+                        // Ordena por ((confirmadas + vendidas) / produccion) * 100, manejando nulos/cero
+                        $expr = <<<SQL
+CASE
+  WHEN COALESCE(aproduccion_count, 0) = 0 THEN 0
+  ELSE ( (COALESCE(confirmadas_count,0) + COALESCE(vendidas_count,0)) * 100.0 / COALESCE(aproduccion_count,1) )
+END
+SQL;
+                        $q->orderByRaw("$expr $dir");
+                    }),
+
             ])
             ->filters([
                 Filter::make('periodo')
