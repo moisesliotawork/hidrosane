@@ -130,7 +130,7 @@ class NoteResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value) {
                                 // Asegura el label correcto aunque no esté en options()
-                                $pc = \App\Models\PostalCode::with('city')->find($value);
+                                $pc = PostalCode::with('city')->find($value);
                                 return $pc ? "{$pc->code} - {$pc->city->title}" : null;
                             })
                             ->searchable() // búsqueda en el desplegable
@@ -454,7 +454,7 @@ class NoteResource extends Resource
                         $allIds = collect($records)->pluck('id')->all();
 
                         // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
-                        $eligible = \App\Models\Note::query()
+                        $eligible = Note::query()
                             ->whereIn('id', $allIds)
                             ->whereDoesntHave('venta')
                             ->where(function ($q) {
@@ -468,7 +468,7 @@ class NoteResource extends Resource
                         $skipped = count($allIds) - count($eligible);
 
                         if (empty($eligible)) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('No hay notas válidas para enviar a Oficina')
                                 ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA.')
                                 ->warning()
@@ -477,12 +477,12 @@ class NoteResource extends Resource
                         }
 
                         \DB::transaction(function () use ($eligible) {
-                            \App\Models\Note::whereIn('id', $eligible)->update([
-                                'estado_terminal' => \App\Enums\EstadoTerminal::SALA->value,
+                            Note::whereIn('id', $eligible)->update([
+                                'estado_terminal' => EstadoTerminal::SALA->value,
                             ]);
                         });
 
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title('Notas enviadas a Oficina')
                             ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
                             ->success()
