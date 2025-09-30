@@ -130,7 +130,7 @@ class NoteResource extends Resource
                             })
                             ->getOptionLabelUsing(function ($value) {
                                 // Asegura el label correcto aunque no esté en options()
-                                $pc = \App\Models\PostalCode::with('city')->find($value);
+                                $pc = PostalCode::with('city')->find($value);
                                 return $pc ? "{$pc->code} - {$pc->city->title}" : null;
                             })
                             ->searchable() // búsqueda en el desplegable
@@ -477,9 +477,8 @@ class NoteResource extends Resource
                         }
 
                         \DB::transaction(function () use ($eligible) {
-                            Note::whereIn('id', $eligible)->update([
-                                'estado_terminal' => EstadoTerminal::SALA->value,
-                                'sent_to_sala_at'  => now(),
+                            \App\Models\Note::whereIn('id', $eligible)->update([
+                                'estado_terminal' => \App\Enums\EstadoTerminal::SALA->value,
                             ]);
                         });
 
