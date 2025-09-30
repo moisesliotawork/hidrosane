@@ -19,7 +19,6 @@ use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
-use App\Models\PostalCode;
 use App\Enums\EstadoTerminal;
 
 class NoteResource extends Resource
@@ -412,7 +411,8 @@ class NoteResource extends Resource
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
-                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value; // redundancia segura
+                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
+                                $updates['sent_to_sala_at']  = null;
                             }
 
                             $record->update($updates);
@@ -471,24 +471,25 @@ class NoteResource extends Resource
                             $recordIds = collect($records)->pluck('id')->all();
 
                             // 1) Reasignar comercial/fecha
-                            \App\Models\Note::whereIn('id', $recordIds)->update([
+                            Note::whereIn('id', $recordIds)->update([
                                 'comercial_id' => (!empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
                             ]);
 
                             // 2) Resetear TN a S/E para TODAS las que estén en SALA (cambie o no el comercial)
-                            $toResetIds = \App\Models\Note::whereIn('id', $recordIds)
-                                ->where('estado_terminal', \App\Enums\EstadoTerminal::SALA->value)
+                            $toResetIds = Note::whereIn('id', $recordIds)
+                                ->where('estado_terminal', EstadoTerminal::SALA->value)
                                 ->pluck('id')
                                 ->all();
 
                             if ($toResetIds) {
-                                \App\Models\Note::whereIn('id', $toResetIds)->update([
-                                    'estado_terminal' => \App\Enums\EstadoTerminal::SIN_ESTADO->value,
+                                Note::whereIn('id', $toResetIds)->update([
+                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
+                                    'sent_to_sala_at' => null,
                                 ]);
                             }
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Asignación masiva completada')
                                 ->body(
                                     (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado') .
@@ -498,7 +499,7 @@ class NoteResource extends Resource
                                 ->send();
 
                         } catch (\Exception $e) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Error en asignación masiva')
                                 ->body($e->getMessage())
                                 ->danger()

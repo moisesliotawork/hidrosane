@@ -407,6 +407,21 @@ class NoteResource extends Resource
                     })
                     ->label('TN')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('sent_to_sala_at')
+                    ->label('Fecha Of.')
+                    ->state(function (Note $record) {
+                        // Solo mostrar fecha si el TN es SALA
+                        return $record->estado_terminal === EstadoTerminal::SALA
+                            ? $record->sent_to_sala_at
+                            : null;
+                    })
+                    ->dateTime('d/m/Y H:i')   // formato dd/mm/yyyy hh:mm
+                    ->placeholder('—')        // guion si está vacío
+                    ->sortable()
+                    ->alignCenter()
+                    ->toggleable(isToggledHiddenByDefault: false), // cámbialo a true si quieres ocultarla por defecto
+
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -484,6 +499,32 @@ class NoteResource extends Resource
                     })
                     ->searchable()
                     ->native(false),
+                Tables\Filters\Filter::make('sent_to_sala_date')
+                    ->label('Fecha Sala')
+                    ->form([
+                        Forms\Components\DatePicker::make('sent_to_sala_at')
+                            ->label('Fecha Exacta de Oficina')
+                            ->displayFormat('d/m/Y')
+                            ->native(false)
+                            ->timezone('Europe/Madrid'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['sent_to_sala_at'] ?? null,
+                                fn(Builder $q, $date) => $q
+                                    ->whereDate('sent_to_sala_at', $date)
+                                    ->where('estado_terminal', EstadoTerminal::SALA->value)
+                            );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (!($data['sent_to_sala_at'] ?? null)) {
+                            return null;
+                        }
+
+                        return 'Sala: ' . Carbon::parse($data['sent_to_sala_at'])->format('d/m/Y');
+                    }),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -525,7 +566,8 @@ class NoteResource extends Resource
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
-                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value; // redundancia segura
+                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
+                                $updates['sent_to_sala_at'] = null;
                             }
 
                             $record->update($updates);
@@ -627,24 +669,25 @@ class NoteResource extends Resource
                             $recordIds = collect($records)->pluck('id')->all();
 
                             // 1) Reasignar comercial/fecha
-                            \App\Models\Note::whereIn('id', $recordIds)->update([
+                            Note::whereIn('id', $recordIds)->update([
                                 'comercial_id' => (!empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
                             ]);
 
                             // 2) Resetear TN a S/E para TODAS las que estén en SALA (cambie o no el comercial)
-                            $toResetIds = \App\Models\Note::whereIn('id', $recordIds)
-                                ->where('estado_terminal', \App\Enums\EstadoTerminal::SALA->value)
+                            $toResetIds = Note::whereIn('id', $recordIds)
+                                ->where('estado_terminal', EstadoTerminal::SALA->value)
                                 ->pluck('id')
                                 ->all();
 
                             if ($toResetIds) {
-                                \App\Models\Note::whereIn('id', $toResetIds)->update([
-                                    'estado_terminal' => \App\Enums\EstadoTerminal::SIN_ESTADO->value,
+                                Note::whereIn('id', $toResetIds)->update([
+                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
+                                    'sent_to_sala_at' => null,
                                 ]);
                             }
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Asignación masiva completada')
                                 ->body(
                                     (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado') .
@@ -654,7 +697,7 @@ class NoteResource extends Resource
                                 ->send();
 
                         } catch (\Exception $e) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Error en asignación masiva')
                                 ->body($e->getMessage())
                                 ->danger()

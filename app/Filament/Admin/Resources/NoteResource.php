@@ -116,7 +116,7 @@ class NoteResource extends Resource
                             ->required()
                             ->searchable()
                             ->getSearchResultsUsing(function (string $search) {
-                                return \App\Models\PostalCode::query()
+                                return PostalCode::query()
                                     ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                                     ->when(
                                         filled($search),
@@ -136,7 +136,7 @@ class NoteResource extends Resource
                                 if (!$value)
                                     return null;
 
-                                return \App\Models\PostalCode::query()
+                                return PostalCode::query()
                                     ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                                     ->where('postal_codes.id', $value)
                                     ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")
@@ -173,7 +173,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('fuente')
                             ->label('Tipo')
                             ->native(false)
-                            ->options(\App\Enums\FuenteNotas::options()) // sin filtrar opciones
+                            ->options(FuenteNotas::options()) // sin filtrar opciones
                             // === visibilidad y comportamiento ===
                             ->hidden(fn() => !auth()->user()?->canSeeVipSources())
                             ->dehydrated(fn() => auth()->user()?->canSeeVipSources())   // solo envía el valor si se muestra
@@ -485,7 +485,8 @@ class NoteResource extends Resource
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
-                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value; // redundancia segura
+                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
+                                $updates['sent_to_sala_at']  = null;
                             }
 
                             $record->update($updates);
@@ -585,24 +586,25 @@ class NoteResource extends Resource
                             $recordIds = collect($records)->pluck('id')->all();
 
                             // 1) Reasignar comercial/fecha
-                            \App\Models\Note::whereIn('id', $recordIds)->update([
+                            Note::whereIn('id', $recordIds)->update([
                                 'comercial_id' => (!empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
                             ]);
 
                             // 2) Resetear TN a S/E para TODAS las que estén en SALA (cambie o no el comercial)
-                            $toResetIds = \App\Models\Note::whereIn('id', $recordIds)
-                                ->where('estado_terminal', \App\Enums\EstadoTerminal::SALA->value)
+                            $toResetIds = Note::whereIn('id', $recordIds)
+                                ->where('estado_terminal', EstadoTerminal::SALA->value)
                                 ->pluck('id')
                                 ->all();
 
                             if ($toResetIds) {
-                                \App\Models\Note::whereIn('id', $toResetIds)->update([
-                                    'estado_terminal' => \App\Enums\EstadoTerminal::SIN_ESTADO->value,
+                                Note::whereIn('id', $toResetIds)->update([
+                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
+                                    'sent_to_sala_at' => null,
                                 ]);
                             }
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Asignación masiva completada')
                                 ->body(
                                     (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado') .
@@ -612,7 +614,7 @@ class NoteResource extends Resource
                                 ->send();
 
                         } catch (\Exception $e) {
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('Error en asignación masiva')
                                 ->body($e->getMessage())
                                 ->danger()

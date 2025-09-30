@@ -54,7 +54,7 @@ class EditNote extends EditRecord
                     $this->record->save();
 
                     // 2) Resolver ubicación
-                    if (\Illuminate\Support\Facades\App::environment('local')) {
+                    if (App::environment('local')) {
                         $lat = '42.2405';
                         $lng = '-8.7200';
                     } else {
@@ -72,15 +72,15 @@ class EditNote extends EditRecord
                     // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
                         'note_id' => $this->record->id,
-                        'fecha' => \Carbon\Carbon::now()->toDateString(),
-                        'hora' => \Carbon\Carbon::now()->format('H:i:s'),
+                        'fecha' => Carbon::now()->toDateString(),
+                        'hora' => Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null, // 👈 NUEVO
                     ]);
 
                     // 4) Notificación + redirect
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Nota marcada como AUSENTE')
                         ->success()
                         ->send();
@@ -115,8 +115,7 @@ class EditNote extends EditRecord
                         ]);
 
                         // 2) Cambiar el estado de la nota a NULO
-                        // Ajusta la constante según tu enum real: NULO o NUL
-                        $this->record->estado_terminal = EstadoTerminal::NUL; // o ::NUL
+                        $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->save();
                     });
 
@@ -164,11 +163,11 @@ class EditNote extends EditRecord
                         ]);
 
                         // 2) Cambiar estado
-                        $this->record->estado_terminal = \App\Enums\EstadoTerminal::CONFIRMADO;
+                        $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
                         $this->record->save();
                     });
 
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
                         ->body('Se guardó la confirmación.')
                         ->success()
@@ -225,9 +224,11 @@ class EditNote extends EditRecord
                             'observation' => $data['observation'],
                         ]);
 
-                        // 2) Cambiar estado a SALA
-                        $this->record->estado_terminal = EstadoTerminal::SALA;
-                        $this->record->save();
+                        // 2) Cambiar estado a SALA y registrar fecha/hora
+                        $this->record->forceFill([
+                            'estado_terminal' => EstadoTerminal::SALA,
+                            'sent_to_sala_at' => now(),
+                        ])->save();
                     });
 
                     Notification::make()

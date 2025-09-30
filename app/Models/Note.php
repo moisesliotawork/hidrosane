@@ -93,6 +93,7 @@ class Note extends Model
         'show_phone',
         'estado_terminal',
         'productos_externos',
+        'sent_to_sala_at',
     ];
 
     /**
@@ -111,6 +112,7 @@ class Note extends Model
         'show_phone' => 'boolean',
         'observations' => 'array',
         'productos_externos' => 'string',
+        'sent_to_sala_at' => 'datetime',
     ];
 
     protected $attributes = [
@@ -365,5 +367,11 @@ class Note extends Model
     public function confirmations()
     {
         return $this->hasMany(\App\Models\NoteConfirmation::class, 'note_id');
+    }
+
+    public function markSentToSalaNow(): void
+    {
+        $this->sent_to_sala_at = now();
+        $this->save();
     }
 }
