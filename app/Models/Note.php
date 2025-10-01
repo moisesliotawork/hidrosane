@@ -94,6 +94,7 @@ class Note extends Model
         'estado_terminal',
         'productos_externos',
         'sent_to_sala_at',
+        'printed',
     ];
 
     /**
@@ -113,12 +114,14 @@ class Note extends Model
         'observations' => 'array',
         'productos_externos' => 'string',
         'sent_to_sala_at' => 'datetime',
+        'printed' => 'boolean',
     ];
 
     protected $attributes = [
         'fuente' => 'CALLE',
         'estado_terminal' => null,
         'show_phone' => false,
+        'printed' => false,
     ];
 
     protected static function boot()
@@ -373,5 +376,25 @@ class Note extends Model
     {
         $this->sent_to_sala_at = now();
         $this->save();
+    }
+
+    public function markPrinted(): void
+    {
+        $this->forceFill(['printed' => true])->save();
+    }
+
+    public function unmarkPrinted(): void
+    {
+        $this->forceFill(['printed' => false])->save();
+    }
+
+    public function scopePrinted($q)
+    {
+        return $q->where('printed', true);
+    }
+
+    public function scopeUnprinted($q)
+    {
+        return $q->where('printed', false);
     }
 }
