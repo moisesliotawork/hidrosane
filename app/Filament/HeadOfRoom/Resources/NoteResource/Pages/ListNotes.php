@@ -10,24 +10,80 @@ use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
+
 
 class ListNotes extends ListRecords
 {
     protected static string $resource = NoteResource::class;
 
-    
+
 
     protected function getHeaderActions(): array
     {
         return [
             \Filament\Actions\CreateAction::make(),
 
-            \Filament\Actions\Action::make('pdfSala')
+            \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
                 ->label('Generar PDF (Oficina)')
                 ->icon('heroicon-o-printer')
                 ->color('pink')
-                ->url(route('notas.sala.pdf'))     // ← abrir GET
-                ->openUrlInNewTab(),               // ← nueva pestaña, sin perder el tab
+                ->requiresConfirmation()
+                ->action(function () {
+                    // 1) IDs de notas en SALA y NO impresas
+                    $ids = Note::query()
+                        ->where('estado_terminal', EstadoTerminal::SALA->value) // columna string
+                        ->where('printed', false)
+                        ->pluck('id')
+                        ->all();
+
+                    if (empty($ids)) {
+                        Notification::make()
+                            ->title('No hay notas NO IMPRESAS en SALA')
+                            ->warning()
+                            ->send();
+                        return;
+                    }
+
+                    // 2) Marcar como impresas ANTES de generar el PDF
+                    DB::transaction(function () use ($ids) {
+                        Note::whereIn('id', $ids)->update([
+                            'printed' => 1,
+                            'updated_at' => now(),
+                        ]);
+                    });
+
+                    // 3) Cargar datos y generar PDF
+                    $notes = Note::query()
+                        ->whereIn('id', $ids)
+                        ->with([
+                            'customer.postalCode.city',
+                            'user',
+                            'comercial',
+                            'observations.author',
+                            'observacionesSala.author',
+                        ])
+                        ->orderBy('nro_nota')
+                        ->get();
+
+                    if ($notes->isEmpty()) {
+                        Notification::make()
+                            ->title('No hay notas para renderizar')
+                            ->warning()
+                            ->send();
+                        return;
+                    }
+
+                    $pdf = Pdf::loadView('pdf.notas-sala', ['notes' => $notes])->setPaper('a4');
+
+                    return response()->streamDownload(
+                        fn() => print ($pdf->output()),
+                        'notas-oficina-' . now()->format('Ymd-His') . '.pdf'
+                    );
+                }),
+
+
         ];
     }
 

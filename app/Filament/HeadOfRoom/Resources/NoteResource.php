@@ -24,6 +24,8 @@ use Filament\Support\Colors\Color;
 use Illuminate\Support\Collection;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\DB;
+
 
 class NoteResource extends Resource
 {
@@ -387,6 +389,8 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('assignment_date')
                     ->label('Asig.')
                     ->date("d/m/Y")
+                    ->toggleable()
+                    ->toggledHiddenByDefault(false)
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('visit_schedule')
@@ -421,6 +425,14 @@ class NoteResource extends Resource
                     ->sortable()
                     ->alignCenter()
                     ->toggleable(isToggledHiddenByDefault: false), // cámbialo a true si quieres ocultarla por defecto
+
+                Tables\Columns\TextColumn::make('printed')
+                    ->label('Impr.')
+                    ->badge()
+                    ->formatStateUsing(fn(bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
+                    ->color(fn(bool $state) => $state ? 'gray' : 'orange')
+                    ->sortable(),
+
 
             ])
             ->defaultSort('created_at', 'desc')
@@ -589,24 +601,63 @@ class NoteResource extends Resource
 
             ])
             ->bulkActions([
-                Tables\Actions\BulkAction::make('pdfSalaSeleccionadas')
-                    ->label('PDF (Oficina) seleccionadas')
+                Tables\Actions\BulkAction::make('pdfSalaSoloNoImpresas')
+                    ->label('PDF - Oficina')
                     ->icon('heroicon-o-printer')
                     ->color('pink')
                     ->requiresConfirmation()
                     ->action(function (Collection $records) {
-                        $notes = Note::query()
-                            ->whereIn('id', $records->pluck('id'))
+                        // 1) Solo no impresas
+                        $idsNoImpresas = $records
+                            ->filter(fn(Note $n) => !$n->printed)
+                            ->pluck('id')
+                            ->values()
+                            ->all();
+
+                        if (empty($idsNoImpresas)) {
+                            Notification::make()
+                                ->title('Todas las seleccionadas ya estaban IMPRESAS')
+                                ->body('No se generó ningún PDF.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        // 2) Validar TN permitido
+                        $validIds = Note::query()
+                            ->whereIn('id', $idsNoImpresas)
                             ->where(function (Builder $q) {
-                                $q->whereNull('estado_terminal')
-                                    ->orWhereIn('estado_terminal', [
-                                        EstadoTerminal::SIN_ESTADO->value,
-                                        EstadoTerminal::SALA->value,
-                                    ]);
-                            })
+                            $q->whereNull('estado_terminal')
+                                ->orWhereIn('estado_terminal', [
+                                    EstadoTerminal::SIN_ESTADO->value,
+                                    EstadoTerminal::SALA->value,
+                                ]);
+                        })
+                            ->pluck('id')
+                            ->all();
+
+                        if (empty($validIds)) {
+                            Notification::make()
+                                ->title('No hay notas válidas por TN')
+                                ->body('Solo se permiten SIN_ESTADO o SALA.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        // 3) Marcar impresas antes del PDF
+                        DB::transaction(function () use ($validIds) {
+                            Note::whereIn('id', $validIds)->update([
+                                'printed' => 1,
+                                'updated_at' => now(),
+                            ]);
+                        });
+
+                        // 4) Cargar datos y generar PDF
+                        $notes = Note::query()
+                            ->whereIn('id', $validIds)
                             ->with([
                                 'customer.postalCode.city',
-                                'user',
                                 'user',
                                 'comercial',
                                 'observations.author',
@@ -616,21 +667,21 @@ class NoteResource extends Resource
                             ->get();
 
                         if ($notes->isEmpty()) {
-                            $this->notify('warning', 'No hay notas válidas para generar el PDF.');
+                            Notification::make()
+                                ->title('No hay notas para renderizar en el PDF')
+                                ->warning()
+                                ->send();
                             return;
                         }
 
-                        $pdf = Pdf::loadView('pdf.notas-sala', ['notes' => $notes])
-                            ->setPaper('a4');
-
-                        $filename = 'notas-oficina-' . now()->format('Ymd-His') . '.pdf';
-
+                        $pdf = Pdf::loadView('pdf.notas-sala', ['notes' => $notes])->setPaper('a4');
                         return response()->streamDownload(
                             fn() => print ($pdf->output()),
-                            $filename
+                            'notas-oficina-' . now()->format('Ymd-His') . '.pdf'
                         );
                     })
                     ->deselectRecordsAfterCompletion(),
+
                 Tables\Actions\DeleteBulkAction::make()
                     ->label('Eliminar seleccionadas')
                     ->modalHeading('Eliminar notas seleccionadas')
