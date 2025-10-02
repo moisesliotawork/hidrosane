@@ -32,7 +32,14 @@ class ListMisSupervisiones extends ListRecords
                 })
                 ->badge(function () use ($supervisados) {
                     $ids = $supervisados->pluck('id')->all();
-                    return Note::query()->whereIn('comercial_id', $ids)->count();
+                    return Note::query()->whereIn('comercial_id', $ids)
+                        ->where(function ($q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '') // vacío exacto
+                                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+                        })
+                        ->whereDoesntHave('venta')
+                        ->count();
                 }),
         ];
 
@@ -46,7 +53,14 @@ class ListMisSupervisiones extends ListRecords
                 ->modifyQueryUsing(function (Builder $query) use ($u) {
                     $query->where('comercial_id', $u->id);
                 })
-                ->badge(fn() => Note::where('comercial_id', $u->id)->count());
+                ->badge(fn() => Note::where('comercial_id', $u->id)
+                    ->where(function ($q) {
+                        $q->whereNull('estado_terminal')
+                            ->orWhere('estado_terminal', '') // vacío exacto
+                            ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+                    })
+                    ->whereDoesntHave('venta')
+                    ->count());
         }
 
         return $tabs;
