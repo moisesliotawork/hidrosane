@@ -25,6 +25,7 @@ use Illuminate\Support\Collection;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
+use Filament\Tables\Filters\TernaryFilter;
 
 
 class NoteResource extends Resource
@@ -536,6 +537,17 @@ class NoteResource extends Resource
 
                         return 'Sala: ' . Carbon::parse($data['sent_to_sala_at'])->format('d/m/Y');
                     }),
+                TernaryFilter::make('printed')
+                    ->label('Impresas')
+                    ->trueLabel('Solo impresas')
+                    ->falseLabel('Solo no impresas')
+                    ->placeholder('Todas')
+                    ->native(false)
+                    ->queries(
+                        true: fn(Builder $q) => $q->where('printed', true),
+                        false: fn(Builder $q) => $q->where('printed', false),
+                        blank: fn(Builder $q) => $q, // sin filtro
+                    ),
 
             ])
             ->actions([
