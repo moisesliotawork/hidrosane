@@ -224,21 +224,23 @@ class EditNote extends EditRecord
                             'observation' => $data['observation'],
                         ]);
 
-                        // 2) Cambiar estado a SALA y registrar fecha/hora
+                        // 2) Cambiar estado a SALA, registrar fecha/hora y RESET de printed
                         $this->record->forceFill([
-                            'estado_terminal' => EstadoTerminal::SALA,
+                            'estado_terminal' => EstadoTerminal::SALA, // o ->value si tu columna es string sin cast
                             'sent_to_sala_at' => now(),
+                            'printed' => false,               // 👈 reset aquí
                         ])->save();
                     });
 
                     Notification::make()
                         ->title('Nota marcada como OFICINA')
-                        ->body('Se guardó la observación y se actualizó el estado.')
+                        ->body('Se guardó la observación, se actualizó el estado y se reinició el indicador de impresión.')
                         ->success()
                         ->send();
 
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
+
         ];
     }
 
