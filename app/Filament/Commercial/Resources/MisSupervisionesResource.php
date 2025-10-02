@@ -459,7 +459,13 @@ class MisSupervisionesResource extends Resource
         }
 
         return parent::getEloquentQuery()
-            ->whereIn('comercial_id', $supervisados);
+            ->whereIn('comercial_id', $supervisados)
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '') // vacío exacto
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->whereDoesntHave('venta');
     }
 
     public static function getPages(): array
