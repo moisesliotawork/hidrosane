@@ -299,7 +299,8 @@ class VentaResource extends Resource
                         ->options(
                             fn() => ['' => 'SIN COMPAÑERO']      // primera opción
                             + User::role(['commercial', 'team_leader'])
-                                ->whereKeyNot(auth()->id())
+                                ->whereKeyNot(auth()->id())     // excluir al propio usuario
+                                ->whereNull('baja')             // <-- SOLO usuarios activos
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->orderBy('name')
                                 ->distinct()
@@ -307,7 +308,7 @@ class VentaResource extends Resource
                                 ->mapWithKeys(fn($u) => [
                                     $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
                                 ])
-                                ->all()                       // array que necesita Filament
+                                ->all()
                         )
                         ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
                 ]),

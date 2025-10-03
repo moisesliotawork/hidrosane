@@ -160,6 +160,7 @@ class VentaDesdeCeroResource extends Resource
                     ->options(
                         fn() => ['' => 'SIN COMPAÑERO'] + User::role('commercial')
                             ->whereKeyNot(auth()->id())
+                            ->whereNull('baja')
                             ->select('id', 'empleado_id', 'name', 'last_name')->orderBy('name')->get()
                             ->mapWithKeys(fn($u) => [$u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"])
                             ->all()

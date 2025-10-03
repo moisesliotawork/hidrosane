@@ -54,26 +54,21 @@ class TeamResource extends Resource
                 ->rows(2)
                 ->columnSpanFull(),
 
+            // Líder de Equipo (solo activos)
             Forms\Components\Select::make('team_leader_id')
                 ->label('Líder de Equipo')
                 ->options(function (Get $get, ?Team $record) {
-                    // líderes ya tomados
-                    $takenLeaders = Team::query()
-                        ->pluck('team_leader_id')
-                        ->filter()
-                        ->toArray();
-
-                    // miembros ya asignados en cualquier equipo
+                    $takenLeaders = Team::query()->pluck('team_leader_id')->filter()->toArray();
                     $takenMembers = DB::table('user_team')->pluck('user_id')->toArray();
-
                     $excluded = array_unique(array_merge($takenLeaders, $takenMembers));
 
-                    // ➜ en edición, permitir ver/seguir el líder actual
+                    // en edición, permitir ver/seguir el líder actual
                     if ($record) {
                         $excluded = array_values(array_diff($excluded, [$record->team_leader_id]));
                     }
 
                     return User::role('commercial')
+                        ->whereNull('baja')          // <-- SOLO usuarios activos
                         ->whereNotIn('id', $excluded)
                         ->orderBy('empleado_id')
                         ->get()
@@ -82,7 +77,6 @@ class TeamResource extends Resource
                         ]);
                 })
                 ->getOptionLabelUsing(function ($value) {
-                    // ➜ muestra "empleado_id nombre apellido" cuando el valor ya no está en options()
                     if (!$value)
                         return null;
                     $u = User::find($value);
@@ -93,6 +87,7 @@ class TeamResource extends Resource
                 ->required()
                 ->columnSpanFull(),
 
+            // Miembros del equipo (solo activos)
             Forms\Components\Repeater::make('miembros')
                 ->label('Miembros del equipo')
                 ->schema([
@@ -106,13 +101,14 @@ class TeamResource extends Resource
 
                             $excluded = array_unique(array_merge($takenLeaders, $takenMembers, [$leaderId]));
 
-                            // ➜ permitir ver/editar los miembros actuales del equipo en edición
+                            // en edición, permitir ver/editar miembros actuales
                             if ($record) {
                                 $currentMembers = $record->members()->pluck('users.id')->toArray();
                                 $excluded = array_values(array_diff($excluded, $currentMembers));
                             }
 
                             return User::role('commercial')
+                                ->whereNull('baja')   // <-- SOLO usuarios activos
                                 ->whereNotIn('id', $excluded)
                                 ->orderBy('empleado_id')
                                 ->get()

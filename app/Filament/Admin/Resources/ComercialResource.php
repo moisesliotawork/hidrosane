@@ -29,6 +29,7 @@ class ComercialResource extends Resource
     {
         return parent::getEloquentQuery()
             ->role('commercial')
+            ->whereNull('baja')
             ->withExists([
                 'notesComercial as has_any_show_phone' => fn($q) => $q->where('show_phone', true),
                 'roles as is_team_leader' => fn($q) => $q->where('name', 'team_leader'),
