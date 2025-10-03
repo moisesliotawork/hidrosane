@@ -21,6 +21,7 @@ class RedirectToRolePanel
                 $user->hasRole('admin') => '/admin',
                 $user->hasRole('team_leader') => '/comercial',
                 $user->hasRole('commercial') => '/comercial',
+                $user->hasRole('sales_manager') => '/comercial',
                 $user->hasRole('teleoperator') => '/teleoperador',
                 $user->hasRole('head_of_room') => '/jefe-sala',
                 $user->hasRole('gerente_general') => '/gerente',

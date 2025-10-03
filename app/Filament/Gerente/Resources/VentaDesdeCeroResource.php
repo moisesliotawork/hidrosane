@@ -126,6 +126,7 @@ class VentaDesdeCeroResource extends Resource
                         User::role(['commercial', 'team_leader'])   // 👈 ahora incluye ambos roles
                             ->select('id', 'empleado_id', 'name', 'last_name')
                             ->orderBy('name')
+                            ->whereNull('baja')
                             ->get()
                             ->mapWithKeys(fn($u) => [
                                 $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"

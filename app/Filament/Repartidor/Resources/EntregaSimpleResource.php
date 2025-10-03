@@ -189,26 +189,33 @@ class EntregaSimpleResource extends Resource
             /* ------------- Compañero -------------- */
             Section::make('¿Estás en pareja con otro compañero?')
                 ->schema([
-                    Select::make('companion_id')
-                        ->label('Compañero')
-                        ->searchable()
-                        ->native(false)
-                        ->nullable()
-                        ->default(null)
-                        ->options(
-                            fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                            + User::role(['commercial', 'team_leader'])
-                                ->whereKeyNot(auth()->id())
-                                ->select('id', 'empleado_id', 'name', 'last_name')
-                                ->orderBy('name')
-                                ->distinct()
-                                ->get()
-                                ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                ])
-                                ->all()                       // array que necesita Filament
-                        )
-                        ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                    Section::make('¿Estás en pareja con otro compañero?')
+                        ->schema([
+                            Select::make('companion_id')
+                                ->label('Compañero')
+                                ->native(false)
+                                ->searchable()
+                                ->nullable()
+                                ->default(null)
+                                ->options(
+                                    fn() => ['' => 'SIN COMPAÑERO']      // primera opción
+                                    + User::role(['commercial', 'team_leader'])
+                                        ->whereKeyNot(auth()->id())
+                                        ->whereNull('baja')
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('name')
+                                        ->distinct()
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()                       // array que necesita Filament
+                                )
+                                ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state)
+
+                        ])
+
+
                 ]),
 
             Section::make('Datos de la venta')

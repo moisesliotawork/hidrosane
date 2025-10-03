@@ -355,7 +355,6 @@ class VentaResource extends Resource
                             fn() => ['' => 'SIN COMPAÑERO']      // primera opción
                             + User::role(['commercial', 'team_leader'])
                                 ->whereKeyNot(auth()->id())     // excluir al propio usuario
-                                ->whereNull('baja')             // <-- SOLO usuarios activos
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->orderBy('name')
                                 ->distinct()

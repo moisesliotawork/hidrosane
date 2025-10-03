@@ -627,14 +627,19 @@ class HistoricoContratosResource extends Resource
     {
         return $table
             ->query(function (): Builder {
-                // Usa el timezone de tu app; si necesitas forzarlo:
                 $inicio = now('Europe/Madrid')->startOfDay();
                 $fin = now('Europe/Madrid')->setTime(23, 0, 0);
 
                 return Venta::query()
                     ->with(['note.customer.postalCode.city', 'comercial', 'reparto'])
-                    ->where('comercial_id', auth()->id())
-                    ->whereBetween('fecha_venta', [$inicio, $fin]) // ⬅️ solo hoy hasta 23:00
+                    // ⬇️ si NO es sales_manager, limitamos a sus propias ventas
+                    ->when(
+                        !static::isSalesManager(),
+                        fn(Builder $q) =>
+                        $q->where('comercial_id', auth()->id())
+                    )
+                    // Rango del día (igual que tenías)
+                    ->whereBetween('fecha_venta', [$inicio, $fin])
                     ->latest('id');
             })
             ->columns([
@@ -772,4 +777,10 @@ class HistoricoContratosResource extends Resource
                 ->columnSpanFull(),
         ])->columns(1);
     }
+
+    protected static function isSalesManager(): bool
+    {
+        return auth()->check() && auth()->user()->hasRole('sales_manager');
+    }
+
 }
