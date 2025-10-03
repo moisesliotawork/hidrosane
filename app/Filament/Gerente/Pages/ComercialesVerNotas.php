@@ -28,7 +28,7 @@ class ComercialesVerNotas extends Page implements HasTable
             ->query(
                 User::query()
                     ->role(['commercial', 'team_leader'])
-                    ->whereNull('fecha_baja')
+                    ->whereNull('baja')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('empleado_id')
