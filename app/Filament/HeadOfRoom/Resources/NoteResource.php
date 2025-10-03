@@ -320,6 +320,7 @@ class NoteResource extends Resource
                     ->searchable()
                     ->label('# Nota')
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->formatStateUsing(function (string $state) {
                         // Asegurarse que tiene exactamente 5 caracteres
                         if (strlen($state) === 5) {
@@ -372,6 +373,7 @@ class NoteResource extends Resource
                     ->color(fn(NoteStatus $state): string => $state->getColor())
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->label('Estado'),
 
                 Tables\Columns\TextColumn::make('comercial_empleado')
@@ -398,7 +400,8 @@ class NoteResource extends Resource
                     ->badge()
                     ->color(Color::Gray)
                     ->label('Horario')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('estado_terminal')
                     ->badge()
@@ -411,7 +414,8 @@ class NoteResource extends Resource
                         EstadoTerminal::SIN_ESTADO => 'gray'
                     })
                     ->label('TN')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('sent_to_sala_at')
                     ->label('Fecha Of.')
