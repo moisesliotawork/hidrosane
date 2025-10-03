@@ -167,20 +167,28 @@ class VentaDesdeCeroResource extends Resource
             Section::make('Datos de la nota')->schema([
                 Select::make('nota_comercial_id')
                     ->label('Comercial asignado a la nota')
-                    ->options(
-                        User::role(['commercial', 'team_leader'])   // 👈 ahora incluye ambos roles
+                    ->options(function () {
+                        $es911 = (string) auth()->user()?->empleado_id === '911';
+
+                        return self::comercialesQuery($es911)
                             ->select('id', 'empleado_id', 'name', 'last_name')
                             ->orderBy('name')
                             ->get()
-                            ->mapWithKeys(fn($u) => [
-                                $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"
-                            ])
-                            ->all()
-                    )
+                            ->mapWithKeys(fn(User $u) => [$u->id => self::nombreEmpleado($u)])
+                            ->all();
+                    })
+                    ->getOptionLabelUsing(function ($value) {
+                        if (!$value)
+                            return null;
+                        // Asegura mostrar la etiqueta aunque el usuario quede inactivo luego
+                        $u = User::select('id', 'empleado_id', 'name', 'last_name')->find($value);
+                        return $u ? self::nombreEmpleado($u) : "Usuario #{$value}";
+                    })
                     ->searchable()
                     ->native(false)
                     ->default(fn() => auth()->id())
                     ->required(),
+
 
                 Select::make('nota_status')->label('Estado de la nota')
                     ->options(NoteStatus::options())
@@ -201,19 +209,34 @@ class VentaDesdeCeroResource extends Resource
             ])->columns(2),
 
             /* ==================== COMPAÑERO ==================== */
-            Section::make('¿Estás en pareja con otro compañero?')->schema([
-                Select::make('companion_id')->label('Compañero')
-                    ->native(false)->searchable()->nullable()->default(null)
-                    ->options(
-                        fn() => ['' => 'SIN COMPAÑERO'] + User::role(['commercial', 'team_leader'])
-                            ->whereKeyNot(auth()->id())
-                            ->whereNull('baja')
-                            ->select('id', 'empleado_id', 'name', 'last_name')->orderBy('name')->distinct()->get()
-                            ->mapWithKeys(fn($u) => [$u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}"])
-                            ->all()
-                    )
-                    ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
-            ]),
+            Select::make('companion_id')
+                ->label('Compañero')
+                ->native(false)
+                ->searchable()
+                ->nullable()
+                ->default(null)
+                ->options(function () {
+                    $es911 = (string) auth()->user()?->empleado_id === '911';
+
+                    $opciones = self::comercialesQuery($es911)
+                        ->whereKeyNot(auth()->id()) // excluirse a sí mismo
+                        ->select('id', 'empleado_id', 'name', 'last_name')
+                        ->orderBy('name')
+                        ->distinct()
+                        ->get()
+                        ->mapWithKeys(fn(User $u) => [$u->id => self::nombreEmpleado($u)])
+                        ->all();
+
+                    // Agrega “SIN COMPAÑERO” arriba
+                    return ['' => 'SIN COMPAÑERO'] + $opciones;
+                })
+                ->getOptionLabelUsing(function ($value) {
+                    if (blank($value))
+                        return 'SIN COMPAÑERO';
+                    $u = User::select('id', 'empleado_id', 'name', 'last_name')->find($value);
+                    return $u ? self::nombreEmpleado($u) : "Usuario #{$value}";
+                })
+                ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
 
             /* ==================== OFERTAS / PRODUCTOS ==================== */
             Section::make('Ofertas incluidas')->schema([
@@ -527,4 +550,18 @@ class VentaDesdeCeroResource extends Resource
                 ->columnSpanFull(),
         ])->columns(1);
     }
+
+    /** Devuelve el query base de comerciales / team leaders, con o sin inactivos */
+    protected static function comercialesQuery(bool $incluirInactivos = false)
+    {
+        return User::role(['commercial', 'team_leader'])
+            ->when(!$incluirInactivos, fn($q) => $q->whereNull('baja'));
+    }
+
+    /** Formatea "empleado - nombre apellido" */
+    protected static function nombreEmpleado(User $u): string
+    {
+        return "{$u->empleado_id} - {$u->name} {$u->last_name}";
+    }
+
 }
