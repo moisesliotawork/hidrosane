@@ -13,6 +13,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Validation\Rule;
 
 class SupervisionResource extends Resource
 {
@@ -31,24 +32,9 @@ class SupervisionResource extends Resource
                 Forms\Components\Select::make('supervisor_id')
                     ->label('Supervisor')
                     ->options(
-                        fn() => User::query()
-                            ->whereHas('roles', fn($q) => $q->whereIn('name', ['commercial', 'team_leader']))
-                            ->orderBy('empleado_id')
-                            ->get()
-                            ->mapWithKeys(fn(User $u) => [
-                                $u->id => "{$u->empleado_id} - {$u->name}",
-                            ])
-                    )
-                    ->searchable()
-                    ->preload()
-                    ->required(),
-
-                // SUPERVISADO (commercial / team_leader), label: empleado_id - name
-                Forms\Components\Select::make('supervisado_id')
-                    ->label('Supervisado')
-                    ->options(
-                        fn() => User::query()
-                            ->whereHas('roles', fn($q) => $q->whereIn('name', ['commercial', 'team_leader']))
+                        fn() =>
+                        User::role(['commercial', 'team_leader'])
+                            ->whereNull('baja')                    // <-- ACTIVO (cambia a fecha_baja si es tu columna)
                             ->orderBy('empleado_id')
                             ->get()
                             ->mapWithKeys(fn(User $u) => [
@@ -58,7 +44,53 @@ class SupervisionResource extends Resource
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->rule('different:supervisor_id'),
+                    ->rules([
+                        'required',
+                        Rule::exists('users', 'id')->where(function ($q) {
+                            $q->whereNull('baja')                  // <-- ACTIVO
+                                ->whereExists(function ($sq) {
+                                    $sq->selectRaw(1)
+                                        ->from('model_has_roles as mhr')
+                                        ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                                        ->whereColumn('mhr.model_id', 'users.id')
+                                        ->where('mhr.model_type', User::class)
+                                        ->whereIn('r.name', ['commercial', 'team_leader']);
+                                });
+                        }),
+                    ]),
+
+
+                // SUPERVISADO (solo activos)
+                Forms\Components\Select::make('supervisado_id')
+                    ->label('Supervisado')
+                    ->options(
+                        fn() =>
+                        User::role(['commercial', 'team_leader'])
+                            ->whereNull('baja')                    // <-- ACTIVO
+                            ->orderBy('empleado_id')
+                            ->get()
+                            ->mapWithKeys(fn(User $u) => [
+                                $u->id => "{$u->empleado_id} - {$u->name}",
+                            ])
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->rules([
+                        'required',
+                        'different:supervisor_id',                 // no puede ser la misma persona
+                        Rule::exists('users', 'id')->where(function ($q) {
+                            $q->whereNull('baja')
+                                ->whereExists(function ($sq) {
+                                    $sq->selectRaw(1)
+                                        ->from('model_has_roles as mhr')
+                                        ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                                        ->whereColumn('mhr.model_id', 'users.id')
+                                        ->where('mhr.model_type', User::class)
+                                        ->whereIn('r.name', ['commercial', 'team_leader']);
+                                });
+                        }),
+                    ]),
 
                 Forms\Components\DatePicker::make('start_date')
                     ->label('Fecha de inicio')
