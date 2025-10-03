@@ -315,6 +315,8 @@ class NoteResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordUrl(null)
+            ->recordAction(null)
             ->paginated([20, 25, 30, 40, 'all'])
             ->columns([
 
