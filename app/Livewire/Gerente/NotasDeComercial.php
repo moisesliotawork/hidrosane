@@ -204,7 +204,7 @@ class NotasDeComercial extends Component
     {
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', $this->comercialId)
-            ->whereDate('assignment_date', '<', today())
+            ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')

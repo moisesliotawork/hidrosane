@@ -785,6 +785,7 @@ class VentaResource extends Resource
                 ->openable()
                 ->downloadable()
                 ->required($required)
+                ->extraInputAttributes(['capture' => 'environment'])
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
