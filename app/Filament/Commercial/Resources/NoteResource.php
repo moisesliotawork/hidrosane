@@ -479,6 +479,7 @@ class NoteResource extends Resource
                         \DB::transaction(function () use ($eligible) {
                             \App\Models\Note::whereIn('id', $eligible)->update([
                                 'estado_terminal' => \App\Enums\EstadoTerminal::SALA->value,
+                                'printed' => false
                             ]);
                         });
 
