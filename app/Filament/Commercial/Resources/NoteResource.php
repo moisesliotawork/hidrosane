@@ -329,6 +329,8 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->label('Teléfono')
+                    ->toggleable()
+                    ->toggledHiddenByDefault(false)
                     ->state(function (Note $record) {
                         $viewer = auth()->user();
                         $canSee = $viewer?->hasRole('team_leader') ? true : $record->canShowPhone();
@@ -347,22 +349,58 @@ class NoteResource extends Resource
 
 
                 Tables\Columns\TextColumn::make('customer.postalCode.code')
+                    ->toggleable()
+                    ->toggledHiddenByDefault(true)
                     ->label('CP'),
+
+                Tables\Columns\TextColumn::make('customer.primary_address')
+                    ->label('Dirección')
+                    ->badge()
+                    ->color(\Filament\Support\Colors\Color::Gray)
+                    ->state(fn(Note $record) => $record->customer?->primary_address ?: '—')
+                    ->formatStateUsing(function (?string $state) {
+                        if (blank($state)) {
+                            return '—';
+                        }
+                        // Inserta salto de línea cada 100 caracteres
+                        return wordwrap($state, 100, "\n", true);
+                    })
+                    // Permite que el badge muestre varias líneas
+                    ->extraAttributes([
+                        'class' => 'whitespace-pre-wrap break-words', // respeta \n y corta palabras largas
+                    ])
+                    // Tooltip con el texto completo
+                    ->tooltip(fn($state) => $state ?: null)
+                    // Hacerla buscable en la tabla (en la relación customers)
+                    ->searchable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $search) {
+                        $query->whereHas('customer', function (\Illuminate\Database\Eloquent\Builder $q) use ($search) {
+                            $q->where('customers.primary_address', 'like', "%{$search}%");
+                        });
+                    })
+                    ->toggleable()
+                    ->toggledHiddenByDefault(true),
+
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->toggleable()
+                    ->toggledHiddenByDefault(true)
                     ->color(fn(NoteStatus $state): string => $state->getColor())
                     ->formatStateUsing(fn(NoteStatus $state): string => $state->label())
                     ->sortable()
                     ->label('Estado'),
 
                 Tables\Columns\TextColumn::make('assignment_date')
+                    ->toggleable()
+                    ->toggledHiddenByDefault(false)
                     ->label('Asig.')
                     ->date("d/m/Y")
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('visit_schedule')
                     ->badge()
+                    ->toggleable()
+                    ->toggledHiddenByDefault(true)
                     ->color(Color::Gray)
                     ->label('Horario')
                     ->sortable(),
@@ -490,7 +528,7 @@ class NoteResource extends Resource
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion()
-                
+
             ]);
     }
 
