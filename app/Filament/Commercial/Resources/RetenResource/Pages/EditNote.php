@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Commercial\Resources\NoteResource\Pages;
+namespace App\Filament\Commercial\Resources\RetenResource\Pages;
 
-use App\Filament\Commercial\Resources\NoteResource;
+use App\Filament\Commercial\Resources\RetenResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Observation;
@@ -23,7 +23,7 @@ use Filament\Forms\Components\Select;
 
 class EditNote extends EditRecord
 {
-    protected static string $resource = NoteResource::class;
+    protected static string $resource = RetenResource::class;
 
     public function getTitle(): string
     {
@@ -77,7 +77,7 @@ class EditNote extends EditRecord
                         'hora' => Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
-                        'observacion' => $data['observacion'] ?? null, // 👈 NUEVO
+                        'observacion' => $data['observacion'] ?? null,
                     ]);
 
                     // 4) Notificación + redirect
@@ -166,6 +166,7 @@ class EditNote extends EditRecord
 
                         // 2) Cambiar estado
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
+                        $this->record->reten = false;
                         $this->record->save();
                     });
 
@@ -231,7 +232,7 @@ class EditNote extends EditRecord
                             'estado_terminal' => EstadoTerminal::SALA, // o ->value si tu columna es string sin cast
                             'sent_to_sala_at' => now(),
                             'printed' => false,
-                            'reten' => false,             
+                            'reten' => false,
                         ])->save();
                     });
 
@@ -264,7 +265,7 @@ class EditNote extends EditRecord
         // Fecha de nacimiento y edad calculada para mostrar en el form
         $fechaNac = $customer->fecha_nac; // si tienes $casts, será Carbon|null
         $fechaNacStr = $fechaNac
-            ? ($fechaNac instanceof \Carbon\Carbon ? $fechaNac->toDateString() : (string) $fechaNac)
+            ? ($fechaNac instanceof Carbon ? $fechaNac->toDateString() : (string) $fechaNac)
             : null;
 
         $computedAge = null;

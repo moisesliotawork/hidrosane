@@ -2,8 +2,8 @@
 
 namespace App\Filament\Commercial\Resources;
 
-use App\Filament\Commercial\Resources\NoteResource\Pages;
-use App\Filament\Commercial\Resources\NoteResource\RelationManagers;
+use App\Filament\Commercial\Resources\RetenResource\Pages;
+use App\Filament\Commercial\Resources\RetenResource\RelationManagers;
 use App\Models\Note;
 use App\Models\PostalCode;
 use App\Enums\NoteStatus;
@@ -26,17 +26,17 @@ use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
 
-class NoteResource extends Resource
+class RetenResource extends Resource
 {
     protected static ?string $model = Note::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Notas';
+    protected static ?string $navigationLabel = 'Reten';
 
-    protected static ?string $modelLabel = 'Nota';
+    protected static ?string $modelLabel = 'Reten';
 
-    protected static ?string $pluralModelLabel = 'Notas';
+    protected static ?string $pluralModelLabel = 'Reten';
 
     public static function form(Form $form): Form
     {
@@ -530,10 +530,10 @@ class NoteResource extends Resource
                         }
 
                         \DB::transaction(function () use ($eligible) {
-                            Note::whereIn('id', $eligible)->update([
+                            \App\Models\Note::whereIn('id', $eligible)->update([
                                 'estado_terminal' => EstadoTerminal::SALA->value,
                                 'printed' => false,
-                                'reten' => false,
+                                'reten' => false
                             ]);
                         });
 
@@ -611,7 +611,7 @@ class NoteResource extends Resource
 
         $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
 
-        $query->where('reten', false);
+        $query->where('reten', true);
 
         return $query;
     }
@@ -621,5 +621,20 @@ class NoteResource extends Resource
         return false;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        return $user
+            && ($user->hasRole('sales_manager') || $user->hasRole('team_leader'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        return $user
+            && ($user->hasRole('sales_manager') || $user->hasRole('team_leader'));
+    }
 
 }

@@ -34,7 +34,7 @@ class NoteJVResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Notas';
+    protected static ?string $navigationLabel = 'Todas Notas';
 
     protected static ?string $modelLabel = 'Nota';
 
@@ -506,7 +506,7 @@ class NoteJVResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return \App\Models\User::role(['commercial', 'team_leader']) // 👈 ambos roles
+                        return User::role(['commercial', 'team_leader']) // 👈 ambos roles
                             ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
@@ -569,7 +569,7 @@ class NoteJVResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja')          // <-- SOLO activos
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')
@@ -593,7 +593,7 @@ class NoteJVResource extends Resource
                                                 ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                                                 ->whereColumn('mhr.model_id', 'users.id')
                                                 ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader']);
+                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
                                         });
                                 }),
                             ]),
@@ -624,6 +624,7 @@ class NoteJVResource extends Resource
                             $updates = [
                                 'comercial_id' => $comercialId ?: null,
                                 'assignment_date' => $assignmentDate,
+                                'reten' => false
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
@@ -745,7 +746,7 @@ class NoteJVResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja') // <-- SOLO activos (ajusta a fecha_baja si así se llama)
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')
@@ -769,7 +770,7 @@ class NoteJVResource extends Resource
                                                 ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                                                 ->whereColumn('mhr.model_id', 'users.id')
                                                 ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader']);
+                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
                                         });
                                 }),
                             ]),
@@ -787,7 +788,7 @@ class NoteJVResource extends Resource
                                 $isValid = User::query()
                                     ->where('id', $comercialId)
                                     ->whereNull('baja') // activo
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader']))
+                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
                                     ->exists();
 
                                 if (!$isValid) {
@@ -805,6 +806,7 @@ class NoteJVResource extends Resource
                             Note::whereIn('id', $recordIds)->update([
                                 'comercial_id' => (!empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
+                                'reten' => false,
                             ]);
 
                             // 2) Resetear TN a S/E para las que estén en SALA
@@ -817,6 +819,7 @@ class NoteJVResource extends Resource
                                 Note::whereIn('id', $toResetIds)->update([
                                     'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
                                     'sent_to_sala_at' => null,
+                                    'reten' => false
                                 ]);
                             }
 
@@ -857,4 +860,21 @@ class NoteJVResource extends Resource
             'edit' => Pages\EditNoteJV::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        return $user
+            && ($user->hasRole('sales_manager'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        return $user
+            && ($user->hasRole('sales_manager'));
+    }
+
 }

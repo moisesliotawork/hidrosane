@@ -49,7 +49,7 @@ class CreateVenta extends CreateRecord
         return DB::transaction(function () use ($data) {
 
             unset($data['age']);
-            
+
             /* 🔒 VALIDAR QUE CADA OFERTA TENGA ≥ 1 PRODUCTO -------------------- */
             $state = $this->form->getRawState(); // <-- trae ventaOfertas y productos
             $errores = [];
@@ -207,7 +207,7 @@ class CreateVenta extends CreateRecord
             $venta->save();
 
             // j) Estado de la nota
-            $note->update(['estado_terminal' => EstadoTerminal::VENTA]);
+            $note->update(['estado_terminal' => EstadoTerminal::VENTA, 'reten' => false]);
 
             return $venta;
         });

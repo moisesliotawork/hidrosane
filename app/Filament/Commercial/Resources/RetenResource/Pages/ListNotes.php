@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Commercial\Resources\NoteResource\Pages;
+namespace App\Filament\Commercial\Resources\RetenResource\Pages;
 
-use App\Filament\Commercial\Resources\NoteResource;
+use App\Filament\Commercial\Resources\RetenResource;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Components\Tab;
 use Filament\Actions;
@@ -11,14 +11,14 @@ use App\Models\{Team, Note};
 
 class ListNotes extends ListRecords
 {
-    protected static string $resource = NoteResource::class;
+    protected static string $resource = RetenResource::class;
 
     public function getTitle(): string
     {
         $user = auth()->user();
 
         if ($user->hasRole('team_leader')) {
-            return 'NOTAS JE';
+            return 'NOTAS RETEN';
         }
 
         return 'Notas';
@@ -64,7 +64,7 @@ class ListNotes extends ListRecords
                         ->whereDoesntHave('venta')
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false)
+                        ->where('reten', true)
                         ->count()
                 )
                 ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro, $desde, $hasta) {
@@ -72,7 +72,7 @@ class ListNotes extends ListRecords
                         ->where($estadoFiltro)
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false);
+                        ->where('reten', true);
                 }),
         ];
 
@@ -108,7 +108,7 @@ class ListNotes extends ListRecords
                         ->whereDoesntHave('venta')
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false)  
+                        ->where('reten', true)
                         ->count()
                 )
                 ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro, $desde, $hasta) {
@@ -116,7 +116,7 @@ class ListNotes extends ListRecords
                         ->where($estadoFiltro)
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false)  ;
+                        ->where('reten', true);
                 });
         }
 
