@@ -465,7 +465,8 @@ class MisSupervisionesResource extends Resource
                     ->orWhere('estado_terminal', '') // vacío exacto
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
-            ->whereDoesntHave('venta');
+            ->whereDoesntHave('venta')
+            ->where('reten', false);
     }
 
     public static function getPages(): array

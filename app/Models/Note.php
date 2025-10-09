@@ -95,6 +95,7 @@ class Note extends Model
         'productos_externos',
         'sent_to_sala_at',
         'printed',
+        'reten',              
     ];
 
     /**
@@ -115,6 +116,7 @@ class Note extends Model
         'productos_externos' => 'string',
         'sent_to_sala_at' => 'datetime',
         'printed' => 'boolean',
+        'reten' => 'boolean',
     ];
 
     protected $attributes = [
@@ -122,6 +124,7 @@ class Note extends Model
         'estado_terminal' => null,
         'show_phone' => false,
         'printed' => false,
+        'reten' => false,
     ];
 
     protected static function boot()

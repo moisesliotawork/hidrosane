@@ -356,7 +356,7 @@ class NoteResource extends Resource
                 Tables\Columns\TextColumn::make('customer.primary_address')
                     ->label('Dirección')
                     ->badge()
-                    ->color(\Filament\Support\Colors\Color::Gray)
+                    ->color(Color::Gray)
                     ->state(fn(Note $record) => $record->customer?->primary_address ?: '—')
                     ->formatStateUsing(function (?string $state) {
                         if (blank($state)) {
@@ -372,8 +372,8 @@ class NoteResource extends Resource
                     // Tooltip con el texto completo
                     ->tooltip(fn($state) => $state ?: null)
                     // Hacerla buscable en la tabla (en la relación customers)
-                    ->searchable(query: function (\Illuminate\Database\Eloquent\Builder $query, string $search) {
-                        $query->whereHas('customer', function (\Illuminate\Database\Eloquent\Builder $q) use ($search) {
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('customer', function (Builder $q) use ($search) {
                             $q->where('customers.primary_address', 'like', "%{$search}%");
                         });
                     })
@@ -594,6 +594,8 @@ class NoteResource extends Resource
         $hasta = now()->toDateString();
 
         $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+
+        $query->where('reten', false);
 
         return $query;
     }
