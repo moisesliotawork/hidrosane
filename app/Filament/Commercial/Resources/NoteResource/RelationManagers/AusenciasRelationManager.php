@@ -35,6 +35,14 @@ class AusenciasRelationManager extends RelationManager
                     ->color(Color::Blue)
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('observacion')
+                    ->label('Observación')
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable()
+                    ->formatStateUsing(fn($state) => $state ? wordwrap($state, 60, "\n", true) : null)
+                    ->html(),
+
                 Tables\Columns\TextColumn::make('latitud')
                     ->label('Latitud')
                     ->toggleable(),
@@ -61,8 +69,8 @@ class AusenciasRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([])
-            ->headerActions([])   
-            ->actions([])         
+            ->headerActions([])
+            ->actions([])
             ->bulkActions([]);
     }
 }
