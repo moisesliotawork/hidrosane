@@ -330,6 +330,18 @@ class NoteResource extends Resource
                     ->color(Color::Gray)
                     ->label('Horario')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('estado_terminal')
+                    ->badge()
+                    ->formatStateUsing(fn(Note $record): string => $record->estado_terminal->label())
+                    ->color(fn(Note $record): string => match ($record->estado_terminal) {
+                        EstadoTerminal::NUL => 'danger',
+                        EstadoTerminal::VENTA => 'success',
+                        EstadoTerminal::CONFIRMADO => 'orange',
+                        EstadoTerminal::SALA => 'pink',
+                        EstadoTerminal::SIN_ESTADO => 'gray'
+                    })
+                    ->label('TN')
+                    ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
