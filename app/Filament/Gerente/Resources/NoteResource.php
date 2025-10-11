@@ -332,18 +332,35 @@ class NoteResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('estado_terminal')
                     ->badge()
-                    ->formatStateUsing(fn(Note $record): string => $record->estado_terminal->label())
-                    ->color(fn(Note $record): string => match ($record->estado_terminal) {
-                        EstadoTerminal::NUL => 'danger',
-                        EstadoTerminal::VENTA => 'success',
-                        EstadoTerminal::CONFIRMADO => 'orange',
-                        EstadoTerminal::SALA => 'pink',
-                        EstadoTerminal::SIN_ESTADO => 'gray'
+                    ->formatStateUsing(
+                        fn(Note $record): string =>
+                        $record->estado_terminal?->label() ?? 'S/E'
+                    )
+                    ->color(function (Note $record): string {
+                        $et = $record->estado_terminal;
+
+                        return match ($et) {
+                            EstadoTerminal::NUL => 'danger',
+                            EstadoTerminal::VENTA => 'success',
+                            EstadoTerminal::CONFIRMADO => 'orange',
+                            EstadoTerminal::SALA => 'pink',
+                            EstadoTerminal::AUSENTE => 'warning', // ← faltaba
+                            EstadoTerminal::SIN_ESTADO => 'gray',
+                            default => 'gray',    // ← por seguridad futura
+                        };
                     })
                     ->label('TN')
                     ->sortable(),
+
+
+                Tables\Columns\TextColumn::make('reten')
+                    ->label('Reten')
+                    ->badge()
+                    ->formatStateUsing(fn(bool $state) => $state ? 'SI' : 'NO')
+                    ->color(fn(bool $state) => $state ? 'success' : 'danger')
+                    ->sortable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('assignment_date', 'asc')
             ->filters([
 
                 Tables\Filters\Filter::make('assignment_date')
@@ -592,6 +609,17 @@ class NoteResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $desde = now()->subDays(5)->toDateString();
+        $hasta = now()->toDateString();
+
+        $query = parent::getEloquentQuery()
+            ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+
+        return $query;
     }
 
     public static function getPages(): array
