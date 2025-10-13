@@ -360,7 +360,7 @@ class NoteResource extends Resource
                     ->color(fn(bool $state) => $state ? 'success' : 'danger')
                     ->sortable(),
             ])
-            ->defaultSort('assignment_date', 'asc')
+            ->defaultSort('assignment_date', 'desc')
             ->filters([
 
                 Tables\Filters\Filter::make('assignment_date')
