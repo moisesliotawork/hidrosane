@@ -616,10 +616,10 @@ class NoteResource extends Resource
         $desde = now()->subDays(5)->toDateString();
         $hasta = now()->toDateString();
 
-        $query = parent::getEloquentQuery()
-            ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
-
-        return $query;
+        return parent::getEloquentQuery()
+            ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+            ->orderByDesc('assignment_date')
+            ->orderByDesc('id');
     }
 
     public static function getPages(): array

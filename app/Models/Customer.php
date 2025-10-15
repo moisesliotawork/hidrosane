@@ -33,6 +33,10 @@ class Customer extends Model
         'num_hab_casa',
         'ayuntamiento',
         'edadTelOp',
+
+        'postal_code',
+        'ciudad',
+        'provincia',
     ];
 
     protected $casts = [
