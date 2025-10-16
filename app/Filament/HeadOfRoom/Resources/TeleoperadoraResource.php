@@ -225,9 +225,15 @@ SQL;
 
     public static function getEloquentQuery(): Builder
     {
+        $hoy = Carbon::today(config('app.timezone', 'UTC'))->toDateString();
+
         return User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
+            ->where(function (Builder $q) use ($hoy) {
+                $q->whereNull('users.fecha_baja')
+                    ->orWhereDate('users.fecha_baja', '>', $hoy);
+            })
             ->distinct('users.id');
     }
 
