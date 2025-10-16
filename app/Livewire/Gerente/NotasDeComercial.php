@@ -212,7 +212,7 @@ class NotasDeComercial extends Component
             })
             ->whereDoesntHave('venta')
             ->orderByDesc('assignment_date')
-            ->orderByDesc('id')
+            ->orderByRaw('CAST(nro_nota AS UNSIGNED) DESC')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
     }
@@ -231,7 +231,7 @@ class NotasDeComercial extends Component
             ->whereDoesntHave('venta')
             ->where('assignment_date', '>=', now()->subDays(5)->startOfDay())
             ->orderByDesc('assignment_date')
-            ->orderByDesc('id')
+            ->orderByRaw('CAST(nro_nota AS UNSIGNED) DESC')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
     }
