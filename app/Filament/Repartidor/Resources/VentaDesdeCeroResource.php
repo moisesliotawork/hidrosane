@@ -58,6 +58,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                    TextInput::make('third_phone')->label('Teléfono 3')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                     Forms\Components\Select::make('postal_code_id')
@@ -65,7 +66,7 @@ class VentaDesdeCeroResource extends Resource
                         ->required()
                         ->searchable()
                         ->getSearchResultsUsing(function (string $search) {
-                            return \App\Models\PostalCode::query()
+                            return PostalCode::query()
                                 ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                                 ->when(
                                     filled($search),
@@ -85,7 +86,7 @@ class VentaDesdeCeroResource extends Resource
                             if (!$value)
                                 return null;
 
-                            return \App\Models\PostalCode::query()
+                            return PostalCode::query()
                                 ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
                                 ->where('postal_codes.id', $value)
                                 ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")

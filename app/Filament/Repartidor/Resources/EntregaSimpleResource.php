@@ -91,6 +91,7 @@ class EntregaSimpleResource extends Resource
 
                         TextInput::make('phone')->label('Teléfono')->tel()->required(),
                         TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                         Forms\Components\Select::make('postal_code_id')

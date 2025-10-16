@@ -216,6 +216,9 @@ class NoteResource extends Resource
                                     ->disabled()
                                     ->formatStateUsing(function ($state, Note $record) {
                                         return $record->anotacionesVisitas
+                                            ->filter(function ($anotacion) {
+                                                return strtoupper($anotacion->asunto) !== 'REASIGNACIÓN';
+                                            })
                                             ->map(function ($anotacion) {
                                                 $empleadoId = $anotacion->autor->empleado_id ?? 'SIN-ID';
                                                 $fechaHora = Carbon::parse($anotacion->created_at)->format('d/m/Y H:i');
@@ -229,6 +232,7 @@ class NoteResource extends Resource
                     ])
                     ->collapsible()
                     ->hidden(fn(string $operation): bool => $operation === 'create'),
+
 
                 Forms\Components\Section::make('Observaciones')
                     ->schema([

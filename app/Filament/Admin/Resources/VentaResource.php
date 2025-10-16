@@ -202,9 +202,37 @@ class VentaResource extends Resource
                             ->readOnly()              // NO editable
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
+                        TextInput::make('phone')
+                            ->tel()
+                            ->required()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono 2 (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
 
-                        TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                        TextInput::make('secondary_phone')
+                            ->tel()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono 2 (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
+
+                        TextInput::make('third_phone')
+                            ->tel()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono 3 (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
+
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                         Select::make('postal_code_id')
@@ -940,7 +968,7 @@ class VentaResource extends Resource
                 ->openable()
                 ->downloadable()
                 ->required($required)
-                
+
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

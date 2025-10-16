@@ -102,6 +102,16 @@ class NoteResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
+                        Forms\Components\TextInput::make('third_phone')
+                            ->tel()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono 3 (opcional)')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
+
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
                             ->label('Edad Tel. Op')
