@@ -228,11 +228,18 @@ SQL;
 
     public static function getEloquentQuery(): Builder
     {
-        return \App\Models\User::query()
+        $hoy = Carbon::today(config('app.timezone', 'UTC'))->toDateString();
+
+        return User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
+            ->where(function (Builder $q) use ($hoy) {
+                $q->whereNull('users.fecha_baja')
+                    ->orWhereDate('users.fecha_baja', '>', $hoy);
+            })
             ->distinct('users.id');
     }
+
 
     public static function canEdited(): bool
     {
