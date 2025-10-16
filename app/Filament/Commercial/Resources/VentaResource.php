@@ -108,6 +108,10 @@ class VentaResource extends Resource
                                     //    ->label('Teléfono 2')
                                     //    ->tel(),
 
+                                    TextInput::make('third_phone')
+                                        ->label('Teléfono 3')
+                                        ->tel(),
+
                                     TextInput::make('email')
                                         ->label('Email')
                                         ->email()
@@ -798,7 +802,7 @@ class VentaResource extends Resource
                 ->preserveFilenames()
                 ->openable()
                 ->downloadable()
-                
+
                 ->required($required)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",

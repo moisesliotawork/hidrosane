@@ -82,6 +82,9 @@ class VentaDesdeCeroResource extends Resource
 
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                    TextInput::make('third_phone')
+                        ->label('Teléfono 3')
+                        ->tel(),
 
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
@@ -543,7 +546,7 @@ class VentaDesdeCeroResource extends Resource
                 ->openable()
                 ->downloadable()
                 ->required($required)
-                
+
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

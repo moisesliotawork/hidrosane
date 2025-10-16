@@ -71,14 +71,14 @@ class CreateVenta extends CreateRecord
 
             if (!empty($errores)) {
                 $this->form->fill($state); // reflejar puntos=0 si corresponde
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->title('Faltan productos')
                     ->body('Cada oferta debe tener al menos un producto.')
                     ->danger()
                     ->persistent()
                     ->send();
 
-                throw \Illuminate\Validation\ValidationException::withMessages($errores);
+                throw ValidationException::withMessages($errores);
             }
 
 
