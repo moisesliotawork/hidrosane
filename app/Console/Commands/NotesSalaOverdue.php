@@ -37,6 +37,7 @@ class NotesSalaOverdue extends Command
             ->where(function ($q) use ($valorAusente, $valorVacio) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', $valorVacio)
+                    ->orWhere('estado_terminal', "")
                     ->orWhere('estado_terminal', $valorAusente);
             });
 
