@@ -28,17 +28,12 @@ class NotesSalaOverdue extends Command
         $valorAusente = \App\Enums\EstadoTerminal::AUSENTE->value;  // 'ausente'
         $valorVacio = \App\Enums\EstadoTerminal::SIN_ESTADO->value; // ''
 
-        $base = \Illuminate\Support\Facades\DB::table('notes')
+        $base = DB::table('notes')
             ->whereNotNull('assignment_date')
             ->where('assignment_date', '<=', $cutoff)
-            // excluir las que ya están en SALA
-            ->where('estado_terminal', '!=', $valorSala)
-            // permitir SOLO: NULL, '', 'ausente'
             ->where(function ($q) use ($valorAusente, $valorVacio) {
                 $q->whereNull('estado_terminal')
-                    ->orWhere('estado_terminal', $valorVacio)
-                    ->orWhere('estado_terminal', "")
-                    ->orWhere('estado_terminal', $valorAusente);
+                    ->orWhereIn('estado_terminal', [$valorVacio, $valorAusente]); // '' y 'ausente'
             });
 
         $count = (clone $base)->count();
