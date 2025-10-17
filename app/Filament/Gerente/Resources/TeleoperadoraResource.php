@@ -234,8 +234,8 @@ SQL;
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
             ->where(function (Builder $q) use ($hoy) {
-                $q->whereNull('users.fecha_baja')
-                    ->orWhereDate('users.fecha_baja', '>', $hoy);
+                $q->whereNull('users.baja')
+                    ->orWhereDate('users.baja', '>', $hoy);
             })
             ->distinct('users.id');
     }
