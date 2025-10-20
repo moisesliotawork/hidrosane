@@ -11,7 +11,7 @@ class ContratoPreviewController extends Controller
     {
         $venta->load([
             'note',
-            'customer.postalCode.city',
+            'customer',
             'comercial',
             'ventaOfertas.productos.producto',
         ]);

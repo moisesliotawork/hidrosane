@@ -80,7 +80,6 @@ class EditVenta extends EditRecord
         $venta->load([
             'note',
             'repartidor',
-            'customer.postalCode.city',
             'comercial',
             'ventaOfertas.productos.producto',
         ]);

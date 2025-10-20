@@ -57,7 +57,7 @@ class NotasSalaPdfController extends Controller
         $notes = Note::query()
             ->whereIn('id', $validIds)
             ->with([
-                'customer.postalCode.city',
+                'customer',
                 'user',
                 'comercial',
                 'observations.author',
@@ -86,7 +86,7 @@ class NotasSalaPdfController extends Controller
     {
         $notes = Note::query()
             ->where('estado_terminal', EstadoTerminal::SALA->value)
-            ->with(['customer.postalCode.city', 'user', 'comercial'])
+            ->with(['customer', 'user', 'comercial'])
             ->orderBy('assignment_date', 'desc')
             ->get();
 

@@ -95,7 +95,7 @@ class Note extends Model
         'productos_externos',
         'sent_to_sala_at',
         'printed',
-        'reten',              
+        'reten',
     ];
 
     /**
@@ -205,10 +205,11 @@ class Note extends Model
         return $this->comercial->empleado_id ?? 'Comercial no encontrado';
     }
 
-    public function postalCode()
+    public function getPostalCodeAttribute()
     {
-        return $this->through('customer')->has('postalCode');
+        return $this->customer?->postal_code;
     }
+
 
     /**
      * Obtiene las coordenadas como array [lat, lng]

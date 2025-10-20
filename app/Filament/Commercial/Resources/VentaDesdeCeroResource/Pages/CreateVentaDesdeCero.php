@@ -6,7 +6,7 @@ use App\Filament\Commercial\Resources\VentaDesdeCeroResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Models\{Venta, PostalCode, Note, Customer, User};
+use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
 use App\Filament\Commercial\Pages\NotasHoy;
 
@@ -24,13 +24,7 @@ class CreateVentaDesdeCero extends CreateRecord
         return DB::transaction(function () use ($data) {
 
             unset($data['age']);
-
-            // 1) Validaciones
-            if (!PostalCode::find($data['postal_code_id'] ?? 0)) {
-                throw ValidationException::withMessages([
-                    'postal_code_id' => 'El código postal seleccionado no existe.',
-                ]);
-            }
+            
             if (($data['interes_art'] ?? false) && blank($data['interes_art_detalle'] ?? null)) {
                 throw ValidationException::withMessages([
                     'interes_art_detalle' => 'Especifica los artículos de interés.',

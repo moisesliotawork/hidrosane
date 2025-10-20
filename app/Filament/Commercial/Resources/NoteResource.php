@@ -5,7 +5,6 @@ namespace App\Filament\Commercial\Resources;
 use App\Filament\Commercial\Resources\NoteResource\Pages;
 use App\Filament\Commercial\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
-use App\Models\PostalCode;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -113,32 +112,20 @@ class NoteResource extends Resource
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
-                        Forms\Components\Select::make('postal_code_id')
-                            ->label('Código postal')
-                            ->disabled()
-                            ->options(function () {
-                                return PostalCode::query()
-                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                    ->orderBy('cities.title')
-                                    ->orderBy('postal_codes.code')
-                                    ->limit(500)
-                                    ->get()
-                                    ->mapWithKeys(fn($item) => [
-                                        $item->id => "{$item->code} - {$item->city_title}", // ← CP - Ciudad
-                                    ]);
-                            })
-                            ->getOptionLabelUsing(function ($value) {
-                                // Asegura el label correcto aunque no esté en options()
-                                $pc = PostalCode::with('city')->find($value);
-                                return $pc ? "{$pc->code} - {$pc->city->title}" : null;
-                            })
-                            ->searchable() // búsqueda en el desplegable
-                            ->preload()
-                            ->native(false)
-                            ->validationMessages([
-                                'required' => 'El código postal es obligatorio',
-                            ]),
+                        Forms\Components\TextInput::make('postal_code')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Codigo Postal'),
+
+                        Forms\Components\TextInput::make('ciudad')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Ciudad'),
+
+                        Forms\Components\TextInput::make('provincia')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Provincia'),
 
                         Forms\Components\Textarea::make('primary_address')
                             ->disabled()
@@ -352,7 +339,7 @@ class NoteResource extends Resource
                     ->alignCenter(),
 
 
-                Tables\Columns\TextColumn::make('customer.postalCode.code')
+                Tables\Columns\TextColumn::make('customer.postal_code')
                     ->toggleable()
                     ->toggledHiddenByDefault(true)
                     ->label('CP'),

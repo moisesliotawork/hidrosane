@@ -51,10 +51,7 @@ class HistoricoRepartosResource extends Resource
                 return Reparto::query()
                     ->leftJoin('ventas', 'ventas.id', '=', 'repartos.venta_id')
                     ->leftJoin('customers', 'customers.id', '=', 'ventas.customer_id')
-                    ->leftJoin('postal_codes as pc', 'pc.id', '=', 'customers.postal_code_id') // <-- NUEVO
-                    ->leftJoin('cities as c', 'c.id', '=', 'pc.city_id')                      // <-- NUEVO
                     ->with([
-                        'venta.note.customer.postalCode.city',
                         'venta.comercial',
                     ])
                     ->when(
@@ -214,27 +211,6 @@ class HistoricoRepartosResource extends Resource
                     ->formatStateUsing(fn($record) => $record->venta?->estado_venta?->label() ?? '')
                     ->color(fn($record) => $record->venta?->estado_venta?->color()),
 
-                TextColumn::make('cp_ciudad')
-                    ->label('CP – Ciudad')
-                    ->state(function ($record) {
-                        $pc = $record->venta?->customer?->postalCode;
-                        $cp = $pc?->code ?? null;      // ← usa 'code'
-                        $city = $pc?->city?->title ?? null; // ← City usa 'title'
-                        return $cp || $city ? (($cp ?? '-') . ' - ' . ($city ?? '-')) : '-';
-                    })
-                    // BUSCAR por CP (pc.code) o por ciudad (c.title)
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        $like = "%{$search}%";
-                        return $query->where(function ($qq) use ($like) {
-                            $qq->where('pc.code', 'like', $like)   // ← QUITA pc.cp
-                                ->orWhere('c.title', 'like', $like);
-                        });
-                    })
-                    // ORDENAR por CP y luego Ciudad
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query->orderBy('pc.code', $direction)   // ← QUITA COALESCE con pc.cp
-                            ->orderBy('c.title', $direction);
-                    }),
             ])
             ->defaultSort('id', 'desc')
             ->actions([
@@ -347,8 +323,8 @@ class HistoricoRepartosResource extends Resource
                             ->url(function (\App\Models\Reparto $record) {
                                 $c = $record->venta?->customer;
                                 $addr = trim((string) ($c?->primary_address ?? ''));
-                                $cp = $c?->postalCode?->code ?? null;
-                                $city = $c?->postalCode?->city?->title ?? null; // City.title
+                                $cp = $c?->postal_code ?? null;
+                                $city = $c?->ciudad ?? null; // City.title
                                 $parts = array_filter([$addr, $city, 'España']);
                                 if (empty($parts))
                                     return null;

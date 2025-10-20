@@ -58,7 +58,6 @@ class ListNotes extends ListRecords
                     $notes = Note::query()
                         ->whereIn('id', $ids)
                         ->with([
-                            'customer.postalCode.city',
                             'user',
                             'comercial',
                             'observations.author',

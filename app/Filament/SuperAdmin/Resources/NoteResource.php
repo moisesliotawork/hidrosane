@@ -5,7 +5,6 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Filament\SuperAdmin\Resources\NoteResource\Pages;
 use App\Filament\SuperAdmin\Resources\NoteResource\RelationManagers;
 use App\Models\Note;
-use App\Models\PostalCode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -113,42 +112,20 @@ class NoteResource extends Resource
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
-                        Forms\Components\Select::make('postal_code_id')
-                            ->label('Código postal')
+                        Forms\Components\TextInput::make('postal_code')
                             ->required()
-                            ->searchable()
-                            ->getSearchResultsUsing(function (string $search) {
-                                return \App\Models\PostalCode::query()
-                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                    ->when(
-                                        filled($search),
-                                        fn($q) => $q->where(function ($q) use ($search) {
-                                            $q->where('postal_codes.code', 'like', "%{$search}%")
-                                                ->orWhere('cities.title', 'like', "%{$search}%");
-                                        })
-                                    )
-                                    ->orderBy('cities.title')
-                                    ->orderBy('postal_codes.code')
-                                    ->limit(50)
-                                    ->select('postal_codes.id')                                       // <-- id
-                                    ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label") // <-- label
-                                    ->pluck('label', 'postal_codes.id');                               // <-- pluck por strings
-                            })
-                            ->getOptionLabelUsing(function ($value) {
-                                if (!$value)
-                                    return null;
+                            ->maxLength(255)
+                            ->label('Codigo Postal'),
 
-                                return \App\Models\PostalCode::query()
-                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                    ->where('postal_codes.id', $value)
-                                    ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")
-                                    ->value('label');
-                            })
-                            ->searchPrompt('Escribe ciudad o código…')
-                            ->native(false)
-                            ->validationMessages([
-                                'required' => 'El código postal es obligatorio',
-                            ]),
+                        Forms\Components\TextInput::make('ciudad')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Ciudad'),
+
+                        Forms\Components\TextInput::make('provincia')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Provincia'),
 
                         Forms\Components\TextInput::make('primary_address')
                             ->required()
@@ -323,7 +300,7 @@ class NoteResource extends Resource
                     ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
                         chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
 
-                Tables\Columns\TextColumn::make('customer.postalCode.code')
+                Tables\Columns\TextColumn::make('customer.postal_code')
                     ->label('CP'),
 
                 Tables\Columns\TextColumn::make('status')
@@ -557,7 +534,6 @@ class NoteResource extends Resource
                                     ]);
                             })
                             ->with([
-                                'customer.postalCode.city',
                                 'user',
                                 'user',
                                 'comercial',

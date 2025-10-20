@@ -231,7 +231,7 @@ class EditNote extends EditRecord
                             'estado_terminal' => EstadoTerminal::SALA, // o ->value si tu columna es string sin cast
                             'sent_to_sala_at' => now(),
                             'printed' => false,
-                            'reten' => false,             
+                            'reten' => false,
                         ])->save();
                     });
 
@@ -284,7 +284,9 @@ class EditNote extends EditRecord
             'phone' => $customer->phone,
             'secondary_phone' => $customer->secondary_phone,
             'email' => $customer->email,
-            'postal_code_id' => $customer->postal_code_id,
+            'postal_code' => $customer->postal_code,
+            'ciudad' => $customer->ciudad,
+            'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,

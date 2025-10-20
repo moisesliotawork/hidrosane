@@ -355,7 +355,7 @@
                         </tr>
                         <tr>
                             <td>CP: <span
-                                    class="uppercase">{{ strtoupper($venta->customer->postalCode?->city?->title . ' - ' . $venta->customer->postalCode?->code) }}</span>
+                                    class="uppercase">{{ strtoupper($venta->customer->ciudad . ' - ' . $venta->customer->postal_code) }}</span>
                             </td>
                         </tr>
                         <tr>

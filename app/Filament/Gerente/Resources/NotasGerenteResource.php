@@ -5,7 +5,6 @@ namespace App\Filament\Gerente\Resources;
 use App\Filament\Gerente\Resources\NotasGerenteResource\Pages;
 use App\Filament\Gerente\Resources\NotasGerenteResource\RelationManagers;
 use App\Models\Note;
-use App\Models\PostalCode;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -115,27 +114,21 @@ class NotasGerenteResource extends Resource
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
-                        Forms\Components\Select::make('postal_code_id')
-                            ->label('Código postal')
-                            ->disabled()
-                            ->options(function () {
-                                return PostalCode::query()
-                                    ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                                    ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                    ->orderBy('cities.title')
-                                    ->orderBy('postal_codes.code')
-                                    ->limit(500) // Limitar resultados para mejor rendimiento
-                                    ->get()
-                                    ->mapWithKeys(fn($item) => [
-                                        $item->id => "{$item->city_title} - {$item->code}"
-                                    ]);
-                            })
-                            ->searchable(['code', 'city.title'])
-                            ->preload()
-                            ->native(false)
-                            ->validationMessages([
-                                'required' => 'El código postal es obligatorio',
-                            ]),
+                        Forms\Components\TextInput::make('postal_code')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Codigo Postal'),
+
+                        Forms\Components\TextInput::make('ciudad')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Ciudad'),
+
+                        Forms\Components\TextInput::make('provincia')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Provincia'),
+
                         Forms\Components\TextInput::make('primary_address')
                             ->disabled()
                             ->maxLength(255)
@@ -341,7 +334,7 @@ class NotasGerenteResource extends Resource
                     ->alignCenter(),
 
 
-                Tables\Columns\TextColumn::make('customer.postalCode.code')
+                Tables\Columns\TextColumn::make('customer.postal_code')
                     ->label('CP'),
 
                 Tables\Columns\TextColumn::make('status')

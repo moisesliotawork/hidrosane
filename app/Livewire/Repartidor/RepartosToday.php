@@ -128,7 +128,7 @@ class RepartosToday extends Component
     {
         $hoy = now()->toDateString();
 
-        return Reparto::with('venta.note.customer.postalCode.city', 'venta.comercial')
+        return Reparto::with('venta.note.customer', 'venta.comercial')
             ->whereHas('venta', fn($q) => $q->where('repartidor_id', auth()->id())->whereDate('fecha_entrega', $hoy))
             ->where(function ($q) {
                 $q->where('estado', 'pendiente');
@@ -139,8 +139,8 @@ class RepartosToday extends Component
                 $note = $venta->note;
                 $customer = $note->customer;
 
-                $postalCode = $customer->postalCode->code ?? null;
-                $city = $customer->postalCode->city->title ?? null;
+                $postalCode = $customer->postal_code ?? null;
+                $city = $customer->ciudad ?? null;
                 $addressInfo = $postalCode && $city ? "$postalCode, $city" : ($postalCode ?? $city ?? 'Sin ubicación');
 
                 return [

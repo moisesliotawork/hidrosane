@@ -85,8 +85,9 @@ class NoteDescResource extends Resource
             /* 2. Información de contacto */
             Section::make('Información de Contacto')
                 ->schema([
-                    TextEntry::make('customer.postalCode.code')->label('CP'),
-                    TextEntry::make('customer.postalCode.city.title')->label('Ciudad'),
+                    TextEntry::make('customer.postal_code')->label('CP'),
+                    TextEntry::make('customer.ciudad')->label('Ciudad'),
+                    TextEntry::make('customer.provincia')->label('Provincia'),
                     TextEntry::make('primary_address')->label('Dirección'),
                     TextEntry::make('secondary_address')->label('Dirección 2'),
                     TextEntry::make('parish')->label('Parroquia'),
@@ -290,7 +291,7 @@ class NoteDescResource extends Resource
                     ->formatStateUsing(fn($state) => '<span style="font-size: 1rem; font-weight: bold;">' .
                         chunk_split(str_replace(' ', '', $state), 3, ' ') . '</span>'),
 
-                Tables\Columns\TextColumn::make('customer.postalCode.code')
+                Tables\Columns\TextColumn::make('customer.postal_code')
                     ->label('CP'),
 
                 Tables\Columns\TextColumn::make('status')

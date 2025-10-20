@@ -14,7 +14,6 @@ use function Filament\Facades\filament;
 use App\Models\User;
 use App\Models\Producto;
 use App\Models\Oferta;
-use App\Models\PostalCode;
 use App\Enums\HorarioNotas;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -74,24 +73,20 @@ class HistoricoContratosResource extends Resource
                                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
-                                    Select::make('postal_code_id')
-                                        ->label('Código postal')
+                                    Forms\Components\TextInput::make('postal_code')
                                         ->required()
-                                        ->options(fn() => PostalCode::query()
-                                            ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                                            ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                            ->orderBy('cities.title')
-                                            ->orderBy('postal_codes.code')
-                                            ->limit(500)
-                                            ->get()
-                                            ->mapWithKeys(fn($item) => [
-                                                $item->id => "{$item->city_title} - {$item->code}",
-                                            ]))
-                                        ->searchable()
-                                        ->preload()
-                                        ->native(false)
-                                        ->columnSpanFull()
-                                        ->validationMessages(['required' => 'El código postal es obligatorio']),
+                                        ->maxLength(255)
+                                        ->label('Codigo Postal'),
+
+                                    Forms\Components\TextInput::make('ciudad')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->label('Ciudad'),
+
+                                    Forms\Components\TextInput::make('provincia')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->label('Provincia'),
 
                                     TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
                                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
@@ -631,7 +626,7 @@ class HistoricoContratosResource extends Resource
                 $fin = now('Europe/Madrid')->setTime(23, 0, 0);
 
                 return Venta::query()
-                    ->with(['note.customer.postalCode.city', 'comercial', 'reparto'])
+                    ->with(['note.customer', 'comercial', 'reparto'])
                     // ⬇️ si NO es sales_manager, limitamos a sus propias ventas
                     ->when(
                         !static::isSalesManager(),

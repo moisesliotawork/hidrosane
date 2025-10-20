@@ -8,7 +8,6 @@ use App\Models\Venta;
 use App\Models\User;
 use App\Models\Producto;
 use App\Models\Oferta;
-use App\Models\PostalCode;
 use App\Enums\HorarioNotas;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -118,42 +117,20 @@ class VentaResource extends Resource
                                         ->columnSpanFull(),
 
                                     // ➍ Dirección
-                                    Forms\Components\Select::make('postal_code_id')
-                                        ->label('Código postal')
+                                    Forms\Components\TextInput::make('postal_code')
                                         ->required()
-                                        ->searchable()
-                                        ->getSearchResultsUsing(function (string $search) {
-                                            return \App\Models\PostalCode::query()
-                                                ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                                ->when(
-                                                    filled($search),
-                                                    fn($q) => $q->where(function ($q) use ($search) {
-                                                        $q->where('postal_codes.code', 'like', "%{$search}%")
-                                                            ->orWhere('cities.title', 'like', "%{$search}%");
-                                                    })
-                                                )
-                                                ->orderBy('cities.title')
-                                                ->orderBy('postal_codes.code')
-                                                ->limit(50)
-                                                ->select('postal_codes.id')                                       // <-- id
-                                                ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label") // <-- label
-                                                ->pluck('label', 'postal_codes.id');                               // <-- pluck por strings
-                                        })
-                                        ->getOptionLabelUsing(function ($value) {
-                                            if (!$value)
-                                                return null;
+                                        ->maxLength(255)
+                                        ->label('Codigo Postal'),
 
-                                            return \App\Models\PostalCode::query()
-                                                ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                                                ->where('postal_codes.id', $value)
-                                                ->selectRaw("CONCAT(cities.title, ' - ', postal_codes.code) AS label")
-                                                ->value('label');
-                                        })
-                                        ->searchPrompt('Escribe ciudad o código…')
-                                        ->native(false)
-                                        ->validationMessages([
-                                            'required' => 'El código postal es obligatorio',
-                                        ]),
+                                    Forms\Components\TextInput::make('ciudad')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->label('Ciudad'),
+
+                                    Forms\Components\TextInput::make('provincia')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->label('Provincia'),
 
                                     TextInput::make('primary_address')
                                         ->label('Dirección 1')

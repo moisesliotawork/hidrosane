@@ -6,7 +6,6 @@ use App\Filament\Admin\Resources\VentaResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\Venta;
-use App\Models\PostalCode;
 use App\Models\Note;
 use App\Models\Reparto;
 
@@ -42,13 +41,8 @@ class CreateVenta extends CreateRecord
 
     protected function handleRecordCreation(array $data): Venta
     {
-        /* 1. Validar que el código postal existe  ---------------------------- */
-        $postalCode = PostalCode::find($data['postal_code_id']);
-        if (!$postalCode) {
-            throw new \Exception("El código postal seleccionado no existe");
-        }
 
-        /* 2. Actualizar cliente --------------------------------------------- */
+        /* 1. Actualizar cliente --------------------------------------------- */
         $customer = $this->note->customer;
         $customer->update(array_intersect_key(
             $data,

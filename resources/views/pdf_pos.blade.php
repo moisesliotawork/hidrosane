@@ -157,10 +157,9 @@
 
     // Dirección 2 líneas
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
-    $pc = $venta->customer->postalCode ?? null;
-    $postalCode = trim((string) ($pc->code ?? $pc->codigo ?? $pc->title ?? ''));
-    $city = trim((string) ($pc?->city?->title ?? ''));
-    $province = trim((string) ($pc?->city?->state?->title ?? $venta->customer->provincia ?? ''));
+    $postalCode = trim((string) ($venta->customer->postal_code ?? ''));
+    $city = trim((string) ($venta->customer->ciudad ?? ''));
+    $province = trim((string) ($venta->customer->provincia ?? ''));
     $ayto = trim((string) ($venta->customer->ayuntamiento ?? ''));
     $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
     // FIX letra huérfana tras CP

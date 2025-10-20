@@ -236,8 +236,8 @@ class NotasDeComercial extends Component
 
     private function mapNote(Note $note): array
     {
-        $postalCode = $note->customer->postalCode->code ?? null;
-        $city = $note->customer->postalCode->city->title ?? null;
+        $postalCode = $note->customer->postal_code ?? null;
+        $city = $note->customer->ciudad ?? null;
         $addressInfo = $postalCode && $city ? "$postalCode, $city" : ($postalCode ?? $city ?? 'Sin ubicación');
 
         return [

@@ -18,7 +18,7 @@ class CustomerFactory extends Factory
             'secondary_phone'   => $this->faker->optional()->numerify('6########'),
             'email'             => $this->faker->unique()->safeEmail(),
             'age'               => $this->faker->numberBetween(18, 80),
-            'postal_code_id'    => \App\Models\PostalCode::inRandomOrder()->value('id') ?? 1,
+            'postal_code_id'    => $this->faker->optional()->numerify('######'),
             'primary_address'   => $this->faker->streetAddress(),
             'secondary_address' => $this->faker->optional()->secondaryAddress(),
             'parish'            => $this->faker->citySuffix(),

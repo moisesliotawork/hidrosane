@@ -3,7 +3,7 @@
 namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\VentaDesdeCeroResource\Pages;
-use App\Models\{Venta, User, Producto, Oferta, PostalCode};
+use App\Models\{Venta, User, Producto, Oferta};
 use App\Enums\{HorarioNotas, NoteStatus};
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -76,16 +76,20 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
-                    Select::make('postal_code_id')->label('Código postal')->required()
-                        ->options(fn() => PostalCode::query()
-                            ->select('postal_codes.id', 'postal_codes.code', 'cities.title as city_title')
-                            ->join('cities', 'cities.id', '=', 'postal_codes.city_id')
-                            ->orderBy('cities.title')->orderBy('postal_codes.code')
-                            ->limit(500)
-                            ->get()
-                            ->mapWithKeys(fn($item) => [$item->id => "{$item->city_title} - {$item->code}"]))
-                        ->searchable(['code', 'city.title'])->preload()->native(false)->columnSpanFull()
-                        ->validationMessages(['required' => 'El código postal es obligatorio']),
+                    Forms\Components\TextInput::make('postal_code')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Codigo Postal'),
+
+                    Forms\Components\TextInput::make('ciudad')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Ciudad'),
+
+                    Forms\Components\TextInput::make('provincia')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Provincia'),
                     TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
                     TextInput::make('parish')->label('Parroquia'),
@@ -459,7 +463,7 @@ class VentaDesdeCeroResource extends Resource
                 ->openable()
                 ->downloadable()
                 ->required($required)
-                
+
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

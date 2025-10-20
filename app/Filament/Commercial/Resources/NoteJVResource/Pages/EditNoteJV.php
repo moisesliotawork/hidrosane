@@ -6,7 +6,6 @@ use App\Filament\Commercial\Resources\NoteJVResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Customer;
-use App\Models\PostalCode;
 use Carbon\Carbon;
 
 class EditNoteJV extends EditRecord
@@ -42,7 +41,9 @@ class EditNoteJV extends EditRecord
             'phone' => $customer->phone,
             'secondary_phone' => $customer->secondary_phone,
             'email' => $customer->email,
-            'postal_code_id' => $customer->postal_code_id,
+            'postal_code' => $customer->postal_code,
+            'ciudad' => $customer->ciudad,
+            'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
@@ -55,11 +56,6 @@ class EditNoteJV extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Verificar CP
-        $postalCode = PostalCode::find($data['postal_code_id']);
-        if (!$postalCode) {
-            throw new \Exception("El código postal seleccionado no existe");
-        }
 
         // Recalcular edad desde fecha_nac (ignorar age del form)
         $fechaNac = $data['fecha_nac'] ?? null;
@@ -80,7 +76,9 @@ class EditNoteJV extends EditRecord
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
             'email' => $data['email'],
-            'postal_code_id' => $postalCode->id,
+            'postal_code' => $data['postal_code'],
+            'ciudad' => $data['ciudad'],
+            'provincia' => $data['provincia'],
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
             'parish' => $data['parish'] ?? null,
@@ -94,7 +92,9 @@ class EditNoteJV extends EditRecord
             $data['phone'],
             $data['secondary_phone'],
             $data['email'],
-            $data['postal_code_id'],
+            $data['postal_code'],
+            $data['ciudad'],
+            $data['provincia'],
             $data['primary_address'],
             $data['secondary_address'],
             $data['parish'],

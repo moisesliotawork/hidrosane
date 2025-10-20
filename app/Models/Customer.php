@@ -75,12 +75,6 @@ class Customer extends Model
     }
 
 
-    public function postalCode(): BelongsTo
-    {
-        return $this->belongsTo(PostalCode::class, 'postal_code_id');
-    }
-
-
     /** Relación: un cliente puede tener muchas ventas */
     public function ventas(): HasMany
     {

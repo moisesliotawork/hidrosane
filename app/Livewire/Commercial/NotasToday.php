@@ -161,8 +161,8 @@ class NotasToday extends Component
             ->latest('assignment_date')
             ->get()
             ->map(function ($note) {
-                $postalCode = $note->customer->postalCode->code ?? null;
-                $city = $note->customer->postalCode->city->title ?? null;
+                $postalCode = $note->customer->postal_code ?? null;
+                $city = $note->customer->ciudad ?? null;
                 $addressInfo = $postalCode && $city ? "$postalCode, $city" : ($postalCode ?? $city ?? 'Sin ubicación');
 
                 return [

@@ -6,7 +6,7 @@ use App\Filament\Commercial\Resources\VentaResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Models\{Venta, PostalCode, Note, User};
+use App\Models\{Venta, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
 use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
@@ -79,14 +79,6 @@ class CreateVenta extends CreateRecord
                     ->send();
 
                 throw ValidationException::withMessages($errores);
-            }
-
-
-            /* 2.1 Validar que exista el código postal */
-            if (!PostalCode::find($data['postal_code_id'])) {
-                throw ValidationException::withMessages([
-                    'postal_code_id' => 'El código postal seleccionado no existe.',
-                ]);
             }
 
             /* 2.1.b Valida que venga el detalle si activaron el toggle */

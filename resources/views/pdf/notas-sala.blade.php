@@ -204,9 +204,9 @@
     @foreach($notes as $note)
         @php
             $c = $note->customer;
-            $cp = $c?->postalCode;
-            $city = $cp?->city?->title;
-            $cpCode = $cp?->code;
+            $cp = $c?->postal_code;
+            $city = $c?->ciudad;
+            $cpCode = $c?->postal_code;
             $user = $note->user
         @endphp
 

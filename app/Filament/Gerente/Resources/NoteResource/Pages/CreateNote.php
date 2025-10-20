@@ -7,7 +7,6 @@ use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\Customer;
 use App\Models\Observation;
-use App\Models\PostalCode;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -55,12 +54,6 @@ class CreateNote extends CreateRecord
             ->where('phone', $data['phone'])
             ->first();
 
-        // Verificar CP
-        $postalCode = PostalCode::find($data['postal_code_id']);
-        if (!$postalCode) {
-            throw new \Exception("El código postal seleccionado no existe");
-        }
-
         // Calcular edad desde fecha_nac (si viene)
         $fechaNac = $data['fecha_nac'] ?? null;
         $computedAge = null;
@@ -76,7 +69,9 @@ class CreateNote extends CreateRecord
             $customer->update([
                 'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
                 'email' => $data['email'] ?? $customer->email,
-                'postal_code_id' => $postalCode->id,
+                'postal_code' => $data['postal_code'],
+                'ciudad' => $data['ciudad'],
+                'provincia' => $data['provincia'],
                 'primary_address' => $data['primary_address'] ?? $customer->primary_address,
                 'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
                 'parish' => $data['parish'] ?? $customer->parish,
@@ -90,7 +85,9 @@ class CreateNote extends CreateRecord
                 'phone' => $data['phone'],
                 'secondary_phone' => $data['secondary_phone'] ?? null,
                 'email' => $data['email'] ?? null,
-                'postal_code_id' => $postalCode->id,
+                'postal_code' => $data['postal_code'],
+                'ciudad' => $data['ciudad'],
+                'provincia' => $data['provincia'],
                 'primary_address' => $data['primary_address'] ?? null,
                 'secondary_address' => $data['secondary_address'] ?? null,
                 'parish' => $data['parish'] ?? null,

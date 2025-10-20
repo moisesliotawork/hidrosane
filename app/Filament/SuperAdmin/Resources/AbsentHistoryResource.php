@@ -71,7 +71,7 @@ class AbsentHistoryResource extends Resource
                     ->sortable(),
 
                 // CP del cliente
-                Tables\Columns\TextColumn::make('note.customer.postalCode.code')
+                Tables\Columns\TextColumn::make('note.customer.postal_code')
                     ->label('CP')
                     ->sortable()
                     ->searchable(),
@@ -135,8 +135,7 @@ class AbsentHistoryResource extends Resource
                 'note:id,nro_nota,user_id,comercial_id,customer_id,visit_schedule,assignment_date',
                 'note.user:id,empleado_id',
                 'note.comercial:id,empleado_id',
-                'note.customer:id,first_names,last_names,postal_code_id',
-                'note.customer.postalCode:id,code',
+                'note.customer:id,first_names,last_names,postal_code,ciudad,provincia',
             ]);
     }
 
