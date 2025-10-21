@@ -110,7 +110,7 @@ class EntregaSimpleResource extends Resource
                             ->label('Provincia'),
                         TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                        TextInput::make('parish')->label('Parroquia'),
+                        
 
                         Select::make('tipo_vivienda')->label('Tipo de vivienda')
                             ->options(\App\Enums\TipoVivienda::options())

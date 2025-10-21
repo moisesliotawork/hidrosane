@@ -77,10 +77,13 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
-                    TextInput::make('postal_code')
+                    Forms\Components\TextInput::make('postal_code')
+                        ->label('Código Postal')
                         ->required()
-                        ->maxLength(255)
-                        ->label('Codigo Postal'),
+                        ->maxLength(5)
+                        ->minLength(5)
+                        ->numeric()
+                        ->placeholder('Ej: 28001'),
 
                     TextInput::make('ciudad')
                         ->required()
@@ -93,7 +96,7 @@ class VentaDesdeCeroResource extends Resource
                         ->label('Provincia'),
                     TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                    TextInput::make('parish')->label('Parroquia'),
+
                     TextInput::make('ayuntamiento')
                         ->label('Ayuntamiento')
                         ->maxLength(255),

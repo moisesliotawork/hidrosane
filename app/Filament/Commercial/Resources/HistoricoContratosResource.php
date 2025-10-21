@@ -90,7 +90,7 @@ class HistoricoContratosResource extends Resource
 
                                     TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
                                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                                    TextInput::make('parish')->label('Parroquia'),
+                                    
 
                                     Select::make('tipo_vivienda')->label('Tipo de vivienda')->required()->options(\App\Enums\TipoVivienda::options())->native(false),
                                     Select::make('estado_civil')->label('Estado civil')->required()->options(\App\Enums\EstadoCivil::options())->native(false),
