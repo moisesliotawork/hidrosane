@@ -11,7 +11,8 @@ use Illuminate\Support\Collection;
 use App\Enums\VendidoPor;
 use App\Enums\MesesEnum;
 use Illuminate\Support\Facades\DB;
-
+use App\Models\TransactionVenta;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property int $id
@@ -710,6 +711,94 @@ class Venta extends Model
         return $u
             ? trim("{$u->empleado_id} - {$u->name} {$u->last_name}")
             : '-';
+    }
+
+    // Ventas que YO asocié (id_contrato -> id_contrato_asoc)
+    public function asociadas(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'transaction_venta',
+            'id_contrato',
+            'id_contrato_asoc'
+        )
+            ->using(TransactionVenta::class)          // para SoftDeletes en pivot
+            ->withTimestamps()
+            ->withPivot('deleted_at')
+            ->wherePivotNull('deleted_at');           // oculta vínculos soft-deleted
+    }
+
+    // Ventas que me asociaron a mí (id_contrato_asoc -> id_contrato)
+    public function asociadasConmigo(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'transaction_venta',
+            'id_contrato_asoc',
+            'id_contrato'
+        )
+            ->using(TransactionVenta::class)
+            ->withTimestamps()
+            ->withPivot('deleted_at')
+            ->wherePivotNull('deleted_at');
+    }
+
+    // Conveniencia: todas las asociadas (sin importar la dirección)
+    public function todasAsociadas()
+    {
+        return $this->asociadas->merge($this->asociadasConmigo)->unique('id');
+    }
+
+    // Crea (o re-activa) el vínculo entre $this y $otra
+    public function vincularCon(self $otra): void
+    {
+        if ($this->id === $otra->id) {
+            throw new \InvalidArgumentException('No se puede asociar una venta consigo misma.');
+        }
+
+        [$a, $b] = $this->id < $otra->id ? [$this->id, $otra->id] : [$otra->id, $this->id];
+
+        // Busca un vínculo existente en cualquier dirección, incluyendo soft-deleted
+        $pivot = TransactionVenta::withTrashed()
+            ->where(function ($q) use ($a, $b) {
+                $q->where('id_contrato', $a)->where('id_contrato_asoc', $b);
+            })
+            ->orWhere(function ($q) use ($a, $b) {
+                $q->where('id_contrato', $b)->where('id_contrato_asoc', $a);
+            })
+            ->first();
+
+        if ($pivot) {
+            // Si estaba soft-deleted, lo restauramos
+            if ($pivot->trashed()) {
+                $pivot->restore();
+            }
+            return;
+        }
+
+        // Crea el vínculo en el orden normalizado (a < b)
+        TransactionVenta::create([
+            'id_contrato' => $a,
+            'id_contrato_asoc' => $b,
+        ]);
+    }
+
+    // Soft-delete del vínculo entre $this y $otra (en cualquier dirección)
+    public function desvincularDe(self $otra): void
+    {
+        [$a, $b] = $this->id < $otra->id ? [$this->id, $otra->id] : [$otra->id, $this->id];
+
+        $pivot = TransactionVenta::where(function ($q) use ($a, $b) {
+            $q->where('id_contrato', $a)->where('id_contrato_asoc', $b);
+        })
+            ->orWhere(function ($q) use ($a, $b) {
+                $q->where('id_contrato', $b)->where('id_contrato_asoc', $a);
+            })
+            ->first();
+
+        if ($pivot) {
+            $pivot->delete(); // Soft delete
+        }
     }
 
 }
