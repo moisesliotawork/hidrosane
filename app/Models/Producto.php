@@ -32,6 +32,7 @@ class Producto extends Model
         'nombre',
         'puntos',
         'delete',
+        'visible_for_commercials',
     ];
 
     protected $casts = [

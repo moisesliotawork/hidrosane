@@ -18,6 +18,7 @@ class CreateProducto extends CreateRecord
         $producto = Producto::create([
             'nombre' => $data['nombre'],
             'puntos' => $data['puntos'],
+            'visible_for_commercials' => $data["visible_for_commercials"]
         ]);
 
         // Si hay tipo de medida y valor, guardamos medida

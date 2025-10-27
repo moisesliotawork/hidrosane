@@ -67,6 +67,11 @@ class ProductoResource extends Resource
                                 }
                             }
                         ]),
+
+                    Forms\Components\Toggle::make('visible_for_commercials')
+                        ->label('Visible para comerciales y jefes de equipo')
+                        ->default(true)
+                        ->required(),
                 ]),
             ]);
     }
