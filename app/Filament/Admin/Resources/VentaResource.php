@@ -803,6 +803,23 @@ class VentaResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
+                TextColumn::make('contrato_b')
+                    ->label('-B')
+                    ->state(function (Venta $r) {
+                        // Si agregaste el helper en el modelo:
+                        $b = method_exists($r, 'contratoB') ? $r->contratoB() : $r->asociadas()->where('nro_contr_adm', 'like', '%-B')->first();
+                        return $b?->nro_contr_adm ?? '—';
+                    })
+                    ->url(function (Venta $r) {
+                        // Hacer clic para editar el -B si existe
+                        $b = method_exists($r, 'contratoB') ? $r->contratoB() : $r->asociadas()->where('nro_contr_adm', 'like', '%-B')->first();
+                        return $b ? self::getUrl('edit', ['record' => $b]) : null;
+                    })
+                    ->openUrlInNewTab(false)
+                    ->tooltip('Editar contrato -B')
+                    ->sortable(false)
+                    ->searchable(false),
+
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()

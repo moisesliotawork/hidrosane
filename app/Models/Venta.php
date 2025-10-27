@@ -800,5 +800,12 @@ class Venta extends Model
             $pivot->delete(); // Soft delete
         }
     }
+    public function contratoB(): ?self
+    {
+        return $this->asociadas()
+            ->where('nro_contr_adm', 'like', '%-B')
+            ->first();
+    }
+
 
 }
