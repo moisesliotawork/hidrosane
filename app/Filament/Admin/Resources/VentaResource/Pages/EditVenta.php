@@ -72,6 +72,25 @@ class EditVenta extends EditRecord
                 ->action(fn(Venta $record) => $this->downloadPdf($record))
                 ->requiresConfirmation(false)   // dispara directo
                 ->color('primary'),             // conserva estilo Filament
+
+            Action::make('crearContratoB')
+                ->label('Crear Contrato -B')
+                ->icon('heroicon-o-document-plus')
+                ->color('success')
+                ->url(fn() => VentaResource::getUrl('create-b', ['record' => $this->record]))
+                ->visible(function (): bool {
+                    $venta = $this->record;
+
+                    // si el propio contrato ya es un "-B"
+                    $esB = str_ends_with((string) $venta->nro_contr_adm, '-B');
+
+                    // si ya tiene algún "-B" asociado
+                    $tieneBAsociado = $venta->asociadas()
+                        ->where('nro_contr_adm', 'like', '%-B')
+                        ->exists();
+
+                    return !($esB || $tieneBAsociado);
+                }),
         ];
     }
 
@@ -102,7 +121,7 @@ class EditVenta extends EditRecord
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
     }
-    
+
     protected function afterSave(): void
     {
         $venta = $this->record;

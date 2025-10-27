@@ -81,12 +81,14 @@ class VentaResource extends Resource
                         TextInput::make('nro_contr_adm')
                             ->label('NRO CONTRATO')
                             ->maxLength(50)
-                            ->placeholder('Ej. 01023'),
+                            ->placeholder('Ej. 01023')
+                            ->disabled(fn() => request()->routeIs('filament.admin.resources.ventas.create-b')),
 
                         TextInput::make('nro_cliente_adm')
                             ->label('NRO CLIENTE')
                             ->maxLength(50)
-                            ->placeholder('Ej. 00527'),
+                            ->placeholder('Ej. 00527')
+                            ->disabled(fn() => request()->routeIs('filament.admin.resources.ventas.create-b')),
 
                         Select::make('mes_contr')
                             ->label('MES')
@@ -252,7 +254,7 @@ class VentaResource extends Resource
 
                         TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                        
+
                         TextInput::make('ayuntamiento')
                             ->label('Ayuntamiento')
                             ->maxLength(255),
@@ -529,10 +531,10 @@ class VentaResource extends Resource
             Section::make('Ofertas incluidas')
                 ->schema([
                     Repeater::make('ventaOfertas')
+                        ->defaultItems(fn() => request()->routeIs('filament.admin.resources.ventas.create-b') ? 0 : 1)
                         ->relationship()
                         ->minItems(1)
                         ->label(false)
-                        ->defaultItems(1)
                         ->createItemButtonLabel('Agregar Oferta')
                         ->afterStateUpdated(
                             fn(Get $get, Set $set) =>
@@ -791,6 +793,13 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+                $query->where(function ($q) {
+                    $q->whereNull('nro_contr_adm')               // permitir null
+                        ->orWhere('nro_contr_adm', '=', '')        // permitir vacío
+                        ->orWhere('nro_contr_adm', 'not like', '%-B%'); // excluir los que tienen -B
+                });
+            })
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
@@ -874,7 +883,9 @@ class VentaResource extends Resource
      * ---------------------------------------------------------------------*/
     public static function getRelations(): array
     {
-        return [];
+        return [
+            \App\Filament\Admin\Resources\VentaResource\RelationManagers\AsociadasRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
@@ -882,6 +893,7 @@ class VentaResource extends Resource
         return [
             'index' => Pages\ListVentas::route('/'),
             'edit' => Pages\EditVenta::route('/{record}/edit'),
+            'create-b' => Pages\CreateContratoBPage::route('/{record}/create-b'),
         ];
     }
 

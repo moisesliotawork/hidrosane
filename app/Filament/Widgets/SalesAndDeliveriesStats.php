@@ -19,16 +19,15 @@ class SalesAndDeliveriesStats extends BaseWidget
         if (!$user)
             return null;
 
-        // Ajusta los FQCN si tus resources están en otro namespace
         if ($user->hasRole('admin')) {
-            return \App\Filament\Admin\Resources\VentaResource::getUrl(); // index del resource en Admin
+            return \App\Filament\Admin\Resources\VentaResource::getUrl();
         }
 
         if ($user->hasRole('gerente_general')) {
-            return \App\Filament\Gerente\Resources\VentaResource::getUrl(); // index del resource en Gerente
+            return \App\Filament\Gerente\Resources\VentaResource::getUrl();
         }
 
-        return null; // sin enlace para otros roles
+        return null;
     }
 
     protected function getStats(): array
@@ -36,29 +35,39 @@ class SalesAndDeliveriesStats extends BaseWidget
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
         $now = Carbon::now();
-
         $ttl = now()->addMinutes(5);
 
         /** ====== DÍA ====== */
         $ventasHoy = Cache::remember(
             'ventas_hoy',
             $ttl,
-            fn() => Venta::whereDate('fecha_venta', $today)->count()
+            fn() => Venta::whereDate('fecha_venta', $today)
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $ventasAyer = Cache::remember(
             'ventas_ayer',
             $ttl,
-            fn() => Venta::whereDate('fecha_venta', $yesterday)->count()
+            fn() => Venta::whereDate('fecha_venta', $yesterday)
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $repartosHoy = Cache::remember(
             'repartos_hoy',
             $ttl,
-            fn() => Venta::whereDate('fecha_entrega', $today)->count()
+            fn() => Venta::whereDate('fecha_entrega', $today)
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $repartosAyer = Cache::remember(
             'repartos_ayer',
             $ttl,
-            fn() => Venta::whereDate('fecha_entrega', $yesterday)->count()
+            fn() => Venta::whereDate('fecha_entrega', $yesterday)
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
 
         /** ====== MES ====== */
@@ -70,12 +79,17 @@ class SalesAndDeliveriesStats extends BaseWidget
         $ventasMes = Cache::remember(
             'ventas_mes',
             $ttl,
-            fn() => Venta::whereBetween('fecha_venta', [$mStart, $mEnd])->count()
+            fn() => Venta::whereBetween('fecha_venta', [$mStart, $mEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $ventasMesAnterior = Cache::remember(
             'ventas_mes_ant',
             $ttl,
-            fn() => Venta::whereBetween('fecha_venta', [$pmStart, $pmEnd])->count()
+            fn() => Venta::whereBetween('fecha_venta', [$pmStart, $pmEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
 
         /** ====== SEMANA ====== */
@@ -87,28 +101,38 @@ class SalesAndDeliveriesStats extends BaseWidget
         $ventasSemana = Cache::remember(
             'ventas_semana',
             $ttl,
-            fn() => Venta::whereBetween('fecha_venta', [$wStart, $wEnd])->count()
+            fn() => Venta::whereBetween('fecha_venta', [$wStart, $wEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $ventasSemanaAnterior = Cache::remember(
             'ventas_semana_ant',
             $ttl,
-            fn() => Venta::whereBetween('fecha_venta', [$pwStart, $pwEnd])->count()
+            fn() => Venta::whereBetween('fecha_venta', [$pwStart, $pwEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $repartosSemana = Cache::remember(
             'repartos_semana',
             $ttl,
-            fn() => Venta::whereBetween('fecha_entrega', [$wStart, $wEnd])->count()
+            fn() => Venta::whereBetween('fecha_entrega', [$wStart, $wEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
+
         $repartosSemanaAnterior = Cache::remember(
             'repartos_semana_ant',
             $ttl,
-            fn() => Venta::whereBetween('fecha_entrega', [$pwStart, $pwEnd])->count()
+            fn() => Venta::whereBetween('fecha_entrega', [$pwStart, $pwEnd])
+                ->where('nro_contr_adm', 'not like', '%-B%')
+                ->count()
         );
 
         $ventasUrl = $this->ventasUrl();
 
         return [
-            // === DÍA ===
             Stat::make('VENTAS AYER', number_format($ventasAyer))
                 ->description('Total Ventas AYER')
                 ->descriptionIcon('heroicon-o-calendar-days')
@@ -141,7 +165,6 @@ class SalesAndDeliveriesStats extends BaseWidget
                 ->descriptionIcon('heroicon-o-chart-bar')
                 ->color('success'),
 
-
             Stat::make('REPARTOS AYER', number_format($repartosAyer))
                 ->description('Total Entregas AYER')
                 ->descriptionIcon('heroicon-o-truck')
@@ -161,12 +184,11 @@ class SalesAndDeliveriesStats extends BaseWidget
                 ->description('Total Entregas SEMANA ACTUAL')
                 ->descriptionIcon('heroicon-o-truck')
                 ->color('orange'),
-
         ];
     }
 
     protected function getColumns(): int
     {
-        return 2; // Dos columnas en móvil, se adapta en pantallas grandes
+        return 2;
     }
 }
