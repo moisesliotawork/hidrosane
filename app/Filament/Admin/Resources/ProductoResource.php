@@ -87,11 +87,31 @@ class ProductoResource extends Resource
                     ->limitList(3)
                     ->badge()
                     ->default('-'),
+                TextColumn::make('visible_for_commercials')
+                    ->label('Visible para comerciales')
+                    ->badge()
+                    ->color(fn(bool $state): string => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn(bool $state): string => $state ? 'Sí' : 'No')
+                    ->sortable(),
+
             ])
             ->defaultSort('nombre', 'asc')
             ->paginationPageOptions([100])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('visible_for_commercials')
+                    ->label('Visibilidad')
+                    ->options([
+                        '1' => 'Visible para comerciales',
+                        '0' => 'No visible',
+                    ])
+                    ->native(false)
+                    ->placeholder('Todos')
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!isset($data['value'])) {
+                            return $query;
+                        }
+                        return $query->where('visible_for_commercials', (bool) $data['value']);
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()->label(""),

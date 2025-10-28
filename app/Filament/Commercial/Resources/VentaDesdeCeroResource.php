@@ -285,6 +285,7 @@ class VentaDesdeCeroResource extends Resource
                                             ->options(
                                                 fn() => Producto::query()
                                                     ->where('delete', false)        // ← ocultar los borrados lógicos
+                                                    ->where('visible_for_commercials', true)
                                                     ->orderBy('nombre')
                                                     ->pluck('nombre', 'id')
                                                     ->all()

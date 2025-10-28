@@ -352,7 +352,8 @@ class VentaResource extends Resource
                                                         ->label('Producto')
                                                         ->options(
                                                             fn() => Producto::query()
-                                                                ->where('delete', false)         // <-- ocultar eliminados lógicamente
+                                                                ->where('delete', false)
+                                                                ->where('visible_for_commercials', true)
                                                                 ->orderBy('nombre')
                                                                 ->pluck('nombre', 'id')
                                                                 ->all()
