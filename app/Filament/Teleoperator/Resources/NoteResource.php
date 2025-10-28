@@ -59,24 +59,38 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('phone')
                             ->tel()
                             ->required()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
                             ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                            ->label('Teléfono')
+                            ->rule(function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    $digits = preg_replace('/\D+/', '', (string) $value);
+                                    if (strlen($digits) !== 9) {
+                                        $fail('Debe tener exactamente 9 cifras');
+                                    }
+                                };
+                            })
+                            ->dehydrateStateUsing(fn($state) => preg_replace('/\D+/', '', (string) $state))
+                            ->dehydrated(true),
 
                         Forms\Components\TextInput::make('secondary_phone')
                             ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
                             ->mask('999 999 999')
                             ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                            ->rule(function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    if ($value === null || $value === '')
+                                        return;
+                                    $digits = preg_replace('/\D+/', '', (string) $value);
+                                    if ($digits !== '' && strlen($digits) !== 9) {
+                                        $fail('Debe tener exactamente 9 cifras');
+                                    }
+                                };
+                            })
+                            ->dehydrateStateUsing(function ($state) {
+                                $digits = preg_replace('/\D+/', '', (string) $state);
+                                return $digits === '' ? null : $digits;
+                            })
+                            ->dehydrated(true),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()

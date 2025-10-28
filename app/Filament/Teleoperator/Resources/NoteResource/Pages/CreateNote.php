@@ -46,11 +46,16 @@ class CreateNote extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Normalizar los nombres para comparación
+        // normalizar teléfonos
+        $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
+        $sec = preg_replace('/\D+/', '', (string) ($data['secondary_phone'] ?? ''));
+        $data['secondary_phone'] = $sec === '' ? null : $sec;
+
+        // nombres normalizados
         $normalizedFirstName = Str::slug(Str::lower($data['first_names']), '');
         $normalizedLastName = Str::slug(Str::lower($data['last_names']), '');
 
-        // Buscar cliente existente
+        // buscar cliente existente
         $customer = Customer::query()
             ->whereRaw("LOWER(REPLACE(first_names, ' ', '')) = ?", [$normalizedFirstName])
             ->whereRaw("LOWER(REPLACE(last_names, ' ', '')) = ?", [$normalizedLastName])

@@ -148,4 +148,18 @@ class Customer extends Model
         return implode(' ', $words);
     }
 
+    protected function phone(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => $value === null ? null : preg_replace('/\D+/', '', (string) $value),
+        );
+    }
+
+    protected function secondaryPhone(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => ($value === null || $value === '') ? null : preg_replace('/\D+/', '', (string) $value),
+        );
+    }
+
 }
