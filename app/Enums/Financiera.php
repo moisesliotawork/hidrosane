@@ -7,6 +7,7 @@ enum Financiera: string
     case CREDIBOX = 'CREDIBOX';
     case FINDIRECT = 'findirect';
     case MONTJUIT = 'MONTJUIT';
+    case PEPPER = 'Pepper';
 
     // (Opcional) Helpers para UI (badges, labels, etc.)
     public function label(): string
@@ -15,6 +16,7 @@ enum Financiera: string
             self::CREDIBOX => 'CREDIBOX',
             self::FINDIRECT => 'findirect',
             self::MONTJUIT => 'MONTJUIT',
+            self::PEPPER => 'Pepper'
         };
     }
 
