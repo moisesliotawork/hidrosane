@@ -124,7 +124,7 @@ class CreateVenta extends CreateRecord
                 'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado'
                     ? ($data['forma_pago'] ?? null)
                     : null,
-                'num_cuotas' => $data['num_cuotas'] ?? null,
+                'num_cuotas' => $data['num_cuotas'] ?? 1,
                 'cuota_mensual' => $cuotaMensual,
                 'accesorio_entregado' => $data['accesorio_entregado'] ?? null,
                 'motivo_venta' => $data['motivo_venta'] ?? null,
