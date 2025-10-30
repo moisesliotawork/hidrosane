@@ -192,7 +192,7 @@ class VentaResource extends Resource
 
                         TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                       
+
                         TextInput::make('ayuntamiento')
                             ->label('Ayuntamiento')
                             ->maxLength(255),
@@ -373,7 +373,7 @@ class VentaResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect([1])->merge(range(6, 39))
+                            collect(range(1, 39))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )

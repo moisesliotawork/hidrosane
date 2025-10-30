@@ -90,7 +90,7 @@ class HistoricoContratosResource extends Resource
 
                                     TextInput::make('primary_address')->label('Dirección 1')->columnSpanFull(),
                                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                                    
+
 
                                     Select::make('tipo_vivienda')->label('Tipo de vivienda')->required()->options(\App\Enums\TipoVivienda::options())->native(false),
                                     Select::make('estado_civil')->label('Estado civil')->required()->options(\App\Enums\EstadoCivil::options())->native(false),
@@ -474,7 +474,7 @@ class HistoricoContratosResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect([1])->merge(range(6, 39))
+                            collect(range(1, 39))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -490,7 +490,7 @@ class HistoricoContratosResource extends Resource
 
                         ->rules([
                             'integer',
-                            Rule::in(array_merge([1], range(6, 39))),
+                            Rule::in(array_merge(range(1, 39))),
                         ])
 
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {

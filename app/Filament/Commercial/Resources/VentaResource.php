@@ -582,7 +582,7 @@ class VentaResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect([1])->merge(range(6, 39))
+                            collect(range(1, 39))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -598,7 +598,7 @@ class VentaResource extends Resource
 
                         ->rules([
                             'integer',
-                            Rule::in(array_merge([1], range(6, 39))),
+                            Rule::in(array_merge(range(1, 39))),
                         ])
 
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
