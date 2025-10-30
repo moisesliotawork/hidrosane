@@ -115,7 +115,7 @@ class VentaDesdeCeroResource extends Resource
                 Select::make('nota_comercial_id')
                     ->label('Comercial asignado a la nota')
                     ->options(
-                        User::role(['commercial', 'team_leader'])   // 👈 ahora incluye ambos roles
+                        User::role(['commercial', 'team_leader', 'sales_manager'])   // 👈 ahora incluye ambos roles
                             ->select('id', 'empleado_id', 'name', 'last_name')
                             ->whereNull('baja')
                             ->orderBy('name')
@@ -315,7 +315,7 @@ class VentaDesdeCeroResource extends Resource
                     }),
 
                 Select::make('modalidad_pago')->label('Modalidad de pago')
-                    ->options(['Contado' => 'Contado', 'Financiado' => 'Financiado', 'NS' => 'NS'])
+                    ->options(['Contado' => 'Contado', 'Financiado' => 'Financiado', 'NS' => 'NG'])
                     ->default('Financiado')->required()->reactive()
                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                         if (in_array($state, ['Contado', 'NS'], true))

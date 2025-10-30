@@ -221,7 +221,7 @@ class VentaResource extends Resource
                                     ->default(null)
                                     ->options(
                                         fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                                        + User::role(['commercial', 'team_leader'])
+                                        + User::role(['commercial', 'team_leader', 'sales_manager'])
                                             ->whereKeyNot(auth()->id())
                                             ->whereNull('baja')
                                             ->select('id', 'empleado_id', 'name', 'last_name')
@@ -536,7 +536,7 @@ class VentaResource extends Resource
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',
+                            'NS' => 'NG',
                         ])
                         ->default('Financiado')
                         ->required()

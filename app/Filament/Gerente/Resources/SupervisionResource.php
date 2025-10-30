@@ -33,7 +33,7 @@ class SupervisionResource extends Resource
                     ->label('Supervisor')
                     ->options(
                         fn() =>
-                        User::role(['commercial', 'team_leader'])
+                        User::role(['commercial', 'team_leader', 'sales_manager'])
                             ->whereNull('baja')                    // <-- ACTIVO (cambia a fecha_baja si es tu columna)
                             ->orderBy('empleado_id')
                             ->get()
@@ -65,7 +65,7 @@ class SupervisionResource extends Resource
                     ->label('Supervisado')
                     ->options(
                         fn() =>
-                        User::role(['commercial', 'team_leader'])
+                        User::role(['commercial', 'team_leader', 'sales_manager'])
                             ->whereNull('baja')                    // <-- ACTIVO
                             ->orderBy('empleado_id')
                             ->get()

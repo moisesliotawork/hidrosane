@@ -385,7 +385,7 @@ class VentaDesdeCeroResource extends Resource
                     }),
 
                 Select::make('modalidad_pago')->label('Modalidad de pago')
-                    ->options(['Contado' => 'Contado', 'Financiado' => 'Financiado', 'NS' => 'NS'])
+                    ->options(['Contado' => 'Contado', 'Financiado' => 'Financiado', 'NS' => 'NG'])
                     ->default('Financiado')->required()->reactive()
                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                         if (in_array($state, ['Contado', 'NS'], true))
@@ -540,7 +540,7 @@ class VentaDesdeCeroResource extends Resource
     /** Devuelve el query base de comerciales / team leaders, con o sin inactivos */
     protected static function comercialesQuery(bool $incluirInactivos = false)
     {
-        return User::role(['commercial', 'team_leader'])
+        return User::role(['commercial', 'team_leader', 'sales_manager'])
             ->when(!$incluirInactivos, fn($q) => $q->whereNull('baja'));
     }
 

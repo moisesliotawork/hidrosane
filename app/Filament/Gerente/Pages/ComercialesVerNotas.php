@@ -8,7 +8,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
-// use App\Filament\Gerente\Pages\NotasDeComercial; // opcional; como está en el mismo namespace no es necesario
 
 class ComercialesVerNotas extends Page implements HasTable
 {
@@ -27,7 +26,7 @@ class ComercialesVerNotas extends Page implements HasTable
         return $table
             ->query(
                 User::query()
-                    ->role(['commercial', 'team_leader'])
+                    ->role(['commercial', 'team_leader', 'sales_manager'])
                     ->whereNull('baja')
             )
             ->columns([

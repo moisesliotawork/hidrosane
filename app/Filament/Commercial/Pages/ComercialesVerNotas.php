@@ -22,24 +22,20 @@ class ComercialesVerNotas extends Page implements HasTable
 
     protected static string $view = 'filament.commercial.pages.comerciales-ver-notas';
 
-    /* ====== Visibilidad / Acceso ====== */
-
-    // 1) Ocultar del menú para quienes NO sean team_leader
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('team_leader');
+        return auth()->check() && auth()->user()->hasAnyRole(['team_leader', 'sales_manager']);
     }
 
-    // 2) Bloquear acceso directo por URL
+    // Bloquear acceso directo por URL a otros roles
     public static function canAccess(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('team_leader');
+        return auth()->check() && auth()->user()->hasAnyRole(['team_leader', 'sales_manager']);
     }
 
-    // (extra defensivo si tu versión no soporta canAccess)
     public function mount(): void
     {
-        abort_unless(auth()->user()?->hasRole('team_leader'), 403);
+        abort_unless(auth()->user()?->hasAnyRole(['team_leader', 'sales_manager']), 403);
     }
 
     /* ====== Tabla ====== */
@@ -48,19 +44,25 @@ class ComercialesVerNotas extends Page implements HasTable
     {
         $user = auth()->user();
 
-        // Equipos (no borrados) que lidera el usuario
-        $teamIds = Team::query()
-            ->where('deleted', false)
-            ->where('team_leader_id', $user->id)
-            ->pluck('id');
+        // Si es SALES MANAGER => usar el filtro del GERENTE
+        if ($user->hasRole('sales_manager')) {
+            $query = User::query()
+                ->role(['commercial', 'team_leader', 'sales_manager'])
+                ->whereNull('baja');
+        } else {
+            // Caso contrario (team_leader) => filtro por equipos liderados
+            $teamIds = Team::query()
+                ->where('deleted', false)
+                ->where('team_leader_id', $user->id)
+                ->pluck('id');
 
-        // Usuarios que pertenecen a esos equipos (comerciales + el propio líder)
-        $query = User::query()
-            ->where(function ($q) use ($teamIds, $user) {
-                $q->whereHas('teams', fn($t) => $t->whereIn('teams.id', $teamIds))
-                    ->orWhere('id', $user->id); // incluir al líder en la lista
-            })
-            ->role(['commercial', 'team_leader']);
+            $query = User::query()
+                ->where(function ($q) use ($teamIds, $user) {
+                    $q->whereHas('teams', fn($t) => $t->whereIn('teams.id', $teamIds))
+                        ->orWhere('id', $user->id); // incluir al líder
+                })
+                ->role(['commercial', 'team_leader']);
+        }
 
         return $table
             ->query($query)

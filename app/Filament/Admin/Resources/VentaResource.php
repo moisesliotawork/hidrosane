@@ -210,7 +210,7 @@ class VentaResource extends Resource
                             ->maxLength(11)
                             ->minLength(11)
                             ->mask('999 999 999')
-                            ->label('Teléfono 2 (opcional)')
+                            ->label('Teléfono 1 (requerido)')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
@@ -361,7 +361,7 @@ class VentaResource extends Resource
                         ->default(null)
                         ->options(
                             fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                            + User::role(['commercial', 'team_leader'])
+                            + User::role(['commercial', 'team_leader', 'sales_manager'])
                                 ->whereKeyNot(auth()->id())     // excluir al propio usuario
                                 ->select('id', 'empleado_id', 'name', 'last_name')
                                 ->orderBy('name')
@@ -444,7 +444,7 @@ class VentaResource extends Resource
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',
+                            'NS' => 'NG',
                         ])
                         ->default('Financiado')
                         ->required()
@@ -983,6 +983,5 @@ class VentaResource extends Resource
                 ->columnSpanFull(),
         ])->columns(1);
     }
-
 
 }

@@ -366,7 +366,7 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return \App\Models\User::role(['commercial', 'team_leader']) // 👈 ambos roles
+                        return \App\Models\User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
                             ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
@@ -392,7 +392,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja')          // <-- SOLO activos
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')
@@ -486,7 +486,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja') // <-- SOLO activos (ajusta a fecha_baja si así se llama)
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')

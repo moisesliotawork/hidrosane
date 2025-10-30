@@ -522,7 +522,7 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return \App\Models\User::role(['commercial', 'team_leader']) // 👈 ambos roles
+                        return \App\Models\User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
                             ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
@@ -585,7 +585,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja')          // <-- SOLO activos
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')
@@ -609,7 +609,7 @@ class NoteResource extends Resource
                                                 ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                                                 ->whereColumn('mhr.model_id', 'users.id')
                                                 ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader']);
+                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
                                         });
                                 }),
                             ]),
@@ -627,7 +627,7 @@ class NoteResource extends Resource
                                 $isValid = User::query()
                                     ->where('id', $comercialId)
                                     ->whereNull('baja')
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader']))
+                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
                                     ->exists();
 
                                 if (!$isValid) {
@@ -760,7 +760,7 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader'])
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
                                     ->whereNull('baja') // <-- SOLO activos (ajusta a fecha_baja si así se llama)
                                     ->orderBy('name')
                                     ->select('id', 'name', 'last_name', 'empleado_id')
@@ -784,7 +784,7 @@ class NoteResource extends Resource
                                                 ->join('roles as r', 'r.id', '=', 'mhr.role_id')
                                                 ->whereColumn('mhr.model_id', 'users.id')
                                                 ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader']);
+                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
                                         });
                                 }),
                             ]),
@@ -802,7 +802,7 @@ class NoteResource extends Resource
                                 $isValid = User::query()
                                     ->where('id', $comercialId)
                                     ->whereNull('baja') // activo
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader']))
+                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
                                     ->exists();
 
                                 if (!$isValid) {

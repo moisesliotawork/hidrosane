@@ -484,7 +484,7 @@ class NoteJVResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return User::role(['commercial', 'team_leader']) // 👈 ambos roles
+                        return User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
                             ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()

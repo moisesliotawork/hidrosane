@@ -276,7 +276,7 @@ class VentaResource extends Resource
                         ->default(null)
                         ->options(
                             fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                            + User::role(['commercial', 'team_leader'])
+                            + User::role(['commercial', 'team_leader', 'sales_manager'])
                                 ->whereKeyNot(auth()->id())     // excluir al propio usuario
                                 ->whereNull('baja')             // <-- SOLO usuarios activos
                                 ->select('id', 'empleado_id', 'name', 'last_name')
@@ -316,7 +316,7 @@ class VentaResource extends Resource
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',          // 👈 nueva opción
+                            'NS' => 'NG',          // 👈 nueva opción
                         ])
                         ->default('Financiado')
                         ->required()

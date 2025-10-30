@@ -107,6 +107,12 @@ class NoteResource extends Resource
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
+
+                        Forms\Components\TextInput::make('primary_address')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Dirección principal'),
+                            
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
                             ->maxLength(255)
@@ -122,22 +128,11 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->label('Provincia'),
 
-                        Forms\Components\TextInput::make('primary_address')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Dirección principal'),
-
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
                             ->label('Dirección secundaria (opcional)'),
 
-                        Forms\Components\TextInput::make('parish')
-                            ->maxLength(255)
-                            ->label('Parroquia (opcional)'),
 
-                        Forms\Components\TextInput::make('ayuntamiento')
-                            ->maxLength(255)
-                            ->label('Ayuntamiento'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Gestión Comercial')

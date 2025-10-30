@@ -126,7 +126,7 @@ class HistoricoContratosResource extends Resource
                                     ->default(null)
                                     ->options(
                                         fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                                        + User::role(['commercial', 'team_leader'])
+                                        + User::role(['commercial', 'team_leader', 'sales_manager'])
                                             ->whereKeyNot(auth()->id())
                                             ->select('id', 'empleado_id', 'name', 'last_name')
                                             ->orderBy('name')
@@ -428,7 +428,7 @@ class HistoricoContratosResource extends Resource
                         ->options([
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
-                            'NS' => 'NS',
+                            'NS' => 'NG',
                         ])
                         ->default('Financiado')
                         ->required()

@@ -76,7 +76,7 @@ class MisSupervisionesResource extends Resource
                             ->disabled()
                             ->maxLength(11)
                             ->minLength(11)
-                            ->label('Teléfono')
+                            ->label('Teléfono 1 (requerido)')
                             ->mask('999 999 999')
                             ->validationMessages([
                                 'required' => 'El telefono es obligatorio',
@@ -94,7 +94,7 @@ class MisSupervisionesResource extends Resource
                             ->maxLength(11)
                             ->minLength(11)
                             ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
+                            ->label('Teléfono 2 (opcional)')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ])

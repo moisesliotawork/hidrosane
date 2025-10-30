@@ -82,7 +82,6 @@ class CreateNote extends CreateRecord
                 'provincia' => $data['provincia'],
                 'primary_address' => $data['primary_address'] ?? $customer->primary_address,
                 'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
-                'parish' => $data['parish'] ?? $customer->parish,
                 'edadTelOp' => $data['edadTelOp'] ?? $customer->edadTelOp,
             ]);
         } else {
@@ -97,7 +96,6 @@ class CreateNote extends CreateRecord
                 'provincia' => $data['provincia'],
                 'primary_address' => $data['primary_address'] ?? null,
                 'secondary_address' => $data['secondary_address'] ?? null,
-                'parish' => $data['parish'] ?? null,
                 'edadTelOp' => $data['edadTelOp'] ?? null,
             ]);
         }

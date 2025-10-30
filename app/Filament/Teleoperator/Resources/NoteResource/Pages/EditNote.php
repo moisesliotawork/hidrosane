@@ -46,7 +46,6 @@ class EditNote extends EditRecord
             'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
-            'parish' => $customer->parish,
             'edadTelOp' => $customer->edadTelOp,
 
             'observations' => $observations,
@@ -81,7 +80,6 @@ class EditNote extends EditRecord
             'provincia' => $data['provincia'],
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
-            'parish' => $data['parish'] ?? null,
             'edadTelOp' => $data['edadTelOp'] ?? null,
         ]);
 
@@ -97,7 +95,6 @@ class EditNote extends EditRecord
             $data['provincia'],
             $data['primary_address'],
             $data['secondary_address'],
-            $data['parish'],
             $data['edadTelOp'],
         );
 
