@@ -33,6 +33,14 @@ class MisSupervisionesResource extends Resource
     protected static ?string $modelLabel = 'Notas de mis supervisados';
     protected static ?int $navigationSort = 35;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        return $user && ($user->hasRole('team_leader') || $user->hasRole('sales_manager'));
+    }
+
+
     public static function form(Form $form): Form
     {
         return $form
