@@ -33,18 +33,6 @@ class MisSupervisionesResource extends Resource
     protected static ?string $modelLabel = 'Notas de mis supervisados';
     protected static ?int $navigationSort = 35;
 
-    /** Mostrar en el menú solo si tengo supervisados vigentes hoy */
-    public static function shouldRegisterNavigation(): bool
-    {
-        return count(self::getSupervisadoIdsVigentes()) > 0;
-    }
-
-    /** Si alguien intenta entrar por URL sin tener supervisados, negamos acceso */
-    public static function canViewAny(): bool
-    {
-        return count(self::getSupervisadoIdsVigentes()) > 0;
-    }
-
     public static function form(Form $form): Form
     {
         return $form
