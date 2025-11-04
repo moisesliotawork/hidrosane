@@ -717,6 +717,7 @@ class VentaResource extends Resource
         return [
             'index' => Pages\ListVentas::route('/'),
             'edit' => Pages\EditVenta::route('/{record}/edit'),
+            'create-b' => Pages\CreateContratoBPage::route('/{record}/create-b'),
         ];
     }
 
