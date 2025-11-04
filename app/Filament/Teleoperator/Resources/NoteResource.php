@@ -339,6 +339,7 @@ class NoteResource extends Resource
                 Tables\Actions\Action::make('buscarTelefono')
                     ->label('Buscar por teléfono')
                     ->icon('heroicon-o-magnifying-glass')
+                    ->color('orange')
                     ->modalHeading('Buscar cliente por teléfono')
                     ->modalSubmitActionLabel('Buscar')
                     ->form([
