@@ -669,7 +669,7 @@ class NoteResource extends Resource
             ])
             ->headerActions([
                 Tables\Actions\Action::make('buscarTelefono')
-                    ->label('Buscar por teléfono')
+                    ->label('Buscar teléfono')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('orange')
                     ->modalHeading('Buscar cliente por teléfono')

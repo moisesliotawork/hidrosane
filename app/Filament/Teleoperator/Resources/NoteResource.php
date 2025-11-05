@@ -132,7 +132,7 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('ciudad')
                             ->required()
                             ->maxLength(255)
-                            ->label('Ciudad'),
+                            ->label('Parroquia/Ciudad'),
 
                         Forms\Components\TextInput::make('provincia')
                             ->required()
@@ -337,7 +337,7 @@ class NoteResource extends Resource
             ])
             ->headerActions([
                 Tables\Actions\Action::make('buscarTelefono')
-                    ->label('Buscar por teléfono')
+                    ->label('Buscar teléfono')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('orange')
                     ->modalHeading('Buscar cliente por teléfono')

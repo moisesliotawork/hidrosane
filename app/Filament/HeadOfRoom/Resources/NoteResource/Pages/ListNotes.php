@@ -23,7 +23,6 @@ class ListNotes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\CreateAction::make(),
 
             \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
                 ->label('Generar PDF (Oficina)')

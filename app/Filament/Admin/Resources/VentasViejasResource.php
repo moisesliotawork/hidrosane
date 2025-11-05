@@ -51,7 +51,7 @@ class VentasViejasResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                $corte = Carbon::parse('2025-11-01')->startOfDay();
+                $corte = Carbon::parse('2025-09-01')->startOfDay();
 
                 //0) Excluir ventas que ya tengan reparto
                 $query->whereDoesntHave('reparto');
