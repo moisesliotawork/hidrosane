@@ -51,7 +51,7 @@ class VentasViejasResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                $corte = Carbon::parse('2025-09-01')->startOfDay();
+                $corte = Carbon::parse('2025-11-06')->startOfDay();
 
                 //0) Excluir ventas que ya tengan reparto
                 $query->whereDoesntHave('reparto');
@@ -246,6 +246,15 @@ class VentasViejasResource extends Resource
                                     ->columns(1)
                                     ->defaultItems(1)
                                     ->collapsible()
+                                    ->collapsed()
+                                    ->itemLabel(
+                                        fn($state) =>
+                                        blank($state['oferta_id'] ?? null)
+                                        ? 'Nueva oferta'
+                                        : (Oferta::query()
+                                            ->whereKey($state['oferta_id'])
+                                            ->value('nombre') ?? 'Oferta')
+                                    )
                                     ->createItemButtonLabel('Añadir oferta')
                                     ->schema([
                                         Grid::make(3)->schema([
@@ -262,7 +271,18 @@ class VentasViejasResource extends Resource
                                             TextInput::make('puntos')
                                                 ->numeric()
                                                 ->disabled()
-                                                ->dehydrated(false),
+                                                ->dehydrated(false)
+                                                ->helperText(function (Get $get) {
+                                                    $base = Oferta::find($get('oferta_id'))?->puntos_base ?? 0;
+                                                    $total = (int) $get('puntos');
+                                                    $diff = $total - $base;
+
+                                                    return $diff === 0
+                                                        ? 'Igual a los puntos base'
+                                                        : ($diff > 0
+                                                            ? "+$diff sobre el límite"
+                                                            : "$diff por debajo");
+                                                }),
                                         ]),
 
                                         // 🧩 Productos dentro de la oferta
@@ -344,14 +364,29 @@ class VentasViejasResource extends Resource
 
                             // 2️⃣ Crear ofertas del repartidor
                             $packs = $data['ofertas_repartidor'] ?? [];
+
                             foreach ($packs as $pack) {
                                 $ofertaId = $pack['oferta_id'] ?? null;
-                                if (!$ofertaId)
+                                if (!$ofertaId) {
                                     continue;
+                                }
 
-                                $puntosPack = (int) collect($pack['productos'] ?? [])
-                                    ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
+                                // 🔢 Sumamos puntos = cantidad * puntos del producto
+                                $puntosPack = collect($pack['productos'] ?? [])
+                                    ->sum(function ($l) {
+                                    $productoId = $l['producto_id'] ?? null;
+                                    $cantidad = (int) ($l['cantidad'] ?? 0);
 
+                                    if (!$productoId || $cantidad <= 0) {
+                                        return 0;
+                                    }
+
+                                    $producto = Producto::find($productoId);
+
+                                    return $cantidad * (int) ($producto?->puntos ?? 0);
+                                });
+
+                                // 👇 aquí ya guardas la suma de puntos de todos los productos de la oferta
                                 $vo = $record->ventaOfertas()->create([
                                     'oferta_id' => $ofertaId,
                                     'puntos' => $puntosPack,
@@ -360,14 +395,18 @@ class VentasViejasResource extends Resource
                                 foreach (($pack['productos'] ?? []) as $l) {
                                     $productoId = $l['producto_id'] ?? null;
                                     $cantidad = (int) ($l['cantidad'] ?? 0);
-                                    if (!$productoId || $cantidad <= 0)
+
+                                    if (!$productoId || $cantidad <= 0) {
                                         continue;
+                                    }
+
+                                    $producto = Producto::find($productoId);
 
                                     $vo->productos()->create([
                                         'producto_id' => $productoId,
                                         'cantidad' => $cantidad,
                                         'cantidad_entregada' => $cantidad,
-                                        'puntos_linea' => (int) ($l['puntos_linea'] ?? 0),
+                                        'puntos_linea' => $cantidad * (int) ($producto?->puntos ?? 0),
                                         'vendido_por' => VendidoPor::Repartidor->value,
                                     ]);
                                 }
