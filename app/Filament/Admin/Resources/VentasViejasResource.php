@@ -51,10 +51,22 @@ class VentasViejasResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
-                $corte = Carbon::parse('2025-11-06')->startOfDay();
+                $corte = Carbon::parse('2025-09-01')->startOfDay();
 
-                //0) Excluir ventas que ya tengan reparto
-                $query->whereDoesntHave('reparto');
+                $now = now();
+                $limitToday = $now->copy()->setTime(23, 30);
+
+                // 0) Condición de reparto + ventana hasta las 23:30
+                $query->where(function ($q) use ($now, $limitToday) {
+                    // Siempre mostramos ventas sin reparto
+                    $q->whereDoesntHave('reparto');
+
+                    if ($now->lt($limitToday)) {
+                        $q->orWhereHas('reparto', function ($q2) use ($now) {
+                            $q2->whereDate('created_at', $now->toDateString());
+                        });
+                    }
+                });
 
                 // 1) Solo ventas anteriores al mes requerido
                 $query->where(function ($q) use ($corte) {
