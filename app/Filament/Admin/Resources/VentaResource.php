@@ -31,6 +31,7 @@ use App\Enums\Financiera;
 use Carbon\Carbon;
 use App\Enums\MesesEnum;
 use Illuminate\Support\HtmlString;
+use App\Enums\VendidoPor;
 
 
 class VentaResource extends Resource
@@ -547,9 +548,36 @@ class VentaResource extends Resource
                             )
                         )
                         ->itemLabel(
-                            label: fn($state): string => blank($state['oferta_id'])
+                            fn(array $state): string => blank($state['oferta_id'] ?? null)
                             ? 'Nueva oferta'
-                            : Oferta::query()->whereKey($state['oferta_id'])->value('nombre') ?? 'Oferta eliminada'
+                            : (function () use ($state): string{
+                                // Nombre de la oferta
+                                $nombre = Oferta::query()
+                                    ->whereKey($state['oferta_id'])
+                                    ->value('nombre') ?? 'Oferta';
+
+                                // Líneas de productos de esta oferta (state del repeater hijo)
+                                $productos = collect($state['productos'] ?? []);
+
+                                $tieneComercial = $productos->contains(
+                                    fn($l) => ($l['vendido_por'] ?? null) === VendidoPor::Comercial->value
+                                );
+                                $tieneRepartidor = $productos->contains(
+                                    fn($l) => ($l['vendido_por'] ?? null) === VendidoPor::Repartidor->value
+                                );
+
+                                // Decidimos la “etiqueta” de origen
+                                $origen = null;
+                                if ($tieneComercial && !$tieneRepartidor) {
+                                    $origen = 'COMERCIAL';
+                                } elseif ($tieneRepartidor && !$tieneComercial) {
+                                    $origen = 'REPARTIDOR';
+                                } elseif ($tieneComercial && $tieneRepartidor) {
+                                    $origen = 'MIXTA';
+                                }
+
+                                return $origen ? "{$nombre} ({$origen})" : $nombre;
+                            })()
                         )
                         ->schema([
                             /* ---------- Cabecera de Oferta ---------- */
