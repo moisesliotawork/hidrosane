@@ -20,6 +20,7 @@ class Customer extends Model
         'secondary_phone',
         'third_phone',
         'email',
+        'nro_piso',
         'postal_code_id',
         'primary_address',
         'secondary_address',
