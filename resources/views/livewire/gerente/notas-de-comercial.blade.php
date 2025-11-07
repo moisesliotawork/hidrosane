@@ -82,6 +82,43 @@
             background-color: #15803d;
         }
 
+        .phone-buttons-container {
+            display: flex;
+            justify-content: flex-start;
+            /* alineados a la izquierda */
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-top: 0.4rem;
+        }
+
+        .phone-button {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.4rem;
+            /* más cuadrado */
+            background-color: #bfdbfe;
+            /* azul claro */
+            color: #1e3a8a;
+            /* texto azul oscuro */
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.15s ease;
+            flex: 0 0 auto;
+            /* no se estiran */
+        }
+
+        .phone-button:hover {
+            background-color: #93c5fd;
+            /* azul un poco más intenso al pasar */
+        }
+
+        .dark .phone-button {
+            color: #0b1120;
+        }
+
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
             .mobile-optimized {
@@ -294,12 +331,32 @@
                         <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+
+                            // Quitamos espacios y caracteres no numéricos para el enlace tel:
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -398,12 +455,32 @@
                         <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+
+                            // Quitamos espacios y caracteres no numéricos para el enlace tel:
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
