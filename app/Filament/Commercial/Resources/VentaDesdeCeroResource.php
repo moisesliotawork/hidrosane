@@ -88,6 +88,11 @@ class VentaDesdeCeroResource extends Resource
 
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
+                    Forms\Components\TextInput::make('nro_piso')
+                        ->required()
+                        ->maxLength(10)
+                        ->label('#Piso'),
+
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()

@@ -94,6 +94,11 @@ class EntregaSimpleResource extends Resource
                         TextInput::make('third_phone')->label('Teléfono 3')->tel(),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
+                        Forms\Components\TextInput::make('nro_piso')
+                            ->required()
+                            ->maxLength(10)
+                            ->label('#Piso'),
+
                         TextInput::make('postal_code')
                             ->required()
                             ->maxLength(255)
@@ -110,7 +115,7 @@ class EntregaSimpleResource extends Resource
                             ->label('Provincia'),
                         TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-                        
+
 
                         Select::make('tipo_vivienda')->label('Tipo de vivienda')
                             ->options(\App\Enums\TipoVivienda::options())

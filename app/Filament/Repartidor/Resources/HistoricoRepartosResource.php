@@ -280,7 +280,7 @@ class HistoricoRepartosResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Cerrar')
                     // El action principal solo se muestra si existe al menos 1 opción
-                    ->visible(function (\App\Models\Reparto $record) {
+                    ->visible(function (Reparto $record) {
                         $tieneDentro = filled($record->dentro_lat) && filled($record->dentro_lng);
                         $tieneGps = filled($record->lat) && filled($record->lng);
                         $c = $record->venta?->customer;
@@ -289,38 +289,38 @@ class HistoricoRepartosResource extends Resource
                     })
                     ->modalActions([
                         // 1) DENTRO (dentro_lat/dentro_lng)
-                        \Filament\Tables\Actions\Action::make('usarDentro')
+                        Action::make('usarDentro')
                             ->label('Usar DENTRO')
                             ->icon('heroicon-o-cursor-arrow-rays')
                             ->color('success')
-                            ->visible(fn(\App\Models\Reparto $record) => filled($record->dentro_lat) && filled($record->dentro_lng))
+                            ->visible(fn(Reparto $record) => filled($record->dentro_lat) && filled($record->dentro_lng))
                             ->url(
-                                fn(\App\Models\Reparto $record) =>
+                                fn(Reparto $record) =>
                                 "https://www.google.com/maps/dir/?api=1&destination={$record->dentro_lat},{$record->dentro_lng}&travelmode=driving",
                                 shouldOpenInNewTab: true
                             ),
 
                         // 2) GPS (lat/lng del reparto)
-                        \Filament\Tables\Actions\Action::make('usarGps')
+                        Action::make('usarGps')
                             ->label('Usar GPS (lat/lng)')
                             ->icon('heroicon-o-map')
                             ->color('warning')
-                            ->visible(fn(\App\Models\Reparto $record) => filled($record->lat) && filled($record->lng))
+                            ->visible(fn(Reparto $record) => filled($record->lat) && filled($record->lng))
                             ->url(
-                                fn(\App\Models\Reparto $record) =>
+                                fn(Reparto $record) =>
                                 "https://www.google.com/maps/dir/?api=1&destination={$record->lat},{$record->lng}&travelmode=driving",
                                 shouldOpenInNewTab: true
                             ),
 
                         // 3) DIRECCIÓN (primary_address + CP + Ciudad + España)
-                        \Filament\Tables\Actions\Action::make('usarDireccion')
+                        Action::make('usarDireccion')
                             ->label('Usar Dirección')
                             ->icon('heroicon-o-building-storefront')
                             ->color('info')
-                            ->visible(function (\App\Models\Reparto $record) {
+                            ->visible(function (Reparto $record) {
                                 return filled($record->venta?->customer?->primary_address);
                             })
-                            ->url(function (\App\Models\Reparto $record) {
+                            ->url(function (Reparto $record) {
                                 $c = $record->venta?->customer;
                                 $addr = trim((string) ($c?->primary_address ?? ''));
                                 $cp = $c?->postal_code ?? null;

@@ -122,6 +122,11 @@ class VentaResource extends Resource
                                         ->maxLength(255)
                                         ->label('Codigo Postal'),
 
+                                    Forms\Components\TextInput::make('nro_piso')
+                                        ->required()
+                                        ->maxLength(10)
+                                        ->label('#Piso'),
+
                                     Forms\Components\TextInput::make('ciudad')
                                         ->required()
                                         ->maxLength(255)

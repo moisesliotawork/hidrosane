@@ -124,6 +124,11 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->label('Dirección principal'),
 
+                        Forms\Components\TextInput::make('nro_piso')
+                            ->required()
+                            ->maxLength(10)
+                            ->label('#Piso'),
+
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
                             ->maxLength(255)

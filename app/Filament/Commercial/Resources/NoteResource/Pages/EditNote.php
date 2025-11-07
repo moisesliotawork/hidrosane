@@ -286,6 +286,7 @@ class EditNote extends EditRecord
             'email' => $customer->email,
             'postal_code' => $customer->postal_code,
             'ciudad' => $customer->ciudad,
+            'nro_piso' => $customer->nro_piso,
             'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,

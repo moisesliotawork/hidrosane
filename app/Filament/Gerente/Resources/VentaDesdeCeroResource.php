@@ -77,6 +77,12 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('phone')->label('Teléfono')->tel()->required(),
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
+
+                    Forms\Components\TextInput::make('nro_piso')
+                        ->required()
+                        ->maxLength(10)
+                        ->label('#Piso'),
+
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()

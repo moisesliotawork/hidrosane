@@ -285,13 +285,13 @@ class EditNote extends EditRecord
             'phone' => $customer->phone,
             'secondary_phone' => $customer->secondary_phone,
             'email' => $customer->email,
-            'postal_code' => $data['postal_code'],
-            'ciudad' => $data['ciudad'],
-            'provincia' => $data['provincia'],
+            'postal_code' =>$customer->postal_code ,
+            'ciudad' => $customer->ciudad,
+            'nro_piso' => $customer->nro_piso,
+            'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-
             'ayuntamiento' => $customer->ayuntamiento,
             'edadTelOp' => $customer->edadTelOp,
 

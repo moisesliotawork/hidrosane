@@ -44,6 +44,7 @@ class EditNote extends EditRecord
             'email' => $customer->email,
             'postal_code' => $customer->postal_code,
             'ciudad' => $customer->ciudad,
+            'nro_piso' => $customer->nro_piso,
             'provincia' => $customer->provincia,
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
@@ -79,6 +80,7 @@ class EditNote extends EditRecord
             'email' => $data['email'],
             'postal_code' => $data['postal_code'],
             'ciudad' => $data['ciudad'],
+            'nro_piso' => $data['nro_piso'],
             'provincia' => $data['provincia'],
             'primary_address' => $data['primary_address'],
             'secondary_address' => $data['secondary_address'] ?? null,
@@ -99,6 +101,7 @@ class EditNote extends EditRecord
             $data['primary_address'],
             $data['secondary_address'],
             $data['parish'],
+            $data['nro_piso'],
             $data['edadTelOp'],
         );
 
