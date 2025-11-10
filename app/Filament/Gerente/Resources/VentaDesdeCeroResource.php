@@ -27,6 +27,8 @@ use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class VentaDesdeCeroResource extends Resource
 {
@@ -473,10 +475,27 @@ class VentaDesdeCeroResource extends Resource
                 ->label("")
                 ->disk('public')
                 ->directory('ventas')
-                ->preserveFilenames()
                 ->openable()
                 ->downloadable()
                 ->required($required)
+                ->getUploadedFileNameForStorageUsing(
+                    function (TemporaryUploadedFile $file) use ($field): string {
+                        $user = auth()->user();
+
+                        $timestamp = now()->format('Ymd_His');
+                        $empleadoId = $user?->empleado_id ?? 'sin-id';
+                        $fullName = $user
+                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
+                            : 'sin-usuario';
+
+                        // opcional: normalizar el nombre del field
+                        $fieldSlug = Str::slug($field, '_'); // precontractual, dni_anverso, etc.
+            
+                        $extension = $file->getClientOriginalExtension();
+
+                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
+                    }
+                )
 
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",

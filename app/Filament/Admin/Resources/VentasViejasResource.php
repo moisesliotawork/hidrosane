@@ -87,9 +87,13 @@ class VentasViejasResource extends Resource
 
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
+                // 1) VISIBLES POR DEFECTO
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contrato')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(), // visible por defecto
 
-                // Mantenemos la visualización de "-B" pero sin URL ni acciones
                 TextColumn::make('contrato_b')
                     ->label('-B')
                     ->state(function (Venta $r) {
@@ -99,30 +103,47 @@ class VentasViejasResource extends Resource
                         return $b?->nro_contr_adm ?? '—';
                     })
                     ->sortable(false)
-                    ->searchable(false),
+                    ->searchable(false)
+                    ->toggleable(), // visible por defecto
 
-                TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
+                TextColumn::make('note.nro_nota')
+                    ->label('Nº Nota')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(), // visible por defecto
 
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
                     ->color(fn(EstadoVenta $state): string => $state->color())
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
-                    ->label('ESTADO/CONTR'),
+                    ->label('ESTADO/CONTR')
+                    ->toggleable(), // visible por defecto
 
-                TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
+                TextColumn::make('nro_cliente_adm')
+                    ->label('Nº Cliente')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(), // visible por defecto
 
+                // 2) OCULTAS POR DEFECTO (pero toggleables)
                 TextColumn::make('customer.name')
                     ->label('Nombre')
                     ->searchable(['first_names', 'last_names'])
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha venta')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')
@@ -142,7 +163,8 @@ class VentasViejasResource extends Resource
                         $query->leftJoin('users as com', 'com.id', '=', 'ventas.comercial_id')
                             ->orderBy('com.empleado_id', $direction)
                             ->select('ventas.*');
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('companion.empleado_id')
                     ->label('Compañero')
@@ -162,14 +184,22 @@ class VentasViejasResource extends Resource
                         $query->leftJoin('users as comp', 'comp.id', '=', 'ventas.companion_id')
                             ->orderBy('comp.empleado_id', $direction)
                             ->select('ventas.*');
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('fecha_entrega')->label('F. repartidor')->date('d/m/Y'),
-                TextColumn::make('horario_entrega')->label('Horario rep.'),
+                TextColumn::make('fecha_entrega')
+                    ->label('F. repartidor')
+                    ->date('d/m/Y')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('horario_entrega')
+                    ->label('Horario rep.')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('customer.primary_address')
                     ->label('Dirección')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->wrap(),
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
                 Action::make('entrega_simple')
