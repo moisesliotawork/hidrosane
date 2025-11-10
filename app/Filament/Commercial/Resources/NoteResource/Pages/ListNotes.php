@@ -13,6 +13,11 @@ class ListNotes extends ListRecords
 {
     protected static string $resource = NoteResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return NoteResource::getUrl('index');
+    }
+
     public function getTitle(): string
     {
         $user = auth()->user();
@@ -26,7 +31,9 @@ class ListNotes extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [Actions\CreateAction::make()];
+        return [
+            //
+        ];
     }
 
     public function getTabs(): array
@@ -108,7 +115,7 @@ class ListNotes extends ListRecords
                         ->whereDoesntHave('venta')
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false)  
+                        ->where('reten', false)
                         ->count()
                 )
                 ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro, $desde, $hasta) {
@@ -116,7 +123,7 @@ class ListNotes extends ListRecords
                         ->where($estadoFiltro)
                         ->whereNotNull('assignment_date')
                         ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-                        ->where('reten', false)  ;
+                        ->where('reten', false);
                 });
         }
 

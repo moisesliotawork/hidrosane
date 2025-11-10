@@ -491,6 +491,13 @@ class NoteResource extends Resource
                     ->visible(fn(): bool => auth()->user()->hasRole('team_leader')),
 
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('autogenerarNota')
+                    ->label('Autogenerar nota')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->url(fn() => \App\Filament\Commercial\Resources\AutogenerarNoteResource::getUrl('create')),
+            ])
             ->bulkActions([
                 \Filament\Tables\Actions\BulkAction::make('enviarASala')
                     ->label('Enviar a Oficina')
@@ -614,7 +621,9 @@ class NoteResource extends Resource
 
     public static function canCreate(): bool
     {
-        return false;
+        $user = auth()->user();
+        return $user && $user->hasAnyRole(['commercial', 'team_leader', 'sales_manager']);
+
     }
 
 
