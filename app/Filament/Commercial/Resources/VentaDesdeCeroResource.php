@@ -28,6 +28,8 @@ use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
 use Illuminate\Support\HtmlString;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Support\Str;
 
 class VentaDesdeCeroResource extends Resource
 {
@@ -91,7 +93,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('nro_piso')
                         ->required()
                         ->maxLength(10)
-                        ->label('#Piso'),
+                        ->label('No. y Piso'),
 
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
@@ -533,10 +535,26 @@ class VentaDesdeCeroResource extends Resource
                 ->label("")
                 ->disk('public')
                 ->directory('ventas')
-                ->preserveFilenames()
                 ->openable()
                 ->downloadable()
                 ->required($required)
+                ->getUploadedFileNameForStorageUsing(
+                    function (TemporaryUploadedFile $file) use ($field): string {
+                        $user = auth()->user();
+
+                        $timestamp = now()->format('Ymd_His');
+                        $empleadoId = $user?->empleado_id ?? 'sin-id';
+                        $fullName = $user
+                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
+                            : 'sin-usuario';
+
+                        $fieldSlug = Str::slug($field, '_');
+            
+                        $extension = $file->getClientOriginalExtension();
+
+                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
+                    }
+                )
 
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",

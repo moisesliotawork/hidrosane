@@ -86,7 +86,7 @@ class NoteDescResource extends Resource
             Section::make('Información de Contacto')
                 ->schema([
                     TextEntry::make('customer.postal_code')->label('CP'),
-                    TextEntry::make('customer.nro_piso')->label('#Piso'),
+                    TextEntry::make('customer.nro_piso')->label('No. y Piso'),
                     TextEntry::make('customer.ciudad')->label('Ciudad'),
                     TextEntry::make('customer.provincia')->label('Provincia'),
                     TextEntry::make('primary_address')->label('Dirección'),

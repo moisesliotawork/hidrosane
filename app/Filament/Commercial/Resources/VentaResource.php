@@ -36,6 +36,8 @@ use Filament\Forms\Components\{
 };
 use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Support\Str;
 
 class VentaResource extends Resource
 {
@@ -125,7 +127,7 @@ class VentaResource extends Resource
                                     Forms\Components\TextInput::make('nro_piso')
                                         ->required()
                                         ->maxLength(10)
-                                        ->label('#Piso'),
+                                        ->label('No. y Piso'),
 
                                     Forms\Components\TextInput::make('ciudad')
                                         ->required()
@@ -782,7 +784,6 @@ class VentaResource extends Resource
                 ->label("")
                 ->disk('public')
                 ->directory('ventas')
-                ->preserveFilenames()
                 ->openable()
                 ->downloadable()
 
@@ -790,6 +791,25 @@ class VentaResource extends Resource
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
+                ->getUploadedFileNameForStorageUsing(
+                    function (TemporaryUploadedFile $file) use ($field): string {
+                        $user = auth()->user();
+
+                        $timestamp = now()->format('Ymd_His');
+                        $empleadoId = $user?->empleado_id ?? 'sin-id';
+                        $fullName = $user
+                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
+                            : 'sin-usuario';
+
+                        
+                        $fieldSlug = Str::slug($field, '_');
+            
+                        $extension = $file->getClientOriginalExtension();
+
+                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
+                    }
+                )
+
                 ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
                 ->columnSpanFull(),
         ])->columns(1);
