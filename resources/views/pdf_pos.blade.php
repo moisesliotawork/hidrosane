@@ -157,26 +157,36 @@
 
     // Dirección 2 líneas
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
+    $nroPiso = trim((string) ($venta->customer->nro_piso ?? ''));   // ← piso
     $postalCode = trim((string) ($venta->customer->postal_code ?? ''));
     $city = trim((string) ($venta->customer->ciudad ?? ''));
     $province = trim((string) ($venta->customer->provincia ?? ''));
     $ayto = trim((string) ($venta->customer->ayuntamiento ?? ''));
     $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
+
     // FIX letra huérfana tras CP
     $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
     $provinceFormatted = $province ? "($province)" : null;
 
+    // Línea 1: solo dirección
     $dirL1 = $primary;
-    $dirL2Parts = array_filter([$cpCity, $ayto], fn($v) => $v !== '');
-    $dirL2 = implode(' - ', $dirL2Parts);
-    if ($provinceFormatted)
-        $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
 
-    $dirL1 = preg_replace('/\s+/u', ' ', trim(preg_replace('/\s*-\s*$/u', '', $dirL1)));
-    $dirL2 = preg_replace('/\s+/u', ' ', trim(preg_replace('/^\s*-\s*/u', '', $dirL2)));
-    if ($dirL1 === '' && $dirL2 !== '') {
-        $dirL1 = $dirL2;
-        $dirL2 = '';
+    // Línea 2: piso → CP+Ciudad → ayto
+    $dirL2Parts = [];
+    if ($nroPiso !== '') {
+        $dirL2Parts[] = $nroPiso;    
+    }
+    if ($cpCity !== '') {
+        $dirL2Parts[] = $cpCity;     
+    }
+    if ($ayto !== '') {
+        $dirL2Parts[] = $ayto;       
+    }
+
+    $dirL2 = implode(' - ', $dirL2Parts);
+
+    if ($provinceFormatted) {
+        $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
     }
 
     $toTitleCase = function (?string $text): string {
