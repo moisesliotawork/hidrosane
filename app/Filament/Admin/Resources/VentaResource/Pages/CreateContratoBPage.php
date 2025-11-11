@@ -20,6 +20,11 @@ class CreateContratoBPage extends Page implements HasForms
     protected static string $resource = VentaResource::class;
     protected static string $view = 'filament.admin.ventas.create-contrato-b';
 
+    public function getTitle(): string
+    {
+        return "CREAR CONTRATO -B ";
+    }
+
     public Venta $origen;
     public ?array $data = [];
 
