@@ -96,13 +96,6 @@ class NoteResource extends Resource
                                 || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
                             ),
 
-                        Forms\Components\TextInput::make('edadTelOp')
-                            ->numeric()
-                            ->label('Edad Tel. Op')
-                            ->required()
-                            ->maxValue(120)
-                            ->minValue(0),
-
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->disabled()
