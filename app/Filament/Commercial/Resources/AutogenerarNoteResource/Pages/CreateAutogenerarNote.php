@@ -111,11 +111,12 @@ class CreateAutogenerarNote extends CreateRecord
         }
 
 
-        $data['user_id'] = Auth::id();      // usuario que crea la nota
-        $data['customer_id'] = $customer->id;   // link con el customer
+        $data['user_id'] = Auth::id();      
+        $data['customer_id'] = $customer->id;  
 
 
         $data['comercial_id'] = Auth::id();
+        $data["assignment_date"] = now();
 
 
         $data['fuente'] = $data['fuente'] ?? FuenteNotas::CALLE->value;
