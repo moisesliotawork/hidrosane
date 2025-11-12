@@ -64,29 +64,35 @@ class GestionDocumentos extends Page implements HasForms
             ->schema([
                 Section::make('Gestión Documentos')
                     ->schema([
-                        self::docCard('precontractual', 'Precontractual', true),
-                        self::docCard('dni_anverso', 'DNI – Anverso'),
-                        self::docCard('dni_reverso', 'DNI – Reverso'),
-                        self::docCard('documento_titularidad', 'Documento de titularidad'),
-                        self::docCard('nomina', 'Nómina'),
-                        self::docCard('pension', 'Pensión'),
-                        self::docCard('contrato_firmado', 'Contrato firmado'),
+                        //SOLO FOTOTECA (sin capture, solo accept)
+                        self::docCard('albaran', 'Albarán', false, false),
+
+                        //RESTO: CÁMARA
+                        self::docCard('precontractual', 'Precontractual', true, true),
+                        self::docCard('dni_anverso', 'DNI – Anverso', false, true),
+                        self::docCard('dni_reverso', 'DNI – Reverso', false, true),
+                        self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
+                        self::docCard('nomina', 'Nómina', false, true),
+                        self::docCard('pension', 'Pensión', false, true),
+                        self::docCard('contrato_firmado', 'Otro Documento', false, true),
                     ])
                     ->columns(1)
                     ->columnSpanFull(),
             ]);
     }
 
-    /** Bloques reutilizables de documentos (idénticos a EntregaSimple) */
-    protected static function docCard(string $field, string $label, bool $required = false): Group
-    {
+    protected static function docCard(
+        string $field,
+        string $label,
+        bool $required = false,
+        bool $soloCamara = true,
+    ): Group {
         return Group::make([
             Placeholder::make("{$field}_title")
                 ->content(strtoupper($label))
                 ->extraAttributes(['class' => 'text-xl font-extrabold'])
                 ->label(""),
 
-            // ↓ Aquí usamos HtmlString para que el <strong> se renderice
             Placeholder::make("{$field}_desc")
                 ->content(new HtmlString(
                     "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
@@ -94,13 +100,12 @@ class GestionDocumentos extends Page implements HasForms
                 ))
                 ->label(""),
 
-            // ↓ También en el aviso rojo
             Placeholder::make("{$field}_required_notice")
                 ->label('')
                 ->content(new HtmlString(
                     '<div class="text-red-500 text-l font-bold leading-6">
-            ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-        </div>'
+                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
+                </div>'
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
@@ -111,6 +116,9 @@ class GestionDocumentos extends Page implements HasForms
                 ->openable()
                 ->downloadable()
                 ->required($required)
+                ->validationMessages([
+                    'required' => "El documento {$label} es obligatorio.",
+                ])
                 ->getUploadedFileNameForStorageUsing(
                     function (TemporaryUploadedFile $file) use ($field): string {
                         $user = auth()->user();
@@ -121,18 +129,24 @@ class GestionDocumentos extends Page implements HasForms
                             ? Str::slug($user->name . ' ' . $user->last_name, '_')
                             : 'sin-usuario';
 
-                        // opcional: normalizar el nombre del field
-                        $fieldSlug = Str::slug($field, '_'); // precontractual, dni_anverso, etc.
-            
+                        $fieldSlug = Str::slug($field, '_');
                         $extension = $file->getClientOriginalExtension();
 
                         return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
                     }
                 )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
-                ->extraAttributes(['class' => 'border-2 border-dashed py-16'])
+                ->extraAttributes(
+                    $soloCamara
+                    ? [
+                        'class' => 'border-2 border-dashed py-16',
+                        'accept' => 'image/*',
+                        'capture' => 'environment',
+                    ]
+                    : [
+                        'class' => 'border-2 border-dashed py-16',
+                        'accept' => 'image/*',
+                    ]
+                )
                 ->columnSpanFull(),
         ])->columns(1);
     }
