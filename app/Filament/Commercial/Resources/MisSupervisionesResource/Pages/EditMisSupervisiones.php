@@ -235,7 +235,7 @@ class EditMisSupervisiones extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-
+            'nro_piso' => $customer->nro_piso,
             'ayuntamiento' => $customer->ayuntamiento,
             'edadTelOp' => $customer->edadTelOp,
 
