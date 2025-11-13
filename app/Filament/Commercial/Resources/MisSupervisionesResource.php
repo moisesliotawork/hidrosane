@@ -441,6 +441,9 @@ class MisSupervisionesResource extends Resource
             return parent::getEloquentQuery()->whereRaw('1=0');
         }
 
+        // Hoy (según timezone de la app)
+        $hoy = now()->toDateString();
+
         return parent::getEloquentQuery()
             ->whereIn('comercial_id', $supervisados)
             ->where(function ($q) {
@@ -449,8 +452,14 @@ class MisSupervisionesResource extends Resource
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta')
-            ->where('reten', false);
+            ->where('reten', false)
+            // 👇 Aquí limitamos para NO ver notas futuras
+            ->where(function ($q) use ($hoy) {
+                $q->whereNull('assignment_date')
+                    ->orWhereDate('assignment_date', '<=', $hoy);
+            });
     }
+
 
     public static function getPages(): array
     {
