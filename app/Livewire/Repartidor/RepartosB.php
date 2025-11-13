@@ -10,8 +10,9 @@ use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
 use App\Enums\EstadoEntrega;
 
-class Repartos extends Component
+class RepartosB extends Component
 {
+
     protected $listeners = [
         'ventaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
@@ -129,11 +130,7 @@ class Repartos extends Component
         return Reparto::with('venta.note.customer', 'venta.comercial')
             ->whereHas('venta', function ($q) {
                 $q->where('repartidor_id', auth()->id())
-                    ->where(function ($sub) {
-                        $sub->whereNull('nro_contr_adm')
-                            ->orWhere('nro_contr_adm', '=', '')
-                            ->orWhere('nro_contr_adm', 'not like', '%-B%');
-                    });
+                    ->where('nro_contr_adm', 'like', '%-B%');  // <<< SOLO contratos B
             })
             ->where(function ($q) {
                 $q->where('estado', 'pendiente');
@@ -178,8 +175,6 @@ class Repartos extends Component
 
     public function render()
     {
-        return view('livewire.repartidor.repartos', [
-            'repartos' => $this->repartos,
-        ]);
+        return view('livewire.repartidor.repartos-b');
     }
 }
