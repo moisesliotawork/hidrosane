@@ -16,6 +16,7 @@ class AbsentHistory extends Model
         'latitud',
         'longitud',
         'observacion',
+        'autor_id',
     ];
 
     protected $casts = [
@@ -25,6 +26,10 @@ class AbsentHistory extends Model
     public function note(): BelongsTo
     {
         return $this->belongsTo(Note::class);
+    }
+    public function autor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'autor_id');
     }
 }
 

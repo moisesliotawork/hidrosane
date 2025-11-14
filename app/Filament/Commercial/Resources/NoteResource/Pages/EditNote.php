@@ -77,7 +77,8 @@ class EditNote extends EditRecord
                         'hora' => Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
-                        'observacion' => $data['observacion'] ?? null, // 👈 NUEVO
+                        'observacion' => $data['observacion'] ?? null,
+                        'autor_id'   => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect

@@ -78,6 +78,7 @@ class EditNote extends EditRecord
                         'latitud' => $lat,
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
+                        'autor_id'   => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect

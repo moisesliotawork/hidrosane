@@ -207,14 +207,24 @@ class RetenResource extends Resource
                                     ->label('')
                                     ->disabled()
                                     ->formatStateUsing(function ($state, Note $record) {
+                                        $userId = auth()->id();
+
                                         return $record->anotacionesVisitas
+                                            // FILTRO: solo autor = null o autor = usuario en sesión
+                                            ->filter(function ($anotacion) use ($userId) {
+                                                return is_null($anotacion->autor_id) || $anotacion->autor_id == $userId;
+                                            })
+
+                                            // Mapeo de formato (solo los filtrados)
                                             ->map(function ($anotacion) {
                                                 $empleadoId = $anotacion->autor->empleado_id ?? 'SIN-ID';
                                                 $fechaHora = Carbon::parse($anotacion->created_at)->format('d/m/Y H:i');
                                                 return "[$empleadoId] $fechaHora - {$anotacion->asunto}: {$anotacion->cuerpo}";
                                             })
+
                                             ->join("\n");
                                     })
+
                                     ->columnSpanFull()
                                     ->rows(5)
                             ])
@@ -226,7 +236,14 @@ class RetenResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('observations')
                             ->label("")
-                            ->relationship() // Esto es clave para el funcionamiento correcto
+                            ->relationship(
+                                'observations',
+                                fn($query) => $query->where(function ($q) {
+                                    $userId = auth()->id();
+                                    $q->whereNull('author_id')
+                                        ->orWhere('author_id', $userId);
+                                })
+                            )
                             ->schema([
                                 Forms\Components\Hidden::make('id'),
                                 Forms\Components\Hidden::make('author_id')

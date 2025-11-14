@@ -22,6 +22,13 @@ class AusenciasRelationManager extends RelationManager
             ->emptyStateDescription('Cuando marques la nota como AUSENTE, se guardará aquí el historial.')
             ->paginated([10, 25, 50, 'all'])
             ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(function ($query) {
+                $userId = auth()->id();
+                $query->where(function ($q) use ($userId) {
+                    $q->whereNull('autor_id')
+                        ->orWhere('autor_id', $userId);
+                });
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('fecha')
                     ->label('Fecha')

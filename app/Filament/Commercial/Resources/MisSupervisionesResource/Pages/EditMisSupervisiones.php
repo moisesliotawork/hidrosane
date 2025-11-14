@@ -66,6 +66,7 @@ class EditMisSupervisiones extends EditRecord
                         'hora' => Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
+                        'autor_id' => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect
