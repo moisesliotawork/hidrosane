@@ -50,6 +50,14 @@ class CreateVenta extends CreateRecord
 
             unset($data['age']);
 
+            if (($data['companion_id'] ?? null) === '__NONE__') {
+                $data['companion_id'] = null;
+            }
+
+            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
+                $data['companion_id'] = null;
+            }
+
             /* 🔒 VALIDAR QUE CADA OFERTA TENGA ≥ 1 PRODUCTO -------------------- */
             $state = $this->form->getRawState(); // <-- trae ventaOfertas y productos
             $errores = [];
@@ -116,7 +124,7 @@ class CreateVenta extends CreateRecord
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
                 'comercial_id' => $note->comercial_id ?? auth()->id(),
-                'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
+                'companion_id' => $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
                 'importe_comercial' => $data['importe_total'],

@@ -23,6 +23,15 @@ class CreateVentaDesdeCero extends CreateRecord
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
+
+            if (($data['companion_id'] ?? null) === '__NONE__') {
+                $data['companion_id'] = null;
+            }
+
+            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
+                $data['companion_id'] = null;
+            }
+
             unset($data['age']);
 
             if (($data['interes_art'] ?? false) && blank($data['interes_art_detalle'] ?? null)) {
@@ -101,7 +110,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'note_id' => $note->id,
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
-                'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
+                'companion_id' => $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'] ?? 0,
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
@@ -154,7 +163,7 @@ class CreateVentaDesdeCero extends CreateRecord
             return $venta;
         });
     }
-    
+
     protected function getRedirectUrl(): string
     {
         // Ajusta si prefieres otra página:

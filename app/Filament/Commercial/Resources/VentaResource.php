@@ -224,10 +224,10 @@ class VentaResource extends Resource
                                     ->label('Compañero')
                                     ->native(false)
                                     ->searchable()
-                                    ->nullable()
-                                    ->default(null)
+                                    ->required()
+                                    ->placeholder('Selecciona una opción')
                                     ->options(
-                                        fn() => ['' => 'SIN COMPAÑERO']      // primera opción
+                                        fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                         + User::role(['commercial', 'team_leader', 'sales_manager'])
                                             ->whereKeyNot(auth()->id())
                                             ->whereNull('baja')
@@ -238,10 +238,8 @@ class VentaResource extends Resource
                                             ->mapWithKeys(fn($u) => [
                                                 $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
                                             ])
-                                            ->all()                       // array que necesita Filament
+                                            ->all()
                                     )
-                                    ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state)
-
                             ])
 
 

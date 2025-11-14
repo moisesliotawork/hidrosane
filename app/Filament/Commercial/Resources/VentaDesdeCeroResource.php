@@ -204,30 +204,22 @@ class VentaDesdeCeroResource extends Resource
                 ->label('Compañero')
                 ->native(false)
                 ->searchable()
-                ->nullable()
-                ->default(null)
-                ->options(function () {
-                    $es911 = (string) auth()->user()?->empleado_id === '911';
-
-                    $opciones = self::comercialesQuery($es911)
-                        ->whereKeyNot(auth()->id()) // excluirse a sí mismo
+                ->required()                           
+                ->placeholder('Selecciona una opción') 
+                ->options(
+                    fn() => ['__NONE__' => 'SIN COMPAÑERO']
+                    + User::role(['commercial', 'team_leader', 'sales_manager'])
+                        ->whereKeyNot(auth()->id())
+                        ->whereNull('baja')
                         ->select('id', 'empleado_id', 'name', 'last_name')
                         ->orderBy('name')
                         ->distinct()
                         ->get()
-                        ->mapWithKeys(fn(User $u) => [$u->id => self::nombreEmpleado($u)])
-                        ->all();
-
-                    // Agrega “SIN COMPAÑERO” arriba
-                    return ['' => 'SIN COMPAÑERO'] + $opciones;
-                })
-                ->getOptionLabelUsing(function ($value) {
-                    if (blank($value))
-                        return 'SIN COMPAÑERO';
-                    $u = User::select('id', 'empleado_id', 'name', 'last_name')->find($value);
-                    return $u ? self::nombreEmpleado($u) : "Usuario #{$value}";
-                })
-                ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                        ->mapWithKeys(fn($u) => [
+                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                        ])
+                        ->all()
+                ),
 
             /* ==================== OFERTAS / PRODUCTOS ==================== */
             Section::make('Ofertas incluidas')->schema([
