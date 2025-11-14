@@ -200,10 +200,19 @@ class NoteResource extends Resource
                                     ->label('')
                                     ->disabled()
                                     ->formatStateUsing(function ($state, Note $record) {
+                                        $user = auth()->user();
+
                                         return $record->anotacionesVisitas
+                                            // 1) Si es comercial, solo sus anotaciones
+                                            ->when(
+                                                $user?->hasRole('commercial'),
+                                                fn($collection) => $collection->where('autor_id', $user->id) // ajusta 'autor_id' si tu campo se llama distinto
+                                            )
+                                            // 2) Seguir excluyendo REASIGNACIÓN
                                             ->filter(function ($anotacion) {
                                                 return strtoupper($anotacion->asunto) !== 'REASIGNACIÓN';
                                             })
+                                            // 3) Dar formato a cada línea
                                             ->map(function ($anotacion) {
                                                 $empleadoId = $anotacion->autor->empleado_id ?? 'SIN-ID';
                                                 $fechaHora = Carbon::parse($anotacion->created_at)->format('d/m/Y H:i');
@@ -213,67 +222,70 @@ class NoteResource extends Resource
                                     })
                                     ->columnSpanFull()
                                     ->rows(5)
+
                             ])
                     ])
                     ->collapsible()
                     ->hidden(fn(string $operation): bool => $operation === 'create'),
 
 
-                Forms\Components\Section::make('Observaciones')
+                Forms\Components\Repeater::make('observations')
+                    ->label("")
+                    ->relationship(
+                        'observations',
+                        fn(Builder $query) => auth()->user()?->hasRole('commercial')
+                        ? $query->where('author_id', auth()->id())
+                        : $query
+                    )
                     ->schema([
-                        Forms\Components\Repeater::make('observations')
-                            ->label("")
-                            ->relationship() // Esto es clave para el funcionamiento correcto
-                            ->schema([
-                                Forms\Components\Hidden::make('id'),
-                                Forms\Components\Hidden::make('author_id')
-                                    ->default(auth()->id()),
-                                Forms\Components\Textarea::make('observation')
-                                    ->label('')
-                                    ->placeholder('Escribe una observación')
-                                    ->columnSpanFull()
-                                    ->disabled(function ($get, $set, $state, $record) {
-                                        // Si es una nueva observación (no tiene ID), permitir edición
-                                        if (empty($record?->getKey())) {
-                                            return false;
-                                        }
-                                        // Si ya existe, solo permitir edición si es del usuario actual
-                                        return $record->author_id !== auth()->id();
-                                    })
-                                    ->dehydrated(),
-                            ])
-                            ->addActionLabel('Añadir observación')
-                            ->defaultItems(1)
-                            ->collapsible()
-                            ->collapsed()
+                        Forms\Components\Hidden::make('id'),
+                        Forms\Components\Hidden::make('author_id')
+                            ->default(auth()->id()),
+                        Forms\Components\Textarea::make('observation')
+                            ->label('')
+                            ->placeholder('Escribe una observación')
                             ->columnSpanFull()
-                            ->itemLabel(function (array $state): ?string {
-                                $author = isset($state['author_id'])
-                                    ? \App\Models\User::find($state['author_id'])
-                                    : auth()->user();
-
-                                $date = isset($state['created_at'])
-                                    ? Carbon::parse($state['created_at'])->format('d/m/y')
-                                    : now()->format('d/m/y');
-
-                                $observationText = $state['observation'] ?? 'Nueva observación';
-                                $limitedObservation = Str::limit($observationText, 30);
-
-                                return "{$date}: {$limitedObservation}";
+                            ->disabled(function ($get, $set, $state, $record) {
+                                // Si es nueva observación (no tiene ID), permitir edición
+                                if (empty($record?->getKey())) {
+                                    return false;
+                                }
+                                // Si ya existe, solo permitir edición si es del usuario actual
+                                return $record->author_id !== auth()->id();
                             })
-                            ->deleteAction(
-                                fn(Forms\Components\Actions\Action $action) => $action
-                                    ->requiresConfirmation()
-                                    ->hidden(function ($record) {
-                                        // Permitir eliminar si es nueva observación
-                                        if (empty($record->getKey())) {
-                                            return false;
-                                        }
-                                        // Ocultar si el autor no es el usuario actual
-                                        return $record->author_id !== auth()->id();
-                                    })
-                            ),
-                    ]),
+                            ->dehydrated(),
+                    ])
+                    ->addActionLabel('Añadir observación')
+                    ->defaultItems(1)
+                    ->collapsible()
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->itemLabel(function (array $state): ?string {
+                        $author = isset($state['author_id'])
+                            ? \App\Models\User::find($state['author_id'])
+                            : auth()->user();
+
+                        $date = isset($state['created_at'])
+                            ? Carbon::parse($state['created_at'])->format('d/m/y')
+                            : now()->format('d/m/y');
+
+                        $observationText = $state['observation'] ?? 'Nueva observación';
+                        $limitedObservation = Str::limit($observationText, 30);
+
+                        return "{$date}: {$limitedObservation}";
+                    })
+                    ->deleteAction(
+                        fn(Forms\Components\Actions\Action $action) => $action
+                            ->requiresConfirmation()
+                            ->hidden(function ($record) {
+                                // Permitir eliminar si es nueva observación
+                                if (empty($record->getKey())) {
+                                    return false;
+                                }
+                                // Ocultar si el autor no es el usuario actual
+                                return $record->author_id !== auth()->id();
+                            })
+                    ),
             ]);
     }
 
