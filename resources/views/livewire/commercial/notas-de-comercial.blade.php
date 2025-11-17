@@ -290,8 +290,10 @@
                         </div>
 
                         <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
-                        <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
+                        <p class="customer-address dark:text-white">
+                            {{ $note['full_address'] }}
+                        </p>
+
 
 
                         <div class="mt-1">
@@ -394,8 +396,9 @@
                         </div>
 
                         <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">{{ $note['primary_address'] }}</p>
-                        <p class="customer-address dark:text-white">{{ $note['address_info'] }}</p>
+                        <p class="customer-address dark:text-white">
+                            {{ $note['full_address'] }}
+                        </p>
 
 
                         <div class="mt-1">

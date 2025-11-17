@@ -143,12 +143,6 @@ class NotasToday extends Component
 
     public function getNotesProperty()
     {
-        $hoy = now()->format('Y-m-d');
-
-        //dd($hoy);
-
-
-
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())
             ->whereDate('assignment_date', today())
@@ -161,16 +155,92 @@ class NotasToday extends Component
             ->latest('assignment_date')
             ->get()
             ->map(function ($note) {
-                $postalCode = $note->customer->postal_code ?? null;
-                $city = $note->customer->ciudad ?? null;
-                $addressInfo = $postalCode && $city ? "$postalCode, $city" : ($postalCode ?? $city ?? 'Sin ubicación');
 
+                $customer = $note->customer;
+
+                // ========== MISMA LÓGICA DEL PDF ==========
+    
+                $primary = trim((string) ($customer->primary_address ?? ''));
+                $nroPiso = trim((string) ($customer->nro_piso ?? ''));
+                $postalCode = trim((string) ($customer->postal_code ?? ''));
+                $city = trim((string) ($customer->ciudad ?? ''));
+                $province = trim((string) ($customer->provincia ?? ''));
+                $ayto = trim((string) ($customer->ayuntamiento ?? ''));
+
+                $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
+
+                // FIX letra huérfana tras CP (igual que en el PDF)
+                $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
+
+                $provinceFormatted = $province ? "($province)" : null;
+
+                // Línea 1: solo dirección
+                $dirL1 = $primary;
+
+                // Línea 2: piso → CP+Ciudad → ayto
+                $dirL2Parts = [];
+                if ($nroPiso !== '') {
+                    $dirL2Parts[] = $nroPiso;
+                }
+                if ($cpCity !== '') {
+                    $dirL2Parts[] = $cpCity;
+                }
+                if ($ayto !== '') {
+                    $dirL2Parts[] = $ayto;
+                }
+
+                $dirL2 = implode(' - ', $dirL2Parts);
+
+                if ($provinceFormatted) {
+                    $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
+                }
+
+                // TitleCase como en el PDF
+                $toTitleCase = function (?string $text): string {
+                    $t = trim((string) $text);
+                    if ($t === '') {
+                        return '';
+                    }
+                    $t = mb_strtolower($t, 'UTF-8');
+                    return mb_convert_case($t, MB_CASE_TITLE, 'UTF-8');
+                };
+
+                $dirL1 = $toTitleCase($dirL1);
+                $dirL2 = $toTitleCase($dirL2);
+
+                // Dirección 1: una sola línea (igual que $dirOneLine en el PDF)
+                $dirOneLine = trim(
+                    preg_replace(
+                        '/\s+/',
+                        ' ',
+                        trim($dirL1 . ($dirL2 ? ' - ' . $dirL2 : ''))
+                    ),
+                    ' -'
+                );
+
+                $fullAddress = $dirOneLine !== '' ? $dirOneLine : 'Sin dirección';
+
+                // Si aún quieres este info “simple”
+                $postalCodeSimple = $customer->postal_code ?? null;
+                $citySimple = $customer->ciudad ?? null;
+                $addressInfo = $postalCodeSimple && $citySimple
+                    ? "$postalCodeSimple, $citySimple"
+                    : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
+
+                // ==========================================
+    
                 return [
                     'id' => $note->id,
                     'nro_nota' => $note->nro_nota,
-                    'customer' => $note->customer->name ?? 'Sin cliente',
-                    'primary_address' => $note->customer->primary_address ?? 'Sin dirección',
+                    'customer' => $customer->name ?? 'Sin cliente',
+
+                    // 👉 Dirección formateada igual que en el PDF
+                    'full_address' => $fullAddress,
+
+                    // Por si los sigues usando en otros lados
+                    'primary_address' => $customer->primary_address ?? 'Sin dirección',
                     'address_info' => $addressInfo,
+
                     'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
                     'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),
                     'visit_schedule' => $note->visit_schedule ?? '--:--',
@@ -180,8 +250,8 @@ class NotasToday extends Component
                     'fuente_puntaje' => $note->fuente->getPuntaje(),
                     'de_camino' => $note->de_camino,
                     'show_phone' => $note->show_phone,
-                    'phone' => $note->customer->phone ?? null,
-                    'secondary_phone' => $note->customer->secondary_phone ?? null,
+                    'phone' => $customer->phone ?? null,
+                    'secondary_phone' => $customer->secondary_phone ?? null,
                     'lat_dentro' => $note->lat_dentro,
                     'lng' => $note->lng,
                     'lat' => $note->lat,
