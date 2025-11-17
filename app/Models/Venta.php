@@ -208,6 +208,8 @@ class Venta extends Model
         'mostrar_situacion_lab' => true,
     ];
 
+    protected $guarded = [];
+
 
     protected static function boot()
     {

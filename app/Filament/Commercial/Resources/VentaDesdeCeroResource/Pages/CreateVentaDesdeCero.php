@@ -10,6 +10,7 @@ use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
 use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
@@ -23,6 +24,14 @@ class CreateVentaDesdeCero extends CreateRecord
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
+
+            $fechaVenta = !empty($data['manual_created_at'])
+                ? (
+                    $data['manual_created_at'] instanceof Carbon
+                    ? $data['manual_created_at']
+                    : Carbon::parse($data['manual_created_at'], 'Europe/Madrid')
+                )
+                : now('Europe/Madrid');
 
             if (($data['companion_id'] ?? null) === '__NONE__') {
                 $data['companion_id'] = null;
@@ -84,6 +93,8 @@ class CreateVentaDesdeCero extends CreateRecord
                 'show_phone' => $data['nota_show_phone'] ?? true,
                 'de_camino' => $data['nota_de_camino'] ?? false,
                 'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
+                'created_at' => $fechaVenta,
+                'updated_at' => $fechaVenta,
             ];
 
             $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));
@@ -111,7 +122,11 @@ class CreateVentaDesdeCero extends CreateRecord
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => $data['companion_id'],
-                'fecha_venta' => now(),
+
+                'fecha_venta' => $fechaVenta,
+                'created_at' => $fechaVenta,
+                'updated_at' => $fechaVenta,
+
                 'importe_total' => $data['importe_total'] ?? 0,
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado' ? ($data['forma_pago'] ?? null) : null,
@@ -159,6 +174,12 @@ class CreateVentaDesdeCero extends CreateRecord
 
             $venta->refreshEstadoEntrega();
             $venta->save();
+
+            $venta->timestamps = false;
+            $venta->created_at = $fechaVenta;
+            $venta->updated_at = $fechaVenta;
+            $venta->save();
+            $venta->timestamps = true;
 
             return $venta;
         });
