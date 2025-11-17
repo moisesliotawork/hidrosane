@@ -240,6 +240,10 @@
                     <div class="value">{{ $c?->primary_address }}</div>
                 </div>
                 <div class="card">
+                    <div class="label">Nro y Piso</div>
+                    <div class="value">{{ $c?->nro_piso ?? '—' }}</div>
+                </div>
+                <div class="card">
                     <div class="label">Ayuntamiento</div>
                     <div class="value">{{ $note->ayuntamiento }}</div>
                 </div>
