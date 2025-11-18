@@ -20,6 +20,43 @@ class CreateNote extends CreateRecord
         return $this->getResource()::getUrl('index');
     }
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Si viene un customer_id, precargamos TODO
+        if ($customerId = request()->query('customer_id')) {
+            $customer = Customer::find($customerId);
+
+            if ($customer) {
+                $this->form->fill([
+                    'customer_id' => $customer->id,
+                    'first_names' => $customer->first_names,
+                    'last_names' => $customer->last_names,
+                    'phone' => $customer->phone,
+                    'secondary_phone' => $customer->secondary_phone,
+                    'third_phone' => $customer->third_phone,
+                    'edadTelOp' => $customer->edadTelOp ?? null, // si tienes campo similar
+                    'email' => $customer->email,
+
+                    'postal_code' => $customer->postal_code,
+                    'nro_piso' => $customer->nro_piso,
+                    'ciudad' => $customer->ciudad,
+                    'provincia' => $customer->provincia,
+                    'primary_address' => $customer->primary_address,
+                    'secondary_address' => $customer->secondary_address,
+                    'parish' => $customer->parish,
+                    'ayuntamiento' => $customer->ayuntamiento,
+                ]);
+            }
+        } elseif ($phone = request()->query('phone')) {
+            // Caso antiguo: solo venimos con el phone
+            $this->form->fill([
+                'phone' => $phone,
+            ]);
+        }
+    }
+
     protected function getFormActions(): array
     {
         return [

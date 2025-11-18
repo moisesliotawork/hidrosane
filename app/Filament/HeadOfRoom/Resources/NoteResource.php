@@ -28,6 +28,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use App\Models\User;
 use Illuminate\Validation\Rule;
 use App\Models\Customer;
+use App\Models\Venta;
+use Filament\Notifications\Actions\Action as NotificationAction;
 
 
 class NoteResource extends Resource
@@ -703,27 +705,62 @@ class NoteResource extends Resource
                                 ->body('Debe tener exactamente 9 cifras.')
                                 ->danger()
                                 ->send();
+
                             return;
                         }
 
-                        $exists = Customer::query()
+                        // Buscar el cliente por los distintos teléfonos
+                        $customer = Customer::query()
                             ->where('phone', $digits)
                             ->orWhere('secondary_phone', $digits)
-                            ->exists();
+                            ->orWhere('third_phone', $digits)
+                            ->first();
 
-                        if ($exists) {
-                            Notification::make()
-                                ->title('CLIENTE DUPLICADO')
-                                ->body('Ya existe un cliente con ese número de teléfono.')
-                                ->warning()
-                                ->send();
+                        // Si NO existe → flujo actual: crear nota nueva con el phone
+                        if (!$customer) {
+                            $url = static::getUrl('create', ['phone' => $digits]);
 
-                            return;
+                            return redirect($url);
                         }
 
-                        // Si no existe, redirige a crear nota con ?phone=<digits>
-                        $url = static::getUrl('create', ['phone' => $digits]);
-                        return redirect($url);
+                        // Si SÍ existe → mostrar resumen + botones
+            
+                        $fullName = trim(($customer->first_names ?? '') . ' ' . ($customer->last_names ?? ''));
+                        $dni = $customer->dni ?? '—';
+
+                        $notesCount = Note::where('customer_id', $customer->id)->count();
+                        $ventasCount = Venta::where('customer_id', $customer->id)->count();
+
+                        $bodyLines = [
+                            "Nombre: {$fullName}",
+                            "DNI: {$dni}",
+                            "Notas asociadas: {$notesCount}",
+                            "Ventas asociadas: {$ventasCount}",
+                        ];
+
+                        Notification::make()
+                            ->title('CLIENTE ENCONTRADO')
+                            ->body(implode("\n", $bodyLines))
+                            ->info()
+                            ->persistent() // se queda hasta que el usuario interactúe
+                            ->actions([
+                                NotificationAction::make('no_continuar')
+                                    ->label('No continuar')
+                                    ->button()      
+                                    ->color('gray')     
+                                    ->close(),          
+            
+
+                                NotificationAction::make('continuar')
+                                    ->label('Continuar')
+                                    ->button()
+                                    ->color('success')
+                                    ->url(static::getUrl('create', [
+                                        'customer_id' => $customer->id,
+                                    ]))
+                                    ->openUrlInNewTab(false),
+                            ])
+                            ->send();
                     }),
             ])
             ->bulkActions([
