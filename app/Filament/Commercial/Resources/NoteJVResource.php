@@ -416,13 +416,6 @@ class NoteJVResource extends Resource
                     ->alignCenter()
                     ->toggleable(isToggledHiddenByDefault: false), // cámbialo a true si quieres ocultarla por defecto
 
-                Tables\Columns\TextColumn::make('printed')
-                    ->label('Impr.')
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
-                    ->color(fn(bool $state) => $state ? 'gray' : 'orange')
-                    ->sortable(),
-
 
             ])
             ->defaultSort('created_at', 'desc')
@@ -526,17 +519,6 @@ class NoteJVResource extends Resource
 
                         return 'Sala: ' . Carbon::parse($data['sent_to_sala_at'])->format('d/m/Y');
                     }),
-                TernaryFilter::make('printed')
-                    ->label('Impresas')
-                    ->trueLabel('Solo impresas')
-                    ->falseLabel('Solo no impresas')
-                    ->placeholder('Todas')
-                    ->native(false)
-                    ->queries(
-                        true: fn(Builder $q) => $q->where('printed', true),
-                        false: fn(Builder $q) => $q->where('printed', false),
-                        blank: fn(Builder $q) => $q, // sin filtro
-                    ),
 
             ])
             ->actions([
