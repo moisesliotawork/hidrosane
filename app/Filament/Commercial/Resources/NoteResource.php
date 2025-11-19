@@ -576,36 +576,52 @@ class NoteResource extends Resource
     {
         $user = auth()->user();
 
-        // 1) IDs base: propio usuario
-        $ids = collect([$user->id]);
+        // Query base
+        $query = parent::getEloquentQuery();
 
-        // 2) Si es líder, añadir miembros
-        if ($user->hasRole('team_leader')) {
-            $team = Team::where('team_leader_id', $user->id)->first();
-            if ($team) {
-                $ids = $ids->merge(
-                    $team->members()->pluck('users.id')
-                )->unique();
+        // 1) FILTRO POR COMERCIAL solo para commercial / team_leader
+        if (!$user->hasRole('sales_manager')) {
+
+            // IDs base: propio usuario
+            $ids = collect([$user->id]);
+
+            // Si es líder, añadir miembros
+            if ($user->hasRole('team_leader')) {
+                $team = Team::where('team_leader_id', $user->id)->first();
+                if ($team) {
+                    $ids = $ids->merge(
+                        $team->members()->pluck('users.id')
+                    )->unique();
+                }
+            }
+
+            // Aplicamos filtro por comerciales permitidos
+            $query->whereIn('comercial_id', $ids->all());
+
+            // Detectar tab activo: “com_{ID}”
+            $active = request()->query('activeTab', '');
+
+            if (Str::startsWith($active, 'com_')) {
+                $comId = (int) Str::after($active, 'com_');
+
+                if ($comId > 0) {
+                    $query->where('comercial_id', $comId);
+                }
+            }
+
+        } else {
+            $active = request()->query('activeTab', '');
+
+            if (Str::startsWith($active, 'com_')) {
+                $comId = (int) Str::after($active, 'com_');
+
+                if ($comId > 0) {
+                    $query->where('comercial_id', $comId);
+                }
             }
         }
 
-        // 3) Construir query inicial
-        $query = parent::getEloquentQuery()
-            ->whereIn('comercial_id', $ids->all());
-
-        // 4) Detectar tab activo: “com_{ID}”
-        $active = request()->query('activeTab', '');
-
-        if (Str::startsWith($active, 'com_')) {
-            $comId = (int) Str::after($active, 'com_');
-
-            if ($comId > 0) {
-                $query->where('comercial_id', $comId);
-            }
-        }
-
-        // 5) Filtrar siempre estado_terminal vacío ó '' y sin venta asociada
-        // 5) Estado terminal: incluir null, '', y AUSENTE (sin importar may/min/espacios)
+        // 2) Estado terminal: null, '', o AUSENTE
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')
                 ->orWhere('estado_terminal', '') // vacío exacto
@@ -613,16 +629,18 @@ class NoteResource extends Resource
         })
             ->whereDoesntHave('venta'); // sin venta
 
-        // 4) Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO), forzando DATE(...)
+        // 3) Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO)
         $desde = now()->subDays(5)->toDateString();
         $hasta = now()->toDateString();
 
         $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
 
+        // 4) Sin reten
         $query->where('reten', false);
 
         return $query;
     }
+
 
     public static function canCreate(): bool
     {
