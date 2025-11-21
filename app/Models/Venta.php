@@ -13,6 +13,9 @@ use App\Enums\MesesEnum;
 use Illuminate\Support\Facades\DB;
 use App\Models\TransactionVenta;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\CreamDailyControl;
+use Carbon\Carbon;
+
 
 /**
  * @property int $id
@@ -308,6 +311,7 @@ class Venta extends Model
             // Asegura importes y derivados antes de cualquier save()
             $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
             $venta->calcularComisiones(false);             // ← sin persistir
+            $venta->registerCreamDelivery();
         });
     }
 
@@ -808,6 +812,35 @@ class Venta extends Model
             ->where('nro_contr_adm', 'like', '%-B')
             ->first();
     }
+
+    public function registerCreamDelivery(): void
+    {
+        // Si no entregó crema o no hay comercial/fecha, no hacemos nada
+        if (!$this->crema || !$this->comercial_id || !$this->fecha_venta) {
+            return;
+        }
+
+        $date = $this->fecha_venta instanceof Carbon
+            ? $this->fecha_venta->toDateString()
+            : (string) $this->fecha_venta;
+
+        // CreamDailyControl del comercial en esa fecha
+        $control = CreamDailyControl::firstOrCreate(
+            [
+                'comercial_id' => $this->comercial_id,
+                'date' => $date,
+            ],
+            [
+                'assigned' => 0,
+                'delivered' => 0,
+                // remaining se recalcula en el evento saving del modelo
+            ]
+        );
+
+        $control->delivered++;
+        $control->save(); // recalcula remaining automáticamente
+    }
+
 
 
 }

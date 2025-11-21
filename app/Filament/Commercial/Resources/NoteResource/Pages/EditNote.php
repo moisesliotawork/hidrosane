@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\NoteSalaObservation;
 use App\Models\NoteConfirmation;
 use Filament\Forms\Components\Select;
+use App\Models\CreamDailyControl;
+
 
 class EditNote extends EditRecord
 {
@@ -78,7 +80,7 @@ class EditNote extends EditRecord
                         'latitud' => $lat,
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
-                        'autor_id'   => Auth::id(),
+                        'autor_id' => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect
@@ -157,17 +159,54 @@ class EditNote extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
+
                         // 1) Guardar el registro de confirmación
-                        NoteConfirmation::create([
+                        $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
                             'dio_crema' => (bool) ($data['dio_crema'] ?? false),   // 1 => true, 0 => false
                             'observation' => $data['observation'] ?? null,
                         ]);
 
-                        // 2) Cambiar estado
+                        // 2) Cambiar estado de la nota
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
                         $this->record->save();
+
+                        // 3) 👉 Actualizar control diario de cremas SI dio_crema = true
+                        if ($confirmation->dio_crema) {
+
+                            // a) Determinar el comercial
+                            //    Si tu Note tiene comercial_id, úsalo; si no, usamos el usuario actual.
+                            $comercialId = $this->record->comercial_id ?? Auth::id();
+
+                            if ($comercialId) {
+                                // b) Determinar la fecha del día de la crema
+                                $fecha = now();
+
+                                $fechaStr = $fecha instanceof Carbon
+                                    ? $fecha->toDateString()
+                                    : Carbon::parse($fecha)->toDateString();
+
+                                // c) Buscar o crear el control diario de ese comercial en esa fecha
+                                $control = CreamDailyControl::firstOrCreate(
+                                    [
+                                        'comercial_id' => $comercialId,
+                                        'date' => $fechaStr,
+                                    ],
+                                    [
+                                        // 👇 valor inicial cuando NO exista registro de ese día
+                                        'assigned' => 5,
+                                        'delivered' => 0,
+                                    ]
+                                );
+
+                                // d) Sumar una crema entregada y recalcular remaining
+                                $control->delivered++;
+                                $control->remaining = max(0, (int) $control->assigned - (int) $control->delivered);
+                                $control->save();
+
+                            }
+                        }
                     });
 
                     Notification::make()
