@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
 
 class CreamDailyControl extends Model
 {
@@ -15,46 +16,37 @@ class CreamDailyControl extends Model
     protected $fillable = [
         'comercial_id',
         'date',
-        'assigned',
-        'delivered',
-        'remaining',
+        'assigned',           // cremas que se LE ENTREGAN ese día (info)
+        'delivered',          // cremas que él entrega a clientes
+        'remaining',          // cuántas le quedan EN LA MANO al final del día
+        'next_day_to_assign', // cuántas hay que darle MAÑANA
     ];
 
     protected $casts = [
         'date' => 'date',
-        'assigned' => 'integer',
-        'delivered' => 'integer',
-        'remaining' => 'integer',
     ];
 
-    protected static function booted()
+    protected static function booted(): void
     {
-        // Antes de guardar, recalcula siempre el total por día
         static::saving(function (CreamDailyControl $control) {
-            $control->remaining = max(0, (int) $control->assigned - (int) $control->delivered);
+            $dailyQuota = 5;
+
+            // 1) remaining = 5 - delivered (nunca negativo)
+            $delivered = (int) $control->delivered;
+            $control->remaining = max(0, $dailyQuota - $delivered);
+
+            // 2) next_day_to_assign = 5 - remaining  (= delivered)
+            $control->next_day_to_assign = max(0, $dailyQuota - (int) $control->remaining);
+
+            // (Opcional) clamp de assigned solo informativo, por si acaso:
+            if ($control->assigned === null) {
+                $control->assigned = 0;
+            }
         });
     }
 
     public function comercial(): BelongsTo
     {
         return $this->belongsTo(User::class, 'comercial_id');
-    }
-
-    /**
-     * Recalcula delivered desde las ventas (por si prefieres sincronizarlo).
-     */
-    public function refreshDeliveredFromVentas(bool $save = true): self
-    {
-        $this->delivered = Venta::query()
-            ->where('comercial_id', $this->comercial_id)
-            ->whereDate('fecha_venta', $this->date)
-            ->where('crema', true)
-            ->count();
-
-        if ($save) {
-            $this->save();
-        }
-
-        return $this;
     }
 }

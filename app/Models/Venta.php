@@ -311,6 +311,10 @@ class Venta extends Model
             // Asegura importes y derivados antes de cualquier save()
             $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
             $venta->calcularComisiones(false);             // ← sin persistir
+        });
+
+        static::created(function (Venta $venta) {
+            // Solo cuando se CREA la venta
             $venta->registerCreamDelivery();
         });
     }
@@ -815,14 +819,14 @@ class Venta extends Model
 
     public function registerCreamDelivery(): void
     {
-        // Si no entregó crema o no hay comercial/fecha, no hacemos nada
+        // Si no entregó crema o falta comercial/fecha, no hacemos nada
         if (!$this->crema || !$this->comercial_id || !$this->fecha_venta) {
             return;
         }
 
         $date = $this->fecha_venta instanceof Carbon
             ? $this->fecha_venta->toDateString()
-            : (string) $this->fecha_venta;
+            : Carbon::parse($this->fecha_venta)->toDateString();
 
         // CreamDailyControl del comercial en esa fecha
         $control = CreamDailyControl::firstOrCreate(
@@ -831,16 +835,14 @@ class Venta extends Model
                 'date' => $date,
             ],
             [
-                'assigned' => 0,
+                'assigned' => 5, // cuota diaria inicial si no existía
                 'delivered' => 0,
-                // remaining se recalcula en el evento saving del modelo
+                // remaining y next_day_to_assign los calcula el modelo al guardar
             ]
         );
 
+        // sumamos 1 entrega; los demás campos se recalculan en el modelo
         $control->delivered++;
-        $control->save(); // recalcula remaining automáticamente
+        $control->save(); // aquí se recalculan remaining y next_day_to_assign
     }
-
-
-
 }

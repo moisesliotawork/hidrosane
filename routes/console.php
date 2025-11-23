@@ -27,3 +27,11 @@ Schedule::command('notes:sala-overdue')
     ->withoutOverlapping()
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/notes_sala_overdue.log'));
+
+Schedule::command('creams:generate-next-day')
+    ->dailyAt('22:00')
+    ->timezone('Europe/Madrid')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/creams_generate_next_day.log'));
+

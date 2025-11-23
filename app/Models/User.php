@@ -246,5 +246,9 @@ class User extends Authenticatable implements FilamentUser
         return max(0, (int) $controlAyer->remaining);
     }
 
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->name} {$this->last_name}");
+    }
 
 }
