@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\NoteSalaObservation;
 use App\Models\NoteConfirmation;
 use Filament\Forms\Components\Select;
+use App\Models\CreamDailyControl;
+
 
 class EditNote extends EditRecord
 {
@@ -78,7 +80,7 @@ class EditNote extends EditRecord
                         'latitud' => $lat,
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
-                        'autor_id'   => Auth::id(),
+                        'autor_id' => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect
@@ -156,23 +158,66 @@ class EditNote extends EditRecord
                 ->modalDescription('Confirma que deseas marcar la nota como CONFIRMADA.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
+
+                    // 0️⃣ VALIDAR CREMAS ANTES DE GUARDAR
+                    if (!empty($data['dio_crema'])) {
+
+                        $comercialId = $this->record->comercial_id ?? Auth::id();
+                        $fechaHoy = now()->toDateString();
+
+                        $control = CreamDailyControl::where('comercial_id', $comercialId)
+                            ->whereDate('date', $fechaHoy)
+                            ->first();
+
+                        if ($control && (int) $control->remaining <= 0) {
+
+                            Notification::make()
+                                ->title('No te quedan cremas disponibles')
+                                ->body('Hoy ya no tienes cremas asignadas para entregar. No puedes marcar esta nota como CONFIRMADA con crema.')
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return; // ❌ cancelar acción sin guardar
+                        }
+                    }
+
+                    // 1️⃣ Guardado normal
                     DB::transaction(function () use ($data) {
-                        // 1) Guardar el registro de confirmación
-                        NoteConfirmation::create([
+
+                        $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
-                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),   // 1 => true, 0 => false
+                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),
                             'observation' => $data['observation'] ?? null,
                         ]);
 
-                        // 2) Cambiar estado
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
                         $this->record->save();
+
+                        if ($confirmation->dio_crema) {
+
+                            $comercialId = $this->record->comercial_id ?? Auth::id();
+                            $fechaStr = now()->toDateString();
+
+                            $control = CreamDailyControl::firstOrCreate(
+                                [
+                                    'comercial_id' => $comercialId,
+                                    'date' => $fechaStr,
+                                ],
+                                [
+                                    'assigned' => 5,
+                                    'delivered' => 0,
+                                ]
+                            );
+
+                            $control->delivered++;
+                            $control->save();
+                        }
                     });
 
                     Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
-                        ->body('Se guardó la confirmación.')
                         ->success()
                         ->send();
 

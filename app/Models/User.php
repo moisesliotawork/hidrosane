@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\CreamDailyControl;
+use Carbon\Carbon;
+
 
 /**
  * @property int $id
@@ -214,6 +217,38 @@ class User extends Authenticatable implements FilamentUser
             ->whereNotNull('end_time')
             ->orderByDesc('updated_at')
             ->first();
+    }
+
+    public function creamDailyControls(): HasMany
+    {
+        return $this->hasMany(CreamDailyControl::class, 'comercial_id');
+    }
+
+    /**
+     * Máximo de cremas que se pueden asignar para una fecha concreta
+     * según el día anterior: max = assigned(día anterior) - delivered(día anterior).
+     *
+     * Si no hay registro del día anterior, tú decides la política (aquí devuelvo null).
+     */
+    public function maxCremasAsignablesParaFecha(Carbon|string $fecha): ?int
+    {
+        $date = $fecha instanceof Carbon ? $fecha : Carbon::parse($fecha);
+        $ayer = $date->copy()->subDay()->toDateString();
+
+        $controlAyer = $this->creamDailyControls()
+            ->where('date', $ayer)
+            ->first();
+
+        if (!$controlAyer) {
+            return null; // o un número alto, según tu lógica de negocio
+        }
+
+        return max(0, (int) $controlAyer->remaining);
+    }
+
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->name} {$this->last_name}");
     }
 
 }

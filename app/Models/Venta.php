@@ -13,6 +13,9 @@ use App\Enums\MesesEnum;
 use Illuminate\Support\Facades\DB;
 use App\Models\TransactionVenta;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\CreamDailyControl;
+use Carbon\Carbon;
+
 
 /**
  * @property int $id
@@ -308,6 +311,11 @@ class Venta extends Model
             // Asegura importes y derivados antes de cualquier save()
             $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
             $venta->calcularComisiones(false);             // ← sin persistir
+        });
+
+        static::created(function (Venta $venta) {
+            // Solo cuando se CREA la venta
+            $venta->registerCreamDelivery();
         });
     }
 
@@ -809,5 +817,32 @@ class Venta extends Model
             ->first();
     }
 
+    public function registerCreamDelivery(): void
+    {
+        // Si no entregó crema o falta comercial/fecha, no hacemos nada
+        if (!$this->crema || !$this->comercial_id || !$this->fecha_venta) {
+            return;
+        }
 
+        $date = $this->fecha_venta instanceof Carbon
+            ? $this->fecha_venta->toDateString()
+            : Carbon::parse($this->fecha_venta)->toDateString();
+
+        // CreamDailyControl del comercial en esa fecha
+        $control = CreamDailyControl::firstOrCreate(
+            [
+                'comercial_id' => $this->comercial_id,
+                'date' => $date,
+            ],
+            [
+                'assigned' => 5, // cuota diaria inicial si no existía
+                'delivered' => 0,
+                // remaining y next_day_to_assign los calcula el modelo al guardar
+            ]
+        );
+
+        // sumamos 1 entrega; los demás campos se recalculan en el modelo
+        $control->delivered++;
+        $control->save(); // aquí se recalculan remaining y next_day_to_assign
+    }
 }
