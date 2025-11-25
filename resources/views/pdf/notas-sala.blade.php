@@ -225,8 +225,32 @@
                     <div class="value">{{ $c?->name }}</div>
                 </div>
                 <div class="card">
-                    <div class="label">Teléfono</div>
-                    <div class="value">{{ $c?->phone }}</div>
+                    <div class="label">Teléfonos</div>
+                    <div class="value">
+                        @php
+                            $phones = [];
+
+                            if ($c?->phone) {
+                                $phones[] = 'Principal: ' . $c->phone;
+                            }
+
+                            if ($c?->secondary_phone) {
+                                $phones[] = 'Secundario: ' . $c->secondary_phone;
+                            }
+
+                            if ($c?->third_phone) {
+                                $phones[] = 'Tercero: ' . $c->third_phone;
+                            }
+                        @endphp
+
+                        @if(count($phones))
+                            @foreach($phones as $line)
+                                {{ $line }}<br>
+                            @endforeach
+                        @else
+                            —
+                        @endif
+                    </div>
                 </div>
                 <div class="card">
                     <div class="label">CP / Ciudad</div>

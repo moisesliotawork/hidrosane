@@ -196,8 +196,13 @@ class User extends Authenticatable implements FilamentUser
 
     public function canSeeVipSources(): bool
     {
-        return $this->hasRole('head_of_room') || $this->empleado_id === '020';
+        // Aseguramos que empleado_id sea string
+        $empleadoId = (string) $this->empleado_id;
+
+        return $this->hasRole('head_of_room')
+            || in_array($empleadoId, ['020', '023', '027'], true);
     }
+
 
     public function workSessions(): HasMany
     {

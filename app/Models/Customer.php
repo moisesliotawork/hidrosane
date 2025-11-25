@@ -163,4 +163,14 @@ class Customer extends Model
         );
     }
 
+    protected function thirdPhone(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => ($value === null || $value === '')
+            ? null
+            : preg_replace('/\D+/', '', (string) $value),
+        );
+    }
+
+
 }
