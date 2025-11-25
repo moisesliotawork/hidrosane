@@ -577,50 +577,30 @@ class RetenResource extends Resource
     {
         $user = auth()->user();
 
-        // 1) IDs base: propio usuario
-        $ids = collect([$user->id]);
-
-        // 2) Si es líder, añadir miembros
-        if ($user->hasRole('team_leader')) {
-            $team = Team::where('team_leader_id', $user->id)->first();
-            if ($team) {
-                $ids = $ids->merge(
-                    $team->members()->pluck('users.id')
-                )->unique();
-            }
+        // Por seguridad: si alguien sin rol válido llegara aquí, no ve nada
+        if (!$user || !($user->hasRole('sales_manager') || $user->hasRole('team_leader'))) {
+            // Opcional: devolver query vacía
+            return parent::getEloquentQuery()->whereRaw('1 = 0');
         }
 
-        // 3) Construir query inicial
-        $query = parent::getEloquentQuery()
-            ->whereIn('comercial_id', $ids->all());
-
-        // 4) Detectar tab activo: “com_{ID}”
-        $active = request()->query('activeTab', '');
-
-        if (Str::startsWith($active, 'com_')) {
-            $comId = (int) Str::after($active, 'com_');
-
-            if ($comId > 0) {
-                $query->where('comercial_id', $comId);
-            }
-        }
-
-        // 5) Filtrar siempre estado_terminal vacío ó '' y sin venta asociada
-        // 5) Estado terminal: incluir null, '', y AUSENTE (sin importar may/min/espacios)
-        $query->where(function ($q) {
-            $q->whereNull('estado_terminal')
-                ->orWhere('estado_terminal', '') // vacío exacto
-                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
-        })
-            ->whereDoesntHave('venta'); // sin venta
-
-        // 4) Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO), forzando DATE(...)
+        // Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO)
         $desde = now()->subDays(5)->toDateString();
         $hasta = now()->toDateString();
 
-        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+        $query = parent::getEloquentQuery();
 
-        $query->where('reten', true);
+        // Estado terminal: null, '', o 'ausente'
+        $query->where(function ($q) {
+            $q->whereNull('estado_terminal')
+                ->orWhere('estado_terminal', '')
+                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+        })
+            // Sin venta asociada
+            ->whereDoesntHave('venta')
+            // Solo notas marcadas como Reten
+            ->where('reten', true)
+            // Assignment_date entre hoy-5 y hoy
+            ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
 
         return $query;
     }
