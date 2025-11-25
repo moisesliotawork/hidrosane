@@ -12,6 +12,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\Filter;
 use Filament\Forms\Components\DatePicker;
+use Carbon\Carbon;
 
 class CreamDailyControlResource extends Resource
 {
@@ -82,7 +83,7 @@ class CreamDailyControlResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('total_disponible')
-                    ->label('Total disponible para HOY')
+                    ->label('Total disponible')
                     ->getStateUsing(fn() => 5)
                     ->badge()
                     ->color('success'),
@@ -111,22 +112,27 @@ class CreamDailyControlResource extends Resource
             ->filters([
                 Filter::make('date')
                     ->label('Fecha')
-                    ->default([
-                        'date' => now()->toDateString(),
-                    ])
                     ->form([
                         DatePicker::make('date')
                             ->label('Fecha')
+                            // valor por defecto: HOY (solo fecha)
                             ->default(now()->toDateString())
                             ->native(false),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
                             $data['date'] ?? null,
-                            fn(Builder $q, $date) => $q->whereDate('date', $date)
+                            function (Builder $q, $date) {
+                                // Normalizamos a solo fecha, por si viene con hora
+                                $dateOnly = Carbon::parse($date)->toDateString();
+
+                                return $q->whereDate('date', $dateOnly);
+                            }
                         );
                     })
-
+                    ->default([
+                        'date' => now()->toDateString(), // filtro aplicado por defecto a HOY
+                    ])
             ])
 
             ->actions([])
