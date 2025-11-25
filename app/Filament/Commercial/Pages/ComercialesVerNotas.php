@@ -40,17 +40,17 @@ class ComercialesVerNotas extends Page implements HasTable
 
     /* ====== Tabla ====== */
 
+    // App\Filament\Commercial\Pages\ComercialesVerNotas.php
+
     public function table(Table $table): Table
     {
         $user = auth()->user();
 
-        // Si es SALES MANAGER => usar el filtro del GERENTE
         if ($user->hasRole('sales_manager')) {
             $query = User::query()
                 ->role(['commercial', 'team_leader', 'sales_manager'])
                 ->whereNull('baja');
         } else {
-            // Caso contrario (team_leader) => filtro por equipos liderados
             $teamIds = Team::query()
                 ->where('deleted', false)
                 ->where('team_leader_id', $user->id)
@@ -59,7 +59,7 @@ class ComercialesVerNotas extends Page implements HasTable
             $query = User::query()
                 ->where(function ($q) use ($teamIds, $user) {
                     $q->whereHas('teams', fn($t) => $t->whereIn('teams.id', $teamIds))
-                        ->orWhere('id', $user->id); // incluir al líder
+                        ->orWhere('id', $user->id);
                 })
                 ->role(['commercial', 'team_leader']);
         }
@@ -86,6 +86,19 @@ class ComercialesVerNotas extends Page implements HasTable
                     ->color('primary')
                     ->url(fn($record) => \App\Filament\Commercial\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => $record->id],
+                        panel: 'comercial'
+                    ))
+                    ->openUrlInNewTab(false),
+            ])
+            ->headerActions([
+                // 👉 Botón que hace el papel de la “fila RETEN”
+                Tables\Actions\Action::make('ver_reten')
+                    ->label('RETEN')
+                    ->button()
+                    ->color('danger')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn() => \App\Filament\Commercial\Pages\NotasDeComercial::getUrl(
+                        ['comercial_id' => 'reten'],
                         panel: 'comercial'
                     ))
                     ->openUrlInNewTab(false),

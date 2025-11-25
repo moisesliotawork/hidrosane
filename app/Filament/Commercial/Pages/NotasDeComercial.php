@@ -14,20 +14,39 @@ class NotasDeComercial extends Page
     protected static string $view = 'filament.commercial.pages.notas-de-comercial';
     protected static bool $shouldRegisterNavigation = false;
 
-    public ?int $comercialId = null;
+    /** Puede ser ID numérico o la cadena 'reten' */
+    public string|int|null $comercialId = null;
     public ?User $comercial = null;
+    public bool $esReten = false;
 
     public function mount(): void
     {
-        $this->comercialId = (int) request()->query('comercial_id');
-        abort_unless($this->comercialId > 0, 404);
+        $raw = request()->query('comercial_id');
 
-        $this->comercial = User::find($this->comercialId);
+        // Caso RETEN
+        if ($raw === 'reten') {
+            $this->esReten = true;
+            $this->comercialId = 'reten';
+            // No buscamos usuario
+            return;
+        }
+
+        // Caso normal: comercial por ID
+        $id = (int) $raw;
+        abort_unless($id > 0, 404);
+
+        $this->comercial = User::find($id);
         abort_unless($this->comercial, 404);
+
+        $this->comercialId = $this->comercial->id;
     }
 
     public function getTitle(): string
     {
+        if ($this->esReten) {
+            return 'Notas RETEN';
+        }
+
         $nombre = trim(($this->comercial->name ?? '') . ' ' . ($this->comercial->last_name ?? ''));
         $empleado = $this->comercial->empleado_id ?: 'SIN-ID';
 

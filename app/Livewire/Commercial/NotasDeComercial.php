@@ -11,7 +11,11 @@ use App\Filament\Commercial\Resources\NoteResource;
 
 class NotasDeComercial extends Component
 {
-    public int $comercialId;
+    /** Puede ser ID numérico o la cadena 'reten' */
+    public string|int $comercialId;
+
+    /** Flag para saber si estamos en modo RETEN */
+    public bool $esReten = false;
 
     /** Modal de reasignación */
     public bool $showReassignModal = false;
@@ -25,9 +29,10 @@ class NotasDeComercial extends Component
         'avisarSinDentro' => 'avisarSinDentro',
     ];
 
-    public function mount(int $comercialId): void
+    public function mount(string|int $comercialId): void
     {
         $this->comercialId = $comercialId;
+        $this->esReten = ($comercialId === 'reten');
     }
 
     /** ====== Botón Reasignar ====== */
@@ -70,7 +75,6 @@ class NotasDeComercial extends Component
 
         $this->showReassignModal = false;
 
-        // ✅ Notificación con el formato solicitado
         Notification::make()
             ->title("Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado}")
             ->success()
@@ -79,7 +83,6 @@ class NotasDeComercial extends Component
 
         $this->dispatch('notaActualizada');
     }
-
 
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
@@ -191,7 +194,6 @@ class NotasDeComercial extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-
         $url = NoteResource::getUrl(
             'edit',
             ['record' => $noteId],
@@ -204,15 +206,29 @@ class NotasDeComercial extends Component
     /** Notas de HOY */
     public function getNotesTodayProperty()
     {
-        return Note::with(['customer', 'comercial'])
-            ->where('comercial_id', $this->comercialId)
+        $query = Note::with(['customer', 'comercial'])
             ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
                     ->orWhere('estado_terminal', 'ausente');
             })
-            ->whereDoesntHave('venta')
+            ->whereDoesntHave('venta');
+
+        if ($this->esReten) {
+            // 🔴 RETEN: no importa el comercial, solo reten = true
+            $query->where('reten', true);
+        } else {
+            // 🧑‍💼 Comercial normal: mismas querys de antes + reten = false
+            $query->where('comercial_id', $this->comercialId)
+                ->where('reten', false);
+            // si quieres incluir null también:
+            // ->where(function ($q) {
+            //     $q->whereNull('reten')->orWhere('reten', false);
+            // });
+        }
+
+        return $query
             ->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
@@ -221,8 +237,7 @@ class NotasDeComercial extends Component
     /** TODAS (excepto hoy) */
     public function getNotesAllProperty()
     {
-        return Note::with(['customer', 'comercial'])
-            ->where('comercial_id', $this->comercialId)
+        $query = Note::with(['customer', 'comercial'])
             ->whereDate('assignment_date', '<>', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
@@ -230,7 +245,22 @@ class NotasDeComercial extends Component
                     ->orWhere('estado_terminal', 'ausente');
             })
             ->whereDoesntHave('venta')
-            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay());
+
+        if ($this->esReten) {
+            // 🔴 RETEN: todas las notas reten = true (con los mismos filtros de arriba)
+            $query->where('reten', true);
+        } else {
+            // 🧑‍💼 Comercial normal: mismas querys de antes + reten = false
+            $query->where('comercial_id', $this->comercialId)
+                ->where('reten', false);
+            // o versión con null permitido igual que antes:
+            // ->where(function ($q) {
+            //     $q->whereNull('reten')->orWhere('reten', false);
+            // });
+        }
+
+        return $query
             ->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
@@ -302,26 +332,19 @@ class NotasDeComercial extends Component
 
         $fullAddress = $dirOneLine !== '' ? $dirOneLine : 'Sin dirección';
 
-        // Si quieres seguir teniendo esta info “simple”
         $postalCodeSimple = $customer->postal_code ?? null;
         $citySimple = $customer->ciudad ?? null;
         $addressInfo = $postalCodeSimple && $citySimple
             ? "$postalCodeSimple, $citySimple"
             : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
 
-
         return [
             'id' => $note->id,
             'nro_nota' => $note->nro_nota,
             'customer' => $customer->name ?? 'Sin cliente',
-
-            // 👉 Dirección formateada igual que en el PDF
             'full_address' => $fullAddress,
-
-            // por si algo más lo usa
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
-
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
             'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),
             'visit_schedule' => $note->visit_schedule ?? '--:--',
