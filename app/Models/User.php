@@ -256,4 +256,9 @@ class User extends Authenticatable implements FilamentUser
         return trim("{$this->name} {$this->last_name}");
     }
 
+    public function notasDeclaradas()
+    {
+        return $this->hasMany(\App\Models\Note::class, 'comercial_id');
+    }
+
 }

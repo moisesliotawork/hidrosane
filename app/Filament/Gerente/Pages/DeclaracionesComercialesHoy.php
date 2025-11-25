@@ -1,0 +1,120 @@
+<?php
+
+namespace App\Filament\Gerente\Pages;
+
+use App\Enums\EstadoTerminal;
+use App\Models\User;
+use Filament\Pages\Page;
+use Filament\Tables;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+class DeclaracionesComercialesHoy extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+    protected static ?string $navigationLabel = 'Reporte Diario';
+
+    protected static string $view = 'filament.gerente.pages.declaraciones-comerciales-hoy';
+
+    public function getTitle(): string
+    {
+        return 'REPORTES DIARIOS';
+    }
+
+
+    public function table(Table $table): Table
+    {
+        $today = now()->toDateString();
+
+        return $table
+            ->query(
+                User::query()
+                    // Solo usuarios con rol "comercial"
+                    ->role('commercial') // requiere spatie/laravel-permission
+                    ->withCount([
+                        // OFICINA  (EstadoTerminal::SALA)
+                        'notasDeclaradas as oficina_count' => fn(Builder $q) =>
+                            $q->whereDate('fecha_declaracion', $today)
+                                ->where('estado_terminal', EstadoTerminal::SALA->value),
+
+                        // NULO
+                        'notasDeclaradas as nulos_count' => fn(Builder $q) =>
+                            $q->whereDate('fecha_declaracion', $today)
+                                ->where('estado_terminal', EstadoTerminal::NUL->value),
+
+                        // AUSENTE
+                        'notasDeclaradas as ausentes_count' => fn(Builder $q) =>
+                            $q->whereDate('fecha_declaracion', $today)
+                                ->where('estado_terminal', EstadoTerminal::AUSENTE->value),
+
+                        // CONFIRMADA
+                        'notasDeclaradas as confirmadas_count' => fn(Builder $q) =>
+                            $q->whereDate('fecha_declaracion', $today)
+                                ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+
+                        // VENTA
+                        'notasDeclaradas as ventas_count' => fn(Builder $q) =>
+                            $q->whereDate('fecha_declaracion', $today)
+                                ->where('estado_terminal', EstadoTerminal::VENTA->value),
+                    ])
+            )
+            ->columns([
+                // Empleado ID
+                Tables\Columns\TextColumn::make('empleado_id')
+                    ->label('Empleado ID')
+                    ->sortable()
+                    ->searchable(),
+
+                // Nombre completo
+                Tables\Columns\TextColumn::make('full_name')
+                    ->label('Comercial')
+                    ->getStateUsing(fn(User $record) => trim($record->name . ' ' . $record->last_name))
+                    ->searchable(['name', 'last_name']),
+
+                // OFICINA - rosa (pink)
+                Tables\Columns\TextColumn::make('oficina_count')
+                    ->label('Oficina')
+                    ->badge()
+                    ->color('pink')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+
+                // NULO - rojo (danger)
+                Tables\Columns\TextColumn::make('nulos_count')
+                    ->label('Nulo')
+                    ->badge()
+                    ->color('danger')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+
+                // AUSENTE - azul (info)
+                Tables\Columns\TextColumn::make('ausentes_count')
+                    ->label('Ausente')
+                    ->badge()
+                    ->color('info')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+
+                // CONFIRMADA - naranja (warning)
+                Tables\Columns\TextColumn::make('confirmadas_count')
+                    ->label('Confirmada')
+                    ->badge()
+                    ->color('orange')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+
+                // VENTA - verde (success)
+                Tables\Columns\TextColumn::make('ventas_count')
+                    ->label('Venta')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+            ])
+            ->defaultSort('empleado_id');
+    }
+}

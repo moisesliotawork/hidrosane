@@ -101,32 +101,6 @@ class CreateVenta extends CreateRecord
             $note = Note::with('customer')->findOrFail($this->noteId);
             $customer = $note->customer;
 
-            /* ⚠️ Validar cremas disponibles para este día ---------------------- */
-            if (!empty($data['crema'])) {
-                $comercialId = $note->comercial_id ?? auth()->id();
-                $fechaHoy = now()->toDateString();
-
-                $control = CreamDailyControl::where('comercial_id', $comercialId)
-                    ->whereDate('date', $fechaHoy)
-                    ->first();
-
-                if ($control && (int) $control->remaining <= 0) {
-
-                    // 👉 Notificación visual en Filament
-                    Notification::make()
-                        ->title('No te quedan cremas disponibles')
-                        ->body('Hoy ya no tienes cremas asignadas para entregar, por lo que no puedes marcar esta venta con crema.')
-                        ->danger()
-                        ->persistent() // opcional, para que no se cierre sola
-                        ->send();
-
-                    // 👉 Error de validación para bloquear el guardado y marcar el campo
-                    throw ValidationException::withMessages([
-                        'crema' => 'Hoy ya no te quedan cremas disponibles para entregar.',
-                    ]);
-                }
-            }
-
             /* 2.3 Actualizar datos del cliente */
             $customer->update(array_intersect_key(
                 $data,

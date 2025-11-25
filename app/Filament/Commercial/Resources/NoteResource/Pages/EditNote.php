@@ -159,28 +159,6 @@ class EditNote extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
 
-                    // 0️⃣ VALIDAR CREMAS ANTES DE GUARDAR
-                    if (!empty($data['dio_crema'])) {
-
-                        $comercialId = $this->record->comercial_id ?? Auth::id();
-                        $fechaHoy = now()->toDateString();
-
-                        $control = CreamDailyControl::where('comercial_id', $comercialId)
-                            ->whereDate('date', $fechaHoy)
-                            ->first();
-
-                        if ($control && (int) $control->remaining <= 0) {
-
-                            Notification::make()
-                                ->title('No te quedan cremas disponibles')
-                                ->body('Hoy ya no tienes cremas asignadas para entregar. No puedes marcar esta nota como CONFIRMADA con crema.')
-                                ->danger()
-                                ->persistent()
-                                ->send();
-
-                            return; // ❌ cancelar acción sin guardar
-                        }
-                    }
 
                     // 1️⃣ Guardado normal
                     DB::transaction(function () use ($data) {

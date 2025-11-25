@@ -52,9 +52,9 @@ class TeleoperadoraResource extends Resource
                     // Desde siempre (sin fechas)
                     return $query->withCount([
                         'notes as confirmadas_count' => fn($q) =>
-                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value),
+                            $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
                         'notes as vendidas_count' => fn($q) =>
-                            $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value),
+                            $q->where('estado_terminal', EstadoTerminal::VENTA->value),
                         //total de notas asociadas
                         'notes as aproduccion_count' => fn($q) => $q,
                     ]);
@@ -75,14 +75,14 @@ class TeleoperadoraResource extends Resource
 
                 return $query->withCount([
                     'notes as confirmadas_count' => fn($q) =>
-                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::CONFIRMADO->value)
-                            ->whereBetween('created_at', [$start, $end]),
+                        $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+                            ->whereBetween('fecha_declaracion', [$start, $end]),
                     'notes as vendidas_count' => fn($q) =>
-                        $q->where('estado_terminal', \App\Enums\EstadoTerminal::VENTA->value)
-                            ->whereBetween('created_at', [$start, $end]),
+                        $q->where('estado_terminal', EstadoTerminal::VENTA->value)
+                            ->whereBetween('fecha_declaracion', [$start, $end]),
                     // NUEVO: total de notas asociadas dentro del período
                     'notes as aproduccion_count' => fn($q) =>
-                        $q->whereBetween('created_at', [$start, $end]),
+                        $q->whereBetween('fecha_declaracion', [$start, $end]),
                 ]);
             })
             ->columns([
