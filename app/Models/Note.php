@@ -96,6 +96,7 @@ class Note extends Model
         'sent_to_sala_at',
         'printed',
         'reten',
+        'fecha_declaracion',
     ];
 
     /**
@@ -117,6 +118,7 @@ class Note extends Model
         'sent_to_sala_at' => 'datetime',
         'printed' => 'boolean',
         'reten' => 'boolean',
+        'fecha_declaracion' => 'datetime',
     ];
 
     protected $attributes = [
@@ -156,8 +158,12 @@ class Note extends Model
             // Consideramos "reasignación" si cambia el comercial o la fecha de asignación
             $reasignacion = $note->isDirty('comercial_id') || $note->isDirty('assignment_date');
 
-            if ($reasignacion && $note->estado_terminal === \App\Enums\EstadoTerminal::SALA) {
-                $note->estado_terminal = \App\Enums\EstadoTerminal::SIN_ESTADO; // ''
+            if ($reasignacion && $note->estado_terminal === EstadoTerminal::SALA) {
+                $note->estado_terminal = EstadoTerminal::SIN_ESTADO; // ''
+            }
+
+            if ($note->isDirty('estado_terminal') && $note->estado_terminal !== EstadoTerminal::SIN_ESTADO) {
+                $note->fecha_declaracion = now();
             }
         });
     }
