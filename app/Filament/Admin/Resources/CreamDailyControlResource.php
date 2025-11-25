@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\CreamDailyControlResource\Pages;
-use App\Filament\Admin\Resources\CreamDailyControlResource\RelationManagers;
 use App\Models\CreamDailyControl;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -25,8 +24,16 @@ class CreamDailyControlResource extends Resource
 
     public static function form(Form $form): Form
     {
-        // No necesitamos formulario (no vamos a crear/editar desde aquí)
         return $form;
+    }
+
+    /**
+     * Por si acaso alguna otra parte añade scopes raros,
+     * dejamos la query base lo más limpia posible.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return static::getModel()::query();
     }
 
     public static function table(Table $table): Table
@@ -38,19 +45,35 @@ class CreamDailyControlResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('comercial.empleado_id')
+                // ───── Comercial ID protegido ─────
+                Tables\Columns\TextColumn::make('comercial_id')
                     ->label('ID Comercial')
-                    ->sortable()
+                    ->formatStateUsing(
+                        fn($state, CreamDailyControl $record) =>
+                        $record->comercial?->empleado_id ?? $record->comercial_id
+                    )
                     ->alignCenter()
                     ->badge()
                     ->color('gray')
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('comercial.full_name')
-                    ->label('Comercial')
-                    ->searchable(['comercial.name', 'comercial.last_name', 'comercial.empleado_id'])
                     ->sortable(),
 
+                // ───── Nombre del comercial protegido ─────
+                Tables\Columns\TextColumn::make('comercial_name')
+                    ->label('Comercial')
+                    ->getStateUsing(function (CreamDailyControl $record) {
+                        $com = $record->comercial;
+
+                        if (!$com) {
+                            return 'Sin comercial';
+                        }
+
+                        // Usa accessor full_name si lo tienes; si no, nombre + apellido
+                        return method_exists($com, 'getFullNameAttribute')
+                            ? $com->full_name
+                            : trim(($com->name ?? '') . ' ' . ($com->last_name ?? ''));
+                    })
+                    ->sortable()
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('assigned')
                     ->label('Asignadas hoy')
@@ -59,7 +82,7 @@ class CreamDailyControlResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('total_disponible')
-                    ->label('Total disponible')
+                    ->label('Total disponible para HOY')
                     ->getStateUsing(fn() => 5)
                     ->badge()
                     ->color('success'),
@@ -82,10 +105,15 @@ class CreamDailyControlResource extends Resource
                     ->badge()
                     ->sortable(),
             ])
+
             ->defaultSort('date', 'desc')
+
             ->filters([
                 Filter::make('date')
                     ->label('Fecha')
+                    ->default([
+                        'date' => now()->toDateString(),
+                    ])
                     ->form([
                         DatePicker::make('date')
                             ->label('Fecha')
@@ -93,21 +121,16 @@ class CreamDailyControlResource extends Resource
                             ->native(false),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['date'] ?? null,
-                                fn(Builder $q, $date) => $q->whereDate('date', $date),
-                            );
-                    }),
-            ])
-
-            ->actions([
-
-            ])
-            ->bulkActions([
+                        return $query->when(
+                            $data['date'] ?? null,
+                            fn(Builder $q, $date) => $q->whereDate('date', $date)
+                        );
+                    })
 
             ])
 
+            ->actions([])
+            ->bulkActions([])
             ->searchDebounce(500);
     }
 
@@ -139,5 +162,4 @@ class CreamDailyControlResource extends Resource
     {
         return false;
     }
-
 }
