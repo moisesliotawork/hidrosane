@@ -29,7 +29,7 @@ class CreamDailyControl extends Model
     protected static function booted(): void
     {
         static::saving(function (CreamDailyControl $control) {
-            $dailyQuota = 5;
+            $dailyQuota = 8;
 
             // 1) remaining = 5 - delivered (nunca negativo)
             $delivered = (int) $control->delivered;

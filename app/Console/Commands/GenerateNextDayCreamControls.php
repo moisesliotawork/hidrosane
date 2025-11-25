@@ -15,7 +15,7 @@ class GenerateNextDayCreamControls extends Command
 
     public function handle(): int
     {
-        $dailyQuota = 5;
+        $dailyQuota = 8;
 
         $today = Carbon::today();
         $tomorrow = (clone $today)->addDay();

@@ -84,7 +84,7 @@ class CreamDailyControlResource extends Resource
 
                 Tables\Columns\TextColumn::make('total_disponible')
                     ->label('Total disponible')
-                    ->getStateUsing(fn() => 5)
+                    ->getStateUsing(fn() => 8)
                     ->badge()
                     ->color('success'),
 
