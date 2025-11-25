@@ -10,7 +10,8 @@ use Filament\Notifications\Notification;
 
 class NotasDeComercial extends Component
 {
-    public int $comercialId;
+    public string|int $comercialId;
+    public bool $esReten = false;
 
     /** Modal de reasignación */
     public bool $showReassignModal = false;
@@ -24,9 +25,10 @@ class NotasDeComercial extends Component
         'avisarSinDentro' => 'avisarSinDentro',
     ];
 
-    public function mount(int $comercialId): void
+    public function mount(string|int $comercialId, bool $esReten = false): void
     {
         $this->comercialId = $comercialId;
+        $this->esReten = $esReten;
     }
 
     /** ====== Botón Reasignar ====== */
@@ -51,15 +53,12 @@ class NotasDeComercial extends Component
             return;
         }
 
-        // Datos del nuevo comercial (para el mensaje)
         $nuevo = User::find($this->newComercialId);
         $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
         $empleado = $nuevo->empleado_id ?? 'SIN-ID';
 
-        // Reasigna SIN tocar la fecha de asignación
         $note->update(['comercial_id' => $this->newComercialId]);
 
-        // Bitácora
         AnotacionVisita::create([
             'nota_id' => $note->id,
             'author_id' => auth()->id(),
@@ -69,7 +68,6 @@ class NotasDeComercial extends Component
 
         $this->showReassignModal = false;
 
-        // ✅ Notificación con el formato solicitado
         Notification::make()
             ->title("Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado}")
             ->success()
@@ -78,7 +76,6 @@ class NotasDeComercial extends Component
 
         $this->dispatch('notaActualizada');
     }
-
 
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
@@ -112,7 +109,7 @@ class NotasDeComercial extends Component
         $note->save();
 
         AnotacionVisita::create([
-            'nota_id' => $notaId,
+            'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'DENTRO',
             'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
@@ -138,7 +135,7 @@ class NotasDeComercial extends Component
         $note->save();
 
         AnotacionVisita::create([
-            'nota_id' => $notaId,
+            'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
             'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng",
@@ -202,15 +199,29 @@ class NotasDeComercial extends Component
     /** Notas de HOY */
     public function getNotesTodayProperty()
     {
-        return Note::with(['customer', 'comercial'])
-            ->where('comercial_id', $this->comercialId)
+        $query = Note::with(['customer', 'comercial'])
             ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
                     ->orWhere('estado_terminal', 'ausente');
             })
-            ->whereDoesntHave('venta')
+            ->whereDoesntHave('venta');
+
+        if ($this->esReten) {
+            // 🔴 Modo RETEN: no filtramos por comercial, solo reten = true
+            $query->where('reten', true);
+        } else {
+            // 🧑‍💼 Modo comercial normal: mismas querys + reten = false
+            $query->where('comercial_id', $this->comercialId)
+                ->where('reten', false);
+            // si quieres considerar null como "no reten":
+            // ->where(function ($q) {
+            //     $q->whereNull('reten')->orWhere('reten', false);
+            // });
+        }
+
+        return $query
             ->orderByDesc('assignment_date')
             ->orderByRaw('CAST(nro_nota AS UNSIGNED) DESC')
             ->get()
@@ -220,8 +231,7 @@ class NotasDeComercial extends Component
     /** TODAS (excepto hoy) */
     public function getNotesAllProperty()
     {
-        return Note::with(['customer', 'comercial'])
-            ->where('comercial_id', $this->comercialId)
+        $query = Note::with(['customer', 'comercial'])
             ->whereDate('assignment_date', '<', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
@@ -229,7 +239,22 @@ class NotasDeComercial extends Component
                     ->orWhere('estado_terminal', 'ausente');
             })
             ->whereDoesntHave('venta')
-            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay());
+
+        if ($this->esReten) {
+            // 🔴 Modo RETEN: mismas querys + reten = true
+            $query->where('reten', true);
+        } else {
+            // 🧑‍💼 Modo comercial normal: mismas querys + reten = false
+            $query->where('comercial_id', $this->comercialId)
+                ->where('reten', false);
+            // si quieres aceptar null:
+            // ->where(function ($q) {
+            //     $q->whereNull('reten')->orWhere('reten', false);
+            // });
+        }
+
+        return $query
             ->orderByDesc('assignment_date')
             ->orderByRaw('CAST(nro_nota AS UNSIGNED) DESC')
             ->get()
@@ -240,7 +265,6 @@ class NotasDeComercial extends Component
     {
         $customer = $note->customer;
 
-        // ===== MISMA LÓGICA DE DIRECCIÓN QUE EL PDF =====
         $primary = trim((string) ($customer->primary_address ?? ''));
         $nroPiso = trim((string) ($customer->nro_piso ?? ''));
         $postalCode = trim((string) ($customer->postal_code ?? ''));
@@ -250,15 +274,12 @@ class NotasDeComercial extends Component
 
         $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
 
-        // Mismo fix que en el PDF, para quitar letras sueltas tras el CP
         $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
 
         $provinceFormatted = $province ? "($province)" : null;
 
-        // Línea 1: solo dirección
         $dirL1 = $primary;
 
-        // Línea 2: piso → CP+Ciudad → ayto
         $dirL2Parts = [];
         if ($nroPiso !== '') {
             $dirL2Parts[] = $nroPiso;
@@ -276,7 +297,6 @@ class NotasDeComercial extends Component
             $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
         }
 
-        // Title Case como en el PDF
         $toTitleCase = function (?string $text): string {
             $t = trim((string) $text);
             if ($t === '') {
@@ -289,7 +309,6 @@ class NotasDeComercial extends Component
         $dirL1 = $toTitleCase($dirL1);
         $dirL2 = $toTitleCase($dirL2);
 
-        // Dirección en una sola línea (equivalente a $dirOneLine del PDF)
         $dirOneLine = trim(
             preg_replace(
                 '/\s+/',
@@ -301,27 +320,19 @@ class NotasDeComercial extends Component
 
         $fullAddress = $dirOneLine !== '' ? $dirOneLine : 'Sin dirección';
 
-        // Versión “simple” por si la sigues usando en algún lado
         $postalCodeSimple = $customer->postal_code ?? null;
         $citySimple = $customer->ciudad ?? null;
         $addressInfo = $postalCodeSimple && $citySimple
             ? "$postalCodeSimple, $citySimple"
             : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
 
-        // ===============================================
-
         return [
             'id' => $note->id,
             'nro_nota' => $note->nro_nota,
             'customer' => $customer->name ?? 'Sin cliente',
-
-            // 👉 Dirección 1 igual que en el contrato/albarán
             'full_address' => $fullAddress,
-
-            // Por compatibilidad si algo más lo usa
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
-
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
             'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),
             'visit_schedule' => $note->visit_schedule ?? '--:--',
@@ -339,7 +350,6 @@ class NotasDeComercial extends Component
             'lng_dentro' => $note->lng_dentro,
         ];
     }
-
 
     public function render()
     {

@@ -53,6 +53,18 @@ class ComercialesVerNotas extends Page implements HasTable
                     ))
                     ->openUrlInNewTab(false),
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('ver_reten')
+                    ->label('Notas RETEN')
+                    ->button()
+                    ->color('orange')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn() => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
+                        ['comercial_id' => 'reten'],
+                        panel: 'gerente'
+                    ))
+                    ->openUrlInNewTab(false),
+            ])
             ->striped()
             ->paginated(true)
             ->defaultPaginationPageOption(25)
