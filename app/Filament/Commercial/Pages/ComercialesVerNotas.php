@@ -95,7 +95,7 @@ class ComercialesVerNotas extends Page implements HasTable
                 Tables\Actions\Action::make('ver_reten')
                     ->label('RETEN')
                     ->button()
-                    ->color('danger')
+                    ->color('orange')
                     ->icon('heroicon-o-document-text')
                     ->url(fn() => \App\Filament\Commercial\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => 'reten'],
