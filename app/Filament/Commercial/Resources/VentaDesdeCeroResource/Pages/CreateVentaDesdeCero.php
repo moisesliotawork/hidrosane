@@ -7,7 +7,7 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, Customer, User};
-use App\Enums\{NoteStatus};
+use App\Enums\{NoteStatus, EstadoTerminal};
 use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -95,6 +95,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
                 'created_at' => $fechaVenta,
                 'updated_at' => $fechaVenta,
+                'estado_terminal' => EstadoTerminal::VENTA,
             ];
 
             $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));

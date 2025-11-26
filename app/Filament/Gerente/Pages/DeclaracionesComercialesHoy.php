@@ -33,8 +33,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
         return $table
             ->query(
                 User::query()
-                    // Solo usuarios con rol "comercial"
-                    ->role('commercial') // requiere spatie/laravel-permission
+                    ->role(['commercial', 'team_leader', 'sales_manager'])
                     ->withCount([
                         // OFICINA  (EstadoTerminal::SALA)
                         'notasDeclaradas as oficina_count' => fn(Builder $q) =>
