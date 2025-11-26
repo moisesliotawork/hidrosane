@@ -35,8 +35,7 @@ class ReporteTeleoperadora extends Page implements HasTable
         return $table
             ->query(
                 User::query()
-                    ->role('teleoperadora') // ajusta el nombre del rol si es otro
-                    // ✅ Conteo por defecto: MES PASADO
+                    ->role(['teleoperator', 'head_of_room'])
                     ->withCount([
                         'notasTeleoperadora as confirmadas' => fn(Builder $q) =>
                             $q->whereBetween('fecha_declaracion', [$start, $end])
