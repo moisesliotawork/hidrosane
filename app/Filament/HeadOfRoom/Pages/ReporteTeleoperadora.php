@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\HeadOfRoom\Pages;
+namespace App\Filament\Admin\Pages;
 
 use App\Enums\EstadoTerminal;
 use App\Models\User;
@@ -24,14 +24,28 @@ class ReporteTeleoperadora extends Page implements HasTable
     protected static ?string $title = 'Reporte Teleoperadora';
     protected static ?string $navigationGroup = 'Reportes';
 
-    protected static string $view = 'filament.jefe-sala.pages.reporte-teleoperadora';
+    protected static string $view = 'filament.admin.pages.reporte-teleoperadora';
 
     public function table(Table $table): Table
     {
+        $now = now();
+        $start = $now->copy()->subMonth()->startOfMonth();  // mes pasado (por defecto)
+        $end = $now->copy()->subMonth()->endOfMonth();
+
         return $table
             ->query(
                 User::query()
-                     ->role(['teleoperator', 'head_of_room'])
+                    ->role('teleoperadora') // ajusta el nombre del rol si es otro
+                    // ✅ Conteo por defecto: MES PASADO
+                    ->withCount([
+                        'notasTeleoperadora as confirmadas' => fn(Builder $q) =>
+                            $q->whereBetween('fecha_declaracion', [$start, $end])
+                                ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+
+                        'notasTeleoperadora as ventas' => fn(Builder $q) =>
+                            $q->whereBetween('fecha_declaracion', [$start, $end])
+                                ->where('estado_terminal', EstadoTerminal::VENTA->value),
+                    ])
             )
             ->filters([
                 Filter::make('periodo')
@@ -45,7 +59,8 @@ class ReporteTeleoperadora extends Page implements HasTable
                                 'hace_dos_meses' => 'Hace dos meses',
                                 'rango' => 'Rango personalizado',
                             ])
-                            ->default('mes_pasado'),
+                            ->default('mes_pasado')
+                            ->reactive(),
 
                         DatePicker::make('from')
                             ->label('Desde'),
@@ -53,15 +68,10 @@ class ReporteTeleoperadora extends Page implements HasTable
                         DatePicker::make('to')
                             ->label('Hasta'),
                     ])
-                    ->default(function () {
-                        $now = now();
-
+                    ->default(function () use ($now) {
                         return [
-                            // 🔸 Filtro por defecto: MES PASADO
                             'tipo_periodo' => 'mes_pasado',
-
-                            // 🔸 Valores por defecto para el modo "rango":
-                            //     1er día del mes actual hasta hoy
+                            // valores por defecto para cuando elijas "rango"
                             'from' => $now->copy()->startOfMonth(),
                             'to' => $now,
                         ];
@@ -70,10 +80,9 @@ class ReporteTeleoperadora extends Page implements HasTable
                         $now = now();
                         $tipo = $data['tipo_periodo'] ?? 'mes_pasado';
 
-                        // Determinar rango de fechas según el tipo
+                        // 🔹 Determinar rango según el tipo seleccionado
                         switch ($tipo) {
                             case 'mes_actual':
-                                // 1 del mes actual hasta hoy
                                 $start = $now->copy()->startOfMonth();
                                 $end = $now->copy()->endOfDay();
                                 break;
@@ -99,15 +108,12 @@ class ReporteTeleoperadora extends Page implements HasTable
                                 break;
 
                             default:
-                                // fallback a mes pasado
                                 $start = $now->copy()->subMonth()->startOfMonth();
                                 $end = $now->copy()->subMonth()->endOfMonth();
                                 break;
                         }
 
-                        // 🔹 Aquí calculamos SOLO dos contadores:
-                        //    - confirmadas
-                        //    - ventas
+                        // 🔁 Recalculamos los contadores según el rango elegido
                         $query->withCount([
                             'notasTeleoperadora as confirmadas' => fn(Builder $q) =>
                                 $q->whereBetween('fecha_declaracion', [$start, $end])
@@ -136,7 +142,8 @@ class ReporteTeleoperadora extends Page implements HasTable
                     ->color('warning')
                     ->alignCenter()
                     ->sortable()
-                    ->formatStateUsing(fn($state) => $state ?? 0),
+                    // ✅ Fuerza mostrar 0 si viene null
+                    ->getStateUsing(fn(User $record) => $record->confirmadas ?? 0),
 
                 Tables\Columns\TextColumn::make('ventas')
                     ->label('Ventas')
@@ -144,7 +151,7 @@ class ReporteTeleoperadora extends Page implements HasTable
                     ->color('success')
                     ->alignCenter()
                     ->sortable()
-                    ->formatStateUsing(fn($state) => $state ?? 0),
+                    ->getStateUsing(fn(User $record) => $record->ventas ?? 0),
             ])
             ->defaultSort('empleado_id');
     }
