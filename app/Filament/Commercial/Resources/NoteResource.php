@@ -206,7 +206,7 @@ class NoteResource extends Resource
                                             // 1) Si es comercial, solo sus anotaciones
                                             ->when(
                                                 $user?->hasRole('commercial'),
-                                                fn($collection) => $collection->where('autor_id', $user->id) // ajusta 'autor_id' si tu campo se llama distinto
+                                                fn($collection) => $collection->where('author_id', $user->id) // ajusta 'autor_id' si tu campo se llama distinto
                                             )
                                             // 2) Seguir excluyendo REASIGNACIÓN
                                             ->filter(function ($anotacion) {
