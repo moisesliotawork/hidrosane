@@ -260,5 +260,10 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(\App\Models\Note::class, 'comercial_id');
     }
+    public function notasTeleoperadora()
+    {
+        return $this->hasMany(\App\Models\Note::class, 'teleoperadora_id');
+    }
+
 
 }

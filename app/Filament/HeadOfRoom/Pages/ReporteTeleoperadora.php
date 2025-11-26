@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Filament\HeadOfRoom\Pages;
+
+use App\Enums\EstadoTerminal;
+use App\Models\User;
+use Filament\Pages\Page;
+use Filament\Tables;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Table;
+use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+
+class ReporteTeleoperadora extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static ?string $navigationIcon = 'heroicon-o-phone-arrow-up-right';
+    protected static ?string $navigationLabel = 'Reporte Teleoperadora';
+    protected static ?string $title = 'Reporte Teleoperadora';
+    protected static ?string $navigationGroup = 'Reportes';
+
+    protected static string $view = 'filament.jefe-sala.pages.reporte-teleoperadora';
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                User::query()
+                    ->role('teleoperadora') // ajusta al nombre exacto del rol
+            )
+            ->filters([
+                Filter::make('periodo')
+                    ->label('Periodo')
+                    ->form([
+                        Select::make('tipo_periodo')
+                            ->label('Tipo de periodo')
+                            ->options([
+                                'mes_actual' => 'Mes actual',
+                                'mes_pasado' => 'Mes pasado',
+                                'hace_dos_meses' => 'Hace dos meses',
+                                'rango' => 'Rango personalizado',
+                            ])
+                            ->default('mes_pasado'),
+
+                        DatePicker::make('from')
+                            ->label('Desde'),
+
+                        DatePicker::make('to')
+                            ->label('Hasta'),
+                    ])
+                    ->default(function () {
+                        $now = now();
+
+                        return [
+                            // 🔸 Filtro por defecto: MES PASADO
+                            'tipo_periodo' => 'mes_pasado',
+
+                            // 🔸 Valores por defecto para el modo "rango":
+                            //     1er día del mes actual hasta hoy
+                            'from' => $now->copy()->startOfMonth(),
+                            'to' => $now,
+                        ];
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        $now = now();
+                        $tipo = $data['tipo_periodo'] ?? 'mes_pasado';
+
+                        // Determinar rango de fechas según el tipo
+                        switch ($tipo) {
+                            case 'mes_actual':
+                                // 1 del mes actual hasta hoy
+                                $start = $now->copy()->startOfMonth();
+                                $end = $now->copy()->endOfDay();
+                                break;
+
+                            case 'mes_pasado':
+                                $start = $now->copy()->subMonth()->startOfMonth();
+                                $end = $now->copy()->subMonth()->endOfMonth();
+                                break;
+
+                            case 'hace_dos_meses':
+                                $start = $now->copy()->subMonths(2)->startOfMonth();
+                                $end = $now->copy()->subMonths(2)->endOfMonth();
+                                break;
+
+                            case 'rango':
+                                $start = !empty($data['from'])
+                                    ? Carbon::parse($data['from'])->startOfDay()
+                                    : $now->copy()->startOfMonth();
+
+                                $end = !empty($data['to'])
+                                    ? Carbon::parse($data['to'])->endOfDay()
+                                    : $now->copy()->endOfDay();
+                                break;
+
+                            default:
+                                // fallback a mes pasado
+                                $start = $now->copy()->subMonth()->startOfMonth();
+                                $end = $now->copy()->subMonth()->endOfMonth();
+                                break;
+                        }
+
+                        // 🔹 Aquí calculamos SOLO dos contadores:
+                        //    - confirmadas
+                        //    - ventas
+                        $query->withCount([
+                            'notasTeleoperadora as confirmadas' => fn(Builder $q) =>
+                                $q->whereBetween('fecha_declaracion', [$start, $end])
+                                    ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
+
+                            'notasTeleoperadora as ventas' => fn(Builder $q) =>
+                                $q->whereBetween('fecha_declaracion', [$start, $end])
+                                    ->where('estado_terminal', EstadoTerminal::VENTA->value),
+                        ]);
+                    }),
+            ])
+            ->columns([
+                Tables\Columns\TextColumn::make('empleado_id')
+                    ->label('ID')
+                    ->sortable()
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('full_name')
+                    ->label('Teleoperadora')
+                    ->getStateUsing(fn(User $record) => trim($record->name . ' ' . $record->last_name))
+                    ->searchable(['name', 'last_name']),
+
+                Tables\Columns\TextColumn::make('confirmadas')
+                    ->label('Confirmadas')
+                    ->badge()
+                    ->color('warning')
+                    ->alignCenter()
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+
+                Tables\Columns\TextColumn::make('ventas')
+                    ->label('Ventas')
+                    ->badge()
+                    ->color('success')
+                    ->alignCenter()
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => $state ?? 0),
+            ])
+            ->defaultSort('empleado_id');
+    }
+}
