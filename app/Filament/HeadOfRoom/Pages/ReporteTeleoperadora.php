@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Pages;
+namespace App\Filament\HeadOfRoom\Pages;
 
 use App\Enums\EstadoTerminal;
 use App\Models\User;
@@ -24,7 +24,7 @@ class ReporteTeleoperadora extends Page implements HasTable
     protected static ?string $title = 'Reporte Teleoperadora';
     protected static ?string $navigationGroup = 'Reportes';
 
-    protected static string $view = 'filament.admin.pages.reporte-teleoperadora';
+    protected static string $view = 'filament.jefe-sala.pages.reporte-teleoperadora';
 
     public function table(Table $table): Table
     {
