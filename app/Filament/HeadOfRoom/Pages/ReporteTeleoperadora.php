@@ -31,7 +31,7 @@ class ReporteTeleoperadora extends Page implements HasTable
         return $table
             ->query(
                 User::query()
-                    ->role('teleoperadora') // ajusta al nombre exacto del rol
+                     ->role(['teleoperator', 'head_of_room'])
             )
             ->filters([
                 Filter::make('periodo')
