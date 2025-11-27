@@ -41,4 +41,27 @@ class TeleoperatorMonthlyStat extends Model
     {
         return sprintf('%04d-%02d (Q%d)', $this->year, $this->month, $this->quarter);
     }
+
+    public function getPeriodoAttribute(): string
+    {
+        $meses = [
+            1 => 'Ene',
+            2 => 'Feb',
+            3 => 'Mar',
+            4 => 'Abr',
+            5 => 'May',
+            6 => 'Jun',
+            7 => 'Jul',
+            8 => 'Ago',
+            9 => 'Sep',
+            10 => 'Oct',
+            11 => 'Nov',
+            12 => 'Dic',
+        ];
+
+        $mes = $meses[$this->month] ?? $this->month;
+
+        return "{$mes} {$this->year}";
+    }
+
 }

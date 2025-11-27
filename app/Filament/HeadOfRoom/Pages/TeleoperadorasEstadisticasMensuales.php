@@ -52,27 +52,9 @@ class TeleoperadorasEstadisticasMensuales extends Page implements HasTable
                     ->label('Periodo')
                     ->sortable(
                         query: fn(Builder $query, string $direction) =>
-                        $query->orderBy('year', $direction)->orderBy('month', $direction)
-                    )
-                    ->formatStateUsing(function ($record) {
-                        $meses = [
-                            1 => 'Ene',
-                            2 => 'Feb',
-                            3 => 'Mar',
-                            4 => 'Abr',
-                            5 => 'May',
-                            6 => 'Jun',
-                            7 => 'Jul',
-                            8 => 'Ago',
-                            9 => 'Sep',
-                            10 => 'Oct',
-                            11 => 'Nov',
-                            12 => 'Dic',
-                        ];
-
-                        return $meses[$record->month] . ' ' . $record->year;
-                    }),
-
+                        $query->orderBy('year', $direction)
+                            ->orderBy('month', $direction)
+                    ),
 
                 Tables\Columns\TextColumn::make('confirmadas')
                     ->label('CONFIRMADAS')
