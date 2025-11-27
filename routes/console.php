@@ -34,4 +34,12 @@ Schedule::command('creams:generate-next-day')
     ->withoutOverlapping()
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/creams_generate_next_day.log'));
+    
+Schedule::command('bi:build-teleoperator-monthly-stats --year=' . now()->year)
+    ->everyTenMinutes()
+    ->timezone('Europe/Madrid')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/teleop_monthly_stats.log'));
+
 
