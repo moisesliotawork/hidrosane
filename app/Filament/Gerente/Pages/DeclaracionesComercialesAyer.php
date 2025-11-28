@@ -60,18 +60,18 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('empleado_id')
-                    ->label('Empleado ID')
+                    ->label('Id-emp')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Comercial')
                     ->getStateUsing(fn(User $record) => trim($record->name . ' ' . $record->last_name)),
 
-                Tables\Columns\TextColumn::make('oficina_count')->label('Oficina')->badge()->color('pink'),
+                Tables\Columns\TextColumn::make('oficina_count')->label('Of')->badge()->color('pink'),
                 Tables\Columns\TextColumn::make('nulos_count')->label('Nulo')->badge()->color('danger'),
-                Tables\Columns\TextColumn::make('ausentes_count')->label('Ausente')->badge()->color('info'),
-                Tables\Columns\TextColumn::make('confirmadas_count')->label('Confirmada')->badge()->color('orange'),
-                Tables\Columns\TextColumn::make('ventas_count')->label('Venta')->badge()->color('success'),
+                Tables\Columns\TextColumn::make('ausentes_count')->label('Ause')->badge()->color('info'),
+                Tables\Columns\TextColumn::make('confirmadas_count')->label('Conf')->badge()->color('orange'),
+                Tables\Columns\TextColumn::make('ventas_count')->label('Vta')->badge()->color('success'),
             ])
             ->defaultSort('empleado_id');
     }

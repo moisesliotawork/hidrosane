@@ -77,7 +77,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
             ->columns([
                 // Empleado ID
                 Tables\Columns\TextColumn::make('empleado_id')
-                    ->label('Empleado ID')
+                    ->label('Id-emp')
                     ->sortable()
                     ->searchable(),
 
@@ -89,7 +89,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
 
                 // OFICINA - rosa (pink)
                 Tables\Columns\TextColumn::make('oficina_count')
-                    ->label('Oficina')
+                    ->label('Of')
                     ->badge()
                     ->color('pink')
                     ->sortable()
@@ -105,7 +105,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
 
                 // AUSENTE - azul (info)
                 Tables\Columns\TextColumn::make('ausentes_count')
-                    ->label('Ausente')
+                    ->label('Auste')
                     ->badge()
                     ->color('info')
                     ->sortable()
@@ -113,7 +113,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
 
                 // CONFIRMADA - naranja (warning)
                 Tables\Columns\TextColumn::make('confirmadas_count')
-                    ->label('Confirmada')
+                    ->label('Conf')
                     ->badge()
                     ->color('orange')
                     ->sortable()
@@ -121,7 +121,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
 
                 // VENTA - verde (success)
                 Tables\Columns\TextColumn::make('ventas_count')
-                    ->label('Venta')
+                    ->label('Vta')
                     ->badge()
                     ->color('success')
                     ->sortable()
