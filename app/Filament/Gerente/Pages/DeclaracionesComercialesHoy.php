@@ -10,6 +10,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Actions\Action;
+use Filament\Facades\Filament;
 
 class DeclaracionesComercialesHoy extends Page implements HasTable
 {
@@ -23,6 +25,17 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
     public function getTitle(): string
     {
         return 'REPORTES DIARIOS';
+    }
+
+    public function getHeaderActions(): array
+    {
+        return [
+            Action::make('ver_ayer')
+                ->label('Resumen de Ayer')
+                ->color('success')
+                ->icon('heroicon-o-calendar-days')
+                ->url(fn() => route('filament.gerente.pages.declaraciones-comerciales-ayer'))
+        ];
     }
 
 

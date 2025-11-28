@@ -41,6 +41,7 @@ class HeadOfRoomPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Lime,
             ])
+            ->topNavigation()
             ->discoverResources(in: app_path('Filament/HeadOfRoom/Resources'), for: 'App\\Filament\\HeadOfRoom\\Resources')
             ->discoverPages(in: app_path('Filament/HeadOfRoom/Pages'), for: 'App\\Filament\\HeadOfRoom\\Pages')
             ->pages([
