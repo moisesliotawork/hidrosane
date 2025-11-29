@@ -423,7 +423,7 @@ class NoteResource extends Resource
                     ->label('Horario')
                     ->sortable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('assignment_date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options(NoteStatus::options())
