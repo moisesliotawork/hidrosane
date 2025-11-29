@@ -179,7 +179,7 @@ class VentaResource extends Resource
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
-                            ->maxLength(10)
+                            ->maxLength(20)
                             ->label('No. y Piso'),
 
                         TextInput::make('postal_code')

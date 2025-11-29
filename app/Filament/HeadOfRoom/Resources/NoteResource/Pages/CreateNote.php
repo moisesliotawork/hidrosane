@@ -46,7 +46,6 @@ class CreateNote extends CreateRecord
                     'primary_address' => $customer->primary_address,
                     'secondary_address' => $customer->secondary_address,
                     'parish' => $customer->parish,
-                    'ayuntamiento' => $customer->ayuntamiento,
                 ]);
             }
         } elseif ($phone = request()->query('phone')) {

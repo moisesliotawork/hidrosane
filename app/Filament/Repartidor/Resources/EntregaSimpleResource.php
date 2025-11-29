@@ -98,7 +98,7 @@ class EntregaSimpleResource extends Resource
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
-                            ->maxLength(10)
+                            ->maxLength(20)
                             ->label('No. y Piso'),
 
                         TextInput::make('postal_code')
@@ -109,7 +109,7 @@ class EntregaSimpleResource extends Resource
                         TextInput::make('ciudad')
                             ->required()
                             ->maxLength(255)
-                            ->label('Ciudad'),
+                            ->label('Ayuntamiento/Localidad'),
 
                         TextInput::make('provincia')
                             ->required()

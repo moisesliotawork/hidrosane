@@ -92,7 +92,6 @@ class NoteDescResource extends Resource
                     TextEntry::make('primary_address')->label('Dirección'),
                     TextEntry::make('secondary_address')->label('Dirección 2'),
                     TextEntry::make('parish')->label('Parroquia'),
-                    TextEntry::make('ayuntamiento')->label('Ayuntamiento'),
                 ])
                 ->columns(2),
 

@@ -116,13 +116,13 @@ class NotasGerenteResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
-                            ->maxLength(255)
+                            ->maxLength(20)
                             ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('ciudad')
                             ->required()
                             ->maxLength(255)
-                            ->label('Ciudad'),
+                            ->label('Ayuntamiento/Localidad'),
 
                         Forms\Components\TextInput::make('provincia')
                             ->required()
@@ -144,9 +144,6 @@ class NotasGerenteResource extends Resource
                             ->disabled()
                             ->label('Parroquia (opcional)'),
 
-                        Forms\Components\TextInput::make('ayuntamiento')
-                            ->maxLength(255)
-                            ->label('Ayuntamiento'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Gestión Comercial')

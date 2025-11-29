@@ -75,7 +75,6 @@ class CreateVentaDesdeCero extends CreateRecord
                 'assignment_date' => ($data['nota_comercial_id'] ?? null) ? now() : null,
                 'show_phone' => $data['nota_show_phone'] ?? true,
                 'de_camino' => $data['nota_de_camino'] ?? false,
-                'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
             ];
 
             $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));

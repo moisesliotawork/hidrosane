@@ -85,7 +85,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->maxLength(5)
+                        ->maxLength(20)
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001'),
@@ -93,7 +93,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('ciudad')
                         ->required()
                         ->maxLength(255)
-                        ->label('Ciudad'),
+                        ->label('Ayuntamiento/Localidad'),
 
                     Forms\Components\TextInput::make('provincia')
                         ->required()
@@ -102,9 +102,6 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
 
-                    TextInput::make('ayuntamiento')
-                        ->label('Ayuntamiento')
-                        ->maxLength(255),
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
                     Select::make('estado_civil')->label('Estado civil')

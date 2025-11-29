@@ -98,7 +98,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->maxLength(5)
+                        ->maxLength(20)
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001'),
@@ -106,7 +106,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('ciudad')
                         ->required()
                         ->maxLength(255)
-                        ->label('Ciudad'),
+                        ->label('Ayuntamiento/Localidad'),
 
                     TextInput::make('provincia')
                         ->required()
@@ -472,10 +472,6 @@ class VentaDesdeCeroResource extends Resource
 
             Section::make('Gestión Documentos')
                 ->schema([
-                    //SOLO FOTOTECA (sin capture, solo accept)
-                    self::docCard('albaran', 'Albarán', false, false),
-
-                    //RESTO: CÁMARA
                     self::docCard('precontractual', 'Precontractual', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),

@@ -126,7 +126,7 @@ class NoteResource extends Resource
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
-                            ->maxLength(10)
+                            ->maxLength(20)
                             ->label('No. y Piso'),
 
                         Forms\Components\TextInput::make('postal_code')
@@ -137,7 +137,7 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('ciudad')
                             ->required()
                             ->maxLength(255)
-                            ->label('Parroquia/Ciudad'),
+                            ->label('Ayuntamiento/Localidad'),
 
                         Forms\Components\TextInput::make('provincia')
                             ->required()

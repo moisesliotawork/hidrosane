@@ -132,7 +132,7 @@ class VentaResource extends Resource
                                     Forms\Components\TextInput::make('ciudad')
                                         ->required()
                                         ->maxLength(255)
-                                        ->label('Ciudad'),
+                                        ->label('Ayuntamiento/Localidad'),
 
                                     Forms\Components\TextInput::make('provincia')
                                         ->required()

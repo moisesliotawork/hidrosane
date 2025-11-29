@@ -72,7 +72,6 @@ class EditNotaGerente extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'parish' => $customer->parish,
-            'ayuntamiento' => $customer->ayuntamiento,
             'edadTelOp' => $customer->edadTelOp,
             'observations' => $observations,
         ]);
