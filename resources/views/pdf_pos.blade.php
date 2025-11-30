@@ -171,22 +171,27 @@
     $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
     $provinceFormatted = $province ? "($province)" : null;
 
-    // Línea 1: solo dirección
-    $dirL1 = $primary;
-
-    // Línea 2: piso → CP+Ciudad → ayto
-    $dirL2Parts = [];
-    if ($nroPiso !== '') {
-        $dirL2Parts[] = $nroPiso;    
+    // Línea 1: dirección + piso SIEMPRE que exista
+    $dirL1Parts = [];
+    if ($primary !== '') {
+        $dirL1Parts[] = $primary;
     }
+    if ($nroPiso !== '') {
+        $dirL1Parts[] = $nroPiso;   // ← piso pasa a la primera línea
+    }
+    $dirL1 = implode(' ', $dirL1Parts);
+
+    // Línea 2: CP+Ciudad → ayto (ya SIN piso)
+    $dirL2Parts = [];
     if ($cpCity !== '') {
-        $dirL2Parts[] = $cpCity;     
+        $dirL2Parts[] = $cpCity;
     }
     if ($ayto !== '') {
-        $dirL2Parts[] = $ayto;       
+        $dirL2Parts[] = $ayto;
     }
 
     $dirL2 = implode(' - ', $dirL2Parts);
+
 
     if ($provinceFormatted) {
         $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
