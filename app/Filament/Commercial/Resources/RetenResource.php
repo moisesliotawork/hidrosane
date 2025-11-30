@@ -542,7 +542,9 @@ class RetenResource extends Resource
                             \App\Models\Note::whereIn('id', $eligible)->update([
                                 'estado_terminal' => EstadoTerminal::SALA->value,
                                 'printed' => false,
-                                'reten' => false
+                                'reten' => false,
+                                'sent_to_sala_at' => now(),
+                                'fecha_declaracion' => now()
                             ]);
                         });
 

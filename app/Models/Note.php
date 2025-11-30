@@ -155,18 +155,34 @@ class Note extends Model
     protected static function booted()
     {
         static::saving(function (Note $note) {
-            // Consideramos "reasignación" si cambia el comercial o la fecha de asignación
+            // 1) Si se reasigna la nota, limpiamos estado de sala
             $reasignacion = $note->isDirty('comercial_id') || $note->isDirty('assignment_date');
 
             if ($reasignacion && $note->estado_terminal === EstadoTerminal::SALA) {
                 $note->estado_terminal = EstadoTerminal::SIN_ESTADO; // ''
+                $note->fecha_declaracion = null;
+                $note->sent_to_sala_at = null;
             }
 
-            if ($note->isDirty('estado_terminal') && $note->estado_terminal !== EstadoTerminal::SIN_ESTADO) {
-                $note->fecha_declaracion = now();
+            // 2) Si cambia el estado terminal...
+            if ($note->isDirty('estado_terminal')) {
+                // Si lo dejan sin estado, limpiamos fechas
+                if ($note->estado_terminal === EstadoTerminal::SIN_ESTADO) {
+                    $note->fecha_declaracion = null;
+                    $note->sent_to_sala_at = null;
+                } else {
+                    // Cualquier estado distinto de SIN_ESTADO marca fecha_declaracion
+                    $note->fecha_declaracion = now();
+
+                    // Y si el estado es SALA, también marcamos sent_to_sala_at
+                    if ($note->estado_terminal === EstadoTerminal::SALA) {
+                        $note->sent_to_sala_at = now();
+                    }
+                }
             }
         });
     }
+
 
 
     /**
