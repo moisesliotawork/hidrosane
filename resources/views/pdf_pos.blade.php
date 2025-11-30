@@ -100,6 +100,9 @@
     $xPosB = 111.0;
     $xDesB = 130.0;
 
+    $wDesA = 72.0;
+    $wDesB = 72.0;
+
     // Pagos P1
     $yPagoFila = 151.5;
     $xEntrada = 16.8;
@@ -437,14 +440,14 @@
                             {{ isset($colA[$i]) ? $i + 1 : '' }}</div>
                         {{-- DESCRIPCIÓN A --}}
                         <div class="field"
-                            style="top:{{$y}}mm; left:{{$xDesA}}mm; width:60mm; overflow:hidden; font-size:{{$fsA}}pt;">{{ $textA }}
+                            style="top:{{$y}}mm; left:{{$xDesA}}mm; width:{{$wDesA}}mm; overflow:hidden; font-size:{{$fsA}}pt;">{{ $textA }}
                         </div>
                         {{-- POS B --}}
                         <div class="field" style="top:{{$y}}mm; left:{{$xPosB}}mm; width:10mm; text-align:center;">
                             {{ isset($colB[$i]) ? $i + 6 : '' }}</div>
                         {{-- DESCRIPCIÓN B --}}
                         <div class="field"
-                            style="top:{{$y}}mm; left:{{$xDesB}}mm; width:60mm; overflow:hidden; font-size:{{$fsB}}pt;">{{ $textB }}
+                            style="top:{{$y}}mm; left:{{$xDesB}}mm; width:{{$wDesA}}mm; overflow:hidden; font-size:{{$fsB}}pt;">{{ $textB }}
                         </div>
                     @endfor
                 @endunless
