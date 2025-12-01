@@ -258,7 +258,6 @@ class NoteResource extends Resource
                             ->defaultItems(1)
                             ->collapsible()
                             ->dehydrated(true)
-                            ->collapsed()
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {
                                 // Usar el usuario autenticado como fallback
