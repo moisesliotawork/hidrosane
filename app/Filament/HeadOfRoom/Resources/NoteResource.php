@@ -156,10 +156,14 @@ class NoteResource extends Resource
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
-                        Forms\Components\TextInput::make('postal_code')
+                        Forms\Components\TextInput::make('primary_address')
                             ->required()
-                            ->maxLength(20)
-                            ->label('Codigo Postal'),
+                            ->maxLength(255)
+                            ->label('Dirección principal'),
+
+                        Forms\Components\TextInput::make('secondary_address')
+                            ->maxLength(255)
+                            ->label('Dirección secundaria (opcional)'),
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
@@ -171,19 +175,15 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
+                        Forms\Components\TextInput::make('postal_code')
+                            ->required()
+                            ->maxLength(20)
+                            ->label('Codigo Postal'),
+
                         Forms\Components\TextInput::make('provincia')
                             ->required()
                             ->maxLength(255)
                             ->label('Provincia'),
-
-                        Forms\Components\TextInput::make('primary_address')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Dirección principal'),
-
-                        Forms\Components\TextInput::make('secondary_address')
-                            ->maxLength(255)
-                            ->label('Dirección secundaria (opcional)'),
 
                         Forms\Components\TextInput::make('parish')
                             ->maxLength(255)
@@ -742,10 +742,10 @@ class NoteResource extends Resource
                             ->actions([
                                 NotificationAction::make('no_continuar')
                                     ->label('No continuar')
-                                    ->button()      
-                                    ->color('gray')     
-                                    ->close(),          
-            
+                                    ->button()
+                                    ->color('gray')
+                                    ->close(),
+
 
                                 NotificationAction::make('continuar')
                                     ->label('Continuar')
