@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
 use Filament\Actions;
 use Filament\Actions\Action;
 use Carbon\Carbon;
-
+use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 
 class CreateNote extends CreateRecord
 {
@@ -25,18 +26,15 @@ class CreateNote extends CreateRecord
     protected function getFormActions(): array
     {
         return [
-            // Botón principal (Guardar)
             Actions\CreateAction::make()
                 ->label('Guardar')
                 ->action('create'),
 
-            // Botón secundario (Guardar y crear otro)
             Actions\CreateAction::make('createAnother')
                 ->label('Guardar y crear otro')
-                ->color("gray")
+                ->color('gray')
                 ->action('createAnother'),
 
-            // Botón Cancelar
             Actions\Action::make('cancel')
                 ->label('Cancelar')
                 ->color('danger')
@@ -46,23 +44,66 @@ class CreateNote extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // normalizar teléfonos
+        // ===== Normalizar teléfonos recibidos del formulario =====
         $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
+
         $sec = preg_replace('/\D+/', '', (string) ($data['secondary_phone'] ?? ''));
         $data['secondary_phone'] = $sec === '' ? null : $sec;
 
-        // nombres normalizados
+        // ===== Buscar cliente existente por nombre + phone principal =====
         $normalizedFirstName = Str::slug(Str::lower($data['first_names']), '');
         $normalizedLastName = Str::slug(Str::lower($data['last_names']), '');
 
-        // buscar cliente existente
         $customer = Customer::query()
             ->whereRaw("LOWER(REPLACE(first_names, ' ', '')) = ?", [$normalizedFirstName])
             ->whereRaw("LOWER(REPLACE(last_names, ' ', '')) = ?", [$normalizedLastName])
             ->where('phone', $data['phone'])
             ->first();
 
-        // Calcular edad desde fecha_nac (si viene)
+        // ===== Validar duplicados de teléfonos en cualquier columna de Customer =====
+        $numerosAValidar = collect([
+            $data['phone'] ?? null,
+            $data['secondary_phone'] ?? null,
+        ])->filter();
+
+        $duplicados = [];
+
+        foreach ($numerosAValidar as $numero) {
+            $existe = Customer::query()
+                // si ya detectamos un customer "actual", no queremos contarlo como duplicado de sí mismo
+                ->when($customer, fn($q) => $q->where('id', '!=', $customer->id))
+                ->where(function ($q) use ($numero) {
+                    $q->where('phone', $numero)
+                        ->orWhere('secondary_phone', $numero)
+                        ->orWhere('third_phone', $numero); // ⇐ ajusta el nombre si es distinto
+                })
+                ->exists();
+
+            if ($existe) {
+                $duplicados[] = $numero;
+            }
+        }
+
+        if (!empty($duplicados)) {
+            // Notificación al usuario
+            Notification::make()
+                ->title('Teléfono(s) ya registrado(s)')
+                ->body(
+                    'Los siguientes números ya están registrados en la base de datos: ' .
+                    implode(', ', $duplicados) .
+                    '. No se puede crear la nota con teléfonos duplicados.'
+                )
+                ->danger()
+                ->persistent()
+                ->send();
+
+            // Lanza error de validación para bloquear la creación
+            throw ValidationException::withMessages([
+                'phone' => 'Números de teléfono duplicados: ' . implode(', ', $duplicados),
+            ]);
+        }
+
+        // ===== Calcular edad desde fecha_nac (si viene) =====
         $fechaNac = $data['fecha_nac'] ?? null;
         $computedAge = null;
         if ($fechaNac) {
@@ -73,9 +114,11 @@ class CreateNote extends CreateRecord
             }
         }
 
+        // ===== Crear o actualizar Customer =====
         if ($customer) {
             $customer->update([
                 'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
+                // third_phone NO viene del form, se mantiene como está
                 'email' => $data['email'] ?? $customer->email,
                 'postal_code' => $data['postal_code'],
                 'ciudad' => $data['ciudad'],
@@ -91,6 +134,7 @@ class CreateNote extends CreateRecord
                 'last_names' => $data['last_names'],
                 'phone' => $data['phone'],
                 'secondary_phone' => $data['secondary_phone'] ?? null,
+                // third_phone no viene del form, así que queda null
                 'email' => $data['email'] ?? null,
                 'postal_code' => $data['postal_code'],
                 'ciudad' => $data['ciudad'],
@@ -102,12 +146,12 @@ class CreateNote extends CreateRecord
             ]);
         }
 
-        // Asignar IDs en la Note
+        // ===== Asignar IDs en la Note =====
         $data['user_id'] = Auth::id();
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
 
-        // Importante: no guardar estos campos en notes si no existen allí
+        // No guardar campos ajenos a notes
         unset($data['edadTelOp']);
 
         return $data;
@@ -118,7 +162,6 @@ class CreateNote extends CreateRecord
         $observations = $this->form->getState()['observations'] ?? [];
 
         foreach ($observations as $observationData) {
-            // Verifica si existe y tiene contenido
             if (!empty($observationData['observation'])) {
                 Observation::create([
                     'note_id' => $this->record->id,

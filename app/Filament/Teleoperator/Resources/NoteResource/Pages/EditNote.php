@@ -7,6 +7,8 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\Customer;
 use Carbon\Carbon;
+use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 
 class EditNote extends EditRecord
 {
@@ -31,7 +33,7 @@ class EditNote extends EditRecord
             ];
         })->toArray();
 
-        // Fecha de nacimiento y edad calculada
+        // Fecha de nacimiento y edad calculada (si la usas en el form)
         $fechaNac = $customer->fecha_nac ?? null;
         $computedAge = $fechaNac ? Carbon::parse($fechaNac)->age : null;
 
@@ -48,16 +50,19 @@ class EditNote extends EditRecord
             'primary_address' => $customer->primary_address,
             'secondary_address' => $customer->secondary_address,
             'edadTelOp' => $customer->edadTelOp,
-
             'observations' => $observations,
         ]);
     }
 
-
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // ===== Normalizar teléfonos que vienen del formulario =====
+        $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
 
-        // Recalcular edad desde fecha_nac (ignorar age del form)
+        $sec = preg_replace('/\D+/', '', (string) ($data['secondary_phone'] ?? ''));
+        $data['secondary_phone'] = $sec === '' ? null : $sec;
+
+        // Recalcular edad desde fecha_nac (si la usas)
         $fechaNac = $data['fecha_nac'] ?? null;
         $computedAge = null;
         if ($fechaNac) {
@@ -68,13 +73,56 @@ class EditNote extends EditRecord
             }
         }
 
-        // Actualizar el customer
-        $customer = Customer::find($data['customer_id']);
+        // Obtener el customer asociado a la nota
+        $customer = Customer::findOrFail($data['customer_id']);
+
+        // ===== Validar duplicados de teléfonos en cualquier columna de OTROS customers =====
+        $numerosAValidar = collect([
+            $data['phone'] ?? null,
+            $data['secondary_phone'] ?? null,
+        ])->filter();
+
+        $duplicados = [];
+
+        foreach ($numerosAValidar as $numero) {
+            $existe = Customer::query()
+                ->where('id', '!=', $customer->id) // no contar el propio customer
+                ->where(function ($q) use ($numero) {
+                    $q->where('phone', $numero)
+                        ->orWhere('secondary_phone', $numero)
+                        ->orWhere('third_phone', $numero); // 👈 ajusta si tu campo se llama distinto
+                })
+                ->exists();
+
+            if ($existe) {
+                $duplicados[] = $numero;
+            }
+        }
+
+        if (!empty($duplicados)) {
+            Notification::make()
+                ->title('Teléfono(s) ya registrado(s)')
+                ->body(
+                    'Los siguientes números ya están registrados en la base de datos: ' .
+                    implode(', ', $duplicados) .
+                    '. No se puede guardar la nota con teléfonos duplicados.'
+                )
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'phone' => 'Números de teléfono duplicados: ' . implode(', ', $duplicados),
+            ]);
+        }
+
+        // ===== Actualizar el customer (sin duplicados) =====
         $customer->update([
             'first_names' => $data['first_names'],
             'last_names' => $data['last_names'],
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
+            // third_phone no se toca aquí, se mantiene
             'email' => $data['email'],
             'postal_code' => $data['postal_code'],
             'nro_piso' => $data['nro_piso'],
@@ -127,7 +175,7 @@ class EditNote extends EditRecord
             } else {
                 // Crear nueva observación
                 $newObservation = $this->record->observations()->create([
-                    'author_id' => auth()->id(), // O usa el dato del form si quieres
+                    'author_id' => auth()->id(),
                     'observation' => $observationData['observation'],
                 ]);
                 $currentObservationIds[] = $newObservation->id;
@@ -139,5 +187,4 @@ class EditNote extends EditRecord
             ->whereNotIn('id', $currentObservationIds)
             ->delete();
     }
-
 }
