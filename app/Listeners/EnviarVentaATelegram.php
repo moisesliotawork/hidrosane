@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Listeners;
+
+use App\Events\VentaCreada;
+use App\Services\TelegramService;
+use Illuminate\Contracts\Queue\ShouldQueue;
+
+class EnviarVentaATelegram implements ShouldQueue
+{
+    public function __construct(
+        protected TelegramService $telegram
+    ) {
+    }
+
+    public function handle(VentaCreada $event): void
+    {
+        // Cargamos lo necesario de la venta
+        $venta = $event->venta->loadMissing([
+            'customer',
+            'comercial',
+            'note',
+            'ventaOfertas', // solo para contar
+        ]);
+
+        $customer = $venta->customer;
+        $com = $venta->comercial;
+
+        // ────────────── CABECERA BÁSICA ──────────────
+        $mensaje = "*Nueva VENTA declarada* ✅\n"
+            . "Cliente: *{$customer->first_names} {$customer->last_names}*\n"
+            . "Importe: *" . number_format($venta->importe_total, 2, ',', '.') . " €*\n"
+            . "Comercial: " . ($com?->name ?? 'N/D') . "\n"
+            . "Fecha venta: " . $venta->fecha_venta?->format('d/m/Y H:i') . "\n"
+            . "Nota: #{$venta->note->nro_nota}";
+
+        // ────────────── RESUMEN ECONÓMICO ──────────────
+        $numOfertas = $venta->ventaOfertas->count();
+        $numCuotas = $venta->num_cuotas;
+        $cuotaMensual = $venta->cuota_mensual;
+        $importeTotalF = number_format($venta->importe_total, 2, ',', '.');
+
+        $mensaje .= "\n\n*Resumen económico*\n";
+        $mensaje .= "Ofertas incluidas: *{$numOfertas}*\n";
+
+        if ($numCuotas) {
+            $mensaje .= "Nº de cuotas: *{$numCuotas}*\n";
+        }
+
+        if (!is_null($cuotaMensual)) {
+            $cuotaMensualF = number_format($cuotaMensual, 2, ',', '.');
+            $mensaje .= "Cuota mensual: *{$cuotaMensualF} €*\n";
+
+            if ($numCuotas) {
+                // Ejemplo: "Operación: 6 x 123,45 € = 740,70 €"
+                $mensaje .= "Operación: {$numCuotas} x {$cuotaMensualF} € = {$importeTotalF} €";
+            }
+        }
+
+        // ────────────── DOCUMENTOS SUBIDOS ──────────────
+        $documentos = [
+            'precontractual' => 'Precontractual',
+            'dni_anverso' => 'DNI – Anverso',
+            'dni_reverso' => 'DNI – Reverso',
+            'documento_titularidad' => 'Documento de titularidad',
+            'nomina' => 'Nómina',
+            'pension' => 'Pensión',
+            'contrato_firmado' => 'Otro Documento',
+        ];
+
+        $subidos = [];
+
+        foreach ($documentos as $field => $label) {
+            if (!empty($venta->$field)) {
+                $subidos[] = $label;
+            }
+        }
+
+        $mensaje .= "\n\n*Documentos subidos*\n";
+
+        if (!empty($subidos)) {
+            // En lista con viñetas
+            foreach ($subidos as $doc) {
+                $mensaje .= "• {$doc}\n";
+            }
+            // quitamos salto extra final por estética
+            $mensaje = rtrim($mensaje, "\n");
+        } else {
+            $mensaje .= "Ninguno";
+        }
+
+        // ────────────── ENVÍO ──────────────
+        $this->telegram->sendMessage($mensaje);
+    }
+}

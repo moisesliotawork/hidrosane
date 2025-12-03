@@ -11,6 +11,7 @@ use App\Enums\{NoteStatus, EstadoTerminal};
 use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Events\VentaCreada;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
@@ -24,6 +25,14 @@ class CreateVentaDesdeCero extends CreateRecord
     protected function handleRecordCreation(array $data): Venta
     {
         return DB::transaction(function () use ($data) {
+
+            if (($data['companion_id'] ?? null) === '__NONE__') {
+                $data['companion_id'] = null;
+            }
+
+            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
+                $data['companion_id'] = null;
+            }
 
             $fechaVenta = !empty($data['manual_created_at'])
                 ? (
@@ -181,6 +190,10 @@ class CreateVentaDesdeCero extends CreateRecord
             $venta->updated_at = $fechaVenta;
             $venta->save();
             $venta->timestamps = true;
+
+            DB::afterCommit(function () use ($venta) {
+                event(new VentaCreada($venta));
+            });
 
             return $venta;
         });

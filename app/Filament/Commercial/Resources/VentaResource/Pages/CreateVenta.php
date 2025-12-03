@@ -11,7 +11,7 @@ use App\Filament\Commercial\Pages\NotasHoy;
 use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
-use App\Models\CreamDailyControl;
+use App\Events\VentaCreada;
 
 class CreateVenta extends CreateRecord
 {
@@ -210,6 +210,10 @@ class CreateVenta extends CreateRecord
 
             // j) Estado de la nota
             $note->update(['estado_terminal' => EstadoTerminal::VENTA, 'reten' => false]);
+
+            DB::afterCommit(function () use ($venta) {
+                event(new VentaCreada($venta));
+            });
 
             return $venta;
         });

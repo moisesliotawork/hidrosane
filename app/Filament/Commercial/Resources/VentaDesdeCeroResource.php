@@ -141,12 +141,11 @@ class VentaDesdeCeroResource extends Resource
                         ->columnSpanFull()
                         ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
                         ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
-                        ->afterStateUpdated(function (string $state, \Filament\Forms\Set $set) {
+                        ->afterStateUpdated(function (?string $state, Set $set) {
                             $plain = str_replace(' ', '', strtoupper($state ?? ''));
                             $formatted = implode(' ', str_split($plain, 4));
 
-                            if ($formatted !== $state) {
-                                // ✅ Set requiere (campo, valor)
+                            if ($formatted !== ($state ?? '')) {
                                 $set('iban', $formatted);
                             }
                         }),
@@ -200,26 +199,34 @@ class VentaDesdeCeroResource extends Resource
             ])->columns(2),
 
             /* ==================== COMPAÑERO ==================== */
-            Select::make('companion_id')
-                ->label('Compañero')
-                ->native(false)
-                ->searchable()
-                ->required()                           
-                ->placeholder('Selecciona una opción') 
-                ->options(
-                    fn() => ['__NONE__' => 'SIN COMPAÑERO']
-                    + User::role(['commercial', 'team_leader', 'sales_manager'])
-                        ->whereKeyNot(auth()->id())
-                        ->whereNull('baja')
-                        ->select('id', 'empleado_id', 'name', 'last_name')
-                        ->orderBy('name')
-                        ->distinct()
-                        ->get()
-                        ->mapWithKeys(fn($u) => [
-                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+            Section::make('¿Estás en pareja con otro compañero?')
+                ->schema([
+                    Section::make('¿Estás en pareja con otro compañero?')
+                        ->schema([
+                            Select::make('companion_id')
+                                ->label('Compañero')
+                                ->native(false)
+                                ->searchable()
+                                ->required()
+                                ->placeholder('Selecciona una opción')
+                                ->options(
+                                    fn() => ['__NONE__' => 'SIN COMPAÑERO']
+                                    + User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereKeyNot(auth()->id())
+                                        ->whereNull('baja')
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('name')
+                                        ->distinct()
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()
+                                )
                         ])
-                        ->all()
-                ),
+
+
+                ]),
 
             /* ==================== OFERTAS / PRODUCTOS ==================== */
             Section::make('Ofertas incluidas')->schema([

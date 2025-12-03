@@ -10,6 +10,7 @@ use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
 use App\Enums\VendidoPor;
 use Illuminate\Support\Str;
+use App\Events\VentaCreada;
 
 
 class CreateVentaDesdeCero extends CreateRecord
@@ -150,6 +151,10 @@ class CreateVentaDesdeCero extends CreateRecord
 
             $venta->refreshEstadoEntrega();
             $venta->save();
+
+            DB::afterCommit(function () use ($venta) {
+                event(new VentaCreada($venta));
+            });
 
             return $venta;
         });
