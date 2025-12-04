@@ -112,7 +112,7 @@ class EditNote extends EditRecord
                 ->action(function (array $data): void {
                     DB::transaction(function () use ($data) {
                         // 1) Guardar el motivo en la nueva tabla
-                        NoteNullReason::create([
+                        $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
                             'reason' => $data['reason'],
@@ -122,6 +122,15 @@ class EditNote extends EditRecord
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
                         $this->record->save();
+
+                        DB::afterCommit(function () use ($nullReason) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+
+                            event(new \App\Events\NotaNula(
+                                $note,
+                                $nullReason->fresh()
+                            ));
+                        });
                     });
 
                     Notification::make()
@@ -191,6 +200,12 @@ class EditNote extends EditRecord
 
                             $control->delivered++;
                             $control->save();
+
+                            DB::afterCommit(function () use ($confirmation) {
+                                $note = $this->record->fresh(['customer', 'comercial']);
+
+                                event(new \App\Events\NotaConfirmada($note, $confirmation->fresh()));
+                            });
                         }
                     });
 

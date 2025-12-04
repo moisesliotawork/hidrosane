@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\NoteSalaObservation;
 use App\Models\NoteConfirmation;
 use Filament\Forms\Components\Select;
+use App\Models\CreamDailyControl;
 
 class EditNote extends EditRecord
 {
@@ -78,7 +79,7 @@ class EditNote extends EditRecord
                         'latitud' => $lat,
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
-                        'autor_id'   => Auth::id(),
+                        'autor_id' => Auth::id(),
                     ]);
 
                     // 4) Notificación + redirect
@@ -110,7 +111,7 @@ class EditNote extends EditRecord
                 ->action(function (array $data): void {
                     DB::transaction(function () use ($data) {
                         // 1) Guardar el motivo en la nueva tabla
-                        NoteNullReason::create([
+                        $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
                             'reason' => $data['reason'],
@@ -120,6 +121,15 @@ class EditNote extends EditRecord
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
                         $this->record->save();
+
+                        DB::afterCommit(function () use ($nullReason) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+
+                            event(new \App\Events\NotaNula(
+                                $note,
+                                $nullReason->fresh()
+                            ));
+                        });
                     });
 
                     Notification::make()
@@ -156,24 +166,50 @@ class EditNote extends EditRecord
                 ->modalDescription('Confirma que deseas marcar la nota como CONFIRMADA.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
+
+
+                    // 1️⃣ Guardado normal
                     DB::transaction(function () use ($data) {
-                        // 1) Guardar el registro de confirmación
-                        NoteConfirmation::create([
+
+                        $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
-                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),   // 1 => true, 0 => false
+                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),
                             'observation' => $data['observation'] ?? null,
                         ]);
 
-                        // 2) Cambiar estado
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
-                        $this->record->reten = false;
                         $this->record->save();
+
+                        if ($confirmation->dio_crema) {
+
+                            $comercialId = $this->record->comercial_id ?? Auth::id();
+                            $fechaStr = now()->toDateString();
+
+                            $control = CreamDailyControl::firstOrCreate(
+                                [
+                                    'comercial_id' => $comercialId,
+                                    'date' => $fechaStr,
+                                ],
+                                [
+                                    'assigned' => 5,
+                                    'delivered' => 0,
+                                ]
+                            );
+
+                            $control->delivered++;
+                            $control->save();
+
+                            DB::afterCommit(function () use ($confirmation) {
+                                $note = $this->record->fresh(['customer', 'comercial']);
+
+                                event(new \App\Events\NotaConfirmada($note, $confirmation->fresh()));
+                            });
+                        }
                     });
 
                     Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
-                        ->body('Se guardó la confirmación.')
                         ->success()
                         ->send();
 
@@ -249,6 +285,7 @@ class EditNote extends EditRecord
         ];
     }
 
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $note = $this->record;
@@ -286,7 +323,7 @@ class EditNote extends EditRecord
             'phone' => $customer->phone,
             'secondary_phone' => $customer->secondary_phone,
             'email' => $customer->email,
-            'postal_code' =>$customer->postal_code ,
+            'postal_code' => $customer->postal_code,
             'ciudad' => $customer->ciudad,
             'nro_piso' => $customer->nro_piso,
             'provincia' => $customer->provincia,

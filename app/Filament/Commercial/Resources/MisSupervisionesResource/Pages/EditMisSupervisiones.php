@@ -18,6 +18,9 @@ use App\Filament\Commercial\Resources\VentaResource;
 use App\Models\AbsentHistory;
 use App\Models\NoteNullReason;
 use App\Models\NoteSalaObservation;
+use App\Models\NoteConfirmation;
+use Filament\Forms\Components\Select;
+use App\Models\CreamDailyControl;
 
 class EditMisSupervisiones extends EditRecord
 {
@@ -34,13 +37,22 @@ class EditMisSupervisiones extends EditRecord
             Actions\Action::make('ausente')
                 ->label('Ausente')
                 ->color('gray')
+                ->icon('heroicon-o-user-minus')
+                ->form([
+                    Textarea::make('observacion')
+                        ->label('Observación (opcional)')
+                        ->placeholder('Escribe una observación si lo consideras necesario…')
+                        ->rows(3)
+                        ->maxLength(2000),
+                ])
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como AUSENTE?')
+                ->modalHeading('Marcar como AUSENTE')
+                ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
+                ->action(function (array $data) {
                     // 1) Cambiar estado
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
+                    $this->record->reten = false;
                     $this->record->save();
 
                     // 2) Resolver ubicación
@@ -59,13 +71,14 @@ class EditMisSupervisiones extends EditRecord
                         }
                     }
 
-                    // 3) Crear historial
+                    // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
                         'note_id' => $this->record->id,
                         'fecha' => Carbon::now()->toDateString(),
                         'hora' => Carbon::now()->format('H:i:s'),
                         'latitud' => $lat,
                         'longitud' => $lng,
+                        'observacion' => $data['observacion'] ?? null,
                         'autor_id' => Auth::id(),
                     ]);
 
@@ -90,20 +103,34 @@ class EditMisSupervisiones extends EditRecord
                         ->required()
                         ->maxLength(2000),
                 ])
+                // Tras completar el formulario, Filament mostrará el modal de confirmación:
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
                 ->modalDescription('Confirma que deseas marcar la nota como NULA con el motivo indicado.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data): void {
                     DB::transaction(function () use ($data) {
-                        NoteNullReason::create([
+                        
+                        // 1) Guardar el motivo en la nueva tabla
+                        $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
                             'reason' => $data['reason'],
                         ]);
 
-                        $this->record->estado_terminal = EstadoTerminal::NUL; // ajusta si tu enum usa NULO/NUL
+                        // 2) Cambiar el estado de la nota a NULO
+                        $this->record->estado_terminal = EstadoTerminal::NUL;
+                        $this->record->reten = false;
                         $this->record->save();
+
+                        DB::afterCommit(function () use ($nullReason) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+
+                            event(new \App\Events\NotaNula(
+                                $note,
+                                $nullReason->fresh()
+                            ));
+                        });
                     });
 
                     Notification::make()
@@ -115,16 +142,72 @@ class EditMisSupervisiones extends EditRecord
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
 
+
             Actions\Action::make('confirmada')
                 ->label('Confirmada')
                 ->color('orange')
+                ->icon('heroicon-o-check-circle')
+                ->form([
+                    Select::make('dio_crema')
+                        ->label('¿Haz entregado crema?')
+                        ->options([
+                            1 => 'Sí',
+                            0 => 'No',
+                        ])
+                        ->required()
+                        ->native(false),
+                    Textarea::make('observation')
+                        ->label('Observación (opcional)')
+                        ->placeholder('Escribe una observación (opcional)…')
+                        ->rows(3)
+                        ->maxLength(2000),
+                ])
                 ->requiresConfirmation()
-                ->modalHeading('Confirmar acción')
-                ->modalDescription('¿Estás seguro de marcar esta nota como CONFIRMADA?')
+                ->modalHeading('Confirmar nota')
+                ->modalDescription('Confirma que deseas marcar la nota como CONFIRMADA.')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
-                    $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
-                    $this->record->save();
+                ->action(function (array $data) {
+
+
+                    // 1️⃣ Guardado normal
+                    DB::transaction(function () use ($data) {
+
+                        $confirmation = NoteConfirmation::create([
+                            'note_id' => $this->record->id,
+                            'author_id' => Auth::id(),
+                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),
+                            'observation' => $data['observation'] ?? null,
+                        ]);
+
+                        $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
+                        $this->record->save();
+
+                        if ($confirmation->dio_crema) {
+
+                            $comercialId = $this->record->comercial_id ?? Auth::id();
+                            $fechaStr = now()->toDateString();
+
+                            $control = CreamDailyControl::firstOrCreate(
+                                [
+                                    'comercial_id' => $comercialId,
+                                    'date' => $fechaStr,
+                                ],
+                                [
+                                    'assigned' => 5,
+                                    'delivered' => 0,
+                                ]
+                            );
+
+                            $control->delivered++;
+                            $control->save();
+
+                            DB::afterCommit(function () use ($confirmation) {
+                                $note = $this->record->fresh(['customer', 'comercial']);
+
+                                event(new \App\Events\NotaConfirmada($note, $confirmation->fresh()));
+                            });
+                        }
+                    });
 
                     Notification::make()
                         ->title('Nota marcada como CONFIRMADA')
@@ -142,6 +225,7 @@ class EditMisSupervisiones extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
+
                     Notification::make()
                         ->title('Nota marcada como VENTA')
                         ->success()
@@ -162,36 +246,43 @@ class EditMisSupervisiones extends EditRecord
                 ->icon('heroicon-o-building-office-2')
                 ->form([
                     Textarea::make('observation')
-                        ->label('Observación de sala')
-                        ->placeholder('Escribe la observación para sala…')
+                        ->label('Observación de Oficina')
+                        ->placeholder('Escribe la observación para enviar a oficina...')
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
                 ])
                 ->requiresConfirmation()
-                ->modalHeading('Marcar como SALA')
-                ->modalDescription('Confirma que deseas marcar la nota como SALA y guardar la observación.')
+                ->modalHeading('Marcar como OFICINA')
+                ->modalDescription('Confirma que deseas marcar la nota como OFICINA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
+                        // 1) Guardar observación de sala
                         NoteSalaObservation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
                             'observation' => $data['observation'],
                         ]);
 
-                        $this->record->estado_terminal = EstadoTerminal::SALA;
-                        $this->record->save();
+                        // 2) Cambiar estado a SALA, registrar fecha/hora y RESET de printed
+                        $this->record->forceFill([
+                            'estado_terminal' => EstadoTerminal::SALA, // o ->value si tu columna es string sin cast
+                            'sent_to_sala_at' => now(),
+                            'printed' => false,
+                            'reten' => false,
+                        ])->save();
                     });
 
                     Notification::make()
-                        ->title('Nota marcada como SALA')
-                        ->body('Se guardó la observación y se actualizó el estado.')
+                        ->title('Nota marcada como OFICINA')
+                        ->body('Se guardó la observación, se actualizó el estado y se reinició el indicador de impresión.')
                         ->success()
                         ->send();
 
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
+
         ];
     }
 

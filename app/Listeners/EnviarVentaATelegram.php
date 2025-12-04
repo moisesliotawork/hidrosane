@@ -30,7 +30,7 @@ class EnviarVentaATelegram implements ShouldQueue
         $mensaje = "*Nueva VENTA declarada* ✅\n"
             . "Cliente: *{$customer->first_names} {$customer->last_names}*\n"
             . "Importe: *" . number_format($venta->importe_total, 2, ',', '.') . " €*\n"
-            . "Comercial: " . ($com?->name ?? 'N/D') . "\n"
+            . "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n"
             . "Fecha venta: " . $venta->fecha_venta?->format('d/m/Y H:i') . "\n"
             . "Nota: #{$venta->note->nro_nota}";
 
