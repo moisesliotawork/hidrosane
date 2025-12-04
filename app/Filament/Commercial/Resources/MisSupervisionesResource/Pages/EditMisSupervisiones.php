@@ -110,7 +110,7 @@ class EditMisSupervisiones extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data): void {
                     DB::transaction(function () use ($data) {
-                        
+
                         // 1) Guardar el motivo en la nueva tabla
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
@@ -259,7 +259,7 @@ class EditMisSupervisiones extends EditRecord
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
                         // 1) Guardar observación de sala
-                        NoteSalaObservation::create([
+                        $salaObservation = NoteSalaObservation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
                             'observation' => $data['observation'],
@@ -272,6 +272,15 @@ class EditMisSupervisiones extends EditRecord
                             'printed' => false,
                             'reten' => false,
                         ])->save();
+
+                        DB::afterCommit(function () use ($salaObservation) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+
+                            event(new \App\Events\NotaEnviadaAOficina(
+                                $note,
+                                $salaObservation->fresh()
+                            ));
+                        });
                     });
 
                     Notification::make()

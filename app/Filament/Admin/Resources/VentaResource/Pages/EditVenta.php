@@ -28,15 +28,22 @@ class EditVenta extends EditRecord
         /* 2. Reglas de modalidad de pago */
         $modalidad = $data['modalidad_pago'] ?? 'Financiado';
 
-        // a) Si es Contado o NS → siempre 1 cuota
         if (in_array($modalidad, ['Contado', 'NS'], true)) {
             $data['num_cuotas'] = 1;
         }
 
-        // b) Forma de pago solo aplica en Contado; si no, nuléala
         if ($modalidad !== 'Contado') {
             $data['forma_pago'] = null;
         }
+
+        /* 2.b Normalizar montos para que NUNCA sean null */
+        $data['monto_extra'] = isset($data['monto_extra']) && $data['monto_extra'] !== ''
+            ? (float) $data['monto_extra']
+            : 0;
+
+        $data['entrada'] = isset($data['entrada']) && $data['entrada'] !== ''
+            ? (float) $data['entrada']
+            : 0;
 
         /* 3. Recalcular cuota mensual */
         $importe = (float) ($data['importe_total'] ?? 0);
@@ -47,7 +54,7 @@ class EditVenta extends EditRecord
         /* 4. Asegura que productos_externos sea array limpio */
         if (isset($data['productos_externos'])) {
             $data['productos_externos'] = collect($data['productos_externos'])
-                ->filter()      // quita strings vacíos
+                ->filter()
                 ->values()
                 ->all();
         }

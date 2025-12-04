@@ -259,7 +259,7 @@ class EditNote extends EditRecord
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
                         // 1) Guardar observación de sala
-                        NoteSalaObservation::create([
+                        $salaObservation = NoteSalaObservation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
                             'observation' => $data['observation'],
@@ -272,6 +272,15 @@ class EditNote extends EditRecord
                             'printed' => false,
                             'reten' => false,
                         ])->save();
+
+                        DB::afterCommit(function () use ($salaObservation) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+
+                            event(new \App\Events\NotaEnviadaAOficina(
+                                $note,
+                                $salaObservation->fresh()
+                            ));
+                        });
                     });
 
                     Notification::make()

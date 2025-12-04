@@ -283,11 +283,11 @@ class NoteResource extends Resource
                             : auth()->user();
 
                         $date = isset($state['created_at'])
-                            ? \Carbon\Carbon::parse($state['created_at'])->format('d/m/y')
+                            ? Carbon::parse($state['created_at'])->format('d/m/y')
                             : now()->format('d/m/y');
 
                         $observationText = $state['observation'] ?? 'Nueva observación';
-                        $limitedObservation = \Illuminate\Support\Str::limit($observationText, 30);
+                        $limitedObservation = Str::limit($observationText, 30);
 
                         return "{$date}: {$limitedObservation}";
                     })
@@ -355,12 +355,16 @@ class NoteResource extends Resource
 
                         return $canSee ? ($record->customer?->phone) : '—';
                     })
-                    ->formatStateUsing(function (?string $state) {
+                    ->formatStateUsing(function ($state) {
                         if (blank($state) || $state === '—') {
                             return '—';
                         }
+
+                        // Siempre convertir a string antes de usarlo
+                        $state = (string) $state;
+
                         $digits = preg_replace('/\s+/', '', $state);
-                        return trim(chunk_split($digits, 3, ' ')); // 999 999 999
+                        return trim(chunk_split($digits, 3, ' '));
                     })
                     ->searchable(false)
                     ->alignCenter(),
@@ -376,20 +380,18 @@ class NoteResource extends Resource
                     ->badge()
                     ->color(Color::Gray)
                     ->state(fn(Note $record) => $record->customer?->primary_address ?: '—')
-                    ->formatStateUsing(function (?string $state) {
-                        if (blank($state)) {
+                    ->formatStateUsing(function ($state): string {
+                        if (blank($state) || $state === '—') {
                             return '—';
                         }
+
                         // Inserta salto de línea cada 100 caracteres
-                        return wordwrap($state, 100, "\n", true);
+                        return wordwrap((string) $state, 100, "\n", true);
                     })
-                    // Permite que el badge muestre varias líneas
                     ->extraAttributes([
-                        'class' => 'whitespace-pre-wrap break-words', // respeta \n y corta palabras largas
+                        'class' => 'whitespace-pre-wrap break-words',
                     ])
-                    // Tooltip con el texto completo
-                    ->tooltip(fn($state) => $state ?: null)
-                    // Hacerla buscable en la tabla (en la relación customers)
+                    ->tooltip(fn(string $state) => $state ?: null)
                     ->searchable(query: function (Builder $query, string $search) {
                         $query->whereHas('customer', function (Builder $q) use ($search) {
                             $q->where('customers.primary_address', 'like', "%{$search}%");
@@ -397,7 +399,6 @@ class NoteResource extends Resource
                     })
                     ->toggleable()
                     ->toggledHiddenByDefault(true),
-
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -562,6 +563,15 @@ class NoteResource extends Resource
                                 'sent_to_sala_at' => now(),
                                 'fecha_declaracion' => now()
                             ]);
+
+                            \DB::afterCommit(function () use ($eligible) {
+                                $comercial = auth()->user();
+
+                                event(new \App\Events\NotasEnviadasAOficinaBulk(
+                                    $eligible,
+                                    $comercial
+                                ));
+                            });
                         });
 
                         Notification::make()
