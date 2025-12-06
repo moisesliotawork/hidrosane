@@ -598,6 +598,7 @@ class NoteResource extends Resource
             'index' => Pages\ListNotes::route('/'),
             //'view' => Pages\ViewNote::route('/{record}'),
             'edit' => Pages\EditNote::route('/{record}/edit'),
+            'pedir-crema' => Pages\PedirCrema::route('/{record}/pedir-crema'),
         ];
     }
 

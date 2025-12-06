@@ -6,6 +6,24 @@ use App\Http\Controllers\NotasSalaPdfController;
 use App\Models\PickingDiario;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\CreamTransferController;
+
+Route::middleware(['auth'])    // añade otros middlewares si los usas (verified, etc.)
+    ->prefix('comercial')
+    ->group(function () {
+
+        // Ver la solicitud (pantalla con aceptar / rechazar)
+        Route::get('/cream-transfers/{transfer}', [CreamTransferController::class, 'show'])
+            ->name('cream-transfers.show');
+
+        // Aceptar transferencia
+        Route::post('/cream-transfers/{transfer}/accept', [CreamTransferController::class, 'accept'])
+            ->name('cream-transfers.accept');
+
+        // Rechazar transferencia
+        Route::post('/cream-transfers/{transfer}/reject', [CreamTransferController::class, 'reject'])
+            ->name('cream-transfers.reject');
+    });
 
 Route::get('/', function () {
     return redirect('/admin');

@@ -32,6 +32,7 @@ class CommercialPanelProvider extends PanelProvider
             ->favicon(asset('favicon.ico'))
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
+            ->databaseNotifications()
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Mi Perfil')

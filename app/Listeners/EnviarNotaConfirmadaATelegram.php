@@ -26,7 +26,7 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
         $com = $note->comercial;
 
         // ───────── CABECERA ─────────
-        $mensaje = "*NOTA CONFIRMADA* ✅\n"
+        $mensaje = "*NOTA CONFIRMADA* 🟠\n"
             . "Nota: *#{$note->nro_nota}*\n"
             . "Cliente: *{$customer->first_names} {$customer->last_names}*\n";
 

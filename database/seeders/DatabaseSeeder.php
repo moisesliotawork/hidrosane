@@ -19,7 +19,6 @@ class DatabaseSeeder extends Seeder
             GeneralManagerRoleSeeder::class,
             UserSeeder::class,
             UsuariosViejos::class,
-            CountrySeeder::class,
             TiposMedidaSeeder::class,
             ProductosConMedidasSeeder::class,
             ProductosSimplesSeeder::class,

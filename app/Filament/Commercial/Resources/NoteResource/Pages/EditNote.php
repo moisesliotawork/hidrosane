@@ -21,6 +21,10 @@ use App\Models\NoteSalaObservation;
 use App\Models\NoteConfirmation;
 use Filament\Forms\Components\Select;
 use App\Models\CreamDailyControl;
+use Filament\Forms\Components\TextInput;
+use App\Models\CreamTransfer;
+use App\Notifications\CreamTransferRequested;
+
 
 
 class EditNote extends EditRecord
@@ -168,22 +172,61 @@ class EditNote extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
 
+                    $dioCrema = (bool) ($data['dio_crema'] ?? false);
 
-                    // 1️⃣ Guardado normal
-                    DB::transaction(function () use ($data) {
+                    // 1) Si marcó que SÍ entregó crema, primero verificamos stock
+                    if ($dioCrema) {
+                        $comercialId = $this->record->comercial_id ?? Auth::id();
+                        $fechaStr = now()->toDateString();
+
+                        // Obtenemos su control de hoy (sin tocar delivered)
+                        $control = CreamDailyControl::firstOrCreate(
+                            [
+                                'comercial_id' => $comercialId,
+                                'date' => $fechaStr,
+                            ],
+                            [
+                                // valores por defecto SOLO si no existe
+                                'assigned' => 8,
+                                'delivered' => 0,
+                                'received' => 0,
+                                'donated' => 0,
+                            ]
+                        );
+
+                        if ($control->remaining <= 0) {
+                            Notification::make()
+                                ->title('No tienes cremas disponibles')
+                                ->body('Debes pedir una crema a otro comercial antes de marcar que la has entregado.')
+                                ->warning()
+                                ->send();
+
+                            $url = NoteResource::getUrl('pedir-crema', [
+                                'record' => $this->record,
+                            ], panel: 'comercial');
+
+                            $this->redirect($url);
+
+                            return;
+                        }
+
+                    }
+
+                    // 2️⃣ Flujo normal: sí tiene cremas (o marcó que no entregó crema)
+                    DB::transaction(function () use ($data, $dioCrema) {
 
                         $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
-                            'dio_crema' => (bool) ($data['dio_crema'] ?? false),
+                            'dio_crema' => $dioCrema,
                             'observation' => $data['observation'] ?? null,
                         ]);
 
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
                         $this->record->save();
 
-                        if ($confirmation->dio_crema) {
-
+                        // Si SÍ entregó crema, restamos una de su control diario
+                        if ($dioCrema) {
                             $comercialId = $this->record->comercial_id ?? Auth::id();
                             $fechaStr = now()->toDateString();
 
@@ -195,18 +238,20 @@ class EditNote extends EditRecord
                                 [
                                     'assigned' => 5,
                                     'delivered' => 0,
+                                    'received' => 0,
+                                    'donated' => 0,
                                 ]
                             );
 
+                            // Entregó una crema
                             $control->delivered++;
-                            $control->save();
-
-                            DB::afterCommit(function () use ($confirmation) {
-                                $note = $this->record->fresh(['customer', 'comercial']);
-
-                                event(new \App\Events\NotaConfirmada($note, $confirmation->fresh()));
-                            });
+                            $control->save(); // booted recalcula remaining y next_day_to_assign
                         }
+
+                        DB::afterCommit(function () use ($confirmation) {
+                            $note = $this->record->fresh(['customer', 'comercial']);
+                            event(new \App\Events\NotaConfirmada($note, $confirmation->fresh()));
+                        });
                     });
 
                     Notification::make()
@@ -214,8 +259,10 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
+                    // 3️⃣ Flujo normal: volvemos al listado
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),
+
 
             Actions\Action::make('venta')
                 ->label('Venta')
@@ -391,4 +438,5 @@ class EditNote extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
 }

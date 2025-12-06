@@ -16,10 +16,12 @@ class CreamDailyControl extends Model
     protected $fillable = [
         'comercial_id',
         'date',
-        'assigned',           // cremas que se LE ENTREGAN ese día (info)
-        'delivered',          // cremas que él entrega a clientes
-        'remaining',          // cuántas le quedan EN LA MANO al final del día
-        'next_day_to_assign', // cuántas hay que darle MAÑANA
+        'assigned',
+        'delivered',
+        'remaining',
+        'next_day_to_assign',
+        'received',   // NUEVO
+        'donated',    // NUEVO
     ];
 
     protected $casts = [
@@ -29,16 +31,19 @@ class CreamDailyControl extends Model
     protected static function booted(): void
     {
         static::saving(function (CreamDailyControl $control) {
+
             $dailyQuota = 8;
 
-            // 1) remaining = 5 - delivered (nunca negativo)
             $delivered = (int) $control->delivered;
-            $control->remaining = max(0, $dailyQuota - $delivered);
+            $received = (int) $control->received;
+            $donated = (int) $control->donated;
 
-            // 2) next_day_to_assign = 5 - remaining  (= delivered)
+            // cremas iniciales + recibidas - entregadas - donadas
+            $control->remaining = max(0, $dailyQuota + $received - $delivered - $donated);
+
+            // cuántas hay que darle mañana
             $control->next_day_to_assign = max(0, $dailyQuota - (int) $control->remaining);
 
-            // (Opcional) clamp de assigned solo informativo, por si acaso:
             if ($control->assigned === null) {
                 $control->assigned = 0;
             }

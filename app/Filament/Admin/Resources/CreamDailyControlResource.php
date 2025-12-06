@@ -82,6 +82,18 @@ class CreamDailyControlResource extends Resource
                     ->badge()
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('received')
+                    ->label('Recibidas')
+                    ->badge()
+                    ->color('info')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('donated')
+                    ->label('Donadas')
+                    ->badge()
+                    ->color('danger')
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('total_disponible')
                     ->label('Total disponible')
                     ->getStateUsing(fn() => 8)
