@@ -24,6 +24,7 @@ use App\Models\CreamDailyControl;
 use Filament\Forms\Components\TextInput;
 use App\Models\CreamTransfer;
 use App\Notifications\CreamTransferRequested;
+use App\Models\NoteSalaEvent;
 
 
 
@@ -314,12 +315,22 @@ class EditNote extends EditRecord
 
                         // 2) Cambiar estado a SALA, registrar fecha/hora y RESET de printed
                         $this->record->forceFill([
-                            'estado_terminal' => EstadoTerminal::SALA, // o ->value si tu columna es string sin cast
+                            'estado_terminal' => EstadoTerminal::SALA,
                             'sent_to_sala_at' => now(),
                             'printed' => false,
                             'reten' => false,
                         ])->save();
 
+                        // 3) Crear registro en el historial de envíos a sala
+                        //    vía 'declaracion' porque es el comercial pulsando el botón
+                        NoteSalaEvent::create([
+                            'note_id' => $this->record->id,
+                            'sent_by_user_id' => Auth::id(),
+                            'via' => 'declaracion',
+                            'sent_at' => now(),
+                        ]);
+
+                        // 4) Evento para notificaciones u otros listeners
                         DB::afterCommit(function () use ($salaObservation) {
                             $note = $this->record->fresh(['customer', 'comercial']);
 

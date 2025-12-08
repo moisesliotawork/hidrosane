@@ -24,6 +24,8 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
+use App\Models\NoteSalaEvent;
+
 
 class RetenResource extends Resource
 {
@@ -541,14 +543,36 @@ class RetenResource extends Resource
                         }
 
                         \DB::transaction(function () use ($eligible) {
+                            $now = now();
+                            $userId = auth()->id();
+
+                            // 1) Actualizar todas las notas elegibles
                             Note::whereIn('id', $eligible)->update([
                                 'estado_terminal' => EstadoTerminal::SALA->value,
                                 'printed' => false,
                                 'reten' => false,
-                                'sent_to_sala_at' => now(),
-                                'fecha_declaracion' => now()
+                                'sent_to_sala_at' => $now,
+                                'fecha_declaracion' => $now,
                             ]);
 
+                            // 2) Crear historial de envíos a sala (masivo)
+                            $rows = [];
+                            foreach ($eligible as $noteId) {
+                                $rows[] = [
+                                    'note_id' => $noteId,
+                                    'sent_by_user_id' => $userId,
+                                    'via' => 'masivo',
+                                    'sent_at' => $now,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ];
+                            }
+
+                            if (!empty($rows)) {
+                                NoteSalaEvent::insert($rows);
+                            }
+
+                            // 3) Lanzar evento de siempre después del commit
                             \DB::afterCommit(function () use ($eligible) {
                                 $comercial = auth()->user();
 

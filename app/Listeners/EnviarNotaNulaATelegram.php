@@ -46,6 +46,6 @@ class EnviarNotaNulaATelegram implements ShouldQueue
             $mensaje .= "\n*Motivo de nulidad:*\n{$nullReason->reason}";
         }
 
-        $this->telegram->sendMessage($mensaje);
+        $this->telegram->sendMessage($mensaje, 'cantico');
     }
 }

@@ -49,6 +49,6 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
         }
 
         // Enviar a Telegram
-        $this->telegram->sendMessage($mensaje);
+        $this->telegram->sendMessage($mensaje, 'cantico');
     }
 }

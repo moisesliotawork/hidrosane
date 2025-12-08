@@ -314,18 +314,24 @@ class NotasGerenteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->label('Teléfono')
+                    ->toggleable()
+                    ->toggledHiddenByDefault(false)
                     ->state(function (Note $record) {
                         $viewer = auth()->user();
                         $canSee = $viewer?->hasRole('team_leader') ? true : $record->canShowPhone();
 
                         return $canSee ? ($record->customer?->phone) : '—';
                     })
-                    ->formatStateUsing(function (?string $state) {
+                    ->formatStateUsing(function ($state) {
                         if (blank($state) || $state === '—') {
                             return '—';
                         }
+
+                        // Siempre convertir a string antes de usarlo
+                        $state = (string) $state;
+
                         $digits = preg_replace('/\s+/', '', $state);
-                        return trim(chunk_split($digits, 3, ' ')); // 999 999 999
+                        return trim(chunk_split($digits, 3, ' '));
                     })
                     ->searchable(false)
                     ->alignCenter(),

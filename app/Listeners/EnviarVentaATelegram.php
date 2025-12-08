@@ -90,6 +90,6 @@ class EnviarVentaATelegram implements ShouldQueue
         }
 
         // ────────────── ENVÍO ──────────────
-        $this->telegram->sendMessage($mensaje);
+        $this->telegram->sendMessage($mensaje, 'ventas');
     }
 }

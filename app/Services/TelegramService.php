@@ -7,13 +7,18 @@ use Illuminate\Support\Facades\Log;
 
 class TelegramService
 {
-    public function sendMessage(string $message): void
+    public function sendMessage(string $message, string $target = 'ventas'): void
     {
         $token = config('services.telegram.bot_token');
-        $chatId = config('services.telegram.chat_id');
+
+        // Elegimos grupo según el target
+        $chatId = match ($target) {
+            'cantico' => config('services.telegram.chat_id_canticos'),
+            default => config('services.telegram.chat_id_ventas'),
+        };
 
         if (blank($token) || blank($chatId)) {
-            Log::warning('No se ha configurado Telegram (TOKEN o CHAT_ID vacío).');
+            Log::warning("Telegram no configurado correctamente para el grupo '{$target}'");
             return;
         }
 
@@ -21,10 +26,10 @@ class TelegramService
             Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $message,
-                'parse_mode' => 'Markdown', // opcional
+                'parse_mode' => 'Markdown',
             ]);
         } catch (\Throwable $e) {
-            Log::error('Error enviando mensaje a Telegram: ' . $e->getMessage());
+            Log::error("Error enviando mensaje a Telegram ({$target}): " . $e->getMessage());
         }
     }
 }

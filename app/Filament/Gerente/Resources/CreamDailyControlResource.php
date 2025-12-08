@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\Gerente\Resources;
 
-use App\Filament\Admin\Resources\CreamDailyControlResource\Pages;
+use App\Filament\Gerente\Resources\CreamDailyControlResource\Pages;
 use App\Models\CreamDailyControl;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -28,10 +28,6 @@ class CreamDailyControlResource extends Resource
         return $form;
     }
 
-    /**
-     * Por si acaso alguna otra parte añade scopes raros,
-     * dejamos la query base lo más limpia posible.
-     */
     public static function getEloquentQuery(): Builder
     {
         return static::getModel()::query();

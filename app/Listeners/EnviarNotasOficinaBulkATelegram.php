@@ -48,7 +48,7 @@ class EnviarNotasOficinaBulkATelegram implements ShouldQueue
 
         $mensaje = rtrim($mensaje, "\n");
 
-        $this->telegram->sendMessage($mensaje);
+        $this->telegram->sendMessage($mensaje, 'cantico');
     }
 
 }

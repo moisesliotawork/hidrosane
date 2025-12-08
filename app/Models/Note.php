@@ -9,6 +9,7 @@ use App\Enums\FuenteNotas;
 use App\Enums\EstadoTerminal;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\NoteSalaEvent;
 
 /**
  * @property int $id
@@ -398,12 +399,6 @@ class Note extends Model
         return $this->hasMany(\App\Models\NoteConfirmation::class, 'note_id');
     }
 
-    public function markSentToSalaNow(): void
-    {
-        $this->sent_to_sala_at = now();
-        $this->save();
-    }
-
     public function markPrinted(): void
     {
         $this->forceFill(['printed' => true])->save();
@@ -423,4 +418,33 @@ class Note extends Model
     {
         return $q->where('printed', false);
     }
+
+    public function salaEvents()
+    {
+        return $this->hasMany(NoteSalaEvent::class, 'note_id');
+    }
+
+    public function lastSalaEvent()
+    {
+        return $this->hasOne(NoteSalaEvent::class, 'note_id')->latestOfMany('sent_at');
+
+        // return $this->hasOne(NoteSalaEvent::class, 'note_id')->latestOfMany();
+    }
+
+    public function markSentToSalaNow(string $via = 'declaracion', ?int $userId = null): void
+    {
+        $now = now();
+
+        // Actualiza el campo "rápido" de la nota
+        $this->sent_to_sala_at = $now;
+        $this->save();
+
+        // Crea el evento histórico
+        $this->salaEvents()->create([
+            'sent_by_user_id' => $userId ?? auth()->id(),
+            'via' => $via,
+            'sent_at' => $now,
+        ]);
+    }
+
 }

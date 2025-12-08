@@ -15,7 +15,7 @@ use App\Models\TransactionVenta;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\CreamDailyControl;
 use Carbon\Carbon;
-
+use Illuminate\Filesystem\FilesystemAdapter;
 
 /**
  * @property int $id
@@ -362,9 +362,14 @@ class Venta extends Model
     /* ---------- Helper ---------- */
     protected function urlFor(string $field): ?string
     {
-        return $this->$field
-            ? Storage::disk('public')->url($this->$field)
-            : null;
+        if (!$this->$field) {
+            return null;
+        }
+
+        /** @var FilesystemAdapter $disk */
+        $disk = Storage::disk('public');
+
+        return $disk->url($this->$field);
     }
 
     /* ---------- Relaciones ---------- */

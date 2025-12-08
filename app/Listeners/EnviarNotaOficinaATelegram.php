@@ -48,6 +48,6 @@ class EnviarNotaOficinaATelegram implements ShouldQueue
             $mensaje .= "\n*Observación de Oficina:*\n{$salaObs->observation}";
         }
 
-        $this->telegram->sendMessage($mensaje);
+        $this->telegram->sendMessage($mensaje, 'cantico');
     }
 }

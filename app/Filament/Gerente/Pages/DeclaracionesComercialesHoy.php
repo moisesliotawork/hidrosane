@@ -18,13 +18,13 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-    protected static ?string $navigationLabel = 'Reporte Diario';
+    protected static ?string $navigationLabel = 'Reportes De Hoy';
 
     protected static string $view = 'filament.gerente.pages.declaraciones-comerciales-hoy';
 
     public function getTitle(): string
     {
-        return 'REPORTES DIARIOS';
+        return 'REPORTES DE HOY';
     }
 
     public function getHeaderActions(): array
@@ -127,6 +127,8 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
                     ->sortable()
                     ->formatStateUsing(fn($state) => $state ?? 0),
             ])
-            ->defaultSort('empleado_id');
+            ->defaultSort('name', 'asc')
+            ->defaultSort('last_name', 'asc');
+
     }
 }

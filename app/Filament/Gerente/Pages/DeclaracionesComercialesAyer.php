@@ -25,7 +25,7 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
 
     public function getTitle(): string
     {
-        return 'REPORTE DE AYER';
+        return 'REPORTES DE AYER';
     }
 
     public function table(Table $table): Table
@@ -73,6 +73,8 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
                 Tables\Columns\TextColumn::make('confirmadas_count')->label('Conf')->badge()->color('orange'),
                 Tables\Columns\TextColumn::make('ventas_count')->label('Vta')->badge()->color('success'),
             ])
-            ->defaultSort('empleado_id');
+            ->defaultSort('name', 'asc')
+            ->defaultSort('last_name', 'asc');
+
     }
 }
