@@ -36,8 +36,8 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
 
         $mensaje .= "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n";
 
-        if ($confirmation->created_at) {
-            $mensaje .= "Fecha confirmación: " . $confirmation->created_at->format('d/m/Y H:i') . "\n";
+        if ($note->fecha_declaracion) {
+            $mensaje .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
         }
 
         // ───────── INFO CREMA ─────────
