@@ -47,15 +47,22 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
+            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
-                        EstadoTerminal::SIN_ESTADO->value,          // ''
-                        EstadoTerminal::SALA->value,                // 'sala'
+                        EstadoTerminal::SIN_ESTADO->value,  // ''
+                        EstadoTerminal::SALA->value,        // 'sala'
                     ]);
+            })
+            ->where(function (Builder $q) {
+                // Mostrar solo las notas que NO estén en reten
+                // (reten null o false se muestran, true se oculta)
+                $q->whereNull('reten')
+                    ->orWhere('reten', false);
             });
     }
+
 
     public static function form(Form $form): Form
     {
@@ -525,7 +532,7 @@ class NoteResource extends Resource
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return \App\Models\User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
+                        return User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
                             ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
@@ -588,34 +595,34 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                return User::role(['commercial', 'team_leader', 'sales_manager'])
-                                    ->whereNull('baja')          // <-- SOLO activos
-                                    ->orderBy('name')
-                                    ->select('id', 'name', 'last_name', 'empleado_id')
+                                $users = User::query()
+                                    ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                                    ->with(['roles:id,name'])
+                                    ->role(['commercial', 'team_leader', 'sales_manager'])
+                                    ->orderBy('empleado_id')
                                     ->get()
-                                    ->mapWithKeys(fn($u) => [
-                                        $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
-                                    ])
-                                    ->toArray();
+                                    ->unique('id');
+
+                                $options = $users->mapWithKeys(function (User $user) {
+                                    $hasTL = $user->roles->contains('name', 'team_leader');
+                                    $hasCOM = $user->roles->contains('name', 'commercial');
+                                    $hasJV = $user->roles->contains('name', 'sales_manager');
+                                    $tag = $hasTL && $hasCOM && $hasJV ? 'TL/COM' : ($hasCOM ? 'COM' : 'TL');
+
+                                    return [
+                                        $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
+                                    ];
+                                })->toArray();
+
+                                // <<--- NUEVO: opción especial
+                                return [
+                                    '__RETEN__' => 'COMERCIAL RETEN',
+                                    null => 'Sin asignar',
+                                ] + $options;
                             })
                             ->searchable()
-                            ->native(false)
-                            ->placeholder('Sin asignar')
-                            ->rules([
-                                'nullable',
-                                'integer',
-                                Rule::exists('users', 'id')->where(function ($q) {
-                                    $q->whereNull('baja')
-                                        ->whereExists(function ($sq) {
-                                            $sq->selectRaw(1)
-                                                ->from('model_has_roles as mhr')
-                                                ->join('roles as r', 'r.id', '=', 'mhr.role_id')
-                                                ->whereColumn('mhr.model_id', 'users.id')
-                                                ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
-                                        });
-                                }),
-                            ]),
+                            ->native(false),
+
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha de asignación')
                             ->hint('Si se deja vacío, se usará la fecha actual')
@@ -623,43 +630,37 @@ class NoteResource extends Resource
                     ])
                     ->action(function (Note $record, array $data): void {
                         try {
-                            $comercialId = $data['comercial_id'] ?? null;
+                            // <<--- NUEVO: si eligieron COMERCIAL RETEN, solo marcar reten=true y salir
+                            if (($data['comercial_id'] ?? null) === '__RETEN__') {
+                                $record->update(['reten' => true]);
 
-                            // doble verificación en runtime (aquí sí podemos usar Eloquent + whereHas)
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja')
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
-                                    ->exists();
+                                Notification::make()
+                                    ->title('Marcada como COMERCIAL RETEN')
+                                    ->success()
+                                    ->send();
 
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
-                                }
+                                return;
                             }
 
-                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
+                            // Comportamiento normal de asignación
+                            $record->update([
+                                'comercial_id' => $data['comercial_id'] ?? null,
+                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                    ? ($data['assignment_date'] ?? now())
+                                    : null,
+                                'reten' => false,
+                            ]);
 
-                            $updates = [
-                                'comercial_id' => $comercialId ?: null,
-                                'assignment_date' => $assignmentDate,
-                            ];
-
-                            if ($record->estado_terminal === EstadoTerminal::SALA) {
-                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
-                                $updates['sent_to_sala_at'] = null;
-                            }
-
-                            $record->update($updates);
+                            $message = is_null($data['comercial_id'] ?? null)
+                                ? 'Comercial removido correctamente'
+                                : 'Comercial asignado correctamente: ' . User::find($data['comercial_id'])->name;
 
                             Notification::make()
-                                ->title(empty($comercialId)
-                                    ? 'Comercial removido correctamente'
-                                    : 'Comercial asignado correctamente: ' . User::find($comercialId)?->name)
+                                ->title($message)
                                 ->success()
                                 ->send();
 
-                        } catch (\Throwable $e) {
+                        } catch (\Exception $e) {
                             Notification::make()
                                 ->title('Error al actualizar comercial')
                                 ->body($e->getMessage())
