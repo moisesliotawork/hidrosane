@@ -591,46 +591,59 @@ class NoteResource extends Resource
                 Tables\Actions\Action::make('assignCommercial')
                     ->label('')
                     ->icon('heroicon-s-user-plus')
-                    ->form([
-                        Forms\Components\Select::make('comercial_id')
-                            ->label('Seleccionar Comercial')
-                            ->options(function () {
-                                $users = User::query()
-                                    ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
-                                    ->with(['roles:id,name'])
-                                    ->role(['commercial', 'team_leader', 'sales_manager'])
-                                    ->orderBy('empleado_id')
-                                    ->get()
-                                    ->unique('id');
+                    ->form(function (Note $record) {
+                        return [
+                            Forms\Components\Select::make('comercial_id')
+                                ->label('Seleccionar Comercial')
+                                ->options(function () use ($record) {
+                                    $users = User::query()
+                                        ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                                        ->with(['roles:id,name'])
+                                        ->role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->orderBy('empleado_id')
+                                        ->get()
+                                        ->unique('id');
 
-                                $options = $users->mapWithKeys(function (User $user) {
-                                    $hasTL = $user->roles->contains('name', 'team_leader');
-                                    $hasCOM = $user->roles->contains('name', 'commercial');
-                                    $hasJV = $user->roles->contains('name', 'sales_manager');
-                                    $tag = $hasTL && $hasCOM && $hasJV ? 'TL/COM' : ($hasCOM ? 'COM' : 'TL');
+                                    $options = $users->mapWithKeys(function (User $user) {
+                                        $hasTL = $user->roles->contains('name', 'team_leader');
+                                        $hasCOM = $user->roles->contains('name', 'commercial');
+                                        $hasJV = $user->roles->contains('name', 'sales_manager');
 
-                                    return [
-                                        $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
-                                    ];
-                                })->toArray();
+                                        $tag = $hasTL && $hasCOM && $hasJV
+                                            ? 'TL/COM'
+                                            : ($hasCOM ? 'COM' : 'TL');
 
-                                // <<--- NUEVO: opción especial
-                                return [
-                                    '__RETEN__' => 'COMERCIAL RETEN',
-                                    null => 'Sin asignar',
-                                ] + $options;
-                            })
-                            ->searchable()
-                            ->native(false),
+                                        return [
+                                            $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
+                                        ];
+                                    })->toArray();
 
-                        Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de asignación')
-                            ->hint('Si se deja vacío, se usará la fecha actual')
-                            ->required(false),
-                    ])
+                                    // Opciones base (siempre)
+                                    $baseOptions = [
+                                        null => 'Sin asignar',
+                                    ] + $options;
+
+                                    // ⬇️ SOLO si la nota YA tiene comercial asignado mostramos COMERCIAL RETEN
+                                    if (!is_null($record->comercial_id)) {
+                                        $baseOptions = [
+                                            '__RETEN__' => 'COMERCIAL RETEN',
+                                        ] + $baseOptions;
+                                    }
+
+                                    return $baseOptions;
+                                })
+                                ->searchable()
+                                ->native(false),
+
+                            Forms\Components\DatePicker::make('assignment_date')
+                                ->label('Fecha de asignación')
+                                ->hint('Si se deja vacío, se usará la fecha actual')
+                                ->required(false),
+                        ];
+                    })
                     ->action(function (Note $record, array $data): void {
                         try {
-                            // <<--- NUEVO: si eligieron COMERCIAL RETEN, solo marcar reten=true y salir
+                            // Se mantiene tu lógica existente
                             if (($data['comercial_id'] ?? null) === '__RETEN__') {
                                 $record->update(['reten' => true]);
 
@@ -642,7 +655,6 @@ class NoteResource extends Resource
                                 return;
                             }
 
-                            // Comportamiento normal de asignación
                             $record->update([
                                 'comercial_id' => $data['comercial_id'] ?? null,
                                 'assignment_date' => ($data['comercial_id'] ?? null)
