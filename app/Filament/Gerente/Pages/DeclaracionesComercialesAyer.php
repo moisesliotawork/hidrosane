@@ -10,14 +10,15 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Gerente\Pages\DeclaracionesComercialDetalleAyer;
 
 class DeclaracionesComercialesAyer extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static ?string $navigationIcon = null; // ❌ Sin icono
-    protected static ?string $navigationLabel = null; // ❌ No aparece en menú
-    protected static bool $shouldRegisterNavigation = false; // ❌ No sale en la barra
+    protected static ?string $navigationIcon = null; //Sin icono
+    protected static ?string $navigationLabel = null; //No aparece en menú
+    protected static bool $shouldRegisterNavigation = false; // No sale en la barra
 
     protected static string $view = 'filament.gerente.pages.declaraciones-comerciales-ayer';
     protected static ?string $slug = 'declaraciones-comerciales-ayer';
@@ -74,7 +75,11 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
                 Tables\Columns\TextColumn::make('ventas_count')->label('Vta')->badge()->color('success'),
             ])
             ->defaultSort('name', 'asc')
-            ->defaultSort('last_name', 'asc');
+            ->defaultSort('last_name', 'asc')
+            ->recordUrl(
+                fn(User $record) =>
+                DeclaracionesComercialDetalleAyer::getUrl(['record' => $record])
+            );
 
     }
 }
