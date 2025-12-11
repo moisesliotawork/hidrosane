@@ -115,14 +115,22 @@ class SupervisionResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
 
-                Tables\Columns\TextColumn::make('supervisor.empleado_id')
+                Tables\Columns\TextColumn::make('supervisor.display_name')
                     ->label('Supervisor')
-                    ->searchable()
+                    ->searchable([
+                        'supervisor.empleado_id',
+                        'supervisor.name',
+                        'supervisor.last_name',
+                    ])
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('supervisado.empleado_id')
+                Tables\Columns\TextColumn::make('supervisado.display_name')
                     ->label('Supervisado')
-                    ->searchable()
+                    ->searchable([
+                        'supervisado.empleado_id',
+                        'supervisado.name',
+                        'supervisado.last_name',
+                    ])
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('start_date')
