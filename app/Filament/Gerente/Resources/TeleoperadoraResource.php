@@ -228,17 +228,28 @@ SQL;
 
     public static function getEloquentQuery(): Builder
     {
-        $hoy = Carbon::today(config('app.timezone', 'UTC'))->toDateString();
+        $tz = config('app.timezone', 'UTC');
+
+        // Hoy en tu zona horaria
+        $today = Carbon::today($tz);
+
+        // Primer día del mes anterior (límite mínimo para seguir mostrándola)
+        $firstDayPreviousMonth = $today->copy()
+            ->subMonth()
+            ->startOfMonth()
+            ->toDateString(); // formato 'Y-m-d'
 
         return User::query()
             ->select('users.*')
             ->role(['teleoperator', 'head_of_room'])
-            ->where(function (Builder $q) use ($hoy) {
-                $q->whereNull('users.baja')
-                    ->orWhereDate('users.baja', '>', $hoy);
+            ->where(function (Builder $q) use ($firstDayPreviousMonth) {
+                $q->whereNull('users.baja') // sin baja, siempre visible
+                    // solo mostrar si la baja fue en el mes actual o en el mes anterior
+                    ->orWhereDate('users.baja', '>=', $firstDayPreviousMonth);
             })
             ->distinct('users.id');
     }
+
 
 
     public static function canEdited(): bool
