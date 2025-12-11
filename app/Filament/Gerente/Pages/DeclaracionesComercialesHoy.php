@@ -11,7 +11,8 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
+use App\Filament\Gerente\Pages\DeclaracionesComercialDetalleHoy;
+
 
 class DeclaracionesComercialesHoy extends Page implements HasTable
 {
@@ -128,7 +129,11 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
                     ->formatStateUsing(fn($state) => $state ?? 0),
             ])
             ->defaultSort('name', 'asc')
-            ->defaultSort('last_name', 'asc');
+            ->defaultSort('last_name', 'asc')
+            ->recordUrl(
+                fn(User $record) =>
+                DeclaracionesComercialDetalleHoy::getUrl(['record' => $record])
+            );
 
     }
 }

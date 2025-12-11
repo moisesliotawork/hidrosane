@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\CreamDailyControl;
 use Carbon\Carbon;
+use App\Enums\EstadoTerminal;
 
 
 /**
@@ -265,5 +266,350 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(\App\Models\Note::class, 'user_id');
     }
 
+    public function getNotasOficinaHoyAttribute(): string
+    {
+        $today = now()->toDateString();
 
+        $notas = $this->notasDeclaradas()
+            ->with([
+                'customer',
+                'comercial',
+                'latestSalaObservation',
+                'latestSalaEvent.sentBy',
+            ])
+            ->whereDate('fecha_declaracion', $today)
+            ->where('estado_terminal', EstadoTerminal::SALA->value)
+            ->get();
+
+        if ($notas->isEmpty()) {
+            return '';
+        }
+
+        $mensajes = $notas->map(function (Note $note) {
+            $customer = $note->customer;
+            $com = $note->comercial;
+            $obs = $note->latestSalaObservation;
+            $event = $note->latestSalaEvent;
+
+            $msg = "Nota: #{$note->nro_nota}\n";
+
+            if ($customer) {
+                $msg .= "Cliente: {$customer->first_names} {$customer->last_names}\n";
+                if (!empty($customer->phone)) {
+                    $msg .= "Teléfono: {$customer->phone}\n";
+                }
+            }
+
+            if ($com) {
+                $msg .= "Comercial: {$com->display_name}\n";
+            }
+
+            if ($note->fecha_declaracion) {
+                $msg .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
+            }
+
+            if ($obs?->observation) {
+                $msg .= "Observación sala: {$obs->observation}\n";
+            }
+
+            if ($event) {
+                $via = $event->via ?? 'N/D';
+                $sent = $event->sent_at?->format('d/m/Y H:i') ?? 'N/D';
+                $by = $event->sentBy?->display_name ?? 'N/D';
+
+                $msg .= "Enviado por: {$by} vía {$via} el {$sent}\n";
+            }
+
+            return trim($msg);
+        });
+
+        // Un único string, con una línea en blanco entre cada nota
+        return $mensajes->implode("\n\n");
+    }
+
+    public function getNotasNuloHoyAttribute(): string
+    {
+        $today = now()->toDateString();
+
+        $notas = $this->notasDeclaradas()
+            ->with(['customer', 'comercial', 'nullReason'])
+            ->whereDate('fecha_declaracion', $today)
+            ->where('estado_terminal', EstadoTerminal::NUL->value)
+            ->get();
+
+        if ($notas->isEmpty()) {
+            return '';
+        }
+
+        $mensajes = $notas->map(function (Note $note) {
+            $customer = $note->customer;
+            $com = $note->comercial;
+            $nullReason = $note->nullReason;
+
+            // Cabecera simplificada sin Markdown
+            $msg = "NOTA NULA ⛔\n";
+            $msg .= "Nota: #{$note->nro_nota}\n";
+
+            if ($customer) {
+                $msg .= "Cliente: {$customer->first_names} {$customer->last_names}\n";
+                if ($customer->phone) {
+                    $msg .= "Teléfono: {$customer->phone}\n";
+                }
+            }
+
+            if ($com) {
+                $msg .= "Comercial: {$com->display_name}\n";
+            }
+
+            if ($note->fecha_declaracion) {
+                $msg .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
+            }
+
+            if ($nullReason?->reason) {
+                $msg .= "Motivo: {$nullReason->reason}\n";
+            }
+
+            return trim($msg);
+        });
+
+        // Un solo string separado por dos saltos de línea
+        return $mensajes->implode("\n\n");
+    }
+
+    public function getNotasAusenteHoyAttribute(): string
+    {
+        $today = now()->toDateString();
+
+        $notas = $this->notasDeclaradas()
+            ->with([
+                'customer',
+                'comercial',
+                'ausencias.autor',
+            ])
+            ->whereDate('fecha_declaracion', $today)
+            ->where('estado_terminal', EstadoTerminal::AUSENTE->value)
+            ->get();
+
+        if ($notas->isEmpty()) {
+            return '';
+        }
+
+        $mensajes = $notas->map(function (Note $note) {
+            $customer = $note->customer;
+            $com = $note->comercial;
+
+            // Tomamos la última AUSENCIA por fecha + hora
+            $hist = $note->ausencias
+                ->sortByDesc('fecha')
+                ->sortByDesc('hora')
+                ->first();
+
+            $msg = "Nota: #{$note->nro_nota}\n";
+
+            if ($customer) {
+                $msg .= "Cliente: {$customer->first_names} {$customer->last_names}\n";
+                if (!empty($customer->phone)) {
+                    $msg .= "Teléfono: {$customer->phone}\n";
+                }
+            }
+
+            if ($com) {
+                $msg .= "Comercial: {$com->display_name}\n";
+            }
+
+            if ($note->fecha_declaracion) {
+                $msg .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
+            }
+
+            if ($hist) {
+                $fecha = $hist->fecha?->format('d/m/Y') ?? 'N/D';
+                $hora = $hist->hora ?? 'N/D';
+                $autor = $hist->autor?->display_name ?? 'N/D';
+
+                $msg .= "Último registro ausente: {$fecha} {$hora}\n";
+
+                if (!empty($hist->observacion)) {
+                    $msg .= "Observación: {$hist->observacion}\n";
+                }
+
+                $msg .= "Registrado por: {$autor}\n";
+            }
+
+            return trim($msg);
+        });
+
+        // Un solo string, cada nota separada por una línea en blanco
+        return $mensajes->implode("\n\n");
+    }
+
+    public function getNotasConfirmadoHoyAttribute(): string
+    {
+        $today = now()->toDateString();
+
+        $notas = $this->notasDeclaradas()
+            ->with([
+                'customer',
+                'comercial',
+                'confirmations.author',
+            ])
+            ->whereDate('fecha_declaracion', $today)
+            ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
+            ->get();
+
+        if ($notas->isEmpty()) {
+            return '';
+        }
+
+        $mensajes = $notas->map(function (Note $note) {
+            $customer = $note->customer;
+            $com = $note->comercial;
+
+            // última confirmación (por created_at)
+            $conf = $note->confirmations
+                ->sortByDesc('created_at')
+                ->first();
+
+            $msg = "Nota: #{$note->nro_nota}\n";
+
+            if ($customer) {
+                $msg .= "Cliente: {$customer->first_names} {$customer->last_names}\n";
+                if (!empty($customer->phone)) {
+                    $msg .= "Teléfono: {$customer->phone}\n";
+                }
+            }
+
+            if ($com) {
+                $msg .= "Comercial: {$com->display_name}\n";
+            }
+
+            if ($note->fecha_declaracion) {
+                $msg .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
+            }
+
+            if ($conf) {
+                $dioCrema = $conf->dio_crema ? 'Sí' : 'No';
+                $autor = $conf->author?->display_name ?? 'N/D';
+
+                $msg .= "Dio crema: {$dioCrema}\n";
+
+                if (!empty($conf->observation)) {
+                    $msg .= "Observación: {$conf->observation}\n";
+                }
+
+                $msg .= "Confirmado por: {$autor}\n";
+            }
+
+            return trim($msg);
+        });
+
+        // Único string, separado por líneas en blanco entre notas
+        return $mensajes->implode("\n\n");
+    }
+
+    public function getNotasVentaHoyAttribute(): string
+    {
+        $today = now()->toDateString();
+
+        $notas = $this->notasDeclaradas()
+            ->with([
+                'customer',
+                'comercial',
+                'venta.customer',
+                'venta.companion',
+                'venta.ventaOfertas',
+            ])
+            ->whereDate('fecha_declaracion', $today)
+            ->where('estado_terminal', EstadoTerminal::VENTA->value)
+            ->get();
+
+        if ($notas->isEmpty()) {
+            return '';
+        }
+
+        $mensajes = $notas->map(function (Note $note) {
+            $customer = $note->customer;
+            $com = $note->comercial;
+            $venta = $note->venta;
+
+            $msg = "Nota: #{$note->nro_nota}\n";
+
+            if ($customer) {
+                $msg .= "Cliente: {$customer->first_names} {$customer->last_names}\n";
+                if (!empty($customer->phone)) {
+                    $msg .= "Teléfono: {$customer->phone}\n";
+                }
+            }
+
+            if ($com) {
+                $msg .= "Comercial: {$com->display_name}\n";
+            }
+
+            if ($note->fecha_declaracion) {
+                $msg .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";
+            }
+
+            if ($venta) {
+                $msg .= "Compañero: {$venta->companion_label}\n";
+
+                // Fecha de venta
+                if ($venta->fecha_venta) {
+                    $msg .= "Fecha venta: " . $venta->fecha_venta->format('d/m/Y H:i') . "\n";
+                }
+
+                // Resumen económico
+                $importeTotalF = number_format((float) $venta->importe_total, 2, ',', '.');
+                $numOfertas = $venta->ventaOfertas->count();
+                $numCuotas = $venta->num_cuotas;
+                $cuotaMensual = $venta->cuota_mensual;
+
+                $msg .= "Importe: {$importeTotalF} €\n";
+                $msg .= "Ofertas incluidas: {$numOfertas}\n";
+
+                if ($numCuotas) {
+                    $msg .= "Nº de cuotas: {$numCuotas}\n";
+                }
+
+                if (!is_null($cuotaMensual)) {
+                    $cuotaMensualF = number_format((float) $cuotaMensual, 2, ',', '.');
+                    $msg .= "Cuota mensual: {$cuotaMensualF} €\n";
+
+                    if ($numCuotas) {
+                        $msg .= "Operación: {$numCuotas} x {$cuotaMensualF} € = {$importeTotalF} €\n";
+                    }
+                }
+
+                // Documentos subidos (sin bullets para hacerlo más compacto)
+                $documentos = [
+                    'precontractual' => 'Precontractual',
+                    'dni_anverso' => 'DNI – Anverso',
+                    'dni_reverso' => 'DNI – Reverso',
+                    'documento_titularidad' => 'Documento titularidad',
+                    'nomina' => 'Nómina',
+                    'pension' => 'Pensión',
+                    'contrato_firmado' => 'Otro Documento',
+                ];
+
+                $subidos = [];
+
+                foreach ($documentos as $field => $label) {
+                    if (!empty($venta->$field)) {
+                        $subidos[] = $label;
+                    }
+                }
+
+                $msg .= "Documentos subidos: ";
+
+                if (!empty($subidos)) {
+                    $msg .= implode(', ', $subidos) . "\n";
+                } else {
+                    $msg .= "Ninguno\n";
+                }
+            }
+
+            return trim($msg);
+        });
+
+        // Único string, cada venta separada por una línea en blanco
+        return $mensajes->implode("\n\n");
+    }
 }

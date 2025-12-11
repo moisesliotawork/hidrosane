@@ -10,6 +10,10 @@ use App\Enums\EstadoTerminal;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\NoteSalaEvent;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\NoteNullReason;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\NoteSalaObservation;
 
 /**
  * @property int $id
@@ -445,6 +449,31 @@ class Note extends Model
             'via' => $via,
             'sent_at' => $now,
         ]);
+    }
+
+    public function nullReason(): HasOne
+    {
+        return $this->hasOne(NoteNullReason::class);
+    }
+
+    public function salaObservations(): HasMany
+    {
+        return $this->hasMany(NoteSalaObservation::class, 'note_id');
+    }
+
+    public function latestSalaObservation(): HasOne
+    {
+        return $this->hasOne(NoteSalaObservation::class, 'note_id')->latestOfMany();
+    }
+
+    public function salaEvents2(): HasMany
+    {
+        return $this->hasMany(NoteSalaEvent::class, 'note_id');
+    }
+
+    public function latestSalaEvent(): HasOne
+    {
+        return $this->hasOne(NoteSalaEvent::class, 'note_id')->latestOfMany('sent_at');
     }
 
 }

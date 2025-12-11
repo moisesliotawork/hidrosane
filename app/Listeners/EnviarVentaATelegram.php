@@ -19,6 +19,7 @@ class EnviarVentaATelegram implements ShouldQueue
         $venta = $event->venta->loadMissing([
             'customer',
             'comercial',
+            'companion',
             'note',
             'ventaOfertas', // solo para contar
         ]);
@@ -33,6 +34,8 @@ class EnviarVentaATelegram implements ShouldQueue
             . "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n"
             . "Fecha venta: " . $venta->fecha_venta?->format('d/m/Y H:i') . "\n"
             . "Nota: #{$venta->note->nro_nota}";
+
+        $mensaje .= "Compañero: {$venta->companion_label}\n";
 
         // ────────────── RESUMEN ECONÓMICO ──────────────
         $numOfertas = $venta->ventaOfertas->count();
