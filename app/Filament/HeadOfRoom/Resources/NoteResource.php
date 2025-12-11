@@ -958,6 +958,65 @@ class NoteResource extends Resource
                         }
                     })
                     ->deselectRecordsAfterCompletion(),
+                Tables\Actions\BulkAction::make('enviarAReten')
+                    ->label('Enviar a RETEN')
+                    ->icon('heroicon-s-lock-closed')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->action(function (Collection $records): void {
+
+                        // Comercial RETEN fijo (id = 57 Alba JEFE DE VENTAS)
+                        $retenCommercial = User::find(57);
+
+                        if (!$retenCommercial) {
+                            Notification::make()
+                                ->title('Error: Comercial RETEN no encontrado')
+                                ->body('No existe un usuario con id = 1.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $now = now();
+                        $totalEnviadas = 0;
+                        $asignadasAReten = 0;
+
+                        DB::transaction(function () use ($records, $now, $retenCommercial, &$totalEnviadas, &$asignadasAReten) {
+
+                            /** @var Note $note */
+                            foreach ($records as $note) {
+
+                                // Si la nota no tiene comercial, la asignamos al comercial RETEN
+                                if (is_null($note->comercial_id)) {
+                                    $note->comercial_id = $retenCommercial->id;
+                                    $note->assignment_date = $now;
+                                    $asignadasAReten++;
+                                }
+
+                                // En todos los casos la mandamos a RETEN
+                                $note->reten = true;
+                                $note->save();
+
+                                $totalEnviadas++;
+                            }
+                        });
+
+                        $displayComercial = $retenCommercial->display_name; // "empleado_id - nombre apellidos"
+            
+                        $bodyLines = [
+                            "Total de notas enviadas a RETEN: {$totalEnviadas}",
+                            "Notas sin comercial asignadas ahora a {$displayComercial}: {$asignadasAReten}",
+                        ];
+
+                        Notification::make()
+                            ->title('Notas enviadas a RETEN')
+                            ->body(implode("\n", $bodyLines))
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+
             ])
             ->deselectAllRecordsWhenFiltered(false);
     }
