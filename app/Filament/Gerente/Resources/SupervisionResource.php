@@ -112,6 +112,7 @@ class SupervisionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('start_date', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('id')->sortable(),
 

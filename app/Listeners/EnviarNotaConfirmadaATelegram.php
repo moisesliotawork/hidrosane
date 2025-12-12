@@ -21,9 +21,13 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
             'comercial',
         ]);
 
-        $confirmation = $event->confirmation;
+        $confirmation = $event->confirmation->loadMissing(['companion']);
         $customer = $note->customer;
         $com = $note->comercial;
+
+        $companion = $confirmation->companion;
+        $companionDisplay = $companion ? $companion->display_name : '—';
+
 
         // ───────── CABECERA ─────────
         $mensaje = "*NOTA CONFIRMADA* 🟠\n"
@@ -35,6 +39,7 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
         }
 
         $mensaje .= "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n";
+        $mensaje .= "Compañero: {$companionDisplay}\n";
 
         if ($note->fecha_declaracion) {
             $mensaje .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";

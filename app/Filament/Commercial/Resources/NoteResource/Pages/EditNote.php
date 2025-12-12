@@ -25,6 +25,7 @@ use Filament\Forms\Components\TextInput;
 use App\Models\CreamTransfer;
 use App\Notifications\CreamTransferRequested;
 use App\Models\NoteSalaEvent;
+use App\Models\User;
 
 
 
@@ -161,6 +162,31 @@ class EditNote extends EditRecord
                         ])
                         ->required()
                         ->native(false),
+
+                    Forms\Components\Section::make('¿Estás en pareja con otro compañero?')
+                        ->schema([
+                            Select::make('companion_id')
+                                ->label('Compañero')
+                                ->native(false)
+                                ->searchable()
+                                ->required()
+                                ->placeholder('Selecciona una opción')
+                                ->options(
+                                    fn() => ['__NONE__' => 'SIN COMPAÑERO']
+                                    + User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereKeyNot(auth()->id())
+                                        ->whereNull('baja')
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('name')
+                                        ->distinct()
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()
+                                ),
+                        ]),
+
                     Textarea::make('observation')
                         ->label('Observación (opcional)')
                         ->placeholder('Escribe una observación (opcional)…')
@@ -174,6 +200,10 @@ class EditNote extends EditRecord
                 ->action(function (array $data) {
 
                     $dioCrema = (bool) ($data['dio_crema'] ?? false);
+
+                    // Resolver companion_id: '__NONE__' => null
+                    $rawCompanionId = $data['companion_id'] ?? null;
+                    $companionId = $rawCompanionId === '__NONE__' ? null : $rawCompanionId;
 
                     // 1) Si marcó que SÍ entregó crema, primero verificamos stock
                     if ($dioCrema) {
@@ -214,11 +244,12 @@ class EditNote extends EditRecord
                     }
 
                     // 2️⃣ Flujo normal: sí tiene cremas (o marcó que no entregó crema)
-                    DB::transaction(function () use ($data, $dioCrema) {
+                    DB::transaction(function () use ($data, $dioCrema, $companionId) {
 
                         $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
+                            'companion_id' => $companionId,   // 👈 aquí guardamos null o el id real
                             'dio_crema' => $dioCrema,
                             'observation' => $data['observation'] ?? null,
                         ]);
