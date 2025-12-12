@@ -25,6 +25,9 @@ use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
 use App\Models\NoteSalaEvent;
+use Illuminate\Support\Collection;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 
 class RetenResource extends Resource
@@ -271,7 +274,7 @@ class RetenResource extends Resource
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {
                                 $author = isset($state['author_id'])
-                                    ? \App\Models\User::find($state['author_id'])
+                                    ? User::find($state['author_id'])
                                     : auth()->user();
 
                                 $date = isset($state['created_at'])
@@ -432,7 +435,7 @@ class RetenResource extends Resource
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
                             ->options(function () {
-                                $users = \App\Models\User::query()
+                                $users = User::query()
                                     ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                                     ->with(['roles:id,name'])
                                     ->role(['commercial', 'team_leader', 'sales_manager'])
@@ -440,7 +443,7 @@ class RetenResource extends Resource
                                     ->get()
                                     ->unique('id');
 
-                                $options = $users->mapWithKeys(function (\App\Models\User $user) {
+                                $options = $users->mapWithKeys(function (User $user) {
                                     $hasTL = $user->roles->contains('name', 'team_leader');
                                     $hasCOM = $user->roles->contains('name', 'commercial');
                                     $hasJV = $user->roles->contains('name', 'sales_manager');
@@ -490,7 +493,7 @@ class RetenResource extends Resource
 
                             $message = is_null($data['comercial_id'] ?? null)
                                 ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . \App\Models\User::find($data['comercial_id'])->name;
+                                : 'Comercial asignado correctamente: ' . User::find($data['comercial_id'])->name;
 
                             Notification::make()
                                 ->title($message)
@@ -509,87 +512,101 @@ class RetenResource extends Resource
 
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkAction::make('enviarASala')
-                    ->label('Enviar a Oficina')
-                    ->icon('heroicon-o-building-office-2')
-                    ->color('pink')
+                Tables\Actions\BulkAction::make('enviarAReten')
+                    ->label('Enviar a RETEN')
+                    ->icon('heroicon-s-lock-closed')
+                    ->color('warning')
                     ->requiresConfirmation()
-                    ->modalHeading('Enviar a Oficina')
-                    ->modalDescription('Se enviarán a OFICINA las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
-                    ->action(function (iterable $records): void {
-                        $allIds = collect($records)->pluck('id')->all();
+                    ->action(function (Collection $records): void {
 
-                        // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
-                        $eligible = Note::query()
-                            ->whereIn('id', $allIds)
-                            ->whereDoesntHave('venta')
-                            ->where(function ($q) {
-                            $q->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '')
-                                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
-                        })
-                            ->pluck('id')
-                            ->all();
+                        // Comercial RETEN fijo (id = 57)
+                        $retenCommercial = User::find(57);
 
-                        $skipped = count($allIds) - count($eligible);
-
-                        if (empty($eligible)) {
+                        if (!$retenCommercial) {
                             Notification::make()
-                                ->title('No hay notas válidas para enviar a Oficina')
-                                ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA.')
-                                ->warning()
+                                ->title('Error: Comercial RETEN no encontrado')
+                                ->body('No existe un usuario con id = 57.')
+                                ->danger()
                                 ->send();
+
                             return;
                         }
 
-                        \DB::transaction(function () use ($eligible) {
-                            $now = now();
-                            $userId = auth()->id();
+                        $now = now();
+                        $cutoff = $now->copy()->subDays(5);
 
-                            // 1) Actualizar todas las notas elegibles
-                            Note::whereIn('id', $eligible)->update([
-                                'estado_terminal' => EstadoTerminal::SALA->value,
-                                'printed' => false,
-                                'reten' => false,
-                                'sent_to_sala_at' => $now,
-                                'fecha_declaracion' => $now,
-                            ]);
+                        $totalEnviadas = 0;
+                        $asignadasAReten = 0;
+                        $reasignadasPorAntiguedad = 0;
 
-                            // 2) Crear historial de envíos a sala (masivo)
-                            $rows = [];
-                            foreach ($eligible as $noteId) {
-                                $rows[] = [
-                                    'note_id' => $noteId,
-                                    'sent_by_user_id' => $userId,
-                                    'via' => 'masivo',
-                                    'sent_at' => $now,
-                                    'created_at' => $now,
-                                    'updated_at' => $now,
-                                ];
+                        // Para el mensaje: desglose por comercial (opcional)
+                        $reasignadasPorComercial = []; // [comercial_id => count]
+            
+                        DB::transaction(function () use ($records, $now, $cutoff, $retenCommercial, &$totalEnviadas, &$asignadasAReten, &$reasignadasPorAntiguedad, &$reasignadasPorComercial) {
+
+                            /** @var Note $note */
+                            foreach ($records as $note) {
+
+                                // 1) Si NO tiene comercial → asignar RETEN + fecha
+                                if (is_null($note->comercial_id)) {
+                                    $note->comercial_id = $retenCommercial->id;
+                                    $note->assignment_date = $now;
+                                    $asignadasAReten++;
+                                } else {
+                                    // 2) Si SÍ tiene comercial, y assignment_date existe y es >5 días vieja → reasignar al MISMO comercial
+                                    // (en la práctica: refrescar assignment_date)
+                                    if (!is_null($note->assignment_date) && $note->assignment_date->lt($cutoff)) {
+                                        $note->assignment_date = $now;
+                                        $reasignadasPorAntiguedad++;
+
+                                        $reasignadasPorComercial[$note->comercial_id] = ($reasignadasPorComercial[$note->comercial_id] ?? 0) + 1;
+                                    }
+                                }
+
+                                // 3) En todos los casos: enviar a RETEN
+                                $note->reten = true;
+                                $note->save();
+
+                                $totalEnviadas++;
                             }
-
-                            if (!empty($rows)) {
-                                NoteSalaEvent::insert($rows);
-                            }
-
-                            // 3) Lanzar evento de siempre después del commit
-                            \DB::afterCommit(function () use ($eligible) {
-                                $comercial = auth()->user();
-
-                                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                                    $eligible,
-                                    $comercial
-                                ));
-                            });
                         });
 
+                        $displayReten = $retenCommercial->display_name ?? ($retenCommercial->empleado_id . ' ' . $retenCommercial->name . ' ' . $retenCommercial->last_name);
+
+                        $bodyLines = [
+                            "Total de notas enviadas a RETEN: {$totalEnviadas}",
+                            "Notas sin comercial asignadas ahora a {$displayReten}: {$asignadasAReten}",
+                            "Notas reasignadas al mismo comercial por antigüedad (> 5 días): {$reasignadasPorAntiguedad}",
+                        ];
+
+                        // Desglose (opcional, pero cumple “notificando que se reasigno ... al comercial tal...”)
+                        if (!empty($reasignadasPorComercial)) {
+                            $comerciales = User::whereIn('id', array_keys($reasignadasPorComercial))
+                                ->get()
+                                ->keyBy('id');
+
+                            $detalle = collect($reasignadasPorComercial)
+                                ->map(function ($count, $comId) use ($comerciales) {
+                                    $u = $comerciales->get($comId);
+                                    $name = $u
+                                        ? ($u->display_name ?? ($u->empleado_id . ' ' . $u->name . ' ' . $u->last_name))
+                                        : "Comercial #{$comId}";
+
+                                    return "{$name}: {$count}";
+                                })
+                                ->values()
+                                ->implode("\n");
+
+                            $bodyLines[] = "Reasignadas por comercial:\n" . $detalle;
+                        }
+
                         Notification::make()
-                            ->title('Notas enviadas a Oficina')
-                            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+                            ->title('Notas enviadas a RETEN')
+                            ->body(implode("\n", $bodyLines))
                             ->success()
                             ->send();
                     })
-                    ->deselectRecordsAfterCompletion()
+                    ->deselectRecordsAfterCompletion(),
 
             ]);
     }
