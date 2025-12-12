@@ -431,85 +431,143 @@ class RetenResource extends Resource
                 Tables\Actions\Action::make('assignCommercial')
                     ->label('')
                     ->icon('heroicon-s-user-plus')
-                    ->form([
-                        Forms\Components\Select::make('comercial_id')
-                            ->label('Seleccionar Comercial')
-                            ->options(function () {
-                                $users = User::query()
-                                    ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
-                                    ->with(['roles:id,name'])
-                                    ->role(['commercial', 'team_leader', 'sales_manager'])
-                                    ->orderBy('empleado_id')
-                                    ->get()
-                                    ->unique('id');
+                    ->form(function (Note $record) {
+                        return [
+                            Forms\Components\Select::make('comercial_id')
+                                ->label('Seleccionar Comercial')
+                                ->options(function () use ($record) {
+                                    $users = User::query()
+                                        ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                                        ->with(['roles:id,name'])
+                                        ->role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->orderBy('empleado_id')
+                                        ->get()
+                                        ->unique('id');
 
-                                $options = $users->mapWithKeys(function (User $user) {
-                                    $hasTL = $user->roles->contains('name', 'team_leader');
-                                    $hasCOM = $user->roles->contains('name', 'commercial');
-                                    $hasJV = $user->roles->contains('name', 'sales_manager');
-                                    $tag = $hasTL && $hasCOM && $hasJV ? 'TL/COM' : ($hasCOM ? 'COM' : 'TL');
+                                    $options = $users->mapWithKeys(function (User $user) {
+                                        $hasTL = $user->roles->contains('name', 'team_leader');
+                                        $hasCOM = $user->roles->contains('name', 'commercial');
+                                        $hasJV = $user->roles->contains('name', 'sales_manager');
 
-                                    return [
-                                        $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
-                                    ];
-                                })->toArray();
+                                        $tag = $hasTL && $hasCOM && $hasJV
+                                            ? 'TL/COM'
+                                            : ($hasCOM ? 'COM' : 'TL');
 
-                                // <<--- NUEVO: opción especial
-                                return [
-                                    '__RETEN__' => 'COMERCIAL RETEN',
-                                    null => 'Sin asignar',
-                                ] + $options;
-                            })
-                            ->searchable()
-                            ->native(false),
+                                        return [
+                                            $user->id => "{$user->empleado_id} {$user->name} {$user->last_name} ({$tag})",
+                                        ];
+                                    })->toArray();
 
-                        Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de asignación')
-                            ->hint('Si se deja vacío, se usará la fecha actual')
-                            ->required(false),
-                    ])
+                                    // Opciones base (siempre)
+                                    $baseOptions = [
+                                        null => 'Sin asignar',
+                                    ] + $options;
+
+                                    // ✅ Solo si la nota YA tiene comercial asignado mostramos COMERCIAL RETEN
+                                    if (!is_null($record->comercial_id)) {
+                                        $baseOptions = [
+                                            '__RETEN__' => 'COMERCIAL RETEN',
+                                        ] + $baseOptions;
+                                    }
+
+                                    return $baseOptions;
+                                })
+                                ->searchable()
+                                ->native(false),
+
+                            Forms\Components\DatePicker::make('assignment_date')
+                                ->label('Fecha de asignación')
+                                ->hint('Si se deja vacío, se usará la fecha actual')
+                                ->required(false),
+                        ];
+                    })
                     ->action(function (Note $record, array $data): void {
                         try {
-                            // <<--- NUEVO: si eligieron COMERCIAL RETEN, solo marcar reten=true y salir
+                            $now = now();
+                            $cutoff = $now->copy()->subDays(5);
+
+                            // ✅ CASO: seleccionó "COMERCIAL RETEN"
                             if (($data['comercial_id'] ?? null) === '__RETEN__') {
-                                $record->update(['reten' => true]);
+
+                                // Seguridad extra (aunque no debería verse la opción si no hay comercial)
+                                if (is_null($record->comercial_id)) {
+                                    Notification::make()
+                                        ->title('No se puede enviar a RETEN')
+                                        ->body('Esta nota no tiene comercial asignado.')
+                                        ->danger()
+                                        ->send();
+                                    return;
+                                }
+
+                                $oldAssignment = $record->assignment_date; // Carbon|null (recomendado cast datetime)
+                                $reasignada = false;
+
+                                // Siempre enviar a RETEN
+                                $record->reten = true;
+
+                                // Si tiene fecha y es de hace más de 5 días => refrescar assignment_date a hoy
+                                if (!is_null($oldAssignment) && $oldAssignment->lt($cutoff)) {
+                                    $record->assignment_date = $now;
+                                    $reasignada = true;
+                                }
+
+                                $record->save();
+
+                                // Display del comercial actual (el mismo comercial asignado)
+                                $com = $record->comercial; // relación
+                                $displayCom = $com?->display_name
+                                    ?? ($com ? trim(($com->empleado_id ?? '') . ' ' . ($com->name ?? '') . ' ' . ($com->last_name ?? '')) : '—');
+
+                                $body = $reasignada
+                                    ? "Se envió a RETEN y se reasignó al comercial {$displayCom} porque la fecha de asignación era de hace más de 5 días."
+                                    : "Se envió a RETEN.";
 
                                 Notification::make()
-                                    ->title('Marcada como COMERCIAL RETEN')
+                                    ->title('Acción completada')
+                                    ->body($body)
                                     ->success()
                                     ->send();
 
                                 return;
                             }
 
-                            // Comportamiento normal de asignación
+                            // ✅ CASO NORMAL: asignar/remover comercial
+                            $comercialId = $data['comercial_id'] ?? null;
+
                             $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                'comercial_id' => $comercialId ?: null,
+                                'assignment_date' => $comercialId
                                     ? ($data['assignment_date'] ?? now())
                                     : null,
                                 'reten' => false,
                             ]);
 
-                            $message = is_null($data['comercial_id'] ?? null)
-                                ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . User::find($data['comercial_id'])->name;
+                            if (is_null($comercialId)) {
+                                Notification::make()
+                                    ->title('Comercial removido correctamente')
+                                    ->success()
+                                    ->send();
+                                return;
+                            }
+
+                            $u = User::find($comercialId);
+                            $display = $u?->display_name
+                                ?? ($u ? trim(($u->empleado_id ?? '') . ' ' . ($u->name ?? '') . ' ' . ($u->last_name ?? '')) : '—');
 
                             Notification::make()
-                                ->title($message)
+                                ->title('Comercial asignado correctamente')
+                                ->body("Asignado a: {$display}")
                                 ->success()
                                 ->send();
 
-                        } catch (\Exception $e) {
+                        } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error al actualizar comercial')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->send();
                         }
-                    })
-                    ->visible(fn(): bool => auth()->user()->hasRole('team_leader')),
-
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('enviarAReten')
