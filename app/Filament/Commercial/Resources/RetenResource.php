@@ -237,68 +237,80 @@ class RetenResource extends Resource
                     ->collapsible()
                     ->hidden(fn(string $operation): bool => $operation === 'create'),
 
-                Forms\Components\Section::make('Observaciones')
+                Forms\Components\Repeater::make('observations')
+                    ->label('')
+                    ->relationship('observations', function (Builder $query) {
+                        $user = auth()->user();
+
+                        // Si es comercial: ve solo sus obs + teleoperadoras + jefe de sala
+                        if ($user?->hasRole('commercial')) {
+
+                            // IDs de usuarios que son teleoperadoras o jefe de sala
+                            $allowedOtherIds = \App\Models\User::role([
+                                'teleoperator',        // teleoperadora
+                                'head_of_room' // jefe de sala
+                            ])->pluck('id')->all();
+
+                            $query->where(function ($q) use ($user, $allowedOtherIds) {
+                                $q->where('author_id', $user->id)              // sus propias
+                                    ->orWhereIn('author_id', $allowedOtherIds);  // teleops + jefe de sala
+                            });
+                        }
+
+                        // Para TL / sales_manager, que vean todas
+                        return $query;
+                    })
                     ->schema([
-                        Forms\Components\Repeater::make('observations')
-                            ->label("")
-                            ->relationship(
-                                'observations',
-                                fn($query) => $query->where(function ($q) {
-                                    $userId = auth()->id();
-                                    $q->whereNull('author_id')
-                                        ->orWhere('author_id', $userId);
-                                })
-                            )
-                            ->schema([
-                                Forms\Components\Hidden::make('id'),
-                                Forms\Components\Hidden::make('author_id')
-                                    ->default(auth()->id()),
-                                Forms\Components\Textarea::make('observation')
-                                    ->label('')
-                                    ->placeholder('Escribe una observación')
-                                    ->columnSpanFull()
-                                    ->disabled(function ($get, $set, $state, $record) {
-                                        // Si es una nueva observación (no tiene ID), permitir edición
-                                        if (empty($record?->getKey())) {
-                                            return false;
-                                        }
-                                        // Si ya existe, solo permitir edición si es del usuario actual
-                                        return $record->author_id !== auth()->id();
-                                    })
-                                    ->dehydrated(),
-                            ])
-                            ->addActionLabel('Añadir observación')
-                            ->defaultItems(1)
-                            ->collapsible()
-                            ->collapsed()
+                        Forms\Components\Hidden::make('id'),
+
+                        Forms\Components\Hidden::make('author_id')
+                            ->default(auth()->id()),
+
+                        Forms\Components\Textarea::make('observation')
+                            ->label('')
+                            ->placeholder('Escribe una observación')
                             ->columnSpanFull()
-                            ->itemLabel(function (array $state): ?string {
-                                $author = isset($state['author_id'])
-                                    ? User::find($state['author_id'])
-                                    : auth()->user();
-
-                                $date = isset($state['created_at'])
-                                    ? Carbon::parse($state['created_at'])->format('d/m/y')
-                                    : now()->format('d/m/y');
-
-                                $observationText = $state['observation'] ?? 'Nueva observación';
-                                $limitedObservation = Str::limit($observationText, 30);
-
-                                return "{$date}: {$limitedObservation}";
+                            ->disabled(function ($get, $set, $state, $record) {
+                                // Si es nueva observación (no tiene ID), permitir edición
+                                if (empty($record?->getKey())) {
+                                    return false;
+                                }
+                                // Si ya existe, solo permitir edición si es del usuario actual
+                                return $record->author_id !== auth()->id();
                             })
-                            ->deleteAction(
-                                fn(Forms\Components\Actions\Action $action) => $action
-                                    ->requiresConfirmation()
-                                    ->hidden(function ($record) {
-                                        // Permitir eliminar si es nueva observación
-                                        if (empty($record->getKey())) {
-                                            return false;
-                                        }
-                                        // Ocultar si el autor no es el usuario actual
-                                        return $record->author_id !== auth()->id();
-                                    })
-                            ),
-                    ]),
+                            ->dehydrated(),
+                    ])
+                    ->addActionLabel('Añadir observación')
+                    ->defaultItems(0) // <- mejor 0, así no sale una fila vacía fantasma
+                    ->collapsible()
+                    ->collapsed()
+                    ->columnSpanFull()
+                    ->itemLabel(function (array $state): ?string {
+                        $author = isset($state['author_id'])
+                            ? User::find($state['author_id'])
+                            : auth()->user();
+
+                        $date = isset($state['created_at'])
+                            ? Carbon::parse($state['created_at'])->format('d/m/y')
+                            : now()->format('d/m/y');
+
+                        $observationText = $state['observation'] ?? 'Nueva observación';
+                        $limitedObservation = Str::limit($observationText, 30);
+
+                        return "{$date}: {$limitedObservation}";
+                    })
+                    ->deleteAction(
+                        fn(Forms\Components\Actions\Action $action) => $action
+                            ->requiresConfirmation()
+                            ->hidden(function ($record) {
+                                // Permitir eliminar si es nueva observación
+                                if (empty($record->getKey())) {
+                                    return false;
+                                }
+                                // Ocultar si el autor no es el usuario actual
+                                return $record->author_id !== auth()->id();
+                            })
+                    )
             ]);
     }
 
