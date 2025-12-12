@@ -99,6 +99,30 @@ class EditNote extends EditRecord
                 ->color('danger')
                 ->icon('heroicon-o-x-circle')
                 ->form([
+                    Forms\Components\Section::make('¿Estás en pareja con otro compañero?')
+                        ->schema([
+                            Select::make('companion_id')
+                                ->label('Compañero')
+                                ->native(false)
+                                ->searchable()
+                                ->required()
+                                ->placeholder('Selecciona una opción')
+                                ->options(
+                                    fn() => ['__NONE__' => 'SIN COMPAÑERO']
+                                    + User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereKeyNot(auth()->id())
+                                        ->whereNull('baja')
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('name')
+                                        ->distinct()
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()
+                                ),
+                        ]),
+
                     Textarea::make('reason')
                         ->label('Motivo de nulidad')
                         ->placeholder('Describe por qué esta nota se declara NULA...')
@@ -106,21 +130,27 @@ class EditNote extends EditRecord
                         ->required()
                         ->maxLength(2000),
                 ])
-                // Tras completar el formulario, Filament mostrará el modal de confirmación:
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
                 ->modalDescription('Confirma que deseas marcar la nota como NULA con el motivo indicado.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data): void {
-                    DB::transaction(function () use ($data) {
-                        // 1) Guardar el motivo en la nueva tabla
+
+                    // '__NONE__' => null
+                    $rawCompanionId = $data['companion_id'] ?? null;
+                    $companionId = $rawCompanionId === '__NONE__' ? null : $rawCompanionId;
+
+                    DB::transaction(function () use ($data, $companionId) {
+
+                        // 1) Guardar motivo + compañero
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
+                            'companion_id' => $companionId,   // ✅ NUEVO
                             'reason' => $data['reason'],
                         ]);
 
-                        // 2) Cambiar el estado de la nota a NULO
+                        // 2) Cambiar estado
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
                         $this->record->save();
@@ -137,7 +167,7 @@ class EditNote extends EditRecord
 
                     Notification::make()
                         ->title('Nota marcada como NULA')
-                        ->body('Se guardó el motivo y se actualizó el estado.')
+                        ->body('Se guardó el motivo, el compañero y se actualizó el estado.')
                         ->success()
                         ->send();
 

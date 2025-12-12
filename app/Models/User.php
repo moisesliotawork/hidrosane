@@ -332,10 +332,11 @@ class User extends Authenticatable implements FilamentUser
         $today = now()->toDateString();
 
         $notas = $this->notasDeclaradas()
-            ->with(['customer', 'comercial', 'nullReason'])
+            ->with(['customer', 'comercial', 'nullReason', 'nullReason.companion'])
             ->whereDate('fecha_declaracion', $today)
             ->where('estado_terminal', EstadoTerminal::NUL->value)
             ->get();
+
 
         if ($notas->isEmpty()) {
             return '';
@@ -359,6 +360,9 @@ class User extends Authenticatable implements FilamentUser
 
             if ($com) {
                 $msg .= "Comercial: {$com->display_name}\n";
+                $companionLabel = $nullReason?->companion?->display_name ?? '—';
+                $msg .= "Compañero: {$companionLabel}\n";
+
             }
 
             if ($note->fecha_declaracion) {
@@ -451,6 +455,7 @@ class User extends Authenticatable implements FilamentUser
                 'customer',
                 'comercial',
                 'confirmations.author',
+                'confirmations.companion',
             ])
             ->whereDate('fecha_declaracion', $today)
             ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
@@ -497,6 +502,9 @@ class User extends Authenticatable implements FilamentUser
                 }
 
                 $msg .= "Confirmado por: {$autor}\n";
+                $companionLabel = $conf?->companion?->display_name ?? '—';
+                $msg .= "Compañero: {$companionLabel}\n";
+
             }
 
             return trim($msg);
@@ -678,7 +686,7 @@ class User extends Authenticatable implements FilamentUser
         $date = now()->subDay()->toDateString();
 
         $notas = $this->notasDeclaradas()
-            ->with(['customer', 'comercial', 'nullReason'])
+            ->with(['customer', 'comercial', 'nullReason', 'nullReason.companion'])
             ->whereDate('fecha_declaracion', $date)
             ->where('estado_terminal', EstadoTerminal::NUL->value)
             ->get();
@@ -704,6 +712,8 @@ class User extends Authenticatable implements FilamentUser
 
             if ($com) {
                 $msg .= "Comercial: {$com->display_name}\n";
+                $companionLabel = $nullReason?->companion?->display_name ?? '—';
+                $msg .= "Compañero: {$companionLabel}\n";
             }
 
             if ($note->fecha_declaracion) {
@@ -793,6 +803,7 @@ class User extends Authenticatable implements FilamentUser
                 'customer',
                 'comercial',
                 'confirmations.author',
+                'confirmations.companion',
             ])
             ->whereDate('fecha_declaracion', $date)
             ->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
@@ -838,6 +849,9 @@ class User extends Authenticatable implements FilamentUser
                 }
 
                 $msg .= "Confirmado por: {$autor}\n";
+                $companionLabel = $conf?->companion?->display_name ?? '—';
+                $msg .= "Compañero: {$companionLabel}\n";
+
             }
 
             return trim($msg);

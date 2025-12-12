@@ -18,7 +18,7 @@ class EnviarNotaNulaATelegram implements ShouldQueue
     {
         // 🔵 Log inicial: confirmar que el evento llegó al listener
         Log::info('EnviarNotaNulaATelegram: manejando evento NotaNula', [
-            'note_id'      => $event->note->id,
+            'note_id' => $event->note->id,
             'null_reason_id' => $event->nullReason?->id,
         ]);
 
@@ -29,8 +29,17 @@ class EnviarNotaNulaATelegram implements ShouldQueue
         ]);
 
         $nullReason = $event->nullReason;
+        $nullReason?->loadMissing(['companion:id,empleado_id,name,last_name']);
         $customer = $note->customer;
         $com = $note->comercial;
+
+        $companionText = '—';
+
+        if ($nullReason?->companion) {
+            $u = $nullReason->companion;
+            $companionText = trim("{$u->empleado_id} - {$u->name} {$u->last_name}");
+        }
+
 
         // ───────── CABECERA ─────────
         $mensaje = "*NOTA NULA* ⛔\n"
@@ -43,6 +52,7 @@ class EnviarNotaNulaATelegram implements ShouldQueue
 
         // empleado_id + nombre + apellido (lo asumes ya en display_name)
         $mensaje .= "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n";
+        $mensaje .= "Compañero: {$companionText}\n";
 
         if ($note->fecha_declaracion) {
             $mensaje .= "Fecha confirmación: " . $note->fecha_declaracion->format('d/m/Y H:i') . "\n";

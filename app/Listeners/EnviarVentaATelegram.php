@@ -42,7 +42,7 @@ class EnviarVentaATelegram implements ShouldQueue
             . "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n"
             . "Fecha venta: " . $venta->fecha_venta?->format('d/m/Y H:i') . "\n"
             . "Nota: #{$venta->note->nro_nota}\n"
-            . "Compañero: {$venta->companion_label}\n";
+            . "\nCompañero: {$venta->companion_label}\n";
 
         // ────────────── RESUMEN ECONÓMICO ──────────────
         $numOfertas = $venta->ventaOfertas->count();

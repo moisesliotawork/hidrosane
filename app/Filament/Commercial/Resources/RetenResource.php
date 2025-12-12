@@ -332,11 +332,11 @@ class RetenResource extends Resource
                     ->color(Color::Blue)
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('user.empleado_id')
-                    ->searchable()
-                    ->badge()
-                    ->color(Color::Pink)
-                    ->label('T. Op.'),
+                //Tables\Columns\TextColumn::make('user.empleado_id')
+                //    ->searchable()
+                //    ->badge()
+                //    ->color(Color::Pink)
+                //    ->label('T. Op.'),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Nombre Cliente')

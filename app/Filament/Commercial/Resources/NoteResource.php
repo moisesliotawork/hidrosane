@@ -523,6 +523,40 @@ class NoteResource extends Resource
                     ->url(fn() => \App\Filament\Commercial\Resources\AutogenerarNoteResource::getUrl('create')),
             ])
             ->bulkActions([
+                \Filament\Tables\Actions\BulkAction::make('enviarAReten')
+                    ->label('Enviar a Retén')
+                    ->icon('heroicon-o-shield-exclamation')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Enviar a Retén')
+                    ->modalDescription('Se marcarán como Retén todas las notas seleccionadas.')
+                    ->visible(
+                        fn(): bool =>
+                        auth()->user()?->hasAnyRole(['team_leader', 'sales_manager'])
+                    )
+                    ->action(function (iterable $records): void {
+                        $ids = collect($records)->pluck('id')->all();
+
+                        if (empty($ids)) {
+                            Notification::make()
+                                ->title('No hay notas seleccionadas')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $updated = Note::query()
+                            ->whereIn('id', $ids)
+                            ->update(['reten' => true]);
+
+                        Notification::make()
+                            ->title('Notas enviadas a Retén')
+                            ->body("Cantidad: {$updated}")
+                            ->success()
+                            ->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+
                 \Filament\Tables\Actions\BulkAction::make('enviarASala')
                     ->label('Enviar a Oficina')
                     ->icon('heroicon-o-building-office-2')
