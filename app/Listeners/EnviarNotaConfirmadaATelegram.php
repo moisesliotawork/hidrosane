@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\NotaConfirmada;
 use App\Services\TelegramService;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class EnviarNotaConfirmadaATelegram implements ShouldQueue
 {
@@ -15,6 +16,12 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
 
     public function handle(NotaConfirmada $event): void
     {
+        // 🔵 Log inicial: confirma que el evento llegó al listener
+        Log::info('EnviarNotaConfirmadaATelegram: manejando evento NotaConfirmada', [
+            'note_id' => $event->note->id,
+            'confirmation_id' => $event->confirmation->id,
+        ]);
+
         // Cargamos relaciones necesarias
         $note = $event->note->loadMissing([
             'customer',
@@ -27,7 +34,6 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
 
         $companion = $confirmation->companion;
         $companionDisplay = $companion ? $companion->display_name : '—';
-
 
         // ───────── CABECERA ─────────
         $mensaje = "*NOTA CONFIRMADA* 🟠\n"
@@ -53,7 +59,18 @@ class EnviarNotaConfirmadaATelegram implements ShouldQueue
             $mensaje .= "\n*Observación*: {$confirmation->observation}";
         }
 
+        // 🔵 Log del mensaje a enviar (solo primer tramo para evitar logs gigantes)
+        Log::info('EnviarNotaConfirmadaATelegram: mensaje construido', [
+            'note_id' => $note->id,
+            'preview' => mb_substr($mensaje, 0, 150),
+        ]);
+
         // Enviar a Telegram
         $this->telegram->sendMessage($mensaje, 'cantico');
+
+        // 🔵 Log final
+        Log::info('EnviarNotaConfirmadaATelegram: envío solicitado a TelegramService', [
+            'note_id' => $note->id,
+        ]);
     }
 }

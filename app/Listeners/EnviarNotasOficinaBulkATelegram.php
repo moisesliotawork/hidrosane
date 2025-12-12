@@ -6,6 +6,7 @@ use App\Events\NotasEnviadasAOficinaBulk;
 use App\Models\Note;
 use App\Services\TelegramService;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class EnviarNotasOficinaBulkATelegram implements ShouldQueue
 {
@@ -16,6 +17,12 @@ class EnviarNotasOficinaBulkATelegram implements ShouldQueue
 
     public function handle(NotasEnviadasAOficinaBulk $event): void
     {
+        // 🔵 Log inicial: confirmar que el evento llegó
+        Log::info('EnviarNotasOficinaBulkATelegram: manejando evento NotasEnviadasAOficinaBulk', [
+            'note_ids' => $event->noteIds,
+            'comercial_id' => $event->comercial?->id,
+        ]);
+
         // Cargar notas + customer para obtener la ciudad
         $notes = Note::query()
             ->whereIn('id', $event->noteIds)
@@ -24,6 +31,12 @@ class EnviarNotasOficinaBulkATelegram implements ShouldQueue
             ->get(['id', 'nro_nota', 'customer_id']);
 
         if ($notes->isEmpty()) {
+
+            // 🔴 Log si por algún motivo las notas no existen
+            Log::warning('EnviarNotasOficinaBulkATelegram: listado de notas vacío. No se envía nada.', [
+                'note_ids' => $event->noteIds,
+            ]);
+
             return;
         }
 
@@ -48,7 +61,18 @@ class EnviarNotasOficinaBulkATelegram implements ShouldQueue
 
         $mensaje = rtrim($mensaje, "\n");
 
-        $this->telegram->sendMessage($mensaje, 'cantico');
-    }
+        // 🔵 Log del mensaje construido (preview)
+        Log::info('EnviarNotasOficinaBulkATelegram: mensaje construido', [
+            'cantidad_notas' => $cantidad,
+            'preview' => mb_substr($mensaje, 0, 150),
+        ]);
 
+        // Enviar a Telegram
+        $this->telegram->sendMessage($mensaje, 'cantico');
+
+        // 🔵 Log final
+        Log::info('EnviarNotasOficinaBulkATelegram: envío solicitado a TelegramService', [
+            'cantidad_notas' => $cantidad,
+        ]);
+    }
 }

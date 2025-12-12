@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\VentaCreada;
 use App\Services\TelegramService;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class EnviarVentaATelegram implements ShouldQueue
 {
@@ -15,6 +16,13 @@ class EnviarVentaATelegram implements ShouldQueue
 
     public function handle(VentaCreada $event): void
     {
+        // 🔵 Log inicial: confirmar que el evento llegó
+        Log::info('EnviarVentaATelegram: manejando evento VentaCreada', [
+            'venta_id' => $event->venta->id,
+            'note_id' => $event->venta->note_id ?? null,
+            'customer_id' => $event->venta->customer_id ?? null,
+        ]);
+
         // Cargamos lo necesario de la venta
         $venta = $event->venta->loadMissing([
             'customer',
@@ -33,9 +41,8 @@ class EnviarVentaATelegram implements ShouldQueue
             . "Importe: *" . number_format($venta->importe_total, 2, ',', '.') . " €*\n"
             . "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n"
             . "Fecha venta: " . $venta->fecha_venta?->format('d/m/Y H:i') . "\n"
-            . "Nota: #{$venta->note->nro_nota}";
-
-        $mensaje .= "Compañero: {$venta->companion_label}\n";
+            . "Nota: #{$venta->note->nro_nota}\n"
+            . "Compañero: {$venta->companion_label}\n";
 
         // ────────────── RESUMEN ECONÓMICO ──────────────
         $numOfertas = $venta->ventaOfertas->count();
@@ -92,7 +99,18 @@ class EnviarVentaATelegram implements ShouldQueue
             $mensaje .= "Ninguno";
         }
 
+        // 🔵 Log del mensaje construido (solo preview)
+        Log::info('EnviarVentaATelegram: mensaje construido', [
+            'venta_id' => $venta->id,
+            'preview' => mb_substr($mensaje, 0, 180),
+        ]);
+
         // ────────────── ENVÍO ──────────────
         $this->telegram->sendMessage($mensaje, 'ventas');
+
+        // 🔵 Log final: se pidió el envío al servicio
+        Log::info('EnviarVentaATelegram: envío solicitado a TelegramService', [
+            'venta_id' => $venta->id,
+        ]);
     }
 }

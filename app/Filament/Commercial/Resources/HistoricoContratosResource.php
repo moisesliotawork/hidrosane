@@ -111,14 +111,27 @@ class HistoricoContratosResource extends Resource
                                         ->searchable()->preload()->default(1)->required()->reactive(),
 
                                     TextInput::make('iban')
-                                        ->label('IBAN')->columnSpanFull()
-                                        ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
-                                        ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
-                                        ->afterStateUpdated(function ($state, callable $set) {
+                                        ->label('IBAN')
+                                        ->columnSpanFull()
+
+                                        // ─── Presentación → “ES12 3456 7890 …” ───────────────
+                                        ->formatStateUsing(fn(?string $state) => $state
+                                            ? implode(' ', str_split(strtoupper($state), 4))
+                                            : null)
+
+                                        // ─── Guardado → “ES1234567890…” ──────────────────────
+                                        ->dehydrateStateUsing(fn(?string $state) => $state
+                                            ? str_replace(' ', '', strtoupper($state))
+                                            : null)
+
+                                        // ─── Mientras escribe / pega ─────────────────────────
+                                        ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
                                             $plain = str_replace(' ', '', strtoupper($state ?? ''));
                                             $formatted = implode(' ', str_split($plain, 4));
-                                            if ($formatted !== $state)
-                                                $set($formatted);
+
+                                            if ($formatted !== $state) {
+                                                $set('iban', $formatted); // ✅
+                                            }
                                         }),
                                 ]),
                     ]),

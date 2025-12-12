@@ -379,6 +379,40 @@ class NoteDescResource extends Resource
             ])
             ->actions([
                 ViewAction::make(),
+
+                Tables\Actions\Action::make('clear_null_state')
+                    ->label('Quitar nulidad')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+
+                    // 🔒 Mostrar solo si está en estado NUL
+                    ->visible(fn(Note $record) => $record->estado_terminal === EstadoTerminal::NUL)
+
+                    // 🛑 Confirmación personalizada
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar acción')
+                    ->modalDescription('¿Seguro que deseas quitar la nulidad? Esto eliminará todos los motivos de nulidad asociados y dejará la nota sin estado terminal.')
+                    ->modalIcon('heroicon-o-exclamation-triangle')
+
+                    // 🔧 Acción
+                    ->action(function (Note $record): void {
+
+                        // 1) Eliminar motivos de nulidad
+                        $record->nullReasons()->delete();
+
+                        // 2) Limpiar estado terminal
+                        $record->estado_terminal = EstadoTerminal::SIN_ESTADO;
+                        $record->fecha_declaracion = null;
+                        $record->sent_to_sala_at = null;
+
+                        $record->save();
+
+                        Notification::make()
+                            ->title('Nulidad eliminada')
+                            ->body('La nota quedó sin estado terminal y se eliminaron los motivos de nulidad.')
+                            ->success()
+                            ->send();
+                    })
             ])
             ->bulkActions([
             ]);

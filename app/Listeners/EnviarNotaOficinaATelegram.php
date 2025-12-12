@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\NotaEnviadaAOficina;
 use App\Services\TelegramService;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class EnviarNotaOficinaATelegram implements ShouldQueue
 {
@@ -15,6 +16,12 @@ class EnviarNotaOficinaATelegram implements ShouldQueue
 
     public function handle(NotaEnviadaAOficina $event): void
     {
+        // 🔵 Log inicial: confirma que el evento llegó
+        Log::info('EnviarNotaOficinaATelegram: manejando evento NotaEnviadaAOficina', [
+            'note_id' => $event->note->id,
+            'sala_observation_id' => $event->salaObservation?->id,
+        ]);
+
         $note = $event->note->loadMissing([
             'customer',
             'comercial',
@@ -36,18 +43,30 @@ class EnviarNotaOficinaATelegram implements ShouldQueue
         // Comercial como "empleado_id - nombre apellido"
         $mensaje .= "Comercial: " . ($com ? $com->display_name : 'N/D') . "\n";
 
-        // Fecha/hora de envío a oficina (puedes usar sent_to_sala_at o la de la observación)
+        // Fecha/hora de envío a oficina
         if ($note->sent_to_sala_at) {
             $mensaje .= "Fecha envío oficina: " . $note->sent_to_sala_at->format('d/m/Y H:i') . "\n";
-        } elseif ($salaObs->created_at) {
+        } elseif ($salaObs?->created_at) {
             $mensaje .= "Fecha envío oficina: " . $salaObs->created_at->format('d/m/Y H:i') . "\n";
         }
 
         // ───────── OBSERVACIÓN DE OFICINA ─────────
-        if (!empty($salaObs->observation)) {
+        if (!empty($salaObs?->observation)) {
             $mensaje .= "\n*Observación de Oficina:*\n{$salaObs->observation}";
         }
 
+        // 🔵 Log del mensaje construido (solo preview)
+        Log::info('EnviarNotaOficinaATelegram: mensaje construido', [
+            'note_id' => $note->id,
+            'preview' => mb_substr($mensaje, 0, 150),
+        ]);
+
+        // Enviar a Telegram
         $this->telegram->sendMessage($mensaje, 'cantico');
+
+        // 🔵 Log final
+        Log::info('EnviarNotaOficinaATelegram: envío solicitado a TelegramService', [
+            'note_id' => $note->id,
+        ]);
     }
 }
