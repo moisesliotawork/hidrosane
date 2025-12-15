@@ -286,18 +286,11 @@ class RetenResource extends Resource
                     ->collapsed()
                     ->columnSpanFull()
                     ->itemLabel(function (array $state): ?string {
-                        $author = isset($state['author_id'])
-                            ? User::find($state['author_id'])
-                            : auth()->user();
-
-                        $date = isset($state['created_at'])
-                            ? Carbon::parse($state['created_at'])->format('d/m/y')
-                            : now()->format('d/m/y');
 
                         $observationText = $state['observation'] ?? 'Nueva observación';
                         $limitedObservation = Str::limit($observationText, 30);
 
-                        return "{$date}: {$limitedObservation}";
+                        return "{$limitedObservation}";
                     })
                     ->deleteAction(
                         fn(Forms\Components\Actions\Action $action) => $action
