@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\NoteResource;
+use App\Filament\Commercial\Resources\RetenResource;
 
 class NotasDeComercial extends Component
 {
@@ -194,11 +195,16 @@ class NotasDeComercial extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-        $url = NoteResource::getUrl(
-            'edit',
-            ['record' => $noteId],
-            panel: 'comercial'
-        );
+        $note = Note::select('id', 'reten')->find($noteId);
+
+        if (!$note) {
+            Notification::make()->title('Nota no encontrada')->danger()->send();
+            return;
+        }
+
+        $url = ($note->reten)
+            ? RetenResource::getUrl('edit', ['record' => $noteId], panel: 'comercial')
+            : NoteResource::getUrl('edit', ['record' => $noteId], panel: 'comercial');
 
         return redirect()->to($url);
     }
