@@ -146,6 +146,7 @@ class NotasToday extends Component
         return Note::with(['customer', 'comercial'])
             ->where('comercial_id', auth()->id())
             ->whereDate('assignment_date', today())
+            ->where('reten', false)
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
