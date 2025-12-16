@@ -18,6 +18,9 @@ class NotasDeComercial extends Component
     public ?int $reassignNoteId = null;
     public ?int $newComercialId = null;
 
+    /** IDs seleccionados (hoy + todas) */
+    public array $selectedNotes = [];
+
     protected $listeners = [
         'notaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
@@ -25,10 +28,14 @@ class NotasDeComercial extends Component
         'avisarSinDentro' => 'avisarSinDentro',
     ];
 
-    public function mount(string|int $comercialId, bool $esReten = false): void
+    public function mount(string|int $comercialId): void
     {
         $this->comercialId = $comercialId;
-        $this->esReten = $esReten;
+        $this->esReten = ($comercialId === 'reten');
+
+        if ($this->esReten) {
+            $this->selectedNotes = [];
+        }
     }
 
     /** ====== Botón Reasignar ====== */
@@ -182,6 +189,41 @@ class NotasDeComercial extends Component
                 ->body($note->de_camino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
                 ->send();
 
+        $this->dispatch('notaActualizada');
+    }
+
+    public function sendSelectedToReten(): void
+    {
+        $ids = array_values(array_filter($this->selectedNotes));
+
+        if (empty($ids)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Solo mover a retén las que tengan comercial asignado
+        $updated = Note::query()
+            ->whereIn('id', $ids)
+            ->whereNotNull('comercial_id')
+            ->update([
+                'reten' => true,
+                // Si al enviar a retén quieres refrescar la fecha de asignación:
+                'assignment_date' => now()->startOfDay(),
+            ]);
+
+        Notification::make()
+            ->title('Enviadas a Retén')
+            ->body("Se enviaron {$updated} notas a retén.")
+            ->success()
+            ->send();
+
+        // Limpiar selección
+        $this->selectedNotes = [];
+
+        // refrescar
         $this->dispatch('notaActualizada');
     }
 

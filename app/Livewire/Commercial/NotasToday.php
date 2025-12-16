@@ -7,9 +7,13 @@ use App\Models\Note;
 use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
 use App\Filament\Commercial\Resources\NoteResource;
+use Carbon\Carbon;
 
 class NotasToday extends Component
 {
+
+    public array $selectedNotes = [];
+
     protected $listeners = [
         'notaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
@@ -19,7 +23,7 @@ class NotasToday extends Component
 
     public function avisarSinDentro($notaId): void
     {
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->title('Sin ubicación en GPS')
             ->body("La nota #{$notaId} no tiene coordenadas de GPS guardadas.")
             ->danger()
@@ -44,7 +48,7 @@ class NotasToday extends Component
             'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
         ]);
 
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->title('Ubicación DENTRO capturada')
             ->success()
             ->body("Guardada para nota #$notaId: [$lat, $lng]")
@@ -123,6 +127,37 @@ class NotasToday extends Component
                 ->body('La nota ha sido marcada como EN CAMINO')
                 ->send();
         }
+
+        $this->dispatch('notaActualizada');
+    }
+
+    public function sendSelectedToReten(): void
+    {
+        $ids = array_values(array_filter($this->selectedNotes));
+
+        if (empty($ids)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Solo si la nota tiene comercial asignado (en esta page siempre lo tiene, pero lo dejamos seguro)
+        $updated = Note::query()
+            ->whereIn('id', $ids)
+            ->whereNotNull('comercial_id')
+            ->update([
+                'reten' => true,
+            ]);
+
+        Notification::make()
+            ->title('Enviadas a Retén')
+            ->body("Se enviaron {$updated} notas a retén.")
+            ->success()
+            ->send();
+
+        $this->selectedNotes = [];
 
         $this->dispatch('notaActualizada');
     }
