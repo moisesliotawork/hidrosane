@@ -37,6 +37,10 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
             ->query(
                 User::query()
                     ->role(['commercial', 'team_leader', 'sales_manager'])
+                    ->where(function (Builder $q) use ($yesterday) {
+                        $q->whereNull('fecha_baja')
+                            ->orWhereDate('fecha_baja', '>', $yesterday);
+                    })
                     ->withCount([
                         'notasDeclaradas as oficina_count' => fn(Builder $q) =>
                             $q->whereDate('fecha_declaracion', $yesterday)

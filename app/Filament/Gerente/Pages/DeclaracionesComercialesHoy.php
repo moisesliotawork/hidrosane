@@ -48,6 +48,10 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
             ->query(
                 User::query()
                     ->role(['commercial', 'team_leader', 'sales_manager'])
+                    ->where(function (Builder $q) use ($today) {
+                        $q->whereNull('fecha_baja')
+                            ->orWhereDate('fecha_baja', '>', $today);
+                    })
                     ->withCount([
                         // OFICINA  (EstadoTerminal::SALA)
                         'notasDeclaradas as oficina_count' => fn(Builder $q) =>

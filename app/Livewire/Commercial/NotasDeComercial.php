@@ -72,15 +72,27 @@ class NotasDeComercial extends Component
         $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
         $empleado = $nuevo->empleado_id ?? 'SIN-ID';
 
-        // Reasigna SIN tocar la fecha de asignación
-        $note->update(['comercial_id' => $this->newComercialId]);
+        $updateData = [
+            'comercial_id' => $this->newComercialId,
+            'assignment_date' => now()->startOfDay(), // o now() si quieres guardar hora exacta
+        ];
 
-        // Bitácora
+        if ($this->esReten) {
+            $updateData['reten'] = false;
+        }
+
+        $note->update($updateData);
+
+
+        $extra = $this->esReten
+            ? ' Se reasignó, se actualizó la fecha y salió de Retén (reten=false).'
+            : ' Se reasignó y se actualizó la fecha.';
+
         AnotacionVisita::create([
             'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'REASIGNACIÓN',
-            'cuerpo' => "Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado} (sin cambiar fecha de asignación).",
+            'cuerpo' => "Nota #{$note->nro_nota} reasignada al comercial {$nombre} - {$empleado}.{$extra}",
         ]);
 
         $this->showReassignModal = false;

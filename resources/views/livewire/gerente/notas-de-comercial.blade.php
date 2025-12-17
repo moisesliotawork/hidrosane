@@ -551,7 +551,10 @@
         <div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
             wire:keydown.escape="$set('showReassignModal', false)">
             <div class="bg-white dark:bg-gray-900 dark:text-white rounded-lg shadow-xl w-full max-w-md p-6">
-                <h3 class="text-lg font-semibold mb-4">Reasignar visita (no cambia la fecha)</h3>
+                <h3 class="text-lg font-semibold mb-4">
+                    {{ $esReten ? 'Reasignar (sale de Retén)' : 'Reasignar' }}
+                </h3>
+
 
                 <label class="block text-sm mb-2">Nuevo comercial</label>
                 <select wire:model="newComercialId"
