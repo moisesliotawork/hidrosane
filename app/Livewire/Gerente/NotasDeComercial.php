@@ -7,6 +7,9 @@ use App\Models\Note;
 use App\Models\User;
 use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
+use App\Enums\EstadoTerminal;
+use App\Models\NoteSalaEvent;
+use Illuminate\Support\Facades\DB;
 
 class NotasDeComercial extends Component
 {
@@ -241,6 +244,97 @@ class NotasDeComercial extends Component
         // refrescar
         $this->dispatch('notaActualizada');
     }
+
+    public function sendSelectedToOfficeFromReten(): void
+    {
+        $ids = array_values(array_filter($this->selectedNotes));
+
+        if (empty($ids)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $allIds = collect($ids)->values()->all();
+
+        // Elegibles: reten=true + sin venta + TN ∈ { null, '', 'ausente' }
+        $eligible = Note::query()
+            ->whereIn('id', $allIds)
+            ->where('reten', true)
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->pluck('id')
+            ->all();
+
+        $skipped = count($allIds) - count($eligible);
+
+        if (empty($eligible)) {
+            Notification::make()
+                ->title('No hay notas válidas para enviar a Oficina')
+                ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA (o no están en retén).')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        DB::transaction(function () use ($eligible) {
+            $now = now();
+            $userId = auth()->id();
+
+            // 1) Actualizar notas elegibles (SAL A + salir de retén)
+            Note::whereIn('id', $eligible)->update([
+                'estado_terminal' => EstadoTerminal::SALA->value,
+                'printed' => false,
+                'reten' => false,
+                'sent_to_sala_at' => $now,
+                'fecha_declaracion' => $now,
+            ]);
+
+            // 2) Historial masivo
+            $rows = [];
+            foreach ($eligible as $noteId) {
+                $rows[] = [
+                    'note_id' => $noteId,
+                    'sent_by_user_id' => $userId,
+                    'via' => 'masivo',
+                    'sent_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (!empty($rows)) {
+                NoteSalaEvent::insert($rows);
+            }
+
+            // 3) Evento después del commit (igual que tu bulk action)
+            DB::afterCommit(function () use ($eligible) {
+                $comercial = auth()->user();
+
+                event(new \App\Events\NotasEnviadasAOficinaBulk(
+                    $eligible,
+                    $comercial
+                ));
+            });
+        });
+
+        Notification::make()
+            ->title('Notas enviadas a Oficina')
+            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->success()
+            ->send();
+
+        // limpiar selección y refrescar
+        $this->selectedNotes = [];
+        $this->dispatch('notaActualizada');
+    }
+
 
     public function redirigirAVenta(int $noteId)
     {
