@@ -26,9 +26,9 @@ class NotesSalaOverdue extends Command
         $days = (int) $this->option('days');
         $cutoff = Carbon::now()->subDays($days)->startOfDay();
 
-        $valorSala = EstadoTerminal::SALA->value;       
-        $valorAusente = EstadoTerminal::AUSENTE->value;    
-        $valorVacio = EstadoTerminal::SIN_ESTADO->value; 
+        $valorSala = EstadoTerminal::SALA->value;
+        $valorAusente = EstadoTerminal::AUSENTE->value;
+        $valorVacio = EstadoTerminal::SIN_ESTADO->value;
 
         // 1) Buscar las notas candidatas (IDs)
         $candidates = Note::query()
@@ -56,6 +56,7 @@ class NotesSalaOverdue extends Command
                 'estado_terminal' => $valorSala,
                 'sent_to_sala_at' => $now,
                 'fecha_declaracion' => $now,
+                'reten' => false,              // ✅ si estaba en true, pasa a false
                 'updated_at' => $now,
             ]);
 
@@ -64,8 +65,8 @@ class NotesSalaOverdue extends Command
             foreach ($candidates as $noteId) {
                 $rows[] = [
                     'note_id' => $noteId,
-                    'sent_by_user_id' => null,    
-                    'via' => 'comando',   
+                    'sent_by_user_id' => null,
+                    'via' => 'comando',
                     'sent_at' => $now,
                     'created_at' => $now,
                     'updated_at' => $now,
