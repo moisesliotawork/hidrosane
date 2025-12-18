@@ -82,6 +82,23 @@
             background-color: #15803d;
         }
 
+        /* Botón rosado pequeño (header) */
+        .action-button.pink {
+            background-color: #ec4899;
+            /* pink-500 */
+        }
+
+        .action-button.pink:hover {
+            background-color: #db2777;
+            /* pink-600 */
+        }
+
+        .action-button.small {
+            padding: 0.28rem 0.45rem;
+            font-size: 0.65rem;
+        }
+
+
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
             .mobile-optimized {
@@ -228,32 +245,36 @@
     </style>
 
     <div class="overflow-x-auto mobile-optimized space-y-6">
-        @if(!$esReten)
-            <div class="flex items-center justify-between gap-2">
-                <div class="text-xs text-gray-500 dark:text-gray-400">
-                    Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
-                </div>
+        <div class="flex items-center justify-between gap-2">
+            <div class="text-xs text-gray-500 dark:text-gray-400">
+                Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
+            </div>
 
+            @if($esReten)
+                <button class="action-button pink small" wire:click="sendSelectedToOfficeFromReten"
+                    @disabled(count($selectedNotes) === 0)
+                    style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
+                    Enviar a Oficina
+                </button>
+            @else
                 <button class="action-button green" wire:click="sendSelectedToReten" @disabled(count($selectedNotes) === 0)
                     style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
                     Enviar a Retén
                 </button>
-            </div>
-        @endif
+            @endif
+        </div>
 
         {{-- ======= Sección: Notas de HOY ======= --}}
         <x-filament::section heading="Notas de hoy">
             <div class="space-y-4">
                 @forelse($this->notesToday as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                        @if(!$esReten)
-                            <div
-                                class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
-                                <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
-                                    value="{{ $note['id'] }}" />
-                                <span class="text-xs text-gray-500 dark:text-gray-400"></span>
-                            </div>
-                        @endif
+                        <div
+                            class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
+                            <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
+                                value="{{ $note['id'] }}" />
+                            <span class="text-xs text-gray-500 dark:text-gray-400"></span>
+                        </div>
 
                         <div class="flex items-center justify-between mb-3">
                             @php
@@ -361,14 +382,14 @@
             <div class="space-y-4">
                 @forelse($this->notesAll as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-                        @if(!$esReten)
-                            <div
-                                class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
-                                <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
-                                    value="{{ $note['id'] }}" />
-                                <span class="text-xs text-gray-500 dark:text-gray-400"></span>
-                            </div>
-                        @endif
+
+                        <div
+                            class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
+                            <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
+                                value="{{ $note['id'] }}" />
+                            <span class="text-xs text-gray-500 dark:text-gray-400"></span>
+                        </div>
+
                         <div class="flex items-center justify-between mb-3">
                             @php
                                 $colorData = match ($note['fuente_puntaje']) {
