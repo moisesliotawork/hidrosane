@@ -35,7 +35,7 @@ class CommercialPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->userMenuItems([
                 'profile' => MenuItem::make()
-                    ->label('Mi Perfil')
+                    ->label(fn(): string => auth()->user()?->display_name ?? 'Mi Perfil')
                     ->url(fn(): string => ViewProfile::getUrl())
                     ->icon('heroicon-o-user'),
             ])

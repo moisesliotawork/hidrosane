@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\CreamDailyControl;
 use Carbon\Carbon;
 use App\Enums\EstadoTerminal;
+use Filament\Models\Contracts\HasName;
 
 
 /**
@@ -72,7 +73,7 @@ use App\Enums\EstadoTerminal;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User withoutRole($roles, $guard = null)
  * @mixin \Eloquent
  */
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasName
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -961,5 +962,11 @@ class User extends Authenticatable implements FilamentUser
 
         return $mensajes->implode("\n\n");
     }
+
+    public function getFilamentName(): string
+    {
+        return $this->name; // usa tu accessor getDisplayNameAttribute()
+    }
+
 
 }
