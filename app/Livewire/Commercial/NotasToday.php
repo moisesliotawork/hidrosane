@@ -131,37 +131,6 @@ class NotasToday extends Component
         $this->dispatch('notaActualizada');
     }
 
-    public function sendSelectedToReten(): void
-    {
-        $ids = array_values(array_filter($this->selectedNotes));
-
-        if (empty($ids)) {
-            Notification::make()
-                ->title('No hay notas seleccionadas')
-                ->warning()
-                ->send();
-            return;
-        }
-
-        // Solo si la nota tiene comercial asignado (en esta page siempre lo tiene, pero lo dejamos seguro)
-        $updated = Note::query()
-            ->whereIn('id', $ids)
-            ->whereNotNull('comercial_id')
-            ->update([
-                'reten' => true,
-            ]);
-
-        Notification::make()
-            ->title('Enviadas a Retén')
-            ->body("Se enviaron {$updated} notas a retén.")
-            ->success()
-            ->send();
-
-        $this->selectedNotes = [];
-
-        $this->dispatch('notaActualizada');
-    }
-
     public function redirigirAVenta(int $noteId)
     {
 

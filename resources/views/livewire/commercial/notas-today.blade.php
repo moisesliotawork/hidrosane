@@ -230,17 +230,6 @@
     <div class="overflow-x-auto">
         <div class="mobile-optimized">
             <div class="space-y-4">
-                <div class="flex items-center justify-between gap-2 mb-3">
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
-                        Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
-                    </div>
-
-                    <button class="action-button" style="background-color:#16a34a" wire:click="sendSelectedToReten"
-                        @disabled(count($selectedNotes) === 0) wire:loading.attr="disabled"
-                        wire:target="sendSelectedToReten">
-                        Enviar a Retén
-                    </button>
-                </div>
 
                 @forelse($this->notes as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
