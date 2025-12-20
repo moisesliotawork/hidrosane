@@ -245,6 +245,10 @@
     </style>
 
     <div class="overflow-x-auto mobile-optimized space-y-6">
+        @php
+            $canSendToReten = in_array(auth()->id(), [17, 18, 57], true);
+        @endphp
+
         <div class="flex items-center justify-between gap-2">
             <div class="text-xs text-gray-500 dark:text-gray-400">
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
@@ -256,7 +260,7 @@
                     style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
                     Enviar a Oficina
                 </button>
-            @else
+            @elseif($canSendToReten)
                 <button class="action-button green" wire:click="sendSelectedToReten" @disabled(count($selectedNotes) === 0)
                     style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
                     Enviar a Retén
