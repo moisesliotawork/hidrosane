@@ -70,11 +70,11 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('user_id')
                             ->label('Teleoperadora asignada')
                             ->native(false)
-                            ->preload() // despliega opciones de una vez
-                            ->searchable() // habilita buscador en el select
+                            ->preload()
+                            ->searchable()
                             ->getSearchResultsUsing(function (string $search): array {
                                 return \App\Models\User::query()
-                                    ->role('teleoperator')
+                                    ->role(['teleoperator', 'head_of_room'])
                                     ->where(function (Builder $q) use ($search) {
                                         $q->where('name', 'like', "%{$search}%")
                                             ->orWhere('last_name', 'like', "%{$search}%")
@@ -88,7 +88,7 @@ class NoteResource extends Resource
                             })
                             ->options(function (): array {
                                 return \App\Models\User::query()
-                                    ->role('teleoperator')
+                                    ->role(['teleoperator', 'head_of_room'])
                                     ->orderBy('empleado_id')
                                     ->get()
                                     ->mapWithKeys(fn($u) => [$u->id => $u->display_name])
@@ -99,7 +99,7 @@ class NoteResource extends Resource
                                 ? \App\Models\User::find($value)?->display_name
                                 : null
                             )
-                            ->required()
+                            ->required(),
                     ])
                     ->columns(1),
 
