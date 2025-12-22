@@ -54,12 +54,6 @@ class NoteResource extends Resource
                         EstadoTerminal::SIN_ESTADO->value,  // ''
                         EstadoTerminal::SALA->value,        // 'sala'
                     ]);
-            })
-            ->where(function (Builder $q) {
-                // Mostrar solo las notas que NO estén en reten
-                // (reten null o false se muestran, true se oculta)
-                $q->whereNull('reten')
-                    ->orWhere('reten', false);
             });
     }
 
@@ -466,6 +460,15 @@ class NoteResource extends Resource
                     ->color(fn(bool $state) => $state ? 'gray' : 'orange')
                     ->sortable(),
 
+                Tables\Columns\TextColumn::make('reten')
+                    ->label('Reten')
+                    ->badge()
+                    ->formatStateUsing(fn(?bool $state) => $state ? 'SI' : 'NO')
+                    ->color(fn(?bool $state) => $state ? 'success' : 'danger')
+                    ->toggleable(isToggledHiddenByDefault: false)
+                    ->sortable(),
+
+
 
             ])
             ->defaultSort('created_at', 'desc')
@@ -578,6 +581,18 @@ class NoteResource extends Resource
                     ->queries(
                         true: fn(Builder $q) => $q->where('printed', true),
                         false: fn(Builder $q) => $q->where('printed', false),
+                        blank: fn(Builder $q) => $q, // sin filtro
+                    ),
+
+                Tables\Filters\TernaryFilter::make('reten')
+                    ->label('Reten')
+                    ->trueLabel('Solo en Reten')
+                    ->falseLabel('Solo fuera de Reten')
+                    ->placeholder('Todas')
+                    ->native(false)
+                    ->queries(
+                        true: fn(Builder $q) => $q->where('reten', true),
+                        false: fn(Builder $q) => $q->where('reten', false),
                         blank: fn(Builder $q) => $q, // sin filtro
                     ),
 
