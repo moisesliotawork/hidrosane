@@ -65,6 +65,46 @@ class NoteResource extends Resource
                 Forms\Components\Hidden::make('customer_id'),
                 Forms\Components\Hidden::make('comercial_id'),
 
+                Forms\Components\Section::make('Teleoperadora')
+                    ->schema([
+                        Forms\Components\Select::make('user_id')
+                            ->label('Teleoperadora asignada')
+                            ->native(false)
+                            ->preload() // despliega opciones de una vez
+                            ->searchable() // habilita buscador en el select
+                            ->getSearchResultsUsing(function (string $search): array {
+                                return \App\Models\User::query()
+                                    ->role('teleoperator')
+                                    ->where(function (Builder $q) use ($search) {
+                                        $q->where('name', 'like', "%{$search}%")
+                                            ->orWhere('last_name', 'like', "%{$search}%")
+                                            ->orWhere('empleado_id', 'like', "%{$search}%");
+                                    })
+                                    ->orderBy('empleado_id')
+                                    ->limit(50)
+                                    ->get()
+                                    ->mapWithKeys(fn($u) => [$u->id => $u->display_name])
+                                    ->toArray();
+                            })
+                            ->options(function (): array {
+                                return \App\Models\User::query()
+                                    ->role('teleoperator')
+                                    ->orderBy('empleado_id')
+                                    ->get()
+                                    ->mapWithKeys(fn($u) => [$u->id => $u->display_name])
+                                    ->toArray();
+                            })
+                            ->getOptionLabelUsing(
+                                fn($value): ?string => $value
+                                ? \App\Models\User::find($value)?->display_name
+                                : null
+                            )
+                            ->required()
+                    ])
+                    ->columns(1),
+
+
+
                 Forms\Components\Section::make('Información Personal')
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
