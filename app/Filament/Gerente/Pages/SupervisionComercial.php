@@ -10,6 +10,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+
 
 class SupervisionComercial extends Page implements HasTable
 {
@@ -37,6 +39,7 @@ class SupervisionComercial extends Page implements HasTable
                         $q->whereNull('baja')
                             ->orWhereDate('baja', '>', $today);
                     })
+                    ->select('users.*')
                     ->withCount([
                         // =========================
                         // CONFIRMADAS
@@ -96,6 +99,42 @@ class SupervisionComercial extends Page implements HasTable
                             $q->whereBetween('fecha_declaracion', [$monthStart, $monthEnd])
                                 ->where('estado_terminal', EstadoTerminal::VENTA->value),
                     ])
+
+                    ->selectSub(function ($sub) use ($yesterday) {
+                        $sub->from('notes')
+                            ->join('ventas', 'ventas.note_id', '=', 'notes.id')
+                            ->join('venta_ofertas', 'venta_ofertas.venta_id', '=', 'ventas.id')
+                            ->join('ofertas', 'ofertas.id', '=', 'venta_ofertas.oferta_id')
+                            ->whereColumn('notes.comercial_id', 'users.id')
+                            ->whereDate('notes.fecha_declaracion', $yesterday)
+                            ->where('notes.estado_terminal', EstadoTerminal::VENTA->value)
+                            ->selectRaw('COALESCE(SUM(ofertas.valor), 0)');
+                    }, 'brutas_ayer')
+
+                    ->selectSub(function ($sub) use ($today) {
+                        $sub->from('notes')
+                            ->join('ventas', 'ventas.note_id', '=', 'notes.id')
+                            ->join('venta_ofertas', 'venta_ofertas.venta_id', '=', 'ventas.id')
+                            ->join('ofertas', 'ofertas.id', '=', 'venta_ofertas.oferta_id')
+                            ->whereColumn('notes.comercial_id', 'users.id')
+                            ->whereDate('notes.fecha_declaracion', $today)
+                            ->where('notes.estado_terminal', EstadoTerminal::VENTA->value)
+                            ->selectRaw('COALESCE(SUM(ofertas.valor), 0)');
+                    }, 'brutas_hoy')
+
+                    ->selectSub(function ($sub) use ($monthStart, $monthEnd) {
+                        $sub->from('notes')
+                            ->join('ventas', 'ventas.note_id', '=', 'notes.id')
+                            ->join('venta_ofertas', 'venta_ofertas.venta_id', '=', 'ventas.id')
+                            ->join('ofertas', 'ofertas.id', '=', 'venta_ofertas.oferta_id')
+                            ->whereColumn('notes.comercial_id', 'users.id')
+                            ->whereBetween('notes.fecha_declaracion', [$monthStart, $monthEnd])
+                            ->where('notes.estado_terminal', EstadoTerminal::VENTA->value)
+                            ->selectRaw('COALESCE(SUM(ofertas.valor), 0)');
+                    }, 'brutas_mes')
+
+
+
             )
             ->columns([
                 Tables\Columns\TextColumn::make('empleado_id')
@@ -196,6 +235,28 @@ class SupervisionComercial extends Page implements HasTable
                     ->color('success')
                     ->sortable()
                     ->formatStateUsing(fn($state) => $state ?? 0),
+
+                Tables\Columns\TextColumn::make('brutas_ayer')
+                    ->label('Ayer Brutas')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => number_format((float) ($state ?? 0), 1, '.', '')),
+
+                Tables\Columns\TextColumn::make('brutas_hoy')
+                    ->label('Hoy Brutas')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => number_format((float) ($state ?? 0), 1, '.', '')),
+
+                Tables\Columns\TextColumn::make('brutas_mes')
+                    ->label('Mes Brutas')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->formatStateUsing(fn($state) => number_format((float) ($state ?? 0), 1, '.', '')),
+
             ])
             ->defaultSort('name', 'asc');
     }
