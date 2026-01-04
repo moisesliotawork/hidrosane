@@ -21,6 +21,8 @@ use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Commercial\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 class CommercialPanelProvider extends PanelProvider
 {
@@ -42,6 +44,15 @@ class CommercialPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Lime,
             ])
+            ->renderHook(
+
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn(): string => Blade::render('@if(auth()->check()) 
+                <div class="flex items-center justify-end gap-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {{ auth()->user()->empleado_id . " - " . auth()->user()->name . " " . auth()->user()->last_name }}
+                </div>
+            @endif')
+            )
             ->discoverResources(in: app_path('Filament/Commercial/Resources'), for: 'App\\Filament\\Commercial\\Resources')
             ->discoverPages(in: app_path('Filament/Commercial/Pages'), for: 'App\\Filament\\Commercial\\Pages')
             ->pages([

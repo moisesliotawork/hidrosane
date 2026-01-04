@@ -22,6 +22,8 @@ use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Filament\Repartidor\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use App\Filament\Widgets\RepartidorStats;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 class RepartidorPanelProvider extends PanelProvider
 {
@@ -42,6 +44,15 @@ class RepartidorPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Lime,
             ])
+            ->renderHook(
+
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn(): string => Blade::render('@if(auth()->check()) 
+                <div class="flex items-center justify-end gap-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {{ auth()->user()->empleado_id . " - " . auth()->user()->name . " " . auth()->user()->last_name }}
+                </div>
+            @endif')
+            )
             ->discoverResources(in: app_path('Filament/Repartidor/Resources'), for: 'App\\Filament\\Repartidor\\Resources')
             ->discoverPages(in: app_path('Filament/Repartidor/Pages'), for: 'App\\Filament\\Repartidor\\Pages')
             ->pages([
