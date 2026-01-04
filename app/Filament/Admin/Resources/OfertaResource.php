@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Notifications\Notification;
 
 class OfertaResource extends Resource
 {
@@ -59,6 +60,7 @@ class OfertaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->paginated(false)
             ->columns([
                 Tables\Columns\TextColumn::make('nombre')
                     ->searchable()
@@ -101,7 +103,6 @@ class OfertaResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->label(""),
 
-                // DeleteAction aquí hará soft delete automáticamente porque el modelo usa SoftDeletes
                 Tables\Actions\DeleteAction::make()
                     ->label(""),
 
@@ -110,11 +111,49 @@ class OfertaResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+
+                    Tables\Actions\BulkAction::make('marcar_visible')
+                        ->label('Marcar visibles')
+                        ->icon('heroicon-o-eye')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function ($records) {
+                            // Solo actualiza los que realmente cambian
+                            $updated = Oferta::query()
+                                ->whereIn('id', $records->pluck('id'))
+                                ->where('visible', false)
+                                ->update(['visible' => true]);
+
+                            Notification::make()
+                                ->title('Ofertas actualizadas')
+                                ->body("Se marcaron como VISIBLES: {$updated}.")
+                                ->success()
+                                ->send();
+                        }),
+
+                    Tables\Actions\BulkAction::make('marcar_no_visible')
+                        ->label('Marcar NO visibles')
+                        ->icon('heroicon-o-eye-slash')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->action(function ($records) {
+                            $updated = Oferta::query()
+                                ->whereIn('id', $records->pluck('id'))
+                                ->where('visible', true)
+                                ->update(['visible' => false]);
+
+                            Notification::make()
+                                ->title('Ofertas actualizadas')
+                                ->body("Se marcaron como NO visibles: {$updated}.")
+                                ->warning()
+                                ->send();
+                        }),
+
                     Tables\Actions\DeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
                 ]),
             ])
+
             ->defaultSort('id', 'desc');
     }
 
