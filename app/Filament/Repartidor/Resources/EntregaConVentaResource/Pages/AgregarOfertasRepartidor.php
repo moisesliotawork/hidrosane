@@ -57,9 +57,14 @@ class AgregarOfertasRepartidor extends EditRecord
                             Grid::make(3)->schema([
                                 Select::make('oferta_id')
                                     ->label('Oferta')
-                                    ->options(fn() => Oferta::query()
-                                        ->orderBy('nombre')
-                                        ->pluck('nombre', 'id'))
+                                    ->options(
+                                        fn() => Oferta::query()
+                                            ->where('visible', true)
+                                            ->whereNull('deleted_at')
+                                            ->orderBy('nombre')
+                                            ->pluck('nombre', 'id')
+                                            ->all()
+                                    )
                                     ->required()
                                     ->searchable()
                                     ->preload()

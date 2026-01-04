@@ -29,6 +29,7 @@ use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Database\Eloquent\Builder;
 
 class VentaDesdeCeroResource extends Resource
 {
@@ -211,7 +212,17 @@ class VentaDesdeCeroResource extends Resource
                     ->schema([
                         Grid::make(3)->schema([
                             Select::make('oferta_id')->label('Oferta')
-                                ->relationship('oferta', 'nombre')->searchable()->preload()->reactive()->required()
+                                ->relationship(
+                                    name: 'oferta',
+                                    titleAttribute: 'nombre',
+                                    modifyQueryUsing: fn(Builder $query) => $query
+                                        ->where('visible', true)
+                                        ->whereNull('deleted_at')
+                                )
+                                ->searchable()
+                                ->preload()
+                                ->reactive()
+                                ->required()
                                 ->afterStateUpdated(function (Set $set, Get $get) {
                                     $total = collect($get('../../../ventaOfertas') ?? [])->sum(
                                         fn($o) => Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0

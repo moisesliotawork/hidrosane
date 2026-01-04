@@ -9,8 +9,6 @@ use Filament\Tables\Table;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
-use App\Enums\EstadoEntrega;      // por si quieres formatear labels de entrega
-use function Filament\Facades\filament;
 use App\Models\User;
 use App\Models\Producto;
 use App\Models\Oferta;
@@ -213,7 +211,13 @@ class HistoricoContratosResource extends Resource
                                 Grid::make(3)->schema([
                                     Select::make('oferta_id')
                                         ->label('Oferta')
-                                        ->relationship('oferta', 'nombre')
+                                        ->relationship(
+                                            name: 'oferta',
+                                            titleAttribute: 'nombre',
+                                            modifyQueryUsing: fn(Builder $query) => $query
+                                                ->where('visible', true)
+                                                ->whereNull('deleted_at')
+                                        )
                                         ->searchable()
                                         ->preload()
                                         ->reactive()
