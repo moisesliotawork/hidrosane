@@ -73,7 +73,7 @@ class NoteResource extends Resource
                             ->preload()
                             ->searchable()
                             ->getSearchResultsUsing(function (string $search): array {
-                                return \App\Models\User::query()
+                                return User::query()
                                     ->role(['teleoperator', 'head_of_room'])
                                     ->where(function (Builder $q) use ($search) {
                                         $q->where('name', 'like', "%{$search}%")
@@ -87,7 +87,7 @@ class NoteResource extends Resource
                                     ->toArray();
                             })
                             ->options(function (): array {
-                                return \App\Models\User::query()
+                                return User::query()
                                     ->role(['teleoperator', 'head_of_room'])
                                     ->orderBy('empleado_id')
                                     ->get()
@@ -96,7 +96,7 @@ class NoteResource extends Resource
                             })
                             ->getOptionLabelUsing(
                                 fn($value): ?string => $value
-                                ? \App\Models\User::find($value)?->display_name
+                                ? User::find($value)?->display_name
                                 : null
                             )
                             ->required(),
@@ -306,7 +306,7 @@ class NoteResource extends Resource
 
                                 // Si hay un author_id en el estado, intentar cargar el usuario
                                 if (isset($state['author_id'])) {
-                                    $author = \App\Models\User::find($state['author_id']) ?? $author;
+                                    $author = User::find($state['author_id']) ?? $author;
                                 }
 
                                 // Determinar el rol abreviado
@@ -1047,6 +1047,11 @@ class NoteResource extends Resource
                                     $note->comercial_id = $retenCommercial->id;
                                     $note->assignment_date = $now;
                                     $asignadasAReten++;
+                                }
+
+                                if ($note->estado_terminal === EstadoTerminal::SALA) {
+                                    $note->estado_terminal = EstadoTerminal::SIN_ESTADO; // ✅ enum, no string
+                                    $note->sent_to_sala_at = null;
                                 }
 
                                 // En todos los casos la mandamos a RETEN
