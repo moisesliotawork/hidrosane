@@ -9,10 +9,18 @@ use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\NoteResource;
 use Illuminate\Support\Str;
+use App\Enums\EstadoTerminal;
+use App\Models\NoteSalaEvent;
+use App\Enums\NoteStatus;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
 
 class Notas extends Component
 {
     public array $selectedNotes = [];
+    public string $search = '';
+    public ?string $statusFilter = null;
+
 
     protected $listeners = [
         'notaActualizada' => '$refresh',
@@ -20,6 +28,115 @@ class Notas extends Component
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
     ];
+
+    public function resetFilters(): void
+    {
+        $this->search = '';
+        $this->statusFilter = null;
+    }
+
+    public function getTabsProperty(): array
+    {
+        $user = auth()->user();
+
+        // Si no es jefe de equipo, no mostramos tabs
+        if (!$user?->hasRole('team_leader')) {
+            return [];
+        }
+
+        // rango hoy-5 a hoy
+        $desde = now()->subDays(5)->toDateString();
+        $hasta = now()->toDateString();
+
+        // tab activo
+        $active = request()->query('activeTab', 'todas');
+
+        // IDs visibles: líder + miembros
+        $visibleIds = [$user->id];
+        $team = Team::with('members:id,empleado_id,name')
+            ->where('team_leader_id', $user->id)
+            ->first();
+
+        if ($team) {
+            $visibleIds = array_values(array_unique(array_merge(
+                $visibleIds,
+                $team->members->pluck('id')->all()
+            )));
+        }
+
+        // filtro de estado_terminal (mismo que usas)
+        $estadoFiltro = function ($q) {
+            $q->whereNull('estado_terminal')
+                ->orWhere('estado_terminal', '')
+                ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+        };
+
+        // helper para contar
+        $countFor = function ($idsOrId) use ($desde, $hasta, $estadoFiltro) {
+            $q = Note::query()
+                ->whereDoesntHave('venta')
+                ->whereNotNull('assignment_date')
+                ->whereBetween(DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                ->where('reten', false)
+                ->where($estadoFiltro);
+
+            if (is_array($idsOrId)) {
+                $q->whereIn('comercial_id', $idsOrId);
+            } else {
+                $q->where('comercial_id', $idsOrId);
+            }
+
+            return $q->count();
+        };
+
+        $tabs = [];
+
+        // TAB "Todas"
+        $tabs[] = [
+            'key' => 'todas',
+            'label' => 'Todas',
+            'badge' => $countFor($visibleIds),
+            'icon' => 'list', // opcional
+            'active' => $active === 'todas' || $active === null || $active === '',
+        ];
+
+        // tabs por comercial
+        $comerciales = collect([$user]);
+        if ($team) {
+            $comerciales = $comerciales->merge($team->members);
+        }
+
+        foreach ($comerciales as $c) {
+            $key = "com_{$c->id}";
+            $label = trim(($c->empleado_id ?? '') . ' ' . ($c->name ?? ''));
+
+            $tabs[] = [
+                'key' => $key,
+                'label' => $label !== '' ? $label : "Comercial #{$c->id}",
+                'badge' => $countFor($c->id),
+                'icon' => 'user', // opcional
+                'active' => $active === $key,
+            ];
+        }
+
+        return $tabs;
+    }
+
+    public function getStatusOptionsProperty(): array
+    {
+        // Si tu enum ya tiene options() como en Filament, úsalo:
+        return NoteStatus::options();
+    }
+
+    public function getActiveFiltersCountProperty(): int
+    {
+        $count = 0;
+        if (!empty(trim($this->search)))
+            $count++;
+        if (!empty($this->statusFilter))
+            $count++;
+        return $count;
+    }
 
     /**
      * IDs de comerciales permitidos (según rol).
@@ -180,6 +297,182 @@ class Notas extends Component
         return redirect()->to($url);
     }
 
+    protected function getSelectedNoteIds(): array
+    {
+        return collect($this->selectedNotes)
+            ->flatten()
+            ->filter(fn($id) => is_numeric($id))
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+
+    /**
+     * ✅ Masivo: Enviar a Retén (igual que bulkAction del Resource)
+     */
+    public function bulkEnviarAReten(): void
+    {
+        $ids = $this->getSelectedNoteIds();
+
+        if (empty($ids)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Seguridad: solo TL / sales_manager (igual que bulkAction)
+        if (!auth()->user()?->hasAnyRole(['team_leader', 'sales_manager'])) {
+            Notification::make()->title('Acceso denegado')->danger()->send();
+            return;
+        }
+
+        $ids = $this->getSelectedNoteIds();
+
+        $allowed = Note::query()
+            ->whereIn('id', $ids)
+            ->get()
+            ->filter(fn(Note $note) => $this->canAccessNote($note))
+            ->pluck('id')
+            ->values()
+            ->all();
+
+
+        if (empty($allowed)) {
+            Notification::make()
+                ->title('No hay notas válidas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $updated = Note::query()
+            ->whereIn('id', $allowed)
+            ->update(['reten' => true]);
+
+        Notification::make()
+            ->title('Notas enviadas a Retén')
+            ->body("Cantidad: {$updated}")
+            ->success()
+            ->send();
+
+        // limpiar selección + refrescar
+        $this->selectedNotes = [];
+        $this->dispatch('notaActualizada');
+    }
+
+    /**
+     * ✅ Masivo: Enviar a Oficina (SALA) (igual que bulkAction del Resource)
+     */
+    public function bulkEnviarASala(): void
+    {
+        $allIds = $this->getSelectedNoteIds();
+
+        if (empty($allIds)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $ids = $this->getSelectedNoteIds();
+
+        $allowed = Note::query()
+            ->whereIn('id', $ids)
+            ->get()
+            ->filter(fn(Note $note) => $this->canAccessNote($note))
+            ->pluck('id')
+            ->values()
+            ->all();
+
+
+        if (empty($allIds)) {
+            Notification::make()
+                ->title('No hay notas válidas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
+        $eligible = Note::query()
+            ->whereIn('id', $allIds)
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->pluck('id')
+            ->all();
+
+        $skipped = count($allIds) - count($eligible);
+
+        if (empty($eligible)) {
+            Notification::make()
+                ->title('No hay notas válidas para enviar a Oficina')
+                ->body('Todas las seleccionadas tienen venta o su TN es NULO/CONFIRMADO/VENTA.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        \DB::transaction(function () use ($eligible) {
+            $now = now();
+            $userId = auth()->id();
+
+            // 1) Actualizar todas las notas elegibles
+            Note::whereIn('id', $eligible)->update([
+                'estado_terminal' => EstadoTerminal::SALA->value,
+                'printed' => false,
+                'reten' => false,
+                'sent_to_sala_at' => $now,
+                'fecha_declaracion' => $now,
+            ]);
+
+            // 2) Historial masivo
+            $rows = [];
+            foreach ($eligible as $noteId) {
+                $rows[] = [
+                    'note_id' => $noteId,
+                    'sent_by_user_id' => $userId,
+                    'via' => 'masivo',
+                    'sent_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (!empty($rows)) {
+                NoteSalaEvent::insert($rows);
+            }
+
+            // 3) Evento afterCommit (igual)
+            \DB::afterCommit(function () use ($eligible) {
+                $comercial = auth()->user();
+
+                event(new \App\Events\NotasEnviadasAOficinaBulk(
+                    $eligible,
+                    $comercial
+                ));
+            });
+        });
+
+        Notification::make()
+            ->title('Notas enviadas a Oficina')
+            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->success()
+            ->send();
+
+        $this->selectedNotes = [];
+        $this->dispatch('notaActualizada');
+    }
+
+
     /**
      * ✅ ESTE es el query “de arriba” pero en Livewire.
      */
@@ -187,7 +480,7 @@ class Notas extends Component
     {
         $user = auth()->user();
 
-        $query = Note::query()->with(['customer', 'comercial']);
+        $query = Note::query()->with(['customer', 'comercial', 'user']);
 
         // 1) Filtro por comercial (commercial / team_leader)
         if (!$user->hasRole('sales_manager')) {
@@ -226,6 +519,50 @@ class Notas extends Component
 
         // 4) Sin reten
         $query->where('reten', false);
+
+        // 5) ✅ BÚSQUEDA (reactiva)
+        $term = trim((string) $this->search);
+
+        if ($term !== '') {
+            $term = preg_replace('/\s+/', ' ', $term);
+
+            $query->where(function ($q) use ($term) {
+
+                // Nota: nro_nota (búsqueda parcial)
+                $q->where('nro_nota', 'like', "%{$term}%");
+
+                // Customer (tu BD usa first_names / last_names)
+                $q->orWhereHas('customer', function ($qc) use ($term) {
+                    $qc->where(function ($w) use ($term) {
+                        $w->where('first_names', 'like', "%{$term}%")
+                            ->orWhere('last_names', 'like', "%{$term}%")
+                            ->orWhereRaw(
+                                "CONCAT(COALESCE(first_names,''),' ',COALESCE(last_names,'')) LIKE ?",
+                                ["%{$term}%"]
+                            )
+                            ->orWhere('dni', 'like', "%{$term}%")
+                            ->orWhere('phone', 'like', "%{$term}%")
+                            ->orWhere('secondary_phone', 'like', "%{$term}%")
+                            ->orWhere('primary_address', 'like', "%{$term}%")
+                            ->orWhere('postal_code', 'like', "%{$term}%")
+                            ->orWhere('ciudad', 'like', "%{$term}%");
+                    });
+                });
+
+                // Teleoperadora (user): empleado_id
+                $q->orWhereHas('user', function ($qu) use ($term) {
+                    $qu->where('empleado_id', 'like', "%{$term}%")
+                        ->orWhere('name', 'like', "%{$term}%")
+                        ->orWhere('last_name', 'like', "%{$term}%")
+                        ->orWhereRaw("CONCAT(COALESCE(name,''),' ',COALESCE(last_name,'')) LIKE ?", ["%{$term}%"]);
+                });
+            });
+        }
+
+        if (!empty($this->statusFilter)) {
+            $query->where('status', $this->statusFilter);
+        }
+
 
         return $query
             ->latest('assignment_date')

@@ -8,7 +8,17 @@ class Notas2 extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Notas 2';
-    protected static ?string $title = 'Notas Nuevas';
     protected static ?string $slug = 'notas';
     protected static string $view = 'filament.commercial.pages.notas2';
+
+    public function getTitle(): string
+    {
+        $user = auth()->user();
+
+        if ($user?->hasAnyRole(['team_leader', 'sales_manager'])) {
+            return 'Notas JE';
+        }
+
+        return 'Notas';
+    }
 }
