@@ -4,32 +4,38 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\{HasMany, BelongsToMany};
 
 class Oferta extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'nombre',
         'puntos_base',
         'precio_base',
         'descripcion',
+        'visible',
+    ];
+
+    protected $casts = [
+        'visible' => 'boolean',
+        'puntos_base' => 'integer',
+        'precio_base' => 'decimal:2',
+        'deleted_at' => 'datetime',
     ];
 
     /* ---------- Relaciones ---------- */
 
-    // una oferta puede estar en muchas ventas (a través del pivot VentaOferta)
     public function ventas(): BelongsToMany
     {
-        // de paso accedemos a precio_cerrado y puntos desde el pivot
         return $this->belongsToMany(Venta::class, 'venta_ofertas')
-            ->using(VentaOferta::class)   // “custom pivot” = el modelo intermedio
+            ->using(VentaOferta::class)
             ->withPivot(['precio_cerrado', 'puntos'])
             ->withTimestamps();
     }
 
-    // relación directa al modelo intermedio
     public function ventaOfertas(): HasMany
     {
         return $this->hasMany(VentaOferta::class);
@@ -38,7 +44,7 @@ class Oferta extends Model
     public function productos()
     {
         return $this->belongsToMany(\App\Models\Producto::class, 'oferta_productos')
-            ->withPivot('cantidad', 'puntos') // si tienes columnas adicionales
-            ->withTimestamps(); // opcional
+            ->withPivot('cantidad', 'puntos')
+            ->withTimestamps();
     }
 }

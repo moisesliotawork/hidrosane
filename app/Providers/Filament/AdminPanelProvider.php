@@ -21,6 +21,8 @@ use App\Http\Middleware\StartWorkSession;
 use App\Filament\Admin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -42,6 +44,15 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Lime,
             ])
+            ->renderHook(
+
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn(): string => Blade::render('@if(auth()->check()) 
+                <div class="flex items-center justify-end gap-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {{ auth()->user()->empleado_id . " - " . auth()->user()->name . " " . auth()->user()->last_name }}
+                </div>
+            @endif')
+            )
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([

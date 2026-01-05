@@ -32,6 +32,7 @@ use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Database\Eloquent\Builder;
 
 class VentaResource extends Resource
 {
@@ -444,7 +445,12 @@ class VentaResource extends Resource
                             Grid::make(3)->schema([
                                 Select::make('oferta_id')
                                     ->label('Oferta')
-                                    ->relationship('oferta', 'nombre')
+                                    ->relationship(
+                                        name: 'oferta',
+                                        titleAttribute: 'nombre',
+                                        modifyQueryUsing: fn(Builder $query) => $query
+                                            ->whereNull('deleted_at')
+                                    )
                                     ->searchable()
                                     ->preload()
                                     ->reactive()

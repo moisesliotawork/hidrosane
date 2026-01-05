@@ -45,12 +45,20 @@ class ComercialesVerNotas extends Page implements HasTable
     public function table(Table $table): Table
     {
         $user = auth()->user();
-
-        if ($user->hasRole('sales_manager')) {
+        
+        if (in_array($user->id, [17, 18], true)) {
             $query = User::query()
                 ->role(['commercial', 'team_leader', 'sales_manager'])
                 ->whereNull('baja');
+
+        } elseif ($user->hasRole('sales_manager')) {
+
+            $query = User::query()
+                ->role(['commercial', 'team_leader', 'sales_manager'])
+                ->whereNull('baja');
+
         } else {
+
             $teamIds = Team::query()
                 ->where('deleted', false)
                 ->where('team_leader_id', $user->id)
@@ -91,7 +99,6 @@ class ComercialesVerNotas extends Page implements HasTable
                     ->openUrlInNewTab(false),
             ])
             ->headerActions([
-                // 👉 Botón que hace el papel de la “fila RETEN”
                 Tables\Actions\Action::make('ver_reten')
                     ->label('RETEN')
                     ->button()

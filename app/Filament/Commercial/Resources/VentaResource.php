@@ -292,7 +292,13 @@ class VentaResource extends Resource
                                 Grid::make(3)->schema([
                                     Select::make('oferta_id')
                                         ->label('Oferta')
-                                        ->relationship('oferta', 'nombre')
+                                        ->relationship(
+                                            name: 'oferta',
+                                            titleAttribute: 'nombre',
+                                            modifyQueryUsing: fn(Builder $query) => $query
+                                                ->where('visible', true)
+                                                ->whereNull('deleted_at')
+                                        )
                                         ->searchable()
                                         ->preload()
                                         ->reactive()
