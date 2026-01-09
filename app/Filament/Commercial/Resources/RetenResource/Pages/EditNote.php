@@ -54,6 +54,7 @@ class EditNote extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
                     // 1) Cambiar estado
+                    $this->syncComercialToSession();
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->reten = false;
                     $this->record->save();
@@ -142,6 +143,9 @@ class EditNote extends EditRecord
 
                     DB::transaction(function () use ($data, $companionId) {
 
+                        $this->syncComercialToSession();
+                        $this->record->save();
+
                         // 1) Guardar motivo + compañero
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
@@ -151,6 +155,7 @@ class EditNote extends EditRecord
                         ]);
 
                         // 2) Cambiar estado
+        
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
                         $this->record->save();
@@ -272,6 +277,9 @@ class EditNote extends EditRecord
                     // 2️⃣ Flujo normal: sí tiene cremas (o marcó que no entregó crema)
                     DB::transaction(function () use ($data, $dioCrema, $companionId) {
 
+                        $this->syncComercialToSession();
+                        $this->record->save();
+
                         $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
                             'author_id' => Auth::id(),
@@ -363,6 +371,10 @@ class EditNote extends EditRecord
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
                     DB::transaction(function () use ($data) {
+
+                        $this->syncComercialToSession();
+                        $this->record->save();
+
                         // 1) Guardar observación de sala
                         $salaObservation = NoteSalaObservation::create([
                             'note_id' => $this->record->id,
@@ -506,4 +518,10 @@ class EditNote extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    private function syncComercialToSession(): void
+    {
+        $this->record->comercial_id = Auth::id();
+    }
+
 }

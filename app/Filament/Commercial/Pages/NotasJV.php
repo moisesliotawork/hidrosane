@@ -7,7 +7,7 @@ use Filament\Pages\Page;
 class NotasJV extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Notas JV';
+    protected static ?string $navigationLabel = 'Todas Notas 2026';
     protected static ?string $slug = 'notas-jv';
     protected static string $view = 'filament.commercial.pages.notas-jv';
 

@@ -354,8 +354,42 @@ class VentaResource extends Resource
                 ])
                 ->columns(3),
 
-
-
+            /* ------------- Comercial asociado a la nota/venta -------------- */
+            Section::make('Comercial')
+                ->schema([
+                    Select::make('comercial_id')
+                        ->label('Comercial')
+                        ->searchable()
+                        ->native(false)
+                        ->nullable()
+                        ->preload()
+                        ->options(
+                            fn() =>
+                            User::role(['commercial', 'team_leader', 'sales_manager'])
+                                ->select('id', 'empleado_id', 'name', 'last_name')
+                                ->orderBy('empleado_id')
+                                ->get()
+                                ->mapWithKeys(fn($u) => [
+                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                ])
+                                ->all()
+                        )
+                        ->getSearchResultsUsing(function (string $search) {
+                            return User::role(['commercial', 'team_leader', 'sales_manager'])
+                                ->where(function ($q) use ($search) {
+                                    $q->where('empleado_id', 'like', "%{$search}%")
+                                        ->orWhere('name', 'like', "%{$search}%")
+                                        ->orWhere('last_name', 'like', "%{$search}%");
+                                })
+                                ->limit(50)
+                                ->get()
+                                ->mapWithKeys(fn($u) => [
+                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                ])
+                                ->all();
+                        })
+                        ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                ]),
 
             /* ------------- Compañero -------------- */
             Section::make('¿Estás en pareja con otro compañero?')

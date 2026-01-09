@@ -125,7 +125,7 @@ class CreateVenta extends CreateRecord
             $venta = Venta::create([
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
-                'comercial_id' => $note->comercial_id ?? auth()->id(),
+                'comercial_id' => auth()->id(),
                 'companion_id' => $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
@@ -209,7 +209,11 @@ class CreateVenta extends CreateRecord
             $venta->save();
 
             // j) Estado de la nota
-            $note->update(['estado_terminal' => EstadoTerminal::VENTA, 'reten' => false]);
+            $note->update([
+                'estado_terminal' => EstadoTerminal::VENTA,
+                'reten' => false,
+                'comercial_id' => auth()->id()
+            ]);
 
             DB::afterCommit(function () use ($venta) {
                 event(new VentaCreada($venta));
