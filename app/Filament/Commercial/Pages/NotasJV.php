@@ -15,4 +15,10 @@ class NotasJV extends Page
     {
         return 'Notas JV';
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check()
+            && auth()->user()->hasRole('sales_manager');
+    }
 }
