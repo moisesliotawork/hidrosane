@@ -52,7 +52,7 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('last_names')
                             ->required()
                             ->maxLength(255)
-                            ->label('Apellidos')
+                            ->label('Apellidos ***')
                             ->validationMessages([
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
