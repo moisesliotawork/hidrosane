@@ -275,6 +275,34 @@
 
     // ===== Pasadas: 0 = Original (con anexos), 1 = Copia (con anexos, sin productos ni importes), 2 = Copia-B (igual que copia, pero nro_contr_adm -B) =====
     $__passes = [0, 1, 2];
+
+    // ===== Año del contrato (año de la fecha de venta) =====
+    // Ajusta el campo de fecha según tu modelo: fecha_venta / sale_date / created_at, etc.
+    $fechaVenta = $venta->fecha_venta
+        ? Carbon::parse($venta->fecha_venta)
+        : Carbon::parse($venta->created_at);
+
+    $anioContrato = $fechaVenta->format('Y');
+
+    // ===== Footer (abajo) =====
+    $yYear = (float) request('yyear', 283.0); // mm (casi al final de la hoja A4)
+    $xYear = (float) request('xyear', 122.0); // centro horizontal (105mm en A4)
+    $wYear = (float) request('wyear', 60.0);  // ancho del bloque para centrar texto
+
+    $anioContrato2 = $fechaVenta->format('Y');
+
+    // ===== Footer (abajo) =====
+    $yYear2 = (float) request('yyear', 283.0); // mm (casi al final de la hoja A4)
+    $xYear2 = (float) request('xyear', 99.0); // centro horizontal (105mm en A4)
+    $wYear2 = (float) request('wyear', 60.0);  // ancho del bloque para centrar texto
+
+    $anioContrato3 = $fechaVenta->format('Y');
+
+    // ===== Footer (abajo) =====
+    $yYear3 = (float) request('yyear', 265.0); // mm (casi al final de la hoja A4)
+    $xYear3 = (float) request('xyear', 143.0); // centro horizontal (105mm en A4)
+    $wYear3 = (float) request('wyear', 60.0);  // ancho del bloque para centrar texto
+
 @endphp
 
 <!DOCTYPE html>
@@ -493,6 +521,12 @@
                     style="top:{{ $yFirmas }}mm; left:{{ $xFirmaEmp }}mm; width:{{ $wFirma }}mm; text-align:center;"></div>
             </div>
 
+            <div class="field"
+                style="top:{{ $yYear }}mm; left:{{ $xYear }}mm; width:{{ $wYear }}mm; text-align:center; transform:translateX(-50%);">
+                {{ $anioContrato }}
+            </div>
+
+
             {{-- Firma de la Empresa (imagen) --}}
             <img class="sig" src="{{ str_replace('\\', '/', public_path('images/FirmaEmpresa.png')) }}" alt="Firma Empresa"
                 style="top: {{ $yFirmas - 18 }}mm; left: {{ $xFirmaEmp + 5 }}mm; width: 35mm; height: auto;" />
@@ -504,6 +538,10 @@
             <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
                 <div class="field" style="top:{{ $yP2_Dni }}mm; left:{{ $xP2_Dni }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
+            </div>
+            <div class="field field --sm"
+                style="top:{{ $yYear2 }}mm; left:{{ $xYear2 }}mm; width:{{ $wYear2 }}mm; text-align:center; transform:translateX(-50%);">
+                {{ $anioContrato2 }}
             </div>
 
         </div>
@@ -586,7 +624,12 @@
                 </div>
                 <div class="field" style="top:{{ $yAp_Tel }}mm; left:{{ $xApTel }}mm;">{{ $telefonos }}</div>
                 <div class="field" style="top:{{ $yAp_Dni2 }}mm; left:{{ $xApDni2 }}mm;">
-                    {{ strtoupper($venta->customer->dni ?? '') }}</div>
+                    {{ strtoupper($venta->customer->dni ?? '') }}
+                </div>
+                <div class="field field --sm"
+                style="top:{{ $yYear3 }}mm; left:{{ $xYear3 }}mm; width:{{ $wYear3 }}mm; text-align:center; transform:translateX(-50%);">
+                {{ $anioContrato3 }}
+                </div>
             </div>
 
         </div>
