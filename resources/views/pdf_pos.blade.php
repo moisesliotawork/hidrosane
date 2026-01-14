@@ -505,7 +505,7 @@
                     </div>
                     <div class="field"
                         style="top:{{ $yPagoFila }}mm; left:{{ $xImporte }}mm; width:{{ $wImporte }}mm; text-align:center;">
-                        {{ number_format($venta->total_final, 2, ',', '.') }} €
+                        {{ number_format($venta->importe_total, 2, ',', '.') }} €
                     </div>
                 @endunless
 
