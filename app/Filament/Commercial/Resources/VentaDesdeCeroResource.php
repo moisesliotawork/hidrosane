@@ -434,7 +434,7 @@ class VentaDesdeCeroResource extends Resource
                             ->toArray()
                     )
                     ->required()->reactive()->native(false)
-                    ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
+                    ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['NS'], true))
                     ->default(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true) ? 1 : 6)
                     ->rules(['integer', Rule::in(array_merge(range(1, 39)))])
                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
