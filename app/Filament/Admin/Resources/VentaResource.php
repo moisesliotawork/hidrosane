@@ -842,9 +842,6 @@ class VentaResource extends Resource
 
             Section::make('Gestión Documentos')
                 ->schema([
-                    //SOLO FOTOTECA (sin capture, solo accept)
-                    self::docCard('albaran', 'Albarán', false, false),
-
                     //RESTO: CÁMARA
                     self::docCard('precontractual', 'Precontractual', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
