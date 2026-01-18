@@ -595,7 +595,8 @@ class User extends Authenticatable implements FilamentUser, HasName
                     'documento_titularidad' => 'Documento titularidad',
                     'nomina' => 'Nómina',
                     'pension' => 'Pensión',
-                    'contrato_firmado' => 'Otro Documento',
+                    'contrato_firmado' => 'Contrato Firmado',
+                    'otros_documentos' => 'Otros Documentod'
                 ];
 
                 $subidos = [];
@@ -937,7 +938,8 @@ class User extends Authenticatable implements FilamentUser, HasName
                     'documento_titularidad' => 'Documento titularidad',
                     'nomina' => 'Nómina',
                     'pension' => 'Pensión',
-                    'contrato_firmado' => 'Otro Documento',
+                    'contrato_firmado' => 'Contrato Firmado',
+                    'otros_documentos' => 'Otros Documentos'
                 ];
 
                 $subidos = [];

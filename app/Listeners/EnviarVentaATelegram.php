@@ -75,7 +75,8 @@ class EnviarVentaATelegram implements ShouldQueue
             'documento_titularidad' => 'Documento de titularidad',
             'nomina' => 'Nómina',
             'pension' => 'Pensión',
-            'contrato_firmado' => 'Otro Documento',
+            'contrato_firmado' => 'Contrato Firmado',
+            'otros_documentos' => 'Otros Documentos'
         ];
 
         $subidos = [];

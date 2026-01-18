@@ -51,7 +51,8 @@ class GestionDocumentos extends Page implements HasForms
             'documento_titularidad' => $this->venta->documento_titularidad,
             'nomina' => $this->venta->nomina,
             'pension' => $this->venta->pension,
-            'contrato_firmado' => $this->venta->contrato_firmado,
+            //'contrato_firmado' => $this->venta->contrato_firmado,
+            'otros_documentos' => $this->venta->otros_documentos,
         ]);
     }
 
@@ -70,7 +71,8 @@ class GestionDocumentos extends Page implements HasForms
                         self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
                         self::docCard('nomina', 'Nómina', false, true),
                         self::docCard('pension', 'Pensión', false, true),
-                        self::docCard('contrato_firmado', 'Otro Documento', false, true),
+                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
+                        self::docCard('otros_documentos', 'Otros Documentos', false, true),
                     ])
                     ->columns(1)
                     ->columnSpanFull(),
@@ -160,7 +162,8 @@ class GestionDocumentos extends Page implements HasForms
             'documento_titularidad' => $data['documento_titularidad'] ?? $this->venta->documento_titularidad,
             'nomina' => $data['nomina'] ?? $this->venta->nomina,
             'pension' => $data['pension'] ?? $this->venta->pension,
-            'contrato_firmado' => $data['contrato_firmado'] ?? $this->venta->contrato_firmado,
+            //'contrato_firmado' => $data['contrato_firmado'] ?? $this->venta->contrato_firmado,
+            'otros_documentos' => $data['otros_documentos'] ?? $this->venta->otros_documentos,
         ])->save();
 
         Notification::make()
