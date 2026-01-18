@@ -496,7 +496,8 @@ class VentaDesdeCeroResource extends Resource
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
                     self::docCard('nomina', 'Nómina', false, true),
                     self::docCard('pension', 'Pensión', false, true),
-                    self::docCard('contrato_firmado', 'Otro Documento', false, true),
+                    self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
+                    self::docCard('otros_documentos', 'Otros Documentos', false, true),
                 ])
                 ->columns(1)
                 ->columnSpanFull(),

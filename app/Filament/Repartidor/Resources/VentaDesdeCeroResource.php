@@ -90,7 +90,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
                     TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
 
-                    
+
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
                     Select::make('estado_civil')->label('Estado civil')
@@ -416,7 +416,8 @@ class VentaDesdeCeroResource extends Resource
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
                     self::docCard('nomina', 'Nómina', false, true),
                     self::docCard('pension', 'Pensión', false, true),
-                    self::docCard('contrato_firmado', 'Otro Documento', false, true),
+                    self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
+                    self::docCard('otros_documentos', 'Otros Documentos', false, true),
                 ])
                 ->columns(1)
                 ->columnSpanFull(),

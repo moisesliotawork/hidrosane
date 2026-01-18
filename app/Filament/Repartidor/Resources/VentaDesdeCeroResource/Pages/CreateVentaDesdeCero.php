@@ -126,6 +126,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
+                'otros_documentos' => $data['otros_documentos'] ?? null,
             ]);
 
             $this->form->model($venta)->saveRelationships();

@@ -121,6 +121,7 @@ class Venta extends Model
         'horario_entrega',
         'productos_externos',
         'precontractual',
+        'otros_documentos',
         'dni_anverso',
         'dni_reverso',
         'documento_titularidad',
@@ -193,6 +194,7 @@ class Venta extends Model
 
     protected $appends = [
         'precontractual_url',
+        'otros_documentos_url',
         'dni_anverso_url',
         'dni_reverso_url',
         'documento_titularidad_url',
@@ -358,6 +360,11 @@ class Venta extends Model
     {
         return $this->urlFor('contrato_firmado');
     }
+    public function getOtrosDocumentosUrlAttribute()
+    {
+        return $this->urlFor('otros_documentos');
+    }
+
 
     /* ---------- Helper ---------- */
     protected function urlFor(string $field): ?string
