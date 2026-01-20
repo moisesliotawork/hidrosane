@@ -30,10 +30,10 @@ class CreateNote extends CreateRecord
                 ->label('Guardar')
                 ->action('create'),
 
-            Actions\CreateAction::make('createAnother')
-                ->label('Guardar y crear otro')
-                ->color('gray')
-                ->action('createAnother'),
+            //Actions\CreateAction::make('createAnother')
+            //    ->label('Guardar y crear otro')
+            //    ->color('gray')
+            //    ->action('createAnother'),
 
             Actions\Action::make('cancel')
                 ->label('Cancelar')
