@@ -1082,6 +1082,112 @@ class NoteResource extends Resource
                             ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
+                Tables\Actions\BulkAction::make('assignCommercialBulkAndSendToReten')
+                    ->label('Asignar comercial + enviar a RETEN')
+                    ->icon('heroicon-s-user-plus')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\Select::make('comercial_id')
+                            ->label('Seleccionar Comercial')
+                            ->options(function () {
+                                return User::role(['commercial', 'team_leader', 'sales_manager'])
+                                    ->whereNull('baja') // ajusta si tu campo real es fecha_baja
+                                    ->orderBy('name')
+                                    ->select('id', 'name', 'last_name', 'empleado_id')
+                                    ->get()
+                                    ->mapWithKeys(fn($u) => [
+                                        $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
+                                    ])
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->native(false)
+                            ->placeholder('Sin asignar') // permite null
+                            ->rules([
+                                'nullable',
+                                'integer',
+                                Rule::exists('users', 'id')->where(function ($q) {
+                                    $q->whereNull('baja')
+                                        ->whereExists(function ($sq) {
+                                            $sq->selectRaw(1)
+                                                ->from('model_has_roles as mhr')
+                                                ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                                                ->whereColumn('mhr.model_id', 'users.id')
+                                                ->where('mhr.model_type', User::class)
+                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
+                                        });
+                                }),
+                            ]),
+
+                        Forms\Components\DatePicker::make('assignment_date')
+                            ->label('Fecha de asignación')
+                            ->hint('Si se deja vacío, se usará la fecha actual (solo si asignas comercial)')
+                            ->required(false)
+                            ->native(false),
+                    ])
+                    ->action(function (iterable $records, array $data): void {
+                        try {
+                            $comercialId = $data['comercial_id'] ?? null;
+
+                            // ✅ Validación runtime si viene un comercial
+                            if (!empty($comercialId)) {
+                                $isValid = User::query()
+                                    ->where('id', $comercialId)
+                                    ->whereNull('baja')
+                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
+                                    ->exists();
+
+                                if (!$isValid) {
+                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
+                                }
+                            }
+
+                            // ✅ misma lógica: fecha solo si hay comercial, si no => null
+                            $assignmentDate = !empty($comercialId)
+                                ? ($data['assignment_date'] ?? now())
+                                : null;
+
+                            $recordIds = collect($records)->pluck('id')->all();
+
+                            // 1) ✅ misma lógica que assignCommercialBulk + reten=true
+                            Note::whereIn('id', $recordIds)->update([
+                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
+                                'assignment_date' => $assignmentDate,
+                                'reten' => true, // 👈 diferencia: siempre se envía a RETEN
+                            ]);
+
+                            // 2) ✅ misma lógica: si estaban en SALA => reset TN a SIN_ESTADO
+                            $toResetIds = Note::whereIn('id', $recordIds)
+                                ->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->pluck('id')
+                                ->all();
+
+                            if (!empty($toResetIds)) {
+                                Note::whereIn('id', $toResetIds)->update([
+                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
+                                    'sent_to_sala_at' => null,
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->title('Acción masiva completada')
+                                ->body(
+                                    (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
+                                    . ' • Enviadas a RETEN: ' . count($recordIds)
+                                    . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                )
+                                ->success()
+                                ->send();
+
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error en acción masiva')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    })
+                    ->deselectRecordsAfterCompletion(),
 
             ])
             ->deselectAllRecordsWhenFiltered(false);
