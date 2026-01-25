@@ -23,6 +23,35 @@ class CreateNote extends CreateRecord
         return $this->getResource()::getUrl('index');
     }
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        $prefill = [
+            'phone' => request('phone'),
+            'primary_address' => request('primary_address'),
+            // si luego pasas más:
+            // 'postal_code' => request('postal_code'),
+            // 'ciudad' => request('ciudad'),
+            // 'provincia' => request('provincia'),
+            // 'nro_piso' => request('nro_piso'),
+        ];
+
+        // formatea phone para la máscara
+        if (!empty($prefill['phone'])) {
+            $digits = preg_replace('/\D+/', '', (string) $prefill['phone']);
+            if (strlen($digits) === 9) {
+                $prefill['phone'] = implode(' ', str_split($digits, 3));
+            }
+        }
+
+        // limpia null/vacíos
+        $prefill = array_filter($prefill, fn($v) => $v !== null && $v !== '');
+
+        $this->form->fill($prefill);
+    }
+
+
     protected function getFormActions(): array
     {
         return [
@@ -30,10 +59,18 @@ class CreateNote extends CreateRecord
                 ->label('Guardar')
                 ->action('create'),
 
-            //Actions\CreateAction::make('createAnother')
-            //    ->label('Guardar y crear otro')
-            //    ->color('gray')
-            //    ->action('createAnother'),
+            Actions\Action::make('guardarYBuscarOtro')
+                ->label('Guardar y crear otro')
+                ->color('gray')
+                ->action(function () {
+                    // 1) Guarda el registro (usa el flujo normal)
+                    $this->create();
+
+                    // 2) Redirige a la página de búsqueda
+                    return redirect()->to(
+                        \App\Filament\HeadOfRoom\Pages\BuscarCliente::getUrl()
+                    );
+                }),
 
             Actions\Action::make('cancel')
                 ->label('Cancelar')

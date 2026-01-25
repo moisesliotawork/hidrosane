@@ -30,7 +30,8 @@ use Illuminate\Validation\Rule;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Notifications\Actions\Action as NotificationAction;
-
+use App\Filament\Teleoperator\Pages\BuscarCliente;
+use Filament\Tables\Actions\Action;
 
 class NoteResource extends Resource
 {
@@ -738,93 +739,98 @@ class NoteResource extends Resource
 
             ])
             ->headerActions([
-                Tables\Actions\Action::make('buscarTelefono')
-                    ->label('Buscar teléfono')
+                Action::make('irABuscarCliente')
+                    ->label('Buscar cliente')
                     ->icon('heroicon-o-magnifying-glass')
-                    ->color('orange')
-                    ->modalHeading('Buscar cliente por teléfono')
-                    ->modalSubmitActionLabel('Buscar')
-                    ->form([
-                        Forms\Components\TextInput::make('phone_query')
-                            ->label('INGRESA NUMERO DE TELEFONO')
-                            ->tel()
-                            ->required()
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras.');
-                                    }
-                                };
-                            }),
-                    ])
-                    ->action(function (array $data) {
-                        $digits = preg_replace('/\D+/', '', (string) ($data['phone_query'] ?? ''));
-
-                        if (strlen($digits) !== 9) {
-                            Notification::make()
-                                ->title('Teléfono inválido')
-                                ->body('Debe tener exactamente 9 cifras.')
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        // Buscar el cliente por los distintos teléfonos
-                        $customer = Customer::query()
-                            ->where('phone', $digits)
-                            ->orWhere('secondary_phone', $digits)
-                            ->orWhere('third_phone', $digits)
-                            ->first();
-
-                        // Si NO existe → flujo actual: crear nota nueva con el phone
-                        if (!$customer) {
-                            $url = static::getUrl('create', ['phone' => $digits]);
-
-                            return redirect($url);
-                        }
-
-                        // Si SÍ existe → mostrar resumen + botones
-            
-                        $fullName = trim(($customer->first_names ?? '') . ' ' . ($customer->last_names ?? ''));
-                        $dni = $customer->dni ?? '—';
-
-                        $notesCount = Note::where('customer_id', $customer->id)->count();
-                        $ventasCount = Venta::where('customer_id', $customer->id)->count();
-
-                        $bodyLines = [
-                            "Nombre: {$fullName}",
-                            "DNI: {$dni}",
-                            "Notas asociadas: {$notesCount}",
-                            "Ventas asociadas: {$ventasCount}",
-                        ];
-
-                        Notification::make()
-                            ->title('CLIENTE ENCONTRADO')
-                            ->body(implode("\n", $bodyLines))
-                            ->info()
-                            ->persistent() // se queda hasta que el usuario interactúe
-                            ->actions([
-                                NotificationAction::make('no_continuar')
-                                    ->label('No continuar')
-                                    ->button()
-                                    ->color('gray')
-                                    ->close(),
-
-
-                                NotificationAction::make('continuar')
-                                    ->label('Continuar')
-                                    ->button()
-                                    ->color('success')
-                                    ->url(static::getUrl('create', [
-                                        'customer_id' => $customer->id,
-                                    ]))
-                                    ->openUrlInNewTab(false),
-                            ])
-                            ->send();
-                    }),
+                    ->color('warning')
+                    ->url(fn() => BuscarCliente::getUrl()),
+                //Tables\Actions\Action::make('buscarTelefono')
+                //    ->label('Buscar teléfono')
+                //    ->icon('heroicon-o-magnifying-glass')
+                //    ->color('orange')
+                //    ->modalHeading('Buscar cliente por teléfono')
+                //    ->modalSubmitActionLabel('Buscar')
+                //    ->form([
+                //        Forms\Components\TextInput::make('phone_query')
+                //            ->label('INGRESA NUMERO DE TELEFONO')
+                //            ->tel()
+                //            ->required()
+                //            ->mask('999 999 999')
+                //            ->rule(function () {
+                //                return function (string $attribute, $value, \Closure $fail) {
+                //                    $digits = preg_replace('/\D+/', '', (string) $value);
+                //                    if (strlen($digits) !== 9) {
+                //                        $fail('Debe tener exactamente 9 cifras.');
+                //                    }
+                //                };
+                //            }),
+                //    ])
+                //    ->action(function (array $data) {
+                //        $digits = preg_replace('/\D+/', '', (string) ($data['phone_query'] ?? ''));
+//
+                //        if (strlen($digits) !== 9) {
+                //            Notification::make()
+                //                ->title('Teléfono inválido')
+                //                ->body('Debe tener exactamente 9 cifras.')
+                //                ->danger()
+                //                ->send();
+//
+                //            return;
+                //        }
+//
+                //        // Buscar el cliente por los distintos teléfonos
+                //        $customer = Customer::query()
+                //            ->where('phone', $digits)
+                //            ->orWhere('secondary_phone', $digits)
+                //            ->orWhere('third_phone', $digits)
+                //            ->first();
+//
+                //        // Si NO existe → flujo actual: crear nota nueva con el phone
+                //        if (!$customer) {
+                //            $url = static::getUrl('create', ['phone' => $digits]);
+//
+                //            return redirect($url);
+                //        }
+//
+                //        // Si SÍ existe → mostrar resumen + botones
+                //
+                //        $fullName = trim(($customer->first_names ?? '') . ' ' . ($customer->last_names ?? ''));
+                //        $dni = $customer->dni ?? '—';
+//
+                //        $notesCount = Note::where('customer_id', $customer->id)->count();
+                //        $ventasCount = Venta::where('customer_id', $customer->id)->count();
+//
+                //        $bodyLines = [
+                //            "Nombre: {$fullName}",
+                //            "DNI: {$dni}",
+                //            "Notas asociadas: {$notesCount}",
+                //            "Ventas asociadas: {$ventasCount}",
+                //        ];
+//
+                //        Notification::make()
+                //            ->title('CLIENTE ENCONTRADO')
+                //            ->body(implode("\n", $bodyLines))
+                //            ->info()
+                //            ->persistent() // se queda hasta que el usuario interactúe
+                //            ->actions([
+                //                NotificationAction::make('no_continuar')
+                //                    ->label('No continuar')
+                //                    ->button()
+                //                    ->color('gray')
+                //                    ->close(),
+//
+//
+                //                NotificationAction::make('continuar')
+                //                    ->label('Continuar')
+                //                    ->button()
+                //                    ->color('success')
+                //                    ->url(static::getUrl('create', [
+                //                        'customer_id' => $customer->id,
+                //                    ]))
+                //                    ->openUrlInNewTab(false),
+                //            ])
+                //            ->send();
+                //    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('pdfSalaSoloNoImpresas')

@@ -103,6 +103,21 @@ class VentaResource extends Resource
                             ->native(false)
                             ->searchable()
                             ->nullable(),
+
+                        // ✅ Solo visible en "create-b"
+                        DatePicker::make('fecha_venta')
+                            ->label('Fecha de venta')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->required()
+                            ->visible(
+                                fn(?Venta $record) =>
+                                request()->routeIs('filament.admin.resources.ventas.create-b')
+                                || (filled($record?->nro_contr_adm) && str_ends_with($record->nro_contr_adm, '-B'))
+                            )
+                        // (opcional) si quieres que SOLO se vea y no la puedan cambiar:
+                        // ->disabled()
+                        ,
                     ]),
                 ]),
 
@@ -423,9 +438,21 @@ class VentaResource extends Resource
                         ->numeric()
                         ->prefix('€')
                         ->disabled()
-                        ->dehydrated(false)
+                        ->dehydrated()
                         ->reactive()
-                        ->afterStateHydrated(fn(Get $get, Set $set) => self::recalcTotales($get, $set))   // ← aquí
+                        ->afterStateHydrated(function (Get $get, Set $set) {
+                            if (request()->routeIs('filament.admin.resources.ventas.create-b')) {
+                                // en -B arrancamos en cero limpio
+                                $set('importe_total', 0);
+                                $set('monto_extra', 0);
+                                $set('entrada', 0);
+                                $set('total_final', 0);
+                                $set('cuota_final', 0);
+                                return;
+                            }
+
+                            self::recalcTotales($get, $set);
+                        })
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
                             $set('cuota_mensual', number_format(
                                 (float) $state / max((int) ($get('num_cuotas') ?? 1), 1),

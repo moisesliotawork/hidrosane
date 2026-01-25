@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
 use Filament\Notifications\Notification;
 use App\Models\Customer;
+use App\Filament\Teleoperator\Pages\BuscarCliente;
+use Filament\Tables\Actions\Action;
 
 class NoteResource extends Resource
 {
@@ -341,58 +343,63 @@ class NoteResource extends Resource
                 //    ->label('Cambiar Fuente')
             ])
             ->headerActions([
-                Tables\Actions\Action::make('buscarTelefono')
-                    ->label('Buscar teléfono')
+                Action::make('irABuscarCliente')
+                    ->label('Buscar cliente')
                     ->icon('heroicon-o-magnifying-glass')
-                    ->color('orange')
-                    ->modalHeading('Buscar cliente por teléfono')
-                    ->modalSubmitActionLabel('Buscar')
-                    ->form([
-                        Forms\Components\TextInput::make('phone_query')
-                            ->label('INGRESA NUMERO DE TELEFONO')
-                            ->tel()
-                            ->required()
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras.');
-                                    }
-                                };
-                            }),
-                    ])
-                    ->action(function (array $data) {
-                        $digits = preg_replace('/\D+/', '', (string) ($data['phone_query'] ?? ''));
-
-                        if (strlen($digits) !== 9) {
-                            Notification::make()
-                                ->title('Teléfono inválido')
-                                ->body('Debe tener exactamente 9 cifras.')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
-
-                        $exists = Customer::query()
-                            ->where('phone', $digits)
-                            ->orWhere('secondary_phone', $digits)
-                            ->exists();
-
-                        if ($exists) {
-                            Notification::make()
-                                ->title('CLIENTE DUPLICADO')
-                                ->body('Ya existe un cliente con ese número de teléfono.')
-                                ->warning()
-                                ->send();
-
-                            return;
-                        }
-
-                        // Si no existe, redirige a crear nota con ?phone=<digits>
-                        $url = static::getUrl('create', ['phone' => $digits]);
-                        return redirect($url);
-                    }),
+                    ->color('warning')
+                    ->url(fn() => BuscarCliente::getUrl()),
+                //Tables\Actions\Action::make('buscarTelefono')
+                //    ->label('Buscar teléfono')
+                //    ->icon('heroicon-o-magnifying-glass')
+                //    ->color('orange')
+                //    ->modalHeading('Buscar cliente por teléfono')
+                //    ->modalSubmitActionLabel('Buscar')
+                //    ->form([
+                //        Forms\Components\TextInput::make('phone_query')
+                //            ->label('INGRESA NUMERO DE TELEFONO')
+                //            ->tel()
+                //            ->required()
+                //            ->mask('999 999 999')
+                //            ->rule(function () {
+                //                return function (string $attribute, $value, \Closure $fail) {
+                //                    $digits = preg_replace('/\D+/', '', (string) $value);
+                //                    if (strlen($digits) !== 9) {
+                //                        $fail('Debe tener exactamente 9 cifras.');
+                //                    }
+                //                };
+                //            }),
+                //    ])
+                //    ->action(function (array $data) {
+                //        $digits = preg_replace('/\D+/', '', (string) ($data['phone_query'] ?? ''));
+//
+                //        if (strlen($digits) !== 9) {
+                //            Notification::make()
+                //                ->title('Teléfono inválido')
+                //                ->body('Debe tener exactamente 9 cifras.')
+                //                ->danger()
+                //                ->send();
+                //            return;
+                //        }
+//
+                //        $exists = Customer::query()
+                //            ->where('phone', $digits)
+                //            ->orWhere('secondary_phone', $digits)
+                //            ->exists();
+//
+                //        if ($exists) {
+                //            Notification::make()
+                //                ->title('CLIENTE DUPLICADO')
+                //                ->body('Ya existe un cliente con ese número de teléfono.')
+                //                ->warning()
+                //                ->send();
+//
+                //            return;
+                //        }
+//
+                //        // Si no existe, redirige a crear nota con ?phone=<digits>
+                //        $url = static::getUrl('create', ['phone' => $digits]);
+                //        return redirect($url);
+                //    }),
             ])
             ->bulkActions([
 

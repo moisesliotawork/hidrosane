@@ -30,63 +30,69 @@ class CreateContratoBPage extends Page implements HasForms
 
     public function mount(int|string $record): void
     {
-        $this->origen = \App\Models\Venta::with(['ventaOfertas.productos', 'customer', 'note'])
+        $this->origen = Venta::with(['customer', 'note'])
             ->findOrFail((int) $record);
 
-        // ⬅️ CLAVE: el form "apunta" al contrato origen para LEER las relaciones
-        $this->form->model($this->origen);
+        $state = [
+            // Base
+            'note_id' => $this->origen->note_id,
+            'customer_id' => $this->origen->customer_id,
+            'comercial_id' => $this->origen->comercial_id,
+            'companion_id' => $this->origen->companion_id,
+            'nro_cliente_adm' => $this->origen->nro_cliente_adm,
+            'mes_contr' => $this->origen->mes_contr,
+            'nro_contr_adm' => trim((string) $this->origen->nro_contr_adm) . '-B',
+            'fecha_venta' => now(),
 
-        $state = $this->origen->only([
-            'note_id',
-            'customer_id',
-            'comercial_id',
-            'companion_id',
-            'fecha_venta',
-            'fecha_entrega',
-            'horario_entrega',
-            'importe_total',
-            'modalidad_pago',
-            'forma_pago',
-            'cuota_mensual',
-            'num_cuotas',
-            'accesorio_entregado',
-            'motivo_venta',
-            'motivo_horario',
-            'interes_art',
-            'productos_externos',
-            'precontractual',
-            'interes_art_detalle',
-            'observaciones_repartidor',
-            'estado_venta',
-            'financiera',
-            'importe_comercial',
-            'importe_repartidor',
-            'vta_rep',
-            'vta_esp',
-            'vta_ac',
-            'com_venta',
-            'com_entrega',
-            'com_conpago',
-            'pas_comercial',
-            'pas_repartidor',
-            'repartidor_id',
-            'repartidor_2',
-            'crema',
-            'monto_extra',
-            'total_final',
-            'cuota_final',
-            'entrada',
-            'mostrar_ingresos',
-            'mostrar_tipo_vivienda',
-            'mostrar_situacion_lab',
-            'mes_contr',
-            'nro_cliente_adm',
-        ]);
+            // ✅ Informe al repartidor (precargar)
+            'repartidor_id' => $this->origen->repartidor_id,
+            'fecha_entrega' => $this->origen->fecha_entrega,
+            'horario_entrega' => $this->origen->horario_entrega,
+            'motivo_venta' => $this->origen->motivo_venta,
+            'motivo_horario' => $this->origen->motivo_horario,
+            'interes_art' => (bool) $this->origen->interes_art,
+            'interes_art_detalle' => $this->origen->interes_art_detalle,
+            'observaciones_repartidor' => $this->origen->observaciones_repartidor,
+        ];
 
-        $state['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
+        // ✅ Precargar cliente (state anidado)
+        $state['customer'] = $this->origen->customer?->only([
+            'first_names',
+            'last_names',
+            'dni',
+            'phone',
+            'secondary_phone',
+            'third_phone',
+            'email',
+            'fecha_nac',
+            'nro_piso',
+            'postal_code',
+            'ciudad',
+            'provincia',
+            'primary_address',
+            'secondary_address',
+            'ayuntamiento',
+            'tipo_vivienda',
+            'estado_civil',
+            'situacion_laboral',
+            'num_hab_casa',
+            'iban',
+            'ingresos_rango',
+        ]) ?? [];
 
-        $this->form->fill($state ?? []);
+        // ✅ No precargar ventaOfertas ni totales
+        $state['ventaOfertas'] = [];
+
+        // ✅ (opcional) deja “datos de la venta” totalmente limpios si algo los setea
+        $state['importe_total'] = 0;
+        $state['monto_extra'] = 0;
+        $state['entrada'] = 0;
+        $state['total_final'] = 0;
+        $state['cuota_final'] = 0;
+
+        $this->form->fill($state);
     }
+
 
 
     public function form(Form $form): Form
@@ -100,7 +106,7 @@ class CreateContratoBPage extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        unset($data['customer'], $data['ventaOfertas']);
+        unset($data['customer']); // NO borres ventaOfertas
 
         $data['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
         $data['nro_cliente_adm'] = $this->origen->nro_cliente_adm;
@@ -110,33 +116,48 @@ class CreateContratoBPage extends Page implements HasForms
         $data['comercial_id'] = $this->origen->comercial_id;
         $data['companion_id'] = $this->origen->companion_id;
 
-        if (empty($data['fecha_venta'])) {
-            $data['fecha_venta'] = now();
-        }
+        $data['fecha_venta'] ??= now();
 
-        /** @var \App\Models\Venta $nueva */
-        $nueva = \DB::transaction(function () use ($data) {
-            $nueva = \App\Models\Venta::create($data);
+        $nueva = DB::transaction(function () use ($data) {
 
-            $this->origen->loadMissing('ventaOfertas.productos');
+            // 1) Crear venta SIN depender de importe_total del state
+            $ventaData = $data;
+            unset($ventaData['ventaOfertas']); // relaciones aparte
 
-            foreach ($this->origen->ventaOfertas as $vo) {
-                $nuevoVo = $nueva->ventaOfertas()->create([
-                    'oferta_id' => $vo->oferta_id,
-                    'puntos' => $vo->puntos,
-                ]);
+            // 👇 crea en 0 temporal
+            $ventaData['importe_total'] = 0;
 
-                foreach ($vo->productos as $prod) {
-                    $nuevoVo->productos()->create([
-                        'producto_id' => $prod->producto_id,
-                        'cantidad' => $prod->cantidad,
-                        'puntos_linea' => $prod->puntos_linea,
-                        'vendido_por' => $prod->vendido_por,
-                    ]);
-                }
-            }
+            /** @var \App\Models\Venta $nueva */
+            $nueva = Venta::create($ventaData);
 
-            \App\Models\TransactionVenta::create([
+            // 2) Guardar ofertas/productos que se pusieron en el formulario
+            $this->form->model($nueva)->saveRelationships();
+
+            // 3) Recalcular importe_total DESDE BD (lo más fiable)
+            $nueva->load('ventaOfertas.oferta');
+
+            $importe = $nueva->ventaOfertas
+                ->sum(fn($vo) => $vo->oferta?->precio_base ?? 0);
+
+            $nueva->update([
+                'importe_total' => $importe,
+            ]);
+
+            $extra = (float) ($nueva->monto_extra ?? 0);
+            $entrada = (float) ($nueva->entrada ?? 0);
+            $cuotas = max((int) ($nueva->num_cuotas ?? 1), 1);
+
+            $totalFinal = max(0, round(($importe + $extra) - $entrada, 2));
+            $cuotaFinal = round($totalFinal / $cuotas, 2);
+
+            $nueva->update([
+                'total_final' => $totalFinal,
+                'cuota_final' => $cuotaFinal,
+                'cuota_mensual' => round($importe / $cuotas, 2),
+            ]);
+
+            // 4) Asociar origen -> nueva
+            TransactionVenta::create([
                 'id_contrato' => $this->origen->id,
                 'id_contrato_asoc' => $nueva->id,
             ]);
@@ -144,15 +165,13 @@ class CreateContratoBPage extends Page implements HasForms
             return $nueva;
         });
 
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->title('Contrato -B creado y asociado correctamente')
             ->success()
             ->send();
 
-        // ✅ Usar helper global redirect() — compatible con Filament 3
-        return redirect(
-            \App\Filament\Admin\Resources\VentaResource::getUrl('edit', ['record' => $nueva])
-        );
+        return redirect(VentaResource::getUrl('edit', ['record' => $nueva]));
     }
+
 
 }

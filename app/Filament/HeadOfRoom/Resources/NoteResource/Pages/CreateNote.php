@@ -48,12 +48,50 @@ class CreateNote extends CreateRecord
                     'parish' => $customer->parish,
                 ]);
             }
-        } elseif ($phone = request()->query('phone')) {
-            // Caso antiguo: solo venimos con el phone
-            $this->form->fill([
-                'phone' => $phone,
-            ]);
         }
+
+        // 2) Si NO viene customer_id: precargar lo que venga por query (phone + dirección opcional)
+        $prefillKeys = [
+            'first_names',
+            'last_names',
+            'phone',
+            'secondary_phone',
+            'third_phone',
+            'email',
+            'edadTelOp',
+            'primary_address',
+            'secondary_address',
+            'postal_code',
+            'nro_piso',
+            'ciudad',
+            'provincia',
+            'parish',
+        ];
+
+        $prefill = [];
+
+        foreach ($prefillKeys as $key) {
+            $value = request()->query($key);
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            // Formateo para máscara 999 999 999
+            if (in_array($key, ['phone', 'secondary_phone', 'third_phone'], true)) {
+                $digits = preg_replace('/\D+/', '', (string) $value);
+                if (strlen($digits) === 9) {
+                    $value = implode(' ', str_split($digits, 3));
+                }
+            }
+
+            $prefill[$key] = $value;
+        }
+
+        if (!empty($prefill)) {
+            $this->form->fill($prefill);
+        }
+
     }
 
     protected function getFormActions(): array
@@ -65,10 +103,18 @@ class CreateNote extends CreateRecord
                 ->action('create'),
 
             // Botón secundario (Guardar y crear otro)
-            Actions\CreateAction::make('createAnother')
+            Actions\Action::make('guardarYBuscarOtro')
                 ->label('Guardar y crear otro')
-                ->color("gray")
-                ->action('createAnother'),
+                ->color('gray')
+                ->action(function () {
+                    // 1) Guarda el registro (usa el flujo normal)
+                    $this->create();
+
+                    // 2) Redirige a la página de búsqueda
+                    return redirect()->to(
+                        \App\Filament\HeadOfRoom\Pages\BuscarCliente::getUrl()
+                    );
+                }),
 
             // Botón Cancelar
             Actions\Action::make('cancel')
