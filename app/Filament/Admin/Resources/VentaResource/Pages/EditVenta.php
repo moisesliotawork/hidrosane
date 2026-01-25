@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
+use Filament\Actions\DeleteAction;
 
 class EditVenta extends EditRecord
 {
@@ -98,6 +99,16 @@ class EditVenta extends EditRecord
 
                     return !($esB || $tieneBAsociado);
                 }),
+
+            DeleteAction::make()
+                ->visible(
+                    fn(Venta $record): bool =>
+                    filled($record?->nro_contr_adm) && str_ends_with($record->nro_contr_adm, '-B')
+                )
+                ->requiresConfirmation()
+                ->modalHeading('Eliminar contrato -B')
+                ->modalDescription('Esta acción eliminará el contrato -B y sus datos relacionados. ¿Deseas continuar?')
+                ->successNotificationTitle('Contrato -B eliminado'),
         ];
     }
 
