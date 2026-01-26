@@ -23,7 +23,11 @@ class BuscarCliente extends Component implements HasForms
     {
         $this->form->fill([
             'phone_query' => null,
-            'address_query' => null,
+
+            'nro_piso' => null,
+            'postal_code' => null,
+            'ayuntamiento' => null,
+            'provincia' => null,
         ]);
     }
 
@@ -58,10 +62,28 @@ class BuscarCliente extends Component implements HasForms
                         ->content('NO SE ENCONTRO TELÉFONO')
                         ->visible(fn() => $this->phoneNotFound),
 
-                    Forms\Components\Textarea::make('address_query')
-                        ->label('Dirección')
-                        ->rows(3)
-                        ->placeholder('Escribe la dirección completa…')
+                    Forms\Components\TextInput::make('nro_piso')
+                        ->label('No. y Piso')
+                        ->placeholder('Nº 1')
+                        ->required()
+                        ->visible(fn() => $this->phoneNotFound),
+
+                    Forms\Components\TextInput::make('postal_code')
+                        ->label('Código Postal')
+                        ->placeholder('15551')
+                        ->required()
+                        ->visible(fn() => $this->phoneNotFound),
+
+                    Forms\Components\TextInput::make('ayuntamiento')
+                        ->label('Ciudad')
+                        
+                        ->required()
+                        ->visible(fn() => $this->phoneNotFound),
+
+                    Forms\Components\TextInput::make('provincia')
+                        ->label('Provincia')
+                        ->placeholder('CORUÑA')
+                        ->required()
                         ->visible(fn() => $this->phoneNotFound),
 
                     Forms\Components\Actions::make([
@@ -117,30 +139,51 @@ class BuscarCliente extends Component implements HasForms
     {
         $state = $this->form->getState();
 
-        $address = trim((string) ($state['address_query'] ?? ''));
         $digits = preg_replace('/\D+/', '', (string) ($state['phone_query'] ?? ''));
 
-        if ($address === '') {
-            // si está vacío, directo a crear nota
-            redirect()->to(NoteResource::getUrl('create', ['phone' => $digits]));
+        // Normalizar (trim + colapsar espacios + lowercase)
+        $norm = function (?string $v): string {
+            $v = trim((string) $v);
+            $v = preg_replace('/\s+/u', ' ', $v);
+            return mb_strtolower($v, 'UTF-8');
+        };
+
+        $nroPiso = $norm($state['nro_piso'] ?? null);
+        $postalCode = $norm($state['postal_code'] ?? null);
+        $ayto = $norm($state['ayuntamiento'] ?? null);
+        $provincia = $norm($state['provincia'] ?? null);
+
+        // Si falta algo, no busques (y no redirijas)
+        if ($nroPiso === '' || $postalCode === '' || $ayto === '' || $provincia === '') {
+            Notification::make()
+                ->title('Faltan datos')
+                ->body('Completa No. y Piso, Código Postal, Ayuntamiento y Provincia.')
+                ->warning()
+                ->send();
             return;
         }
 
+        // ✅ Deben coincidir LOS 4 en el mismo registro (ignorando mayúsculas/minúsculas)
         $exists = Customer::query()
-            ->whereRaw('TRIM(primary_address) = ?', [$address])
+            ->whereRaw('LOWER(TRIM(nro_piso)) = ?', [$nroPiso])
+            ->whereRaw('LOWER(TRIM(postal_code)) = ?', [$postalCode])
+            ->whereRaw('LOWER(TRIM(ciudad)) = ?', [$ayto])
+            ->whereRaw('LOWER(TRIM(provincia)) = ?', [$provincia])
             ->exists();
 
         if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con esta direccion.");
-            // ✅ Si existe la dirección, a ListNotes
+            $this->notifyNotaDuplicada("Ya existe una nota con esta dirección (4 campos coinciden).");
             redirect()->to(NoteResource::getUrl('index'));
             return;
         }
 
-        // ❌ Si no existe, a crear nota (pasamos phone y address opcionalmente)
+        // ❌ No existe => crear nota, enviando data para precargar (opcional)
         redirect()->to(NoteResource::getUrl('create', [
             'phone' => $digits ?: null,
-            'primary_address' => $address,
+            'nro_piso' => $state['nro_piso'] ?? null,
+            'postal_code' => $state['postal_code'] ?? null,
+            'ayuntamiento' => $state['ayuntamiento'] ?? null,
+            'provincia' => $state['provincia'] ?? null,
         ]));
     }
 
