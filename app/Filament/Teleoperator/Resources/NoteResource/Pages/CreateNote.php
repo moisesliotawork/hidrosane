@@ -202,7 +202,7 @@ class CreateNote extends CreateRecord
             if (!empty($observationData['observation'])) {
                 Observation::create([
                     'note_id' => $this->record->id,
-                    'author_id' => auth()->id(),
+                    'author_id' => Auth::id(),
                     'observation' => $observationData['observation'],
                 ]);
             }

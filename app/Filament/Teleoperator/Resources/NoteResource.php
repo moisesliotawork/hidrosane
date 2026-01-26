@@ -149,8 +149,6 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
                             ->label('Dirección secundaria (opcional)'),
-
-
                     ])->columns(2),
 
                 Forms\Components\Section::make('Gestión Comercial')
@@ -204,7 +202,6 @@ class NoteResource extends Resource
                     ->schema([
                         Forms\Components\Repeater::make('observations')
                             ->label("")
-                            ->relationship('myObservations')
                             ->schema([
                                 Forms\Components\Hidden::make('author_id')
                                     ->default(auth()->id()),
