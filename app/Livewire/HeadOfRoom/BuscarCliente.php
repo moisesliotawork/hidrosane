@@ -9,6 +9,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use App\Models\Customer;
 use App\Filament\Teleoperator\Resources\NoteResource;
+use Filament\Notifications\Notification;
 
 class BuscarCliente extends Component implements HasForms
 {
@@ -75,6 +76,16 @@ class BuscarCliente extends Component implements HasForms
         ])->statePath('data');
     }
 
+    protected function notifyNotaDuplicada(string $detalle): void
+    {
+        Notification::make()
+            ->title('NOTA DUPLICADA')
+            ->body($detalle)
+            ->danger()
+            ->persistent() // opcional: que no se cierre sola
+            ->send();
+    }
+
     public function buscarTelefono(): void
     {
         $state = $this->form->getState();
@@ -92,6 +103,7 @@ class BuscarCliente extends Component implements HasForms
             ->exists();
 
         if ($exists) {
+            $this->notifyNotaDuplicada("Ya existe una nota con este numero de telefono");
             // ✅ Si existe, a ListNotes
             redirect()->to(NoteResource::getUrl('index'));
             return;
@@ -119,6 +131,7 @@ class BuscarCliente extends Component implements HasForms
             ->exists();
 
         if ($exists) {
+            $this->notifyNotaDuplicada("Ya existe una nota con esta direccion.");
             // ✅ Si existe la dirección, a ListNotes
             redirect()->to(NoteResource::getUrl('index'));
             return;

@@ -214,7 +214,6 @@ class NoteResource extends Resource
                             ->addActionLabel('Añadir observación')
                             ->defaultItems(1)
                             ->collapsible()
-                            ->dehydrated(false)
                             ->collapsed()
                             ->columnSpanFull()
                             ->itemLabel(function (array $state): ?string {

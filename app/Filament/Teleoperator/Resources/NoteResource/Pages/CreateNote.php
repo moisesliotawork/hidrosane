@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 class CreateNote extends CreateRecord
 {
     protected static string $resource = NoteResource::class;
+    protected array $pendingObservations = [];
+
 
     protected function getRedirectUrl(): string
     {
@@ -191,21 +193,27 @@ class CreateNote extends CreateRecord
         // No guardar campos ajenos a notes
         unset($data['edadTelOp']);
 
+        $this->pendingObservations = $data['observations'] ?? [];
+        unset($data['observations']); // importante: para que Note no intente guardarlo
+
         return $data;
     }
 
     protected function afterCreate(): void
     {
-        $observations = $this->form->getState()['observations'] ?? [];
+        foreach ($this->pendingObservations as $row) {
+            $text = trim((string) ($row['observation'] ?? ''));
 
-        foreach ($observations as $observationData) {
-            if (!empty($observationData['observation'])) {
-                Observation::create([
-                    'note_id' => $this->record->id,
-                    'author_id' => Auth::id(),
-                    'observation' => $observationData['observation'],
-                ]);
+            if ($text === '') {
+                continue;
             }
+
+            Observation::create([
+                'note_id' => $this->record->id,
+                'author_id' => Auth::id(),
+                'observation' => $text,
+            ]);
         }
     }
+
 }

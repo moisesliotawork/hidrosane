@@ -9,6 +9,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use App\Models\Customer;
 use App\Filament\Teleoperator\Resources\NoteResource;
+use Filament\Notifications\Notification;
 
 class BuscarCliente extends Component implements HasForms
 {
@@ -75,6 +76,16 @@ class BuscarCliente extends Component implements HasForms
         ])->statePath('data');
     }
 
+    protected function notifyNotaDuplicada(string $detalle): void
+    {
+        Notification::make()
+            ->title('NOTA DUPLICADA')
+            ->body($detalle)
+            ->danger()
+            ->persistent() // opcional: que no se cierre sola
+            ->send();
+    }
+
     public function buscarTelefono(): void
     {
         $state = $this->form->getState();
@@ -92,7 +103,7 @@ class BuscarCliente extends Component implements HasForms
             ->exists();
 
         if ($exists) {
-            // ✅ Si existe, a ListNotes
+            $this->notifyNotaDuplicada("Ya existe una nota con este numero de telefono");
             redirect()->to(NoteResource::getUrl('index'));
             return;
         }
@@ -114,12 +125,19 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
+        $address = trim((string) ($state['address_query'] ?? ''));
+
+        // normaliza espacios y saltos de línea del input
+        $address = preg_replace('/\s+/u', ' ', $address);
+        $addressLower = mb_strtolower($address, 'UTF-8');
+
         $exists = Customer::query()
-            ->whereRaw('TRIM(primary_address) = ?', [$address])
+            ->whereRaw('LOWER(TRIM(primary_address)) = ?', [$addressLower])
+            ->orWhereRaw('LOWER(TRIM(secondary_address)) = ?', [$addressLower])
             ->exists();
 
         if ($exists) {
-            // ✅ Si existe la dirección, a ListNotes
+            $this->notifyNotaDuplicada("Ya existe una nota con esta direccion");
             redirect()->to(NoteResource::getUrl('index'));
             return;
         }

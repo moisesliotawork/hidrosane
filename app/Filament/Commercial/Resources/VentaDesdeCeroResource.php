@@ -140,16 +140,56 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('iban')
                         ->label('IBAN')
                         ->columnSpanFull()
-                        ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
-                        ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
+
+                        // Máx visible incluyendo espacios: 29 (XXXX XXXX XXXX XXXX XXXX XXXX)
+                        ->maxLength(29)
+
+                        // Formato 4 en 4 al cargar / editar
+                        ->formatStateUsing(
+                            fn(?string $state) => $state
+                            ? implode(' ', str_split(strtoupper(str_replace(' ', '', $state)), 4))
+                            : null
+                        )
+
+                        // Guardar SIN espacios y en mayúsculas
+                        ->dehydrateStateUsing(
+                            fn(?string $state) => $state
+                            ? str_replace(' ', '', strtoupper($state))
+                            : null
+                        )
+
+                        // Autoformateo + recorte a 24 chars reales
                         ->afterStateUpdated(function (?string $state, Set $set) {
-                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                            $plain = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+
+                            // ⛔ límite duro: 24 caracteres sin espacios
+                            if (strlen($plain) > 24) {
+                                $plain = substr($plain, 0, 24);
+                            }
+
                             $formatted = implode(' ', str_split($plain, 4));
 
                             if ($formatted !== ($state ?? '')) {
                                 $set('iban', $formatted);
                             }
-                        }),
+                        })
+
+                        // Validación: máximo 24 sin espacios + solo A-Z y 0-9
+                        ->rules([
+                            function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    $plain = strtoupper(preg_replace('/\s+/', '', (string) $value));
+
+                                    if (strlen($plain) > 24) {
+                                        $fail('El IBAN debe tener máximo 24 caracteres (sin contar espacios).');
+                                    }
+
+                                    if ($plain !== '' && !preg_match('/^[A-Z0-9]+$/', $plain)) {
+                                        $fail('El IBAN solo puede contener letras y números.');
+                                    }
+                                };
+                            },
+                        ]),
 
                 ]),
             ]),
