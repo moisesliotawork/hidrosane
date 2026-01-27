@@ -7,16 +7,20 @@ use Filament\Forms\Form;
 use Filament\Forms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
+
 use App\Models\Customer;
+use App\Models\Note;
 use App\Filament\Teleoperator\Resources\NoteResource;
+
 use Filament\Notifications\Notification;
+use Filament\Notifications\Actions\Action as NotificationAction;
+use App\Enums\EstadoTerminal;
 
 class BuscarCliente extends Component implements HasForms
 {
     use InteractsWithForms;
 
     public ?array $data = [];
-
     public bool $phoneNotFound = false;
 
     public function mount(): void
@@ -67,7 +71,7 @@ class BuscarCliente extends Component implements HasForms
                         ->schema([
                             Forms\Components\TextInput::make('primary_address')
                                 ->label('Dirección (principal)')
-                                ->placeholder('Calle / Avenida / Urbanización')
+                                ->placeholder('Calle')
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound)
                                 ->columnSpanFull(),
@@ -85,7 +89,7 @@ class BuscarCliente extends Component implements HasForms
                                 ->visible(fn() => $this->phoneNotFound),
 
                             Forms\Components\TextInput::make('ayuntamiento')
-                                ->label('Ciudad')
+                                ->label('Ayuntamiento/Localidad')
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 
@@ -109,14 +113,57 @@ class BuscarCliente extends Component implements HasForms
         ])->statePath('data');
     }
 
-    protected function notifyNotaDuplicada(string $detalle): void
+    /**
+     * 🔥 Notificación principal cuando el customer existe:
+     * - Siempre muestra resumen de notas
+     * - Si NO hay notas con oficina ni estado_terminal => permite continuar a crear nota
+     */
+
+    protected function notifyCustomerEncontrado(Customer $customer): void
     {
-        Notification::make()
-            ->title('NOTA DUPLICADA')
-            ->body($detalle)
-            ->danger()
-            ->persistent() // opcional: que no se cierre sola
-            ->send();
+        $q = Note::query()->where('customer_id', $customer->id);
+
+        $total = (clone $q)->count();
+
+        $nulas = (clone $q)->where('estado_terminal', EstadoTerminal::NUL->value)->count();
+        $conf = (clone $q)->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)->count();
+        $vta = (clone $q)->where('estado_terminal', EstadoTerminal::VENTA->value)->count();
+        $of = (clone $q)->where('estado_terminal', EstadoTerminal::SALA->value)->count();
+        $st = (clone $q)->where('estado_terminal', EstadoTerminal::SIN_ESTADO->value)->count(); // '' (string vacío)
+
+        $body = "Notas asoci: {$total}, Nulas: {$nulas}, Conf: {$conf}, Vta: {$vta}, Of: {$of}, ST: {$st}";
+
+        // ✅ regla: permitir continuar SOLO si NO tiene ninguna nota en OF ni ST
+        // (es decir, of == 0 y st == 0)
+        $canContinue = ($of === 0 && $st === 0);
+
+        $notification = Notification::make()
+            ->title('Cliente encontrado en sistema')
+            ->body($body)
+            ->persistent()
+            ->warning();
+
+        if ($canContinue) {
+            $notification->actions([
+                NotificationAction::make('continuar')
+                    ->label('Continuar y crear nota')
+                    ->button()
+                    ->color('success')
+                    ->url(NoteResource::getUrl('create', [
+                        'customer_id' => $customer->id,
+                    ])),
+            ]);
+        } else {
+            $notification->actions([
+                NotificationAction::make('ir_notas')
+                    ->label('Ver notas')
+                    ->button()
+                    ->color('danger')
+                    ->url(NoteResource::getUrl('index')),
+            ]);
+        }
+
+        $notification->send();
     }
 
     public function buscarTelefono(): void
@@ -130,21 +177,20 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        $exists = Customer::query()
+        $customer = Customer::query()
             ->where('phone', $digits)
             ->orWhere('secondary_phone', $digits)
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con este numero de telefono");
-            // ✅ Si existe, a ListNotes
-            redirect()->to(NoteResource::getUrl('index'));
+        if ($customer) {
+            $this->phoneNotFound = false;
+            $this->notifyCustomerEncontrado($customer);
             return;
         }
 
-        // ❌ No existe: mostramos mensaje + habilitamos dirección (paso 2)
         $this->phoneNotFound = true;
     }
+
 
     public function buscarDireccion(): void
     {
@@ -164,31 +210,30 @@ class BuscarCliente extends Component implements HasForms
         $ayto = $norm($state['ayuntamiento'] ?? null);
         $provincia = $norm($state['provincia'] ?? null);
 
-        // ✅ ahora deben venir 5 campos
         if ($primaryAddress === '' || $nroPiso === '' || $postalCode === '' || $ayto === '' || $provincia === '') {
             Notification::make()
                 ->title('Faltan datos')
-                ->body('Completa Dirección, No. y Piso, Código Postal, Ayuntamiento y Provincia.')
+                ->body('Completa Dirección, No. y Piso, Código Postal, Ciudad y Provincia.')
                 ->warning()
                 ->send();
             return;
         }
 
-        // ✅ Deben coincidir LOS 5 en el mismo registro (ignorando mayúsculas/minúsculas)
-        $exists = Customer::query()
+        // ✅ Traer el customer que coincide por los 5 campos
+        $customer = Customer::query()
             ->whereRaw('LOWER(TRIM(primary_address)) = ?', [$primaryAddress])
             ->whereRaw('LOWER(TRIM(nro_piso)) = ?', [$nroPiso])
             ->whereRaw('LOWER(TRIM(postal_code)) = ?', [$postalCode])
             ->whereRaw('LOWER(TRIM(ciudad)) = ?', [$ayto])
             ->whereRaw('LOWER(TRIM(provincia)) = ?', [$provincia])
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con esta dirección (5 campos coinciden).");
-            redirect()->to(NoteResource::getUrl('index'));
+        if ($customer) {
+            $this->notifyCustomerEncontrado($customer);
             return;
         }
 
+        // ✅ No existe customer con esa dirección => crear nota como antes, pasando datos
         redirect()->to(NoteResource::getUrl('create', [
             'phone' => $digits ?: null,
             'primary_address' => $state['primary_address'] ?? null,

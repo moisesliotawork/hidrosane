@@ -68,7 +68,7 @@ class BuscarCliente extends Component implements HasForms
                         ->schema([
                             Forms\Components\TextInput::make('primary_address')
                                 ->label('Dirección (principal)')
-                                ->placeholder('Calle / Avenida / Urbanización')
+                                ->placeholder('Calle')
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound)
                                 ->columnSpanFull(),
@@ -86,7 +86,7 @@ class BuscarCliente extends Component implements HasForms
                                 ->visible(fn() => $this->phoneNotFound),
 
                             Forms\Components\TextInput::make('ayuntamiento')
-                                ->label('Ciudad')
+                                ->label('Ayuntamiento/Localidad')
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 

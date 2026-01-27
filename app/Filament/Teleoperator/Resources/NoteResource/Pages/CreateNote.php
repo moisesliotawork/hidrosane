@@ -33,10 +33,10 @@ class CreateNote extends CreateRecord
             'phone' => request('phone'),
             'primary_address' => request('primary_address'),
             // si luego pasas más:
-            // 'postal_code' => request('postal_code'),
-            // 'ciudad' => request('ciudad'),
-            // 'provincia' => request('provincia'),
-            // 'nro_piso' => request('nro_piso'),
+            'postal_code' => request('postal_code'),
+            'ciudad' => request('ayuntamiento'),
+            'provincia' => request('provincia'),
+            'nro_piso' => request('nro_piso'),
         ];
 
         // formatea phone para la máscara
