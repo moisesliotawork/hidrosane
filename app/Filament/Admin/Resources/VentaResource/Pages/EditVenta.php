@@ -21,6 +21,19 @@ class EditVenta extends EditRecord
         return $this->getResource()::getUrl('index');
     }
 
+    public function getTitle(): string
+    {
+        $venta = $this->record;
+
+        $esB = filled($venta?->nro_contr_adm)
+            && str_ends_with((string) $venta->nro_contr_adm, '-B');
+
+        return $esB
+            ? 'Editar Contrato -B'
+            : 'Editar contrato';
+    }
+
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         /* 1. Nunca tocar el Nº de nota */
