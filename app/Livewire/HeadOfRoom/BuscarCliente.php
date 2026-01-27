@@ -24,6 +24,7 @@ class BuscarCliente extends Component implements HasForms
         $this->form->fill([
             'phone_query' => null,
 
+            'primary_address' => null,
             'nro_piso' => null,
             'postal_code' => null,
             'ayuntamiento' => null,
@@ -62,28 +63,38 @@ class BuscarCliente extends Component implements HasForms
                         ->content('NO SE ENCONTRO TELÉFONO')
                         ->visible(fn() => $this->phoneNotFound),
 
-                    Forms\Components\TextInput::make('nro_piso')
-                        ->label('No. y Piso')
-                        ->placeholder('Nº 1')
-                        ->required()
-                        ->visible(fn() => $this->phoneNotFound),
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\TextInput::make('primary_address')
+                                ->label('Dirección (principal)')
+                                ->placeholder('Calle / Avenida / Urbanización')
+                                ->required()
+                                ->visible(fn() => $this->phoneNotFound)
+                                ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('postal_code')
-                        ->label('Código Postal')
-                        ->placeholder('15551')
-                        ->required()
-                        ->visible(fn() => $this->phoneNotFound),
+                            Forms\Components\TextInput::make('nro_piso')
+                                ->label('No. y Piso')
+                                ->placeholder('Nº 1')
+                                ->required()
+                                ->visible(fn() => $this->phoneNotFound),
 
-                    Forms\Components\TextInput::make('ayuntamiento')
-                        ->label('Ciudad')
-                        
-                        ->required()
-                        ->visible(fn() => $this->phoneNotFound),
+                            Forms\Components\TextInput::make('postal_code')
+                                ->label('Código Postal')
+                                ->placeholder('15551')
+                                ->required()
+                                ->visible(fn() => $this->phoneNotFound),
 
-                    Forms\Components\TextInput::make('provincia')
-                        ->label('Provincia')
-                        ->placeholder('CORUÑA')
-                        ->required()
+                            Forms\Components\TextInput::make('ayuntamiento')
+                                ->label('Ciudad')
+                                ->required()
+                                ->visible(fn() => $this->phoneNotFound),
+
+                            Forms\Components\TextInput::make('provincia')
+                                ->label('Provincia')
+                                ->placeholder('CORUÑA')
+                                ->required()
+                                ->visible(fn() => $this->phoneNotFound),
+                        ])
                         ->visible(fn() => $this->phoneNotFound),
 
                     Forms\Components\Actions::make([
@@ -141,30 +152,31 @@ class BuscarCliente extends Component implements HasForms
 
         $digits = preg_replace('/\D+/', '', (string) ($state['phone_query'] ?? ''));
 
-        // Normalizar (trim + colapsar espacios + lowercase)
         $norm = function (?string $v): string {
             $v = trim((string) $v);
             $v = preg_replace('/\s+/u', ' ', $v);
             return mb_strtolower($v, 'UTF-8');
         };
 
+        $primaryAddress = $norm($state['primary_address'] ?? null);
         $nroPiso = $norm($state['nro_piso'] ?? null);
         $postalCode = $norm($state['postal_code'] ?? null);
         $ayto = $norm($state['ayuntamiento'] ?? null);
         $provincia = $norm($state['provincia'] ?? null);
 
-        // Si falta algo, no busques (y no redirijas)
-        if ($nroPiso === '' || $postalCode === '' || $ayto === '' || $provincia === '') {
+        // ✅ ahora deben venir 5 campos
+        if ($primaryAddress === '' || $nroPiso === '' || $postalCode === '' || $ayto === '' || $provincia === '') {
             Notification::make()
                 ->title('Faltan datos')
-                ->body('Completa No. y Piso, Código Postal, Ayuntamiento y Provincia.')
+                ->body('Completa Dirección, No. y Piso, Código Postal, Ayuntamiento y Provincia.')
                 ->warning()
                 ->send();
             return;
         }
 
-        // ✅ Deben coincidir LOS 4 en el mismo registro (ignorando mayúsculas/minúsculas)
+        // ✅ Deben coincidir LOS 5 en el mismo registro (ignorando mayúsculas/minúsculas)
         $exists = Customer::query()
+            ->whereRaw('LOWER(TRIM(primary_address)) = ?', [$primaryAddress])
             ->whereRaw('LOWER(TRIM(nro_piso)) = ?', [$nroPiso])
             ->whereRaw('LOWER(TRIM(postal_code)) = ?', [$postalCode])
             ->whereRaw('LOWER(TRIM(ciudad)) = ?', [$ayto])
@@ -172,14 +184,14 @@ class BuscarCliente extends Component implements HasForms
             ->exists();
 
         if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con esta dirección (4 campos coinciden).");
+            $this->notifyNotaDuplicada("Ya existe una nota con esta dirección (5 campos coinciden).");
             redirect()->to(NoteResource::getUrl('index'));
             return;
         }
 
-        // ❌ No existe => crear nota, enviando data para precargar (opcional)
         redirect()->to(NoteResource::getUrl('create', [
             'phone' => $digits ?: null,
+            'primary_address' => $state['primary_address'] ?? null,
             'nro_piso' => $state['nro_piso'] ?? null,
             'postal_code' => $state['postal_code'] ?? null,
             'ayuntamiento' => $state['ayuntamiento'] ?? null,
