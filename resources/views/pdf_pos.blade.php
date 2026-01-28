@@ -497,7 +497,7 @@
                     </div>
                     <div class="field"
                         style="top:{{ $yPagoFila }}mm; left:{{ $xCuota }}mm; width:{{ $wCuota }}mm; text-align:center;">
-                        {{ number_format($venta->cuota_final, 2, ',', '.') }} €
+                        {{ number_format(($venta->importe_total + $venta->monto_extra)/$venta->num_cuotas, 2, ',', '.') }} €
                     </div>
                     <div class="field"
                         style="top:{{ $yPagoFila }}mm; left:{{ $xMes1 }}mm; width:{{ $wMes1 }}mm; text-align:center;">
