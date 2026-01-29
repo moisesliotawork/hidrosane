@@ -495,10 +495,23 @@
                         style="top:{{ $yPagoFila }}mm; left:{{ $xNumCuotas }}mm; width:{{ $wNumCuotas }}mm; text-align:center;">
                         {{ $venta->num_cuotas }}
                     </div>
+                    @php
+                        $numCuotas = (int) ($venta->num_cuotas ?? 0);
+
+                        // Total final (el mismo que muestro en "Importe")
+                        $totalFinal = $venta->total_final;
+
+                        // Si es 1 cuota, la "cuota" debe ser el total final
+                        $cuotaMostrada = $numCuotas === 1
+                            ? $totalFinal
+                            : (float) ($venta->cuota_final ?? 0);
+                    @endphp
+
                     <div class="field"
                         style="top:{{ $yPagoFila }}mm; left:{{ $xCuota }}mm; width:{{ $wCuota }}mm; text-align:center;">
-                        {{ number_format($venta->cuota_final, 2, ',', '.') }} €
+                        {{ number_format($cuotaMostrada, 2, ',', '.') }} €
                     </div>
+
                     <div class="field"
                         style="top:{{ $yPagoFila }}mm; left:{{ $xMes1 }}mm; width:{{ $wMes1 }}mm; text-align:center;">
                         {{ $venta->mes_contr?->label() }}
