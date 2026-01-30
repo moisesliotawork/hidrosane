@@ -41,7 +41,7 @@ class CreateNote extends CreateRecord
 
                     'postal_code' => $customer->postal_code,
                     'nro_piso' => $customer->nro_piso,
-                    'ciudad' => $customer->ciudad,
+                    'ayuntamiento' => $customer->ayuntamiento,
                     'provincia' => $customer->provincia,
                     'primary_address' => $customer->primary_address,
                     'secondary_address' => $customer->secondary_address,

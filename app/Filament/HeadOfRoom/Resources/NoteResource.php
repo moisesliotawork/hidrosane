@@ -32,6 +32,7 @@ use App\Models\Venta;
 use Filament\Notifications\Actions\Action as NotificationAction;
 use App\Filament\Teleoperator\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Columns\ToggleColumn;
 
 class NoteResource extends Resource
 {
@@ -494,12 +495,19 @@ class NoteResource extends Resource
                     ->alignCenter()
                     ->toggleable(isToggledHiddenByDefault: false), // cámbialo a true si quieres ocultarla por defecto
 
-                Tables\Columns\TextColumn::make('printed')
-                    ->label('Impr.')
-                    ->badge()
-                    ->formatStateUsing(fn(bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
-                    ->color(fn(bool $state) => $state ? 'gray' : 'orange')
-                    ->sortable(),
+     Tables\Columns\TextColumn::make('printed')
+    ->label('Impr.')
+    ->badge()
+    ->formatStateUsing(fn (bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
+    ->color(fn (bool $state) => $state ? 'gray' : 'warning')
+    ->alignCenter()
+    ->sortable()
+    ->action(function (Note $record) { // <--- USAR ESTO PARA CAMBIAR EL ESTADO
+        $record->update([
+            'printed' => ! $record->printed
+        ]);
+    }),
+                   
 
                 Tables\Columns\TextColumn::make('reten')
                     ->label('Reten')
@@ -625,6 +633,7 @@ class NoteResource extends Resource
                         blank: fn(Builder $q) => $q, // sin filtro
                     ),
 
+
                 Tables\Filters\TernaryFilter::make('reten')
                     ->label('Reten')
                     ->trueLabel('Solo en Reten')
@@ -639,6 +648,10 @@ class NoteResource extends Resource
 
             ])
             ->actions([
+
+
+
+            
                 Tables\Actions\EditAction::make()
                     ->label(''),
                 Tables\Actions\DeleteAction::make()
@@ -697,6 +710,7 @@ class NoteResource extends Resource
                                 ->required(false),
                         ];
                     })
+                    
                     ->action(function (Note $record, array $data): void {
                         try {
                             // Se mantiene tu lógica existente
