@@ -239,8 +239,9 @@ class BuscarCliente extends Component implements HasForms
             'primary_address' => $state['primary_address'] ?? null,
             'nro_piso' => $state['nro_piso'] ?? null,
             'postal_code' => $state['postal_code'] ?? null,
-            'ayuntamiento' => $state['ayuntamiento'] ?? null,
+            //'ayuntamiento' => $state['ayuntamiento'] ?? null,
             'provincia' => $state['provincia'] ?? null,
+            'ciudad' => $state['ayuntamiento'] ?? null,
         ]));
     }
 
