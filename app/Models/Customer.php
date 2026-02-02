@@ -83,6 +83,17 @@ class Customer extends Model
     }
 
     /** Retorna nro_cliente_admin de la primera venta o "-" */
+
+/** Relación: un cliente puede tener muchas notas */
+public function notes(): HasMany
+{
+    return $this->hasMany(Note::class, 'customer_id');
+}
+
+
+
+
+    
     public function firstVentaClienteAdmin(): string
     {
         return $this->ventas()
