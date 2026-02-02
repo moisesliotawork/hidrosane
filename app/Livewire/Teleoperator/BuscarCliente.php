@@ -10,6 +10,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use App\Models\Customer;
 use App\Filament\Teleoperator\Resources\NoteResource;
 use Filament\Notifications\Notification;
+use Carbon\Carbon;
 
 class BuscarCliente extends Component implements HasForms
 {
@@ -30,7 +31,6 @@ class BuscarCliente extends Component implements HasForms
             'ayuntamiento' => null,
             'provincia' => null,
         ]);
-
     }
 
     public function form(Form $form): Form
@@ -116,8 +116,56 @@ class BuscarCliente extends Component implements HasForms
             ->title('NOTA DUPLICADA')
             ->body($detalle)
             ->danger()
-            ->persistent() // opcional: que no se cierre sola
+            ->persistent()
             ->send();
+    }
+
+    protected function notifyClienteAntiguo(string $detalle): void
+    {
+        Notification::make()
+            ->title('CLIENTE EXISTE')
+            ->body($detalle)
+            ->warning()
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Regla: si el cliente tiene notas, y la última es >= 5 meses, permitir crear nota y avisar.
+     * Si la última es < 5 meses, bloquear (duplicada).
+     */
+    protected function handleCustomerFound(Customer $customer, ?string $digits = null, array $extraCreateParams = []): void
+    {
+        // OJO: asumo relación $customer->notes() existe (hasMany Note::class)
+        $lastNote = $customer->notes()->latest('created_at')->first();
+
+        // Si no tiene notas, normalmente lo dejamos crear nota (no pediste notificación aquí)
+        if (!$lastNote) {
+            redirect()->to(NoteResource::getUrl('create', array_merge([
+                'customer_id' => $customer->id,
+                'phone' => $digits ?: null,
+            ], $extraCreateParams)));
+            return;
+        }
+
+        $fiveMonthsAgo = now()->subMonthsNoOverflow(5);
+
+        if ($lastNote->created_at?->lte($fiveMonthsAgo)) {
+            $fecha = optional($lastNote->created_at)->format('d/m/Y');
+
+            $this->notifyClienteAntiguo("El cliente existe, pero la última llamada/nota fue el {$fecha} (hace más de 5 meses). Puedes crear una nota nueva.");
+
+            redirect()->to(NoteResource::getUrl('create', array_merge([
+                'customer_id' => $customer->id,
+                'phone' => $digits ?: null,
+            ], $extraCreateParams)));
+            return;
+        }
+
+        // Última nota reciente (<5 meses): lo tratamos como duplicado
+        $fecha = optional($lastNote->created_at)->format('d/m/Y');
+        $this->notifyNotaDuplicada("El cliente ya fue llamado recientemente. Última nota: {$fecha}.");
+        redirect()->to(NoteResource::getUrl('index'));
     }
 
     public function buscarTelefono(): void
@@ -131,14 +179,15 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        $exists = Customer::query()
+        // 🔥 En vez de exists(), traemos el cliente
+        $customer = Customer::query()
             ->where('phone', $digits)
             ->orWhere('secondary_phone', $digits)
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con este numero de telefono");
-            redirect()->to(NoteResource::getUrl('index'));
+        if ($customer) {
+            $this->phoneNotFound = false;
+            $this->handleCustomerFound($customer, $digits);
             return;
         }
 
@@ -164,7 +213,6 @@ class BuscarCliente extends Component implements HasForms
         $ayto = $norm($state['ayuntamiento'] ?? null);
         $provincia = $norm($state['provincia'] ?? null);
 
-        // ✅ ahora deben venir 5 campos
         if ($primaryAddress === '' || $nroPiso === '' || $postalCode === '' || $ayto === '' || $provincia === '') {
             Notification::make()
                 ->title('Faltan datos')
@@ -174,21 +222,29 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // ✅ Deben coincidir LOS 5 en el mismo registro (ignorando mayúsculas/minúsculas)
-        $exists = Customer::query()
+        // 🔥 En vez de exists(), traemos el cliente matching
+        $customer = Customer::query()
             ->whereRaw('LOWER(TRIM(primary_address)) = ?', [$primaryAddress])
             ->whereRaw('LOWER(TRIM(nro_piso)) = ?', [$nroPiso])
             ->whereRaw('LOWER(TRIM(postal_code)) = ?', [$postalCode])
             ->whereRaw('LOWER(TRIM(ciudad)) = ?', [$ayto])
             ->whereRaw('LOWER(TRIM(provincia)) = ?', [$provincia])
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            $this->notifyNotaDuplicada("Ya existe una nota con esta dirección (5 campos coinciden).");
-            redirect()->to(NoteResource::getUrl('index'));
+        if ($customer) {
+            // aplica la regla de 5 meses y redirección
+            $this->handleCustomerFound($customer, $digits, [
+                // por si quieres precargar también dirección en create
+                'primary_address' => $state['primary_address'] ?? null,
+                'nro_piso' => $state['nro_piso'] ?? null,
+                'postal_code' => $state['postal_code'] ?? null,
+                'ayuntamiento' => $state['ayuntamiento'] ?? null,
+                'provincia' => $state['provincia'] ?? null,
+            ]);
             return;
         }
 
+        // ✅ No existe: crear nota nueva con lo digitado
         redirect()->to(NoteResource::getUrl('create', [
             'phone' => $digits ?: null,
             'primary_address' => $state['primary_address'] ?? null,
