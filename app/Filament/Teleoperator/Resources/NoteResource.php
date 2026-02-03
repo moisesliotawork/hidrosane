@@ -133,7 +133,8 @@ class NoteResource extends Resource
 
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
-                            ->maxLength(255)
+                            ->maxLength(5)
+                            ->minLength(5)
                             ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('ciudad')
@@ -141,10 +142,20 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
-                        Forms\Components\TextInput::make('provincia')
+                      /*  Forms\Components\TextInput::make('provincia')
                             ->required()
-                            ->maxLength(255)
-                            ->label('Provincia'),
+                            //->maxLength(255)
+                            ->label('Provincia'),*/
+                        Forms\Components\Select::make('provincia')
+                        ->label('Provincia')
+                        ->required()
+                        ->options([
+                        'Pontevedra' => 'Pontevedra',
+                        'A Coruña' => 'A Coruña',
+                        'Orense' => 'Orense', 
+                        'Lugo' => 'Lugo',
+
+
 
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)

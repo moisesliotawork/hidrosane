@@ -85,6 +85,8 @@ class BuscarCliente extends Component implements HasForms
                             Forms\Components\TextInput::make('postal_code')
                                 ->label('Código Postal')
                                 ->placeholder('15551')
+                                 ->minLength(5)       
+                                ->maxLength(5)
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 
@@ -93,13 +95,20 @@ class BuscarCliente extends Component implements HasForms
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 
-                            Forms\Components\TextInput::make('provincia')
-                                ->label('Provincia')
-                                ->placeholder('CORUÑA')
-                                ->required()
+                           Forms\Components\Select::make('provincia')
+                          ->label('Provincia')
+                        ->required()
+                        ->options([
+                        'Pontevedra' => 'Pontevedra',
+                        'A Coruña' => 'A Coruña',
+                        'Orense' => 'Orense', 
+                        'Lugo' => 'Lugo'])
+                        ->placeholder('Pontevedra')
+                          
                                 ->visible(fn() => $this->phoneNotFound),
                         ])
                         ->visible(fn() => $this->phoneNotFound),
+
 
                     Forms\Components\Actions::make([
                         Forms\Components\Actions\Action::make('buscarDireccion')
@@ -250,3 +259,5 @@ class BuscarCliente extends Component implements HasForms
         return view('livewire.head-of-room.buscar-cliente');
     }
 }
+
+//
