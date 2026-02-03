@@ -41,6 +41,7 @@ class BuscarCliente extends Component implements HasForms
                     Forms\Components\TextInput::make('phone_query')
                         ->label('INGRESA NÚMERO DE TELÉFONO')
                         ->tel()
+                        
                         ->mask('999 999 999')
                         ->placeholder('999 999 999')
                         ->required()
@@ -81,6 +82,8 @@ class BuscarCliente extends Component implements HasForms
 
                             Forms\Components\TextInput::make('postal_code')
                                 ->label('Código Postal')
+                                ->minLength(5)       
+                                ->maxLength(5)
                                 ->placeholder('15551')
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
@@ -90,10 +93,16 @@ class BuscarCliente extends Component implements HasForms
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 
-                            Forms\Components\TextInput::make('provincia')
-                                ->label('Provincia')
-                                ->placeholder('CORUÑA')
-                                ->required()
+                          Forms\Components\Select::make('provincia')
+                          ->label('Provincia')
+                        ->required()
+                        ->options([
+                        'Pontevedra' => 'Pontevedra',
+                        'A Coruña' => 'A Coruña',
+                        'Orense' => 'Orense', 
+                        'Lugo' => 'Lugo'])
+                        ->placeholder('Pontevedra')
+                          
                                 ->visible(fn() => $this->phoneNotFound),
                         ])
                         ->visible(fn() => $this->phoneNotFound),
