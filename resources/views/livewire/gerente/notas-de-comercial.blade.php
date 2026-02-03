@@ -286,18 +286,24 @@
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 
-            @if($esReten)
-                <button class="action-button pink small" wire:click="sendSelectedToOfficeFromReten"
+            <div class="flex gap-2">
+                {{-- ✅ Oficina SIEMPRE visible --}}
+                <button class="action-button pink small"
+                    wire:click="{{ $esReten ? 'sendSelectedToOfficeFromReten' : 'sendSelectedToOffice' }}"
                     @disabled(count($selectedNotes) === 0)
                     style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
                     Enviar a Oficina
                 </button>
-            @else
-                <button class="action-button green" wire:click="sendSelectedToReten" @disabled(count($selectedNotes) === 0)
-                    style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
-                    Enviar a Retén
-                </button>
-            @endif
+
+                {{-- ✅ Retén SOLO si NO estás en retén --}}
+                @unless($esReten)
+                    <button class="action-button green" wire:click="sendSelectedToReten"
+                        @disabled(count($selectedNotes) === 0)
+                        style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
+                        Enviar a Retén
+                    </button>
+                @endunless
+            </div>
         </div>
 
         {{-- ======= Sección: Notas de HOY ======= --}}

@@ -287,7 +287,7 @@ class NotasDeComercial extends Component
             $now = now();
             $userId = auth()->id();
 
-            // 1) Actualizar notas elegibles (SAL A + salir de retén)
+            // ✅ UPDATE EXACTO que pediste
             Note::whereIn('id', $eligible)->update([
                 'estado_terminal' => EstadoTerminal::SALA->value,
                 'printed' => false,
@@ -296,7 +296,7 @@ class NotasDeComercial extends Component
                 'fecha_declaracion' => $now,
             ]);
 
-            // 2) Historial masivo
+            // Historial masivo
             $rows = [];
             foreach ($eligible as $noteId) {
                 $rows[] = [
@@ -313,7 +313,6 @@ class NotasDeComercial extends Component
                 NoteSalaEvent::insert($rows);
             }
 
-            // 3) Evento después del commit (igual que tu bulk action)
             DB::afterCommit(function () use ($eligible) {
                 $comercial = auth()->user();
 
@@ -330,7 +329,102 @@ class NotasDeComercial extends Component
             ->success()
             ->send();
 
-        // limpiar selección y refrescar
+        $this->selectedNotes = [];
+        $this->dispatch('notaActualizada');
+    }
+
+    public function sendSelectedToOffice(): void
+    {
+        $ids = array_values(array_filter($this->selectedNotes));
+
+        if (empty($ids)) {
+            Notification::make()
+                ->title('No hay notas seleccionadas')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        $allIds = collect($ids)->values()->all();
+
+        // ✅ Elegibles fuera de retén:
+        // - reten = false
+        // - del comercial actual
+        // - sin venta
+        // - TN vacío / null / ausente (case-insensitive)
+        $eligible = Note::query()
+            ->whereIn('id', $allIds)
+            ->where('comercial_id', $this->comercialId)
+            ->where(function ($q) {
+                // reten false o null (por si hay registros viejos)
+                $q->whereNull('reten')->orWhere('reten', false);
+            })
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->pluck('id')
+            ->all();
+
+        $skipped = count($allIds) - count($eligible);
+
+        if (empty($eligible)) {
+            Notification::make()
+                ->title('No hay notas válidas para enviar a Oficina')
+                ->body('Todas las seleccionadas tienen venta, no pertenecen a este comercial, están en retén o su TN no es vacío/ausente.')
+                ->warning()
+                ->send();
+            return;
+        }
+
+        DB::transaction(function () use ($eligible) {
+            $now = now();
+            $userId = auth()->id();
+
+            // ✅ UPDATE EXACTO (el mismo que pediste)
+            Note::whereIn('id', $eligible)->update([
+                'estado_terminal' => EstadoTerminal::SALA->value,
+                'printed' => false,
+                'reten' => false,
+                'sent_to_sala_at' => $now,
+                'fecha_declaracion' => $now,
+            ]);
+
+            // Historial masivo
+            $rows = [];
+            foreach ($eligible as $noteId) {
+                $rows[] = [
+                    'note_id' => $noteId,
+                    'sent_by_user_id' => $userId,
+                    'via' => 'masivo',
+                    'sent_at' => $now,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            if (!empty($rows)) {
+                NoteSalaEvent::insert($rows);
+            }
+
+            DB::afterCommit(function () use ($eligible) {
+                $comercial = auth()->user();
+
+                event(new \App\Events\NotasEnviadasAOficinaBulk(
+                    $eligible,
+                    $comercial
+                ));
+            });
+        });
+
+        Notification::make()
+            ->title('Notas enviadas a Oficina')
+            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->success()
+            ->send();
+
         $this->selectedNotes = [];
         $this->dispatch('notaActualizada');
     }
@@ -355,7 +449,7 @@ class NotasDeComercial extends Component
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
-                    ->orWhere('estado_terminal', 'ausente');
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta');
 
@@ -387,7 +481,7 @@ class NotasDeComercial extends Component
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
-                    ->orWhere('estado_terminal', 'ausente');
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta')
             ->where('assignment_date', '>=', now()->subDays(5)->startOfDay());
