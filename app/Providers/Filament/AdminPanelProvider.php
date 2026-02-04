@@ -35,6 +35,7 @@ class AdminPanelProvider extends PanelProvider
             ->favicon(asset('favicon.ico'))
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
+            ->sidebarCollapsibleOnDesktop(true)
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Mi Perfil')
