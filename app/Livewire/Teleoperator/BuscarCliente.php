@@ -10,7 +10,6 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use App\Models\Customer;
 use App\Filament\Teleoperator\Resources\NoteResource;
 use Filament\Notifications\Notification;
-use Carbon\Carbon;
 
 class BuscarCliente extends Component implements HasForms
 {
@@ -41,7 +40,6 @@ class BuscarCliente extends Component implements HasForms
                     Forms\Components\TextInput::make('phone_query')
                         ->label('INGRESA NÚMERO DE TELÉFONO')
                         ->tel()
-                        
                         ->mask('999 999 999')
                         ->placeholder('999 999 999')
                         ->required()
@@ -82,7 +80,7 @@ class BuscarCliente extends Component implements HasForms
 
                             Forms\Components\TextInput::make('postal_code')
                                 ->label('Código Postal')
-                                ->minLength(5)       
+                                ->minLength(5)
                                 ->maxLength(5)
                                 ->placeholder('15551')
                                 ->required()
@@ -93,16 +91,16 @@ class BuscarCliente extends Component implements HasForms
                                 ->required()
                                 ->visible(fn() => $this->phoneNotFound),
 
-                          Forms\Components\Select::make('provincia')
-                          ->label('Provincia')
-                        ->required()
-                        ->options([
-                        'Pontevedra' => 'Pontevedra',
-                        'A Coruña' => 'A Coruña',
-                        'Orense' => 'Orense', 
-                        'Lugo' => 'Lugo'])
-                        ->placeholder('Pontevedra')
-                          
+                            Forms\Components\Select::make('provincia')
+                                ->label('Provincia')
+                                ->required()
+                                ->options([
+                                    'Pontevedra' => 'Pontevedra',
+                                    'A Coruña' => 'A Coruña',
+                                    'Orense' => 'Orense',
+                                    'Lugo' => 'Lugo',
+                                ])
+                                ->placeholder('Pontevedra')
                                 ->visible(fn() => $this->phoneNotFound),
                         ])
                         ->visible(fn() => $this->phoneNotFound),
@@ -140,15 +138,19 @@ class BuscarCliente extends Component implements HasForms
     }
 
     /**
-     * Regla: si el cliente tiene notas, y la última es >= 5 meses, permitir crear nota y avisar.
-     * Si la última es < 5 meses, bloquear (duplicada).
+     * Regla (por MESES calendario):
+     * - En cualquier día del mes actual, se permite crear nota si la última nota
+     *   pertenece al mes "5 meses atrás" o anterior (ej: 01-Feb permite Sep y antes).
+     *
+     * Implementación:
+     * - Corte = primer día del mes de hace 4 meses.
+     *   Ej: now = Feb 2026 -> cutoff = 2025-10-01. Todo lo < cutoff es Sep o antes => permitir.
      */
     protected function handleCustomerFound(Customer $customer, ?string $digits = null, array $extraCreateParams = []): void
     {
-        // OJO: asumo relación $customer->notes() existe (hasMany Note::class)
         $lastNote = $customer->notes()->latest('created_at')->first();
 
-        // Si no tiene notas, normalmente lo dejamos crear nota (no pediste notificación aquí)
+        // Si no tiene notas, permitir crear nota
         if (!$lastNote) {
             redirect()->to(NoteResource::getUrl('create', array_merge([
                 'customer_id' => $customer->id,
@@ -157,12 +159,18 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        $fiveMonthsAgo = now()->subMonthsNoOverflow(5);
+        // ✅ Regla por meses (NO exacto en días)
+        $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
 
-        if ($lastNote->created_at?->lte($fiveMonthsAgo)) {
+        if ($lastNote->created_at?->lt($cutoff)) {
             $fecha = optional($lastNote->created_at)->format('d/m/Y');
 
-            $this->notifyClienteAntiguo("El cliente existe, pero la última llamada/nota fue el {$fecha} (hace más de 5 meses). Puedes crear una nota nueva.");
+            // Texto opcional: mostrar mes límite (para que el operador lo entienda)
+            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y'); // mes anterior al cutoff = "mes permitido"
+            $this->notifyClienteAntiguo(
+                "El cliente existe, pero la última llamada/nota fue el {$fecha}. " .
+                "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
+            );
 
             redirect()->to(NoteResource::getUrl('create', array_merge([
                 'customer_id' => $customer->id,
@@ -171,7 +179,7 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // Última nota reciente (<5 meses): lo tratamos como duplicado
+        // ❌ Última nota reciente: duplicada
         $fecha = optional($lastNote->created_at)->format('d/m/Y');
         $this->notifyNotaDuplicada("El cliente ya fue llamado recientemente. Última nota: {$fecha}.");
         redirect()->to(NoteResource::getUrl('index'));
@@ -188,7 +196,6 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // 🔥 En vez de exists(), traemos el cliente
         $customer = Customer::query()
             ->where('phone', $digits)
             ->orWhere('secondary_phone', $digits)
@@ -200,7 +207,6 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // ❌ No existe: mostramos mensaje + habilitamos dirección (paso 2)
         $this->phoneNotFound = true;
     }
 
@@ -231,7 +237,6 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // 🔥 En vez de exists(), traemos el cliente matching
         $customer = Customer::query()
             ->whereRaw('LOWER(TRIM(primary_address)) = ?', [$primaryAddress])
             ->whereRaw('LOWER(TRIM(nro_piso)) = ?', [$nroPiso])
@@ -241,9 +246,7 @@ class BuscarCliente extends Component implements HasForms
             ->first();
 
         if ($customer) {
-            // aplica la regla de 5 meses y redirección
             $this->handleCustomerFound($customer, $digits, [
-                // por si quieres precargar también dirección en create
                 'primary_address' => $state['primary_address'] ?? null,
                 'nro_piso' => $state['nro_piso'] ?? null,
                 'postal_code' => $state['postal_code'] ?? null,
@@ -253,7 +256,6 @@ class BuscarCliente extends Component implements HasForms
             return;
         }
 
-        // ✅ No existe: crear nota nueva con lo digitado
         redirect()->to(NoteResource::getUrl('create', [
             'phone' => $digits ?: null,
             'primary_address' => $state['primary_address'] ?? null,
