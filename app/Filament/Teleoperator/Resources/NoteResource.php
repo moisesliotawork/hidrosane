@@ -142,20 +142,15 @@ class NoteResource extends Resource
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
-                      /*  Forms\Components\TextInput::make('provincia')
-                            ->required()
-                            //->maxLength(255)
-                            ->label('Provincia'),*/
                         Forms\Components\Select::make('provincia')
-                        ->label('Provincia')
-                        ->required()
-                        ->options([
-                        'Pontevedra' => 'Pontevedra',
-                        'A Coruña' => 'A Coruña',
-                        'Orense' => 'Orense', 
-                        'Lugo' => 'Lugo',
-
-
+                            ->label('Provincia')
+                            ->required()
+                            ->options([
+                                'Pontevedra' => 'Pontevedra',
+                                'A Coruña' => 'A Coruña',
+                                'Orense' => 'Orense',
+                                'Lugo' => 'Lugo',
+                            ]),
 
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
