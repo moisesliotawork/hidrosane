@@ -153,7 +153,9 @@ class NoteResource extends Resource
                         'Pontevedra' => 'Pontevedra',
                         'A Coruña' => 'A Coruña',
                         'Orense' => 'Orense', 
-                        'Lugo' => 'Lugo',
+                        'Lugo' => 'Lugo',])
+                        ->default('Pontevedra'),
+                        
 
 
 
