@@ -62,6 +62,7 @@ class VentaResource extends Resource
                 ->extraAttributes(['class' => 'text-2xl font-bold'])   // tamaño y peso
                 ->columnSpanFull(),
 
+               
             Select::make('estado_venta')
                 ->label('Estado de la venta')
                 ->options(
@@ -918,6 +919,10 @@ class VentaResource extends Resource
                     ->tooltip('Editar contrato -B')
                     ->sortable(false)
                     ->searchable(false),
+                    // FUENTE DE LA TELEOPERADORA //
+                     TextColumn::make('note.fuente')
+                ->label('Fuente'),
+
 
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
