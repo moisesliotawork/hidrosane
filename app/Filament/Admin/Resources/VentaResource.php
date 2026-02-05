@@ -34,6 +34,8 @@ use Illuminate\Support\HtmlString;
 use App\Enums\VendidoPor;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Filament\Tables\Filters\SelectFilter;
+use App\Enums\OrigenVenta;
 
 class VentaResource extends Resource
 {
@@ -976,6 +978,25 @@ class VentaResource extends Resource
                     ->label('Dirección')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->wrap(),
+                TextColumn::make('origen_venta')
+                    ->label('Origen')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->state(fn(Venta $r) => $r->origen_venta ?? '__NULL__') // 👈 clave
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        '__NULL__', '' => 'SIN ORIGEN',
+                        'puerta_fria' => 'PUERTA FRÍA',
+                        'venta_normal' => 'VENTA NORMAL',
+                        default => strtoupper((string) $state),
+                    })
+                    ->color(fn($state) => match ($state) {
+                        '__NULL__', '' => 'gray',
+                        'puerta_fria' => 'warning',
+                        'venta_normal' => 'success',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -988,6 +1009,25 @@ class VentaResource extends Resource
                     ->modalHeading('Eliminar contrato')
                     ->modalDescription('Esta acción eliminará el contrato y sus datos relacionados. ¿Deseas continuar?')
                     ->successNotificationTitle('Contrato eliminado'),
+            ])
+            ->filters([
+                SelectFilter::make('origen_venta')
+                    ->label('Origen')
+                    ->native(false)
+                    ->options([
+                        '__NULL__' => 'SIN ORIGEN',
+                        'puerta_fria' => 'PUERTA FRÍA',
+                        'venta_normal' => 'VENTA NORMAL',
+                    ])
+                    ->query(function ($query, array $data) {
+                        $value = $data['value'] ?? null;
+
+                        return match (true) {
+                            $value === '__NULL__' => $query->whereNull('origen_venta'),
+                            blank($value) => $query,
+                            default => $query->where('origen_venta', $value),
+                        };
+                    }),
             ])
             ->bulkActions([]);  // sin bulk delete
     }

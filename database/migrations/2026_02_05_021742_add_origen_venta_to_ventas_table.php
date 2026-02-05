@@ -8,17 +8,16 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('ventas', function (Blueprint $table) {
-            $table->boolean('es_puerta_fria')
-                ->default(true)
+            $table->string('origen_venta', 20)
                 ->nullable()
-                ->after('motivo_venta'); 
+                ->after('motivo_venta'); // ajusta si quieres
         });
     }
 
     public function down(): void
     {
         Schema::table('ventas', function (Blueprint $table) {
-            $table->dropColumn('es_puerta_fria');
+            $table->dropColumn('origen_venta');
         });
     }
 };

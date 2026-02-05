@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\CreamDailyControl;
 use Carbon\Carbon;
 use Illuminate\Filesystem\FilesystemAdapter;
+use App\Enums\OrigenVenta;
 
 /**
  * @property int $id
@@ -158,7 +159,8 @@ class Venta extends Model
         'nro_contr_adm',
         'nro_cliente_adm',
 
-        'es_puerta_fria',
+        'origen_venta',
+
 
     ];
 
@@ -193,7 +195,7 @@ class Venta extends Model
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
 
-        'es_puerta_fria' => 'boolean',
+        'origen_venta' => OrigenVenta::class,
 
     ];
 
@@ -209,8 +211,6 @@ class Venta extends Model
     ];
 
     protected $attributes = [
-        'es_puerta_fria' => true,
-
         'crema' => false,
         'monto_extra' => 0,
         'total_final' => 0,
@@ -863,15 +863,6 @@ class Venta extends Model
         // sumamos 1 entrega; los demás campos se recalculan en el modelo
         $control->delivered++;
         $control->save(); // aquí se recalculan remaining y next_day_to_assign
-    }
-
-    // En App\Models\Venta
-    public function marcarComoNoPuertaFria(): void
-    {
-        if ($this->es_puerta_fria) {
-            $this->es_puerta_fria = false;
-            $this->save();
-        }
     }
 
 }

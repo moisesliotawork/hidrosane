@@ -24,6 +24,13 @@ class NotasDeComercial extends Component
     /** IDs seleccionados (hoy + todas) */
     public array $selectedNotes = [];
 
+    public string $origenVentaFilter = 'sin_procedencia';
+
+    public function updatedOrigenVentaFilter(): void
+    {
+        $this->selectedNotes = []; // opcional: limpia selección al filtrar
+    }
+
     protected $listeners = [
         'notaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
@@ -466,6 +473,24 @@ class NotasDeComercial extends Component
             // });
         }
 
+        $query->where(function ($q) {
+            $f = $this->origenVentaFilter ?? 'sin_procedencia';
+
+            if ($f === 'todos') {
+                return;
+            }
+
+            if ($f === 'sin_procedencia') {
+                // Nota sin venta (más común) O venta vieja con origen null
+                $q->whereDoesntHave('venta')
+                    ->orWhereHas('venta', fn($v) => $v->whereNull('origen_venta'));
+                return;
+            }
+
+            // puerta_fria o venta_normal
+            $q->whereHas('venta', fn($v) => $v->where('origen_venta', $f));
+        });
+
         return $query
             ->orderByDesc('assignment_date')
             ->orderByRaw('CAST(nro_nota AS UNSIGNED) DESC')
@@ -498,6 +523,24 @@ class NotasDeComercial extends Component
             //     $q->whereNull('reten')->orWhere('reten', false);
             // });
         }
+
+        $query->where(function ($q) {
+            $f = $this->origenVentaFilter ?? 'sin_procedencia';
+
+            if ($f === 'todos') {
+                return;
+            }
+
+            if ($f === 'sin_procedencia') {
+                // Nota sin venta (más común) O venta vieja con origen null
+                $q->whereDoesntHave('venta')
+                    ->orWhereHas('venta', fn($v) => $v->whereNull('origen_venta'));
+                return;
+            }
+
+            // puerta_fria o venta_normal
+            $q->whereHas('venta', fn($v) => $v->where('origen_venta', $f));
+        });
 
         return $query
             ->orderByDesc('assignment_date')

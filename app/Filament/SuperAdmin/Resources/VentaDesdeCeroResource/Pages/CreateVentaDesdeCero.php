@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
 use App\Filament\SuperAdmin\Pages\NotasHoy;
-use Illuminate\Support\Str; 
+use Illuminate\Support\Str;
 use App\Events\VentaCreada;
 
 class CreateVentaDesdeCero extends CreateRecord
@@ -126,6 +126,9 @@ class CreateVentaDesdeCero extends CreateRecord
                 'pension' => $data['pension'] ?? null,
                 'contrato_firmado' => $data['contrato_firmado'] ?? null,
                 'otros_documentos' => $data['otros_documentos'] ?? null,
+
+                'origen_venta' => \App\Enums\OrigenVenta::PUERTA_FRIA,
+
             ]);
 
             $this->form->model($venta)->saveRelationships();

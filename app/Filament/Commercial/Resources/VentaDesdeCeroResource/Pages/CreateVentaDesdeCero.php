@@ -159,7 +159,10 @@ class CreateVentaDesdeCero extends CreateRecord
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
                 //'contrato_firmado' => $data['contrato_firmado'] ?? null,
-                'otros_documentos' =>  $data['otros_documentos'] ?? null,
+                'otros_documentos' => $data['otros_documentos'] ?? null,
+
+                'origen_venta' => \App\Enums\OrigenVenta::PUERTA_FRIA,
+
             ]);
 
             $this->form->model($venta)->saveRelationships();

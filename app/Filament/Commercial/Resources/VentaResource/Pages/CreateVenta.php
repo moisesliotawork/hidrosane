@@ -155,6 +155,7 @@ class CreateVenta extends CreateRecord
 
                 'fecha_entrega' => $data['fecha_entrega'] ?? null,
                 'horario_entrega' => $data['horario_entrega'] ?? null,
+                'origen_venta' => \App\Enums\OrigenVenta::VENTA_NORMAL,
 
                 'precontractual' => $data['precontractual'] ?? null,
                 'dni_anverso' => $data['dni_anverso'] ?? null,
@@ -168,8 +169,6 @@ class CreateVenta extends CreateRecord
 
             /* 2.5 Guardar ofertas y productos relacionados */
             $this->form->model($venta)->saveRelationships();
-
-            $venta->marcarComoNoPuertaFria();
 
             /* 2.6 Cálculos derivados (orden recomendado) ---------------------- */
 

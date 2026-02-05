@@ -286,6 +286,18 @@
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400">Origen:</span>
+
+                <select wire:model.live="origenVentaFilter"
+                    class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-900 dark:text-white dark:border-gray-700">
+                    <option value="sin_procedencia">SIN PROCEDENCIA</option>
+                    <option value="venta_normal">VENTA NORMAL</option>
+                    <option value="puerta_fria">PUERTA FRÍA</option>
+                    <option value="todos">TODOS</option>
+                </select>
+            </div>
+
             <div class="flex gap-2">
                 {{-- ✅ Oficina SIEMPRE visible --}}
                 <button class="action-button pink small"
