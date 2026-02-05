@@ -169,6 +169,8 @@ class CreateVenta extends CreateRecord
             /* 2.5 Guardar ofertas y productos relacionados */
             $this->form->model($venta)->saveRelationships();
 
+            $venta->marcarComoNoPuertaFria();
+
             /* 2.6 Cálculos derivados (orden recomendado) ---------------------- */
 
             // a) Importes por origen + recalcular cuota_mensual según ofertas reales

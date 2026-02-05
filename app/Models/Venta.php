@@ -157,6 +157,9 @@ class Venta extends Model
         'mes_contr',
         'nro_contr_adm',
         'nro_cliente_adm',
+
+        'es_puerta_fria',
+
     ];
 
     protected $casts = [
@@ -190,6 +193,8 @@ class Venta extends Model
         'estado_venta' => EstadoVenta::class,
         'financiera' => Financiera::class,
 
+        'es_puerta_fria' => 'boolean',
+
     ];
 
     protected $appends = [
@@ -204,6 +209,8 @@ class Venta extends Model
     ];
 
     protected $attributes = [
+        'es_puerta_fria' => true,
+
         'crema' => false,
         'monto_extra' => 0,
         'total_final' => 0,
@@ -857,4 +864,14 @@ class Venta extends Model
         $control->delivered++;
         $control->save(); // aquí se recalculan remaining y next_day_to_assign
     }
+
+    // En App\Models\Venta
+    public function marcarComoNoPuertaFria(): void
+    {
+        if ($this->es_puerta_fria) {
+            $this->es_puerta_fria = false;
+            $this->save();
+        }
+    }
+
 }
