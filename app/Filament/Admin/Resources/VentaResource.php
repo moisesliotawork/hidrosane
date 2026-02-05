@@ -982,7 +982,7 @@ class VentaResource extends Resource
                     ->label('Origen')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->state(fn(Venta $r) => $r->origen_venta ?? '__NULL__') // 👈 clave
+                    ->state(fn(Venta $r) => $r->origen_venta?->value ?? '__NULL__') // ✅ ahora es string
                     ->formatStateUsing(fn($state) => match ($state) {
                         '__NULL__', '' => 'SIN ORIGEN',
                         'puerta_fria' => 'PUERTA FRÍA',
