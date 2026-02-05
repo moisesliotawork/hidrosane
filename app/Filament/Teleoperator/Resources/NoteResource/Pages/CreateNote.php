@@ -29,30 +29,80 @@ class CreateNote extends CreateRecord
     {
         parent::mount();
 
-        $prefill = [
+        $prefill = [];
+
+        // 1) Si viene un customer_id, cargamos TODO desde BD
+        $customerId = request('customer_id');
+
+        if ($customerId) {
+            $customer = Customer::query()->find($customerId);
+
+            if ($customer) {
+                // ⚠️ Ajusta esta lista EXACTAMENTE a los campos que existen en tu formulario de Note
+                $prefillFromCustomer = [
+                    'first_names' => $customer->first_names,
+                    'last_names' => $customer->last_names,
+                    'phone' => $customer->phone,
+                    'secondary_phone' => $customer->secondary_phone,
+                    'email' => $customer->email,
+
+                    'primary_address' => $customer->primary_address,
+                    'secondary_address' => $customer->secondary_address,
+                    'nro_piso' => $customer->nro_piso,
+                    'postal_code' => $customer->postal_code,
+                    'ciudad' => $customer->ciudad,
+                    'provincia' => $customer->provincia,
+
+                    'edadTelOp' => $customer->edadTelOp,
+                    'fecha_nac' => $customer->fecha_nac ?? null, // si existe en Customer
+                    // agrega aquí cualquier otro campo que tengas en Customer y también en el form
+                ];
+
+                // Formatea teléfonos para máscara "999 999 999" (solo para mostrar)
+                $prefillFromCustomer['phone'] = $this->formatPhoneMask($prefillFromCustomer['phone'] ?? null);
+                $prefillFromCustomer['secondary_phone'] = $this->formatPhoneMask($prefillFromCustomer['secondary_phone'] ?? null);
+
+                $prefillFromCustomer = array_filter($prefillFromCustomer, fn($v) => $v !== null && $v !== '');
+
+                $prefill = $prefillFromCustomer;
+            }
+        }
+
+        // 2) Prefill por request (sirve cuando NO existe customer y vienes de "buscarDireccion")
+        $prefillFromRequest = [
             'phone' => request('phone'),
             'primary_address' => request('primary_address'),
-            // si luego pasas más:
             'postal_code' => request('postal_code'),
             'ciudad' => request('ayuntamiento'),
             'provincia' => request('provincia'),
             'nro_piso' => request('nro_piso'),
         ];
 
-        // formatea phone para la máscara
-        if (!empty($prefill['phone'])) {
-            $digits = preg_replace('/\D+/', '', (string) $prefill['phone']);
-            if (strlen($digits) === 9) {
-                $prefill['phone'] = implode(' ', str_split($digits, 3));
-            }
+        // formatea phone request para máscara
+        if (!empty($prefillFromRequest['phone'])) {
+            $prefillFromRequest['phone'] = $this->formatPhoneMask($prefillFromRequest['phone']);
         }
 
-        // limpia null/vacíos
-        $prefill = array_filter($prefill, fn($v) => $v !== null && $v !== '');
+        $prefillFromRequest = array_filter($prefillFromRequest, fn($v) => $v !== null && $v !== '');
 
-        $this->form->fill($prefill);
+        // 3) Si hay request, que sobreescriba (por si el operador escribió algo distinto)
+        $prefill = array_merge($prefill, $prefillFromRequest);
+
+        // 4) Fill final
+        if (!empty($prefill)) {
+            $this->form->fill($prefill);
+        }
     }
 
+    protected function formatPhoneMask(?string $value): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $value);
+        if (strlen($digits) !== 9) {
+            return $value ?: null;
+        }
+
+        return implode(' ', str_split($digits, 3));
+    }
 
     protected function getFormActions(): array
     {

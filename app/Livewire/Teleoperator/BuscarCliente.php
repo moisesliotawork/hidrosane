@@ -173,7 +173,7 @@ class BuscarCliente extends Component implements HasForms
             );
 
             redirect()->to(NoteResource::getUrl('create', array_merge([
-                'customer_id' => $customer->id,
+                'customer_id' => $customer->id,   // ✅ clave
                 'phone' => $digits ?: null,
             ], $extraCreateParams)));
             return;
