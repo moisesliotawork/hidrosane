@@ -925,75 +925,40 @@ class VentaResource extends Resource
                     /* FUENTE DE LA TELEOPERADORA //
                      TextColumn::make('note.fuente')
                 ->label('Fuente'),  */
-
-
 TextColumn::make('note.fuente')
     ->label('Fuente')
-    ->badge() // Opcional: para que se vea como una etiqueta de color
-    ->color(fn (string $state): string => match ($state) {
-        'Calle' => 'gray',
-        'VIP Externo' => 'warning',
-        'VIP Interno' => 'info',
+    ->badge()
+    // 1. COLOR A PRUEBA DE FALLOS:
+    // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
+    ->color(fn ($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
+        FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
+        FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
+        FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
         default => 'gray',
     })
+    // 2. TEXTO BONITO:
+    ->formatStateUsing(function ($state) {
+        // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
+        $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
+        return $enum?->getLabel() ?? $state;
+    })
+    // 3. ACCIÓN DE ROTACIÓN:
     ->action(function ($record) {
-        // 1. Define aquí tus 3 opciones en el orden que quieres que roten
-        $opciones = ['Calle', 'VIP Externo', 'Redes'];
+        $cases = FuenteNotas::cases();
 
-        // 2. Obtenemos el valor actual de la relación
-        $valorActual = $record->note->fuente;
+        // Obtenemos el valor actual (sea objeto o texto)
+        $val = $record->note->fuente;
+        $val = $val instanceof FuenteNotas ? $val : FuenteNotas::tryFrom($val);
 
-        // 3. Buscamos en qué posición está el valor actual
-        $indiceActual = array_search($valorActual, $opciones);
+        // Buscamos índice y rotamos
+        $idx = array_search($val, $cases);
+        $nextIdx = ($idx === false) ? 0 : ($idx + 1) % count($cases);
 
-        // Si el valor actual no está en la lista (o es null), empezamos desde el principio (0)
-        // Si está, sumamos 1. El operador % (módulo) hace que si llega al final, vuelva al 0.
-        $siguienteIndice = ($indiceActual === false) ? 0 : ($indiceActual + 1) % count($opciones);
-
-        $nuevoValor = $opciones[$siguienteIndice];
-
-        // 4. Actualizamos la relación
+        // Guardamos
         $record->note->update([
-            'fuente' => $nuevoValor,
-        ]);
-
-        // Opcional: Notificación visual rápida
-        // Notification::make()->title('Cambiado a ' . $nuevoValor)->success()->send();
-    }),
-
-
-
-// ...
-
-TextColumn::make('note.fuente')
-    ->label('Fuente')
-    // Esto asegura que se vea el texto bonito ("VIP Interno") usando tu función getLabel()
-    ->formatStateUsing(fn ($state) => $state instanceof FuenteNotas ? $state->getLabel() : $state)
-    ->action(function ($record) {
-        // 1. Obtenemos la lista oficial de casos desde tu archivo Enum
-        $cases = FuenteNotas::cases(); // Devolverá [CALLE, VIP_INT, VIP_EXT]
-
-        // 2. Buscamos en qué posición está la fuente actual
-        // $record->note->fuente ya es una instancia de FuenteNotas gracias al cast de Laravel
-        $currentIndex = array_search($record->note->fuente, $cases);
-
-        // 3. Calculamos el siguiente índice (lógica rotativa)
-        // Si no encuentra el actual (false), empieza por el primero (0)
-        $nextIndex = ($currentIndex === false) ? 0 : ($currentIndex + 1) % count($cases);
-
-        // 4. Actualizamos la base de datos con el siguiente caso
-        $record->note->update([
-            'fuente' => $cases[$nextIndex],
+            'fuente' => $cases[$nextIdx],
         ]);
     }),
-
-
-
-
-
-
-
-
 
 
 
