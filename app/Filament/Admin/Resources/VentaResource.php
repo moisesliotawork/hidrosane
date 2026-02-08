@@ -272,7 +272,8 @@ class VentaResource extends Resource
 
                         Forms\Components\TextInput::make('postal_code')
                             ->required()
-                            ->maxLength(255)
+                            ->maxLength(5)
+                            ->minLength(5)
                             ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('ciudad')
