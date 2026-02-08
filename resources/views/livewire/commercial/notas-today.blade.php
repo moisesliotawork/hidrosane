@@ -303,7 +303,7 @@
                             {{ $note['full_address'] }}
                         </p>
 
-                        @if($note['show_phone'])
+                        @if($note['show_phone'] || $this->canAlwaysSeePhones())
                             <div class="mt-1">
                                 <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
                                 @if($note['secondary_phone'])

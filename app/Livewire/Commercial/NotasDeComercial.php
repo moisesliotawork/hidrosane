@@ -48,6 +48,12 @@ class NotasDeComercial extends Component
         }
     }
 
+    public function canAlwaysSeePhones(): bool
+    {
+        $user = auth()->user();
+        return $user && $user->hasAnyRole(['team_leader', 'sales_manager']);
+    }
+
 
     /** ====== Botón Reasignar ====== */
     public function openReassignModal(int $noteId): void

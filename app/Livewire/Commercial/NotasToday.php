@@ -21,6 +21,13 @@ class NotasToday extends Component
         'avisarSinDentro' => 'avisarSinDentro',
     ];
 
+    public function canAlwaysSeePhones(): bool
+    {
+        $user = auth()->user();
+        return $user && $user->hasAnyRole(['team_leader', 'sales_manager']);
+    }
+
+
     public function avisarSinDentro($notaId): void
     {
         Notification::make()

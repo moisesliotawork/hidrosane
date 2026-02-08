@@ -142,15 +142,18 @@
         }
 
         .bulk-right {
-            margin-left: auto; /* empuja a la derecha */
+            margin-left: auto;
+            /* empuja a la derecha */
             display: flex;
             align-items: center;
         }
 
         /* Botón verde estilo Filament bulk */
         .btn-autonota {
-            background: #22c55e; /* green-500 */
+            background: #22c55e;
+            /* green-500 */
         }
+
         .btn-autonota:hover {
             filter: brightness(0.95);
         }
@@ -214,12 +217,17 @@
 
         .action-button {
             flex: 1;
-            padding: 0.48rem 0.35rem;   /* un poco más alto */
-            font-size: 0.82rem;         /* más grande */
-            font-weight: 800;           /* bold fuerte */
+            padding: 0.48rem 0.35rem;
+            /* un poco más alto */
+            font-size: 0.82rem;
+            /* más grande */
+            font-weight: 800;
+            /* bold fuerte */
             line-height: 1;
-            border-radius: 0.6rem;      /* más “Filament” */
-            color: #ffffff;             /* letras blancas */
+            border-radius: 0.6rem;
+            /* más “Filament” */
+            color: #ffffff;
+            /* letras blancas */
             border: 0;
             cursor: pointer;
             text-align: center;
@@ -238,169 +246,186 @@
 
         /* Variantes de color */
         .action-edit {
-            background: #f59e0b; /* amber-500 (amarillo) */
+            background: #f59e0b;
+            /* amber-500 (amarillo) */
         }
 
         .action-delete {
-            background: #ef4444; /* red-500 (rojo) */
+            background: #ef4444;
+            /* red-500 (rojo) */
         }
 
         .action-reassign {
-            background: #22c55e; /* green-500 (verde) */
+            background: #22c55e;
+            /* green-500 (verde) */
         }
 
         /* === FILTROS estilo Filament (unificado) === */
-.filter-control{
-    width: 100%;
-    border-radius: 1rem;
-    border: 1px solid rgba(55, 65, 81, 1);
-    background-color: rgba(31, 41, 55, 1);
-    color: #fff;
-    font-weight: 700;
-    font-size: .85rem;
-    padding: .75rem 2.6rem .75rem 1rem;
-    outline: none;
+        .filter-control {
+            width: 100%;
+            border-radius: 1rem;
+            border: 1px solid rgba(55, 65, 81, 1);
+            background-color: rgba(31, 41, 55, 1);
+            color: #fff;
+            font-weight: 700;
+            font-size: .85rem;
+            padding: .75rem 2.6rem .75rem 1rem;
+            outline: none;
 
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
 
-    background-image: none !important;
-}
-
-.filter-control::placeholder{
-    color: rgba(156, 163, 175, 1);
-}
-
-.filter-control:focus{
-    border-color: rgba(0, 36, 140, .6);
-    box-shadow: 0 0 0 3px rgba(0, 36, 140, .25);
-}
-
-/* flecha custom SOLO para selects */
-select.filter-control{
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 1rem center !important;
-    background-size: 1.15rem 1.15rem !important;
-}
-
-.tabs-wrap{
-  margin: .25rem .75rem .75rem .75rem;
-  display:flex;
-  justify-content:center;
-}
-
-.tabs-pill{
-  display:flex;
-  gap:.35rem;
-  padding:.4rem;
-  border-radius: 999px;
-  background: rgba(17,24,39,.55);
-  border: 1px solid rgba(55,65,81,.6);
-  backdrop-filter: blur(8px);
-}
-
-.tab-btn{
-  display:inline-flex;
-  align-items:center;
-  gap:.45rem;
-  padding:.45rem .75rem;
-  border-radius: 999px;
-  font-weight: 800;
-  font-size:.9rem;
-  color: rgba(229,231,235,.85);
-  background: transparent;
-  border: 0;
-  cursor:pointer;
-  transition: background .15s ease, transform .08s ease, color .15s ease;
-}
-
-.tab-btn:active{ transform: scale(.98); }
-
-.tab-btn.is-active{
-  background: rgba(31,41,55,.85);
-  color: #a3e635; /* verde similar a la foto */
-}
-
-.tab-ico{ opacity:.9; }
-
-.tab-badge{
-  min-width: 1.6rem;
-  height: 1.3rem;
-  padding: 0 .45rem;
-  border-radius: 999px;
-  background: rgba(31,41,55,.95);
-  border: 1px solid rgba(55,65,81,.7);
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:.78rem;
-  font-weight: 900;
-  color: rgba(229,231,235,.9);
-}
-
-.tab-btn.is-active .tab-badge{
-  background: rgba(16,185,129,.12);
-  border-color: rgba(163,230,53,.25);
-  color: #83c51aff;
-}
-
-@media (max-width: 520px){
-  .tabs-wrap{ margin: .25rem .5rem .6rem .5rem; }
-  .tab-btn{ font-size:.82rem; padding:.40rem .6rem; }
-}
-
-
-    @media (max-width: 520px) {
-        .bulk-bar {
-            flex-wrap: nowrap;      /* CLAVE: no bajar a otra línea */
-            gap: .35rem;
-            margin: .25rem .5rem .5rem .5rem;
-            overflow-x: auto;       /* si aun así no cabe, hace scroll horizontal suave */
-            -webkit-overflow-scrolling: touch;
+            background-image: none !important;
         }
 
-    .bulk-left {
-        flex-wrap: nowrap;      /* todo en una fila */
-        gap: .35rem;
-    }
+        .filter-control::placeholder {
+            color: rgba(156, 163, 175, 1);
+        }
 
-    .bulk-count {
-        font-size: .68rem;
-        padding: .18rem .4rem;
-        white-space: nowrap;
-    }
+        .filter-control:focus {
+            border-color: rgba(0, 36, 140, .6);
+            box-shadow: 0 0 0 3px rgba(0, 36, 140, .25);
+        }
 
-    .filament-bulk-btn {
-        padding: .35rem .55rem;
-        border-radius: .55rem;
-        font-size: .70rem;
-        gap: .35rem;
-        white-space: nowrap;
-    }
+        /* flecha custom SOLO para selects */
+        select.filter-control {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 1rem center !important;
+            background-size: 1.15rem 1.15rem !important;
+        }
 
-    .heroicon {
-        width: .9rem;
-        height: .9rem;
-    }
+        .tabs-wrap {
+            margin: .25rem .75rem .75rem .75rem;
+            display: flex;
+            justify-content: center;
+        }
 
-    /* Botón verde igual pero compacto */
-    .btn-autonota {
-        padding: .35rem .55rem;
-    }
+        .tabs-pill {
+            display: flex;
+            gap: .35rem;
+            padding: .4rem;
+            border-radius: 999px;
+            background: rgba(17, 24, 39, .55);
+            border: 1px solid rgba(55, 65, 81, .6);
+            backdrop-filter: blur(8px);
+        }
 
-    .filter-control{
-        font-size: .78rem;
-        padding: .60rem 2.25rem .60rem .85rem;
-        border-radius: .85rem;
-    }
+        .tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .45rem .75rem;
+            border-radius: 999px;
+            font-weight: 800;
+            font-size: .9rem;
+            color: rgba(229, 231, 235, .85);
+            background: transparent;
+            border: 0;
+            cursor: pointer;
+            transition: background .15s ease, transform .08s ease, color .15s ease;
+        }
 
-    select.filter-control{
-        background-position: right .75rem center !important;
-        background-size: 1.05rem 1.05rem !important;
-    }
-}
+        .tab-btn:active {
+            transform: scale(.98);
+        }
+
+        .tab-btn.is-active {
+            background: rgba(31, 41, 55, .85);
+            color: #a3e635;
+            /* verde similar a la foto */
+        }
+
+        .tab-ico {
+            opacity: .9;
+        }
+
+        .tab-badge {
+            min-width: 1.6rem;
+            height: 1.3rem;
+            padding: 0 .45rem;
+            border-radius: 999px;
+            background: rgba(31, 41, 55, .95);
+            border: 1px solid rgba(55, 65, 81, .7);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .78rem;
+            font-weight: 900;
+            color: rgba(229, 231, 235, .9);
+        }
+
+        .tab-btn.is-active .tab-badge {
+            background: rgba(16, 185, 129, .12);
+            border-color: rgba(163, 230, 53, .25);
+            color: #83c51aff;
+        }
+
+        @media (max-width: 520px) {
+            .tabs-wrap {
+                margin: .25rem .5rem .6rem .5rem;
+            }
+
+            .tab-btn {
+                font-size: .82rem;
+                padding: .40rem .6rem;
+            }
+        }
+
+
+        @media (max-width: 520px) {
+            .bulk-bar {
+                flex-wrap: nowrap;
+                /* CLAVE: no bajar a otra línea */
+                gap: .35rem;
+                margin: .25rem .5rem .5rem .5rem;
+                overflow-x: auto;
+                /* si aun así no cabe, hace scroll horizontal suave */
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .bulk-left {
+                flex-wrap: nowrap;
+                /* todo en una fila */
+                gap: .35rem;
+            }
+
+            .bulk-count {
+                font-size: .68rem;
+                padding: .18rem .4rem;
+                white-space: nowrap;
+            }
+
+            .filament-bulk-btn {
+                padding: .35rem .55rem;
+                border-radius: .55rem;
+                font-size: .70rem;
+                gap: .35rem;
+                white-space: nowrap;
+            }
+
+            .heroicon {
+                width: .9rem;
+                height: .9rem;
+            }
+
+            /* Botón verde igual pero compacto */
+            .btn-autonota {
+                padding: .35rem .55rem;
+            }
+
+            .filter-control {
+                font-size: .78rem;
+                padding: .60rem 2.25rem .60rem .85rem;
+                border-radius: .85rem;
+            }
+
+            select.filter-control {
+                background-position: right .75rem center !important;
+                background-size: 1.05rem 1.05rem !important;
+            }
+        }
 
         /* Estilos base para móviles (hasta 410px) */
         @media (max-width: 410px) {
@@ -437,15 +462,18 @@ select.filter-control{
             }
 
             .bulk-bar {
-                flex-wrap: nowrap;      /* CLAVE: no bajar a otra línea */
+                flex-wrap: nowrap;
+                /* CLAVE: no bajar a otra línea */
                 gap: .35rem;
                 margin: .25rem .5rem .5rem .5rem;
-                overflow-x: auto;       /* si aun así no cabe, hace scroll horizontal suave */
+                overflow-x: auto;
+                /* si aun así no cabe, hace scroll horizontal suave */
                 -webkit-overflow-scrolling: touch;
             }
 
             .bulk-left {
-                flex-wrap: nowrap;      /* todo en una fila */
+                flex-wrap: nowrap;
+                /* todo en una fila */
                 gap: .35rem;
             }
 
@@ -473,16 +501,16 @@ select.filter-control{
                 padding: .35rem .55rem;
             }
 
-            .filter-control{
-        font-size: .74rem;
-        padding: .55rem 2.10rem .55rem .80rem;
-        border-radius: .80rem;
-    }
+            .filter-control {
+                font-size: .74rem;
+                padding: .55rem 2.10rem .55rem .80rem;
+                border-radius: .80rem;
+            }
 
-    select.filter-control{
-        background-position: right .65rem center !important;
-        background-size: .98rem .98rem !important;
-    }
+            select.filter-control {
+                background-position: right .65rem center !important;
+                background-size: .98rem .98rem !important;
+            }
         }
 
         /* Ajustes para pantallas ≤385px */
@@ -529,6 +557,7 @@ select.filter-control{
             .action-button.w-full {
                 padding: 0.3rem 0;
             }
+
             .bulk-bar {
                 gap: .25rem;
                 margin: .2rem .4rem .45rem .4rem;
@@ -557,16 +586,16 @@ select.filter-control{
                 border-radius: 0.55rem;
             }
 
-            .filter-control{
-        font-size: .70rem;
-        padding: .50rem 2.00rem .50rem .75rem;
-        border-radius: .75rem;
-    }
+            .filter-control {
+                font-size: .70rem;
+                padding: .50rem 2.00rem .50rem .75rem;
+                border-radius: .75rem;
+            }
 
-    select.filter-control{
-        background-position: right .60rem center !important;
-        background-size: .92rem .92rem !important;
-    }
+            select.filter-control {
+                background-position: right .60rem center !important;
+                background-size: .92rem .92rem !important;
+            }
         }
 
         /* Ajustes para pantallas ≤375px */
@@ -630,47 +659,43 @@ select.filter-control{
             .action-button.w-full {
                 padding: 0.25rem 0;
             }
-            .filter-control{
-        font-size: .68rem;
-        padding: .48rem 1.90rem .48rem .70rem;
-        border-radius: .72rem;
-    }
 
-    select.filter-control{
-        background-position: right .55rem center !important;
-        background-size: .90rem .90rem !important;
-    }
+            .filter-control {
+                font-size: .68rem;
+                padding: .48rem 1.90rem .48rem .70rem;
+                border-radius: .72rem;
+            }
+
+            select.filter-control {
+                background-position: right .55rem center !important;
+                background-size: .90rem .90rem !important;
+            }
         }
-        
     </style>
 
-<div class="tabs-wrap">
-    <div class="tabs-pill">
-        <button type="button"
-            wire:click="setTab('oficina')"
-            class="tab-btn {{ $tab === 'oficina' ? 'is-active' : '' }}">
-            <span class="tab-ico">🏢</span>
-            <span>Oficina</span>
-            <span class="tab-badge">{{ $this->tabCounts['oficina'] ?? 0 }}</span>
-        </button>
+    <div class="tabs-wrap">
+        <div class="tabs-pill">
+            <button type="button" wire:click="setTab('oficina')"
+                class="tab-btn {{ $tab === 'oficina' ? 'is-active' : '' }}">
+                <span class="tab-ico">🏢</span>
+                <span>Oficina</span>
+                <span class="tab-badge">{{ $this->tabCounts['oficina'] ?? 0 }}</span>
+            </button>
 
-        <button type="button"
-            wire:click="setTab('todas')"
-            class="tab-btn {{ $tab === 'todas' ? 'is-active' : '' }}">
-            <span class="tab-ico">≡</span>
-            <span>Todas</span>
-            <span class="tab-badge">{{ $this->tabCounts['todas'] ?? 0 }}</span>
-        </button>
+            <button type="button" wire:click="setTab('todas')"
+                class="tab-btn {{ $tab === 'todas' ? 'is-active' : '' }}">
+                <span class="tab-ico">≡</span>
+                <span>Todas</span>
+                <span class="tab-badge">{{ $this->tabCounts['todas'] ?? 0 }}</span>
+            </button>
 
-        <button type="button"
-            wire:click="setTab('se')"
-            class="tab-btn {{ $tab === 'se' ? 'is-active' : '' }}">
-            <span class="tab-ico">?</span>
-            <span>S/E</span>
-            <span class="tab-badge">{{ $this->tabCounts['se'] ?? 0 }}</span>
-        </button>
+            <button type="button" wire:click="setTab('se')" class="tab-btn {{ $tab === 'se' ? 'is-active' : '' }}">
+                <span class="tab-ico">?</span>
+                <span>S/E</span>
+                <span class="tab-badge">{{ $this->tabCounts['se'] ?? 0 }}</span>
+            </button>
+        </div>
     </div>
-</div>
 
 
     <div class="bulk-bar">
@@ -704,48 +729,41 @@ select.filter-control{
                         d="M21 21l-4.35-4.35m1.6-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
 
-                <input type="text"
-                    class="search-input"
-                    placeholder="Buscar"
-                    wire:model.live.debounce.300ms="search" />
+                <input type="text" class="search-input" placeholder="Buscar" wire:model.live.debounce.300ms="search" />
             </div>
 
             {{-- FUNNEL (Filtros) --}}
             <div x-data="{ open:false }" class="relative">
-                <button type="button"
-                    @click="open = !open"
+                <button type="button" @click="open = !open"
                     class="relative inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     {{-- icon funnel --}}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-700 dark:text-gray-200"
-                        fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none"
+                        viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4z" />
                     </svg>
 
                     {{-- badge count --}}
                     @if($this->activeFiltersCount > 0)
-                        <span class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-lime-500 text-black text-xs font-black flex items-center justify-center">
+                        <span
+                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-lime-500 text-black text-xs font-black flex items-center justify-center">
                             {{ $this->activeFiltersCount }}
                         </span>
                     @endif
                 </button>
 
                 {{-- dropdown --}}
-                <div x-show="open"
-                    x-cloak
-                    @click.outside="open=false"
+                <div x-show="open" x-cloak @click.outside="open=false"
                     class="filters-dropdown absolute right-0 mt-2 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden z-50">
 
 
 
                     {{-- Header --}}
-                    <div class="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                    <div
+                        class="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
                         <div class="text-sm font-extrabold text-gray-900 dark:text-white">Filtros</div>
 
-                        <button type="button"
-                                wire:click="resetFilters"
-                                @click="open=false"
-                                class="text-sm font-bold text-red-400 hover:text-red-300 transition">
+                        <button type="button" wire:click="resetFilters" @click="open=false"
+                            class="text-sm font-bold text-red-400 hover:text-red-300 transition">
                             Resetear los filtros
                         </button>
                     </div>
@@ -904,7 +922,7 @@ select.filter-control{
                             {{ $note['full_address'] }}
                         </p>
 
-                        @if($note['show_phone'])
+                        @if($note['show_phone'] || $this->canAlwaysSeePhones())
                             <div class="mt-1">
                                 <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
                                 @if($note['secondary_phone'])
@@ -915,7 +933,7 @@ select.filter-control{
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
-                       <div class="action-buttons-container">
+                        <div class="action-buttons-container">
                             <button class="action-button action-edit" wire:click="editarNota({{ $note['id'] }})">
                                 Editar
                             </button>
@@ -924,7 +942,8 @@ select.filter-control{
                                 Borrar
                             </button>
 
-                            <button class="action-button action-reassign" wire:click="confirmarReasignarComercial({{ $note['id'] }})">
+                            <button class="action-button action-reassign"
+                                wire:click="confirmarReasignarComercial({{ $note['id'] }})">
                                 Reasignar Comercial
                             </button>
                         </div>
@@ -940,55 +959,53 @@ select.filter-control{
         </div>
     </div>
     <x-filament::modal id="confirm-delete-note" width="3xl">
-    <x-slot name="heading">
-        Eliminar nota
-    </x-slot>
+        <x-slot name="heading">
+            Eliminar nota
+        </x-slot>
 
-    <div class="space-y-4">
-        <p class="text-sm text-gray-600 dark:text-gray-300">
-            Estás a punto de eliminar esta nota.
-        </p>
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+                Estás a punto de eliminar esta nota.
+            </p>
 
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div class="flex gap-3">
-                <div class="mt-0.5 text-warning-600">
-                    <x-heroicon-o-exclamation-triangle class="w-5 h-5" />
-                </div>
-
-                <div>
-                    <div class="font-bold text-gray-900 dark:text-white">
-                        Esta acción no se puede deshacer.
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex gap-3">
+                    <div class="mt-0.5 text-warning-600">
+                        <x-heroicon-o-exclamation-triangle class="w-5 h-5" />
                     </div>
-                    <div class="text-sm text-gray-600 dark:text-gray-300">
-                        La nota será eliminada permanentemente del sistema.
+
+                    <div>
+                        <div class="font-bold text-gray-900 dark:text-white">
+                            Esta acción no se puede deshacer.
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">
+                            La nota será eliminada permanentemente del sistema.
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <x-slot name="footer">
-        <div class="flex justify-end gap-2 w-full">
-            <x-filament::button color="gray" wire:click="cancelarBorrado">
-                Cancelar
-            </x-filament::button>
+        <x-slot name="footer">
+            <div class="flex justify-end gap-2 w-full">
+                <x-filament::button color="gray" wire:click="cancelarBorrado">
+                    Cancelar
+                </x-filament::button>
 
-            <x-filament::button color="danger"
-                wire:click="borrarNotaConfirmada"
-                wire:loading.attr="disabled"
-                wire:target="borrarNotaConfirmada">
-                Sí, eliminar
-            </x-filament::button>
-        </div>
-    </x-slot>
-</x-filament::modal>
+                <x-filament::button color="danger" wire:click="borrarNotaConfirmada" wire:loading.attr="disabled"
+                    wire:target="borrarNotaConfirmada">
+                    Sí, eliminar
+                </x-filament::button>
+            </div>
+        </x-slot>
+    </x-filament::modal>
 
-<x-filament::modal id="reassign-commercial-note" width="3xl">
-    <x-slot name="heading">
-        Reasignar comercial
-    </x-slot>
+    <x-filament::modal id="reassign-commercial-note" width="3xl">
+        <x-slot name="heading">
+            Reasignar comercial
+        </x-slot>
 
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div class="flex gap-3">
                 <div class="mt-0.5 text-warning-600">
                     <x-heroicon-o-exclamation-triangle class="w-5 h-5" />
@@ -999,80 +1016,73 @@ select.filter-control{
                         Nota
                     </div>
                     <div class="text-sm text-gray-600 dark:text-gray-300">
-                        Si la nota está en <strong>SALA</strong>, se reiniciará a <strong>SIN ESTADO</strong> y se limpiará la fecha de oficina.
+                        Si la nota está en <strong>SALA</strong>, se reiniciará a <strong>SIN ESTADO</strong> y se
+                        limpiará la fecha de oficina.
                     </div>
                 </div>
             </div>
-    </div>
+        </div>
 
-    <div class="space-y-4">
-        <p class="text-sm text-gray-600 dark:text-gray-300">
-            Selecciona el comercial y la fecha de asignación. Si dejas el comercial vacío, se removerá la asignación.
-        </p>
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+                Selecciona el comercial y la fecha de asignación. Si dejas el comercial vacío, se removerá la
+                asignación.
+            </p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- Comercial --}}
-            <div class="space-y-2">
-                <label class="text-sm font-semibold text-gray-900 dark:text-white">
-                    Seleccionar Comercial
-                </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {{-- Comercial --}}
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-900 dark:text-white">
+                        Seleccionar Comercial
+                    </label>
 
-                <select
-                    wire:model="reassignComercialId"
-                    class="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold px-3 py-2 outline-none"
-                >
-                    <option value="">Sin asignar</option>
+                    <select wire:model="reassignComercialId"
+                        class="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold px-3 py-2 outline-none">
+                        <option value="">Sin asignar</option>
 
-                    @foreach($this->reassignComercialOptions as $id => $label)
-                        <option value="{{ $id }}">{{ $label }}</option>
-                    @endforeach
-                </select>
+                        @foreach($this->reassignComercialOptions as $id => $label)
+                            <option value="{{ $id }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
 
-                @error('reassignComercialId')
-                    <div class="text-sm text-danger-600">{{ $message }}</div>
-                @enderror
-            </div>
+                    @error('reassignComercialId')
+                        <div class="text-sm text-danger-600">{{ $message }}</div>
+                    @enderror
+                </div>
 
-            {{-- Fecha --}}
-            <div class="space-y-2">
-                <label class="text-sm font-semibold text-gray-900 dark:text-white">
-                    Fecha de asignación
-                </label>
+                {{-- Fecha --}}
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-gray-900 dark:text-white">
+                        Fecha de asignación
+                    </label>
 
-                <input
-                    type="date"
-                    wire:model="reassignAssignmentDate"
-                    class="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold px-3 py-2 outline-none"
-                />
+                    <input type="date" wire:model="reassignAssignmentDate"
+                        class="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold px-3 py-2 outline-none" />
 
-                <p class="text-xs text-gray-500 dark:text-gray-400">
-                    Si se deja vacío, se usará la fecha actual (si hay comercial asignado).
-                </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Si se deja vacío, se usará la fecha actual (si hay comercial asignado).
+                    </p>
 
-                @error('reassignAssignmentDate')
-                    <div class="text-sm text-danger-600">{{ $message }}</div>
-                @enderror
+                    @error('reassignAssignmentDate')
+                        <div class="text-sm text-danger-600">{{ $message }}</div>
+                    @enderror
+                </div>
             </div>
         </div>
-    </div>
 
-    <x-slot name="footer">
-        <div class="flex justify-end gap-2 w-full">
-            <x-filament::button color="gray" wire:click="cancelarReasignarComercial">
-                Cancelar
-            </x-filament::button>
+        <x-slot name="footer">
+            <div class="flex justify-end gap-2 w-full">
+                <x-filament::button color="gray" wire:click="cancelarReasignarComercial">
+                    Cancelar
+                </x-filament::button>
 
-            <x-filament::button
-                color="success"
-                wire:click="reasignarComercialConfirmado"
-                wire:loading.attr="disabled"
-                wire:target="reasignarComercialConfirmado"
-            >
-                Guardar
-            </x-filament::button>
-        </div>
-    </x-slot>
-</x-filament::modal>
+                <x-filament::button color="success" wire:click="reasignarComercialConfirmado"
+                    wire:loading.attr="disabled" wire:target="reasignarComercialConfirmado">
+                    Guardar
+                </x-filament::button>
+            </div>
+        </x-slot>
+    </x-filament::modal>
 
 
 </div>

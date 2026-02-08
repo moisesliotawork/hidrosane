@@ -35,6 +35,12 @@ class Notas extends Component
         $this->statusFilter = null;
     }
 
+    public function canAlwaysSeePhones(): bool
+    {
+        $user = auth()->user();
+        return $user && $user->hasAnyRole(['team_leader', 'sales_manager']);
+    }
+
     public function getTabsProperty(): array
     {
         $user = auth()->user();
