@@ -6,8 +6,13 @@ use App\Models\Venta;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+// 👇 1. AÑADE ESTAS 3 LÍNEAS IMPORTTANTES
+use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class VentaDirectExport implements FromQuery, WithMapping, WithHeadings
+// 👇 2. AÑADE ", WithStyles, ShouldAutoSize" AQUÍ
+class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithStyles, ShouldAutoSize
 {
     protected $query;
 
@@ -18,7 +23,6 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings
 
     public function query()
     {
-        // Cargamos todas las relaciones necesarias para que no dé errores
         return $this->query->with(['customer', 'ventaOfertas.productos.producto', 'comercial']);
     }
 
@@ -40,12 +44,23 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings
             'Estado Venta',
             'Status',
             'Financiera',
+            'Como van pasadas las finacieras',
             'Comercial'
+        ];
+    }
+
+    // 👇 3. AÑADE ESTA FUNCIÓN PARA LA NEGRITA
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            // Pone la fila 1 en Negrita (Bold)
+            1 => ['font' => ['bold' => true]],
         ];
     }
 
     public function map($venta): array
     {
+        // ... (Tu código del map déjalo tal cual lo tienes ahora) ...
         return [
             $venta->id,
             $venta->fecha_venta,
@@ -58,8 +73,6 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings
             $venta->customer?->ciudad,
             $venta->customer?->dni,
             $venta->importe_total,
-
-            // Productos (Concatenados)
             $venta->ventaOfertas->flatMap(function ($ventaOferta) {
                 return $ventaOferta->productos->map(function ($ventaProducto) {
                     $nombre = $ventaProducto->producto?->nombre ?? 'Producto desconocido';
@@ -67,13 +80,10 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings
                     return "{$nombre} (x{$cantidad})";
                 });
             })->unique()->implode(', '),
-
-            // CORRECCIÓN AQUÍ: Usamos ?->value para sacar el texto del Enum
-            // Si prefieres el texto bonito (ej: "En Revisión"), usa ?->label() o ?->getLabel() si tu Enum lo tiene.
-            $venta->estado_venta?->value,
-            $venta->status?->value ?? $venta->status, // Por si status es string o enum
+            $venta->estado_venta?->value, // Recuerda mantener el fix del enum
+            $venta->status?->value ?? $venta->status,
             $venta->financiera?->value,
-
+            '', // <--- AQUÍ: Dato vacío para la columna Como van pasadas las financieras
             $venta->comercial?->name,
         ];
     }
