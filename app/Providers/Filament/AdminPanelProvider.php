@@ -30,6 +30,7 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
+
             ->sidebarCollapsibleOnDesktop(true)
             ->id('admin')
             ->path('admin')
@@ -49,7 +50,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
 
                 PanelsRenderHook::USER_MENU_BEFORE,
-                fn(): string => Blade::render('@if(auth()->check()) 
+                fn(): string => Blade::render('@if(auth()->check())
                 <div class="flex items-center justify-end gap-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                     {{ auth()->user()->empleado_id . " - " . auth()->user()->name . " " . auth()->user()->last_name }}
                 </div>
