@@ -37,6 +37,13 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Filament\Tables\Filters\SelectFilter;
 use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Actions\Exports\Enums\ExportFormat;
+use Filament\Tables\Filters\Filter;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Actions\Action;
+use App\Exports\VentaDirectExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class VentaResource extends Resource
 {
@@ -894,15 +901,34 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+
+        ->headerActions([
+            // 👇 ESTE ES EL BLOQUE NUEVO PARA DESCARGA DIRECTA
+            \Filament\Tables\Actions\Action::make('export_directo')
+                ->label('Descargar Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function ($livewire) {
+                    // 1. Obtenemos la query filtrada de la tabla
+                    $query = $livewire->getFilteredTableQuery();
+
+                    // 2. Descargamos usando la clase NUEVA (VentaDirectExport)
+                    // Usamos rutas completas con \ para que no falle nada
+                    return \Maatwebsite\Excel\Facades\Excel::download(
+                        new \App\Exports\VentaDirectExport($query),
+                        'ventas_' . now()->format('Y-m-d_H-i') . '.xlsx'
+                    );
+                }),
+        ])->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
                 $query->where(function ($q) {
-                    $q->whereNull('nro_contr_adm')               // permitir null
-                        ->orWhere('nro_contr_adm', '=', '')        // permitir vacío
-                        ->orWhere('nro_contr_adm', 'not like', '%-B%'); // excluir los que tienen -B
+                    $q->whereNull('nro_contr_adm')
+                        ->orWhere('nro_contr_adm', '=', '')
+                        ->orWhere('nro_contr_adm', 'not like', '%-B%');
                 });
             })
             ->defaultSort('created_at', 'desc')
-            ->columns([
+            ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
+
                 TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -925,11 +951,11 @@ class VentaResource extends Resource
                     /* FUENTE DE LA TELEOPERADORA //
                      TextColumn::make('note.fuente')
                 ->label('Fuente'),  */
-TextColumn::make('note.fuente')
-    ->label('Fuente')
-    ->badge()
-    // 1. COLOR A PRUEBA DE FALLOS:
-    // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
+                TextColumn::make('note.fuente')
+                ->label('Fuente')
+                ->badge()
+                // 1. COLOR A PRUEBA DE FALLOS:
+                // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
     ->color(fn ($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
         FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
         FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
@@ -1055,24 +1081,42 @@ TextColumn::make('note.fuente')
                     ->successNotificationTitle('Contrato eliminado'),
             ])
             ->filters([
-                SelectFilter::make('origen_venta')
-                    ->label('Origen')
-                    ->native(false)
-                    ->options([
-                        '__NULL__' => 'SIN ORIGEN',
-                        'puerta_fria' => 'PUERTA FRÍA',
-                        'venta_normal' => 'VENTA NORMAL',
-                    ])
-                    ->query(function ($query, array $data) {
-                        $value = $data['value'] ?? null;
 
-                        return match (true) {
-                            $value === '__NULL__' => $query->whereNull('origen_venta'),
-                            blank($value) => $query,
-                            default => $query->where('origen_venta', $value),
-                        };
-                    }),
-            ])
+
+
+            /*
+            // FILTRO PARA FECHAS EN EXCEL
+
+            Filter::make('fecha_venta')
+    ->form([
+        DatePicker::make('desde')->label('Desde'),
+        DatePicker::make('hasta')->label('Hasta'),
+    ])
+    ->query(function (Builder $query, array $data): Builder {
+        return $query
+            ->when($data['desde'], fn ($q) => $q->whereDate('fecha_venta', '>=', $data['desde']))
+            ->when($data['hasta'], fn ($q) => $q->whereDate('fecha_venta', '<=', $data['hasta']));
+    }),
+*/
+
+
+                SelectFilter::make('origen_venta')
+                ->label('Origen')
+                ->native(false)
+                ->options([
+                    '__NULL__' => 'SIN ORIGEN',
+                    'puerta_fria' => 'PUERTA FRÍA',
+                    'venta_normal' => 'VENTA NORMAL',
+                ])
+                ->query(function ($query, array $data) {
+                    $value = $data['value'] ?? null;
+                    return match (true) {
+                        $value === '__NULL__' => $query->whereNull('origen_venta'),
+                        blank($value) => $query,
+                        default => $query->where('origen_venta', $value),
+                    };
+                }),
+        ])
             ->bulkActions([]);  // sin bulk delete
     }
 
