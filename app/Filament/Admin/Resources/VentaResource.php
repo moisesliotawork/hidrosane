@@ -931,7 +931,7 @@ class VentaResource extends Resource
                             ->required(),
                     ]),
                 ])
-                ->modalHeading('Selecciona periodo')
+                ->modalHeading('Selecciona período')
                 ->modalSubmitActionLabel('Descargar Excel')
                 ->action(function ($data, $livewire) {
                     // 1. Obtenemos la consulta base

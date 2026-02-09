@@ -38,6 +38,8 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Teléfono 2',
             'Dirección',
             'Localidad/Ayunt.',
+            'Provincia',
+            'CP',
             'DNI',
             'Importe Total',
             'Productos Vendidos',
@@ -45,7 +47,8 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Status',
             'Financiera',
             'Como van pasadas las finacieras',
-            'Comercial'
+            'Comercial',
+            'Compañero',
         ];
     }
 
@@ -64,13 +67,16 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
         return [
             $venta->id,
             $venta->fecha_venta,
-            $venta->nro_contrato,
+            $venta->nro_contr_adm,
             $venta->customer?->first_names,
             $venta->customer?->last_names,
             $venta->customer?->phone,
             $venta->customer?->secondary_phone,
             $venta->customer?->primary_address,
+            $venta->customer?->nro_piso,
             $venta->customer?->ciudad,
+            $venta->provincia,
+            $venta->postal_code,
             $venta->customer?->dni,
             $venta->importe_total,
             $venta->ventaOfertas->flatMap(function ($ventaOferta) {
@@ -85,6 +91,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $venta->financiera?->value,
             '', // <--- AQUÍ: Dato vacío para la columna Como van pasadas las financieras
             $venta->comercial?->name,
+            $venta->companion_id,
         ];
     }
 }
