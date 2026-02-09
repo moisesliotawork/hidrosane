@@ -37,6 +37,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Teléfono',
             'Teléfono 2',
             'Dirección',
+            'Piso No.',
             'Localidad/Ayunt.',
             'Provincia',
             'CP',
