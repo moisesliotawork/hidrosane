@@ -23,13 +23,13 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
 
     public function query()
     {
-        return $this->query->with(['customer', 'ventaOfertas.productos.producto', 'comercial']);
+        return $this->query->with(['customer', 'ventaOfertas.productos.producto', 'comercial', 'companion']);
     }
 
     public function headings(): array
     {
         return [
-            'ID',
+            //'ID',
             'Fecha Venta',
             'Nº Contrato',
             'Nombre',
@@ -43,9 +43,11 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'CP',
             'DNI',
             'Importe Total',
-            'Productos Vendidos',
+            'Productos',
             'Estado Venta',
-            'Status',
+            'Seguimineto?',
+
+           // 'Status',
             'Financiera',
             'Como van pasadas las finacieras',
             'Comercial',
@@ -66,7 +68,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
     {
         // ... (Tu código del map déjalo tal cual lo tienes ahora) ...
         return [
-            $venta->id,
+            //$venta->id,
             $venta->fecha_venta,
             $venta->nro_contr_adm,
             $venta->customer?->first_names,
@@ -76,8 +78,8 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $venta->customer?->primary_address,
             $venta->customer?->nro_piso,
             $venta->customer?->ciudad,
-            $venta->provincia,
-            $venta->postal_code,
+            $venta->customer?->provincia ?? $venta->provincia,
+            $venta->customer?->postal_code ?? $venta->postal_code,
             $venta->customer?->dni,
             $venta->importe_total,
             $venta->ventaOfertas->flatMap(function ($ventaOferta) {
@@ -88,11 +90,13 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
                 });
             })->unique()->implode(', '),
             $venta->estado_venta?->value, // Recuerda mantener el fix del enum
-            $venta->status?->value ?? $venta->status,
-            $venta->financiera?->value,
+            //$venta->status?->value ?? $venta->status,
+            $venta->observaciones_repartidor, // /lo llaman SEGUIMIENTO en excel
+            //$venta->financiera?->value, //guardo, porque piden que aparezca en excel vacío // locura total
+            '',
             '', // <--- AQUÍ: Dato vacío para la columna Como van pasadas las financieras
             $venta->comercial?->name,
-            $venta->companion_id,
+            $venta->companion_label,
         ];
     }
 }
