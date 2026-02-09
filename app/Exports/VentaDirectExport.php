@@ -100,7 +100,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             })->unique()->implode(', '),
 
             $venta->estado_venta?->value,
-            $venta->observaciones_repartidor, // Seguimiento
+            $venta->seguimiento, // Seguimiento
             '', // Financiera vacía
             '', // Como van pasadas... vacío
 
