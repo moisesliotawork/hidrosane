@@ -32,6 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
 
             ->sidebarCollapsibleOnDesktop(true)
+            //->maxContentWidth('full')
             ->id('admin')
             ->path('admin')
             ->favicon(asset('favicon.ico'))

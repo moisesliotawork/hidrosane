@@ -158,8 +158,8 @@ class Venta extends Model
         'mes_contr',
         'nro_contr_adm',
         'nro_cliente_adm',
-
         'origen_venta',
+        'seguimiento',
 
 
     ];

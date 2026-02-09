@@ -6,12 +6,10 @@ use App\Models\Venta;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-// 👇 1. AÑADE ESTAS 3 LÍNEAS IMPORTTANTES
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-// 👇 2. AÑADE ", WithStyles, ShouldAutoSize" AQUÍ
 class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithStyles, ShouldAutoSize
 {
     protected $query;
@@ -29,59 +27,70 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
     public function headings(): array
     {
         return [
-            //'ID',
             'Fecha Venta',
             'Nº Contrato',
             'Nombre',
             'Apellidos',
-            'Teléfono',
-            'Teléfono 2',
-            'Dirección',
-            'Piso No.',
-            'Localidad/Ayunt.',
+            'TELEFONOS', // 👈 Fusión de Tel 1 y 2
+            'DIRECCION', // 👈 Fusión de Dirección, Piso y Localidad
             'Provincia',
             'CP',
             'DNI',
             'Importe Total',
             'Productos',
             'Estado Venta',
-            'Seguimineto?',
-
-           // 'Status',
+            'Seguimiento?',
             'Financiera',
-            'Como van pasadas las finacieras',
-            'Comercial',
-            'Compañero',
+            'Como van pasadas las financieras',
+            'Comercial / Compañero', // 👈 Fusión de Comercial y Compañero
         ];
     }
 
-    // 👇 3. AÑADE ESTA FUNCIÓN PARA LA NEGRITA
     public function styles(Worksheet $sheet)
     {
         return [
-            // Pone la fila 1 en Negrita (Bold)
             1 => ['font' => ['bold' => true]],
         ];
     }
 
     public function map($venta): array
     {
-        // ... (Tu código del map déjalo tal cual lo tienes ahora) ...
+        // 1. PREPARAR TELEFONOS
+        $tel1 = $venta->customer?->phone;
+        $tel2 = $venta->customer?->secondary_phone;
+        // Si hay teléfono 2, añade " / ", si no, deja solo el 1
+        $telefonosFinal = $tel1 . ($tel2 ? " / " . $tel2 : "");
+
+        // 2. PREPARAR DIRECCIÓN COMPLETA
+        $direccion = $venta->customer?->primary_address;
+        $piso = $venta->customer?->nro_piso;
+        $ciudad = $venta->customer?->ciudad;
+
+        // Formato: Calle Falsa 123 (Piso: 1B) - Madrid
+        $direccionFinal = "{$direccion}" .
+                          ($piso ? " (Piso: {$piso})" : "") .
+                          ($ciudad ? " - {$ciudad}" : "");
+
+        // 3. PREPARAR EQUIPO (Comercial + Compañero)
+        $comercial = $venta->comercial?->name;
+        $companero = $venta->companion_label; // Usamos el label que arreglamos antes
+        $equipoFinal = "{$comercial} / {$companero}";
+
         return [
-            //$venta->id,
             $venta->fecha_venta,
             $venta->nro_contr_adm,
             $venta->customer?->first_names,
             $venta->customer?->last_names,
-            $venta->customer?->phone,
-            $venta->customer?->secondary_phone,
-            $venta->customer?->primary_address,
-            $venta->customer?->nro_piso,
-            $venta->customer?->ciudad,
+
+            $telefonosFinal, // Columna TELEFONOS fusionada
+            $direccionFinal, // Columna DIRECCION fusionada
+
             $venta->customer?->provincia ?? $venta->provincia,
             $venta->customer?->postal_code ?? $venta->postal_code,
             $venta->customer?->dni,
             $venta->importe_total,
+
+            // Lógica de productos (sin cambios)
             $venta->ventaOfertas->flatMap(function ($ventaOferta) {
                 return $ventaOferta->productos->map(function ($ventaProducto) {
                     $nombre = $ventaProducto->producto?->nombre ?? 'Producto desconocido';
@@ -89,14 +98,13 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
                     return "{$nombre} (x{$cantidad})";
                 });
             })->unique()->implode(', '),
-            $venta->estado_venta?->value, // Recuerda mantener el fix del enum
-            //$venta->status?->value ?? $venta->status,
-            $venta->observaciones_repartidor, // /lo llaman SEGUIMIENTO en excel
-            //$venta->financiera?->value, //guardo, porque piden que aparezca en excel vacío // locura total
-            '',
-            '', // <--- AQUÍ: Dato vacío para la columna Como van pasadas las financieras
-            $venta->comercial?->name,
-            $venta->companion_label,
+
+            $venta->estado_venta?->value,
+            $venta->observaciones_repartidor, // Seguimiento
+            '', // Financiera vacía
+            '', // Como van pasadas... vacío
+
+            $equipoFinal, // Columna COMERCIAL / COMPAÑERO fusionada
         ];
     }
 }

@@ -82,15 +82,21 @@ class VentaResource extends Resource
                 ->required()
                 ->native(false)
                 ->searchable()
-                ->columnSpanFull(),
+                //->columnSpan(1)
+                ->columns(5),
+
 
             /* guarda la relación con la nota; no se muestra */
             Hidden::make('note_id')->required(),
 
+            TextInput::make('seguimiento')
+            ->label('Seguimiento'),
+
             Section::make('Administración')
-                ->collapsible(false)
+                ->collapsible(true)
+
                 ->schema([
-                    Grid::make(3)->schema([
+                    Grid::make(5)->schema([
                         TextInput::make('nro_contr_adm')
                             ->label('NRO CONTRATO')
                             ->maxLength(50)
@@ -134,9 +140,14 @@ class VentaResource extends Resource
 
 
             Section::make('Informe al repartidor')
+            ->collapsed()
+
+            ->compact()
                 ->schema([
+
                     Select::make('repartidor_id')
                         ->label('Repartidor')
+                        ->columnSpan(1)
                         ->options(
                             fn() => User::role('delivery')
                                 ->select('id', 'empleado_id')
@@ -149,20 +160,24 @@ class VentaResource extends Resource
                         ->placeholder('Seleccionar repartidor')
                         ->nullable()
                         ->preload()
-                        ->columnSpanFull(),
+                        ->columnSpan(1),
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
                         ->required()
                         ->timezone('Europe/Madrid')
-                        ->native(false),
+                        ->native(false)
+                        ->columnSpan(1),
                     Select::make('horario_entrega')
                         ->label('Horario de entrega')
                         ->options(HorarioNotas::options())
                         ->native(false)
                         ->searchable()
-                        ->required(),
+                        ->required()
+                        ->columnSpan(1),
+
                     Select::make('motivo_venta')
                         ->label('¿Por qué vendiste?')
+                        ->columnSpan(1)
                         ->options([
                             'Eliminación de miedos' => 'Eliminación de miedos',
                             'Placer' => 'Placer',
@@ -173,6 +188,7 @@ class VentaResource extends Resource
                         ->native(false),
 
                     Select::make('motivo_horario')
+                    ->columnSpan(2)
                         ->label('¿Por qué pusiste ese horario?')
                         ->options([
                             '3ª personas' => '3ª personas',
@@ -183,13 +199,14 @@ class VentaResource extends Resource
                         ->native(false),
                     Toggle::make('interes_art')
                         ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
-                        ->reactive(),
+                        ->reactive()
+                        ->columnSpan(2),
 
                     Forms\Components\Textarea::make('interes_art_detalle')
                         ->label('Otros artículos de interés')
                         ->placeholder('Detalle los artículos que despertaron interés')
                         ->rows(3)
-                        ->columnSpanFull()
+                        ->columnSpan(1)
                         ->visible(fn(Get $get) => (bool) $get('interes_art'))
                         ->required(fn(Get $get) => (bool) $get('interes_art'))
                         ->maxLength(500),
@@ -198,16 +215,21 @@ class VentaResource extends Resource
                         ->label('Observaciones')
                         ->rows(3)
                         ->columnSpanFull(),
-                ])->columns(2),
+                ])
+                ->columns(5),
+
+
+
 
             /* ───────── Información del cliente ────────── */
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
                 ->schema([
-                    Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
+                    Grid::make(['default' => 1, 'md' => 2, 'xl' => 5])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                        TextInput::make('dni')->label('DNI'),
+                        //->columnSpanFull(),
                         TextInput::make('customer.edadTelOp')
                             ->label('Edad (Tel. Op.)')
                             ->readOnly()
@@ -263,7 +285,9 @@ class VentaResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
-                        TextInput::make('email')->label('Email')->email()->columnSpanFull(),
+                        TextInput::make('email')->label('Email')
+                        ->email(),
+                        //->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
@@ -286,12 +310,15 @@ class VentaResource extends Resource
                             ->maxLength(255)
                             ->label('Provincia'),
 
-                        TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
-                        TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-
-                        TextInput::make('ayuntamiento')
+                        TextInput::make('primary_address')
+                        ->required()
+                        ->label('Dirección 1')
+                        ->columnSpan(2),
+                        TextInput::make('secondary_address')->label('Dirección 2')->columnSpan(2),
+                        /*
+                        TextInput::make('ayuntamiento') SE HA JUNTADO CON AYUNTAMIENTO/LOCALIDAD: columna: ciudad OJO
                             ->label('Ayuntamiento')
-                            ->maxLength(255),
+                            ->maxLength(255),*/
 
                         Select::make('tipo_vivienda')->label('Tipo de vivienda')
                             ->options(\App\Enums\TipoVivienda::options())
@@ -308,7 +335,7 @@ class VentaResource extends Resource
                             ->required()
                             ->native(false),
 
-                        Select::make('num_hab_casa')->label('Número de personas que residen en la casa')
+                        Select::make('num_hab_casa')->label(' # Personas en Casa')
                             ->options(fn() => collect(range(1, 10))
                                 ->mapWithKeys(fn($n) => [$n => $n])
                                 ->all())
@@ -318,7 +345,7 @@ class VentaResource extends Resource
 
                         /* ---------- IBAN con formato ---------- */
                         TextInput::make('iban')
-                            ->columnSpanFull()
+                            ->columnSpan(2)
                             ->label('IBAN')
                             // Visual: mayúsculas
                             ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
@@ -358,14 +385,17 @@ class VentaResource extends Resource
                             ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
 
 
-                        Select::make('ingresos_rango')->label('Ingresos netos mensuales')
+                        Select::make('ingresos_rango')
+                            ->label('Ingresos netos mensuales')
                             ->options(\App\Enums\IngresosRango::options())
                             ->required()
                             ->native(false),
                     ]),
-                ]),
+                ])
+                ->columns(5),
 
-            Section::make('')
+                /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
+            Section::make('Mostrar Datos en pdf')
                 ->schema([
                     Toggle::make('mostrar_ingresos')
                         ->label('Mostrar ingresos en contrato PDF')
@@ -379,10 +409,17 @@ class VentaResource extends Resource
                         ->label('Mostrar Situación Laboral')
                         ->default(fn(?Venta $record) => (bool) ($record->mostrar_situacion_lab ?? true)),
                 ])
+                ->collapsed()
                 ->columns(3),
+
+
+Grid::make(2) // 1. Creamos una rejilla de 2 columnas
+    ->schema([
+
 
             /* ------------- Comercial asociado a la nota/venta -------------- */
             Section::make('Comercial')
+                ->columnSpan(1)
                 ->schema([
                     Select::make('comercial_id')
                         ->label('Comercial')
@@ -418,9 +455,13 @@ class VentaResource extends Resource
                         ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
                 ]),
 
+
+
+
             /* ------------- Compañero -------------- */
             Section::make('¿Estás en pareja con otro compañero?')
-                ->schema([
+            ->columnSpan(1)
+            ->schema([
                     Select::make('companion_id')
                         ->label('Compañero')
                         ->searchable()
@@ -443,6 +484,9 @@ class VentaResource extends Resource
                         ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
                 ]),
 
+]),
+
+                ////// SECCION DATOS DE LA VENTA/////
             Section::make('Datos de la venta')
                 ->schema([
                     TextInput::make('importe_total')
@@ -605,7 +649,10 @@ class VentaResource extends Resource
                         ->label('¿Incluye crema?')
                         ->default(false),
                 ])
-                ->columns(2),
+                ->columns(5),
+
+
+
 
             /* ------------- Ofertas --------------- */
             Section::make('Ofertas incluidas')
@@ -696,7 +743,7 @@ class VentaResource extends Resource
 
                             /* ---------- Detalle de productos ---------- */
                             Section::make('Productos de la oferta')
-                                ->collapsed()
+                                //->collapsed()
                                 ->schema([
                                     Repeater::make('productos')
                                         ->relationship()
@@ -882,7 +929,7 @@ class VentaResource extends Resource
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
-                    self::docCard('precontractual', 'Precontractual', true, true),
+
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
@@ -892,6 +939,8 @@ class VentaResource extends Resource
                     self::docCard('otros_documentos', 'Otros Documentos', false, true),
                 ])
                 ->columns(1)
+                ->collapsible()
+                ->collapsed()
                 ->columnSpanFull(),
         ]);
     }
