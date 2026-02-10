@@ -34,6 +34,8 @@ class EditVenta extends EditRecord
     }
 
 
+
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         /* 1. Nunca tocar el Nº de nota */
@@ -80,6 +82,16 @@ class EditVenta extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+
+
+
+        Action::make('save')
+            ->label('Guardar cambios')
+            ->icon('heroicon-o-check-circle')
+            ->color('info')
+            ->action('save') // <--- ESTA ES LA CLAVE: Llama al método save() de Livewire directamente
+            ->keyBindings(['mod+s']), // Opcional: permite guardar con Ctrl+S o Cmd+S
+
             Action::make('preview')
                 ->label('Vista previa')
                 ->icon('heroicon-o-eye')
@@ -92,7 +104,7 @@ class EditVenta extends EditRecord
                 ->icon('heroicon-o-document-text')
                 ->action(fn(Venta $record) => $this->downloadPdf($record))
                 ->requiresConfirmation(false)   // dispara directo
-                ->color('primary'),             // conserva estilo Filament
+                ->color('warning'),             // conserva estilo Filament
 
             Action::make('crearContratoB')
                 ->label('Crear Contrato -B')
