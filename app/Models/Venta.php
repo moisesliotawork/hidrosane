@@ -160,6 +160,8 @@ class Venta extends Model
         'nro_cliente_adm',
         'origen_venta',
         'seguimiento',
+        'financieras_reparto',
+        'pasadas_financieras',
 
 
     ];

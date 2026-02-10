@@ -29,18 +29,19 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
         return [
             'Fecha Venta',
             'Nº Contrato',
+            'Nº Cliente',
             'Nombre',
             'Apellidos',
             'TELEFONOS', // 👈 Fusión de Tel 1 y 2
             'DIRECCION', // 👈 Fusión de Dirección, Piso y Localidad
             'Provincia',
-            'CP',
+            //'CP',
             'DNI',
             'Importe Total',
             'Productos',
             'Estado Venta',
-            'Seguimiento?',
-            'Financiera',
+            'Seguimiento',
+            'FinancierasReparto',
             'Como van pasadas las financieras',
             'Comercial / Compañero', // 👈 Fusión de Comercial y Compañero
         ];
@@ -65,11 +66,14 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
         $direccion = $venta->customer?->primary_address;
         $piso = $venta->customer?->nro_piso;
         $ciudad = $venta->customer?->ciudad;
+        $cpostal = $venta->customer?->postal_code;
 
         // Formato: Calle Falsa 123 (Piso: 1B) - Madrid
         $direccionFinal = "{$direccion}" .
-                          ($piso ? " (Piso: {$piso})" : "") .
-                          ($ciudad ? " - {$ciudad}" : "");
+                          ($piso ? " (Piso: {$piso}" : "") .
+                          ($ciudad ? " - {$ciudad}" : "") .
+                          ($cpostal ? "  {$cpostal}" : "")
+                          ;
 
         // 3. PREPARAR EQUIPO (Comercial + Compañero)
         $comercial = $venta->comercial?->name;
@@ -78,7 +82,9 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
 
         return [
             $venta->fecha_venta,
+
             $venta->nro_contr_adm,
+            $venta->nro_cliente_adm,
             $venta->customer?->first_names,
             $venta->customer?->last_names,
 
@@ -86,7 +92,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $direccionFinal, // Columna DIRECCION fusionada
 
             $venta->customer?->provincia ?? $venta->provincia,
-            $venta->customer?->postal_code ?? $venta->postal_code,
+           // $venta->customer?->postal_code ?? $venta->postal_code,
             $venta->customer?->dni,
             $venta->importe_total,
 
@@ -101,8 +107,8 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
 
             $venta->estado_venta?->value,
             $venta->seguimiento, // Seguimiento
-            '', // Financiera vacía
-            '', // Como van pasadas... vacío
+            $venta->financieras_reparto, // Financieras de Reparto (definitivas)
+            $venta->pasadas_financieras, // Como van pasadas las financieras
 
             $equipoFinal, // Columna COMERCIAL / COMPAÑERO fusionada
         ];

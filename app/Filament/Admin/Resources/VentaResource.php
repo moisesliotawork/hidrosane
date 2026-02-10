@@ -91,6 +91,13 @@ class VentaResource extends Resource
 
             TextInput::make('seguimiento')
             ->label('Seguimiento'),
+            TextInput::make('financieras_reparto')
+            ->label('Financieras Reparto'),
+            TextInput::make('pasadas_financieras')
+            ->label('Como Van Pasadas Las Financieras'),
+
+
+
 
             Section::make('Administración')
                 ->collapsible(true)
@@ -929,7 +936,7 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
-
+                    self::docCard( 'precontractual', 'Precontractual', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
