@@ -45,31 +45,16 @@ class ComercialesVerNotas extends Page implements HasTable
     public function table(Table $table): Table
     {
         $user = auth()->user();
-        
-        if (in_array($user->id, [17, 18], true)) {
-            $query = User::query()
-                ->role(['commercial', 'team_leader', 'sales_manager'])
-                ->whereNull('baja');
 
-        } elseif ($user->hasRole('sales_manager')) {
+        // ✅ Team leader y Sales manager ven a TODOS
+        if ($user->hasAnyRole(['team_leader', 'sales_manager']) || in_array($user->id, [17, 18], true)) {
 
             $query = User::query()
                 ->role(['commercial', 'team_leader', 'sales_manager'])
                 ->whereNull('baja');
 
         } else {
-
-            $teamIds = Team::query()
-                ->where('deleted', false)
-                ->where('team_leader_id', $user->id)
-                ->pluck('id');
-
-            $query = User::query()
-                ->where(function ($q) use ($teamIds, $user) {
-                    $q->whereHas('teams', fn($t) => $t->whereIn('teams.id', $teamIds))
-                        ->orWhere('id', $user->id);
-                })
-                ->role(['commercial', 'team_leader']);
+            abort(403);
         }
 
         return $table
@@ -115,4 +100,5 @@ class ComercialesVerNotas extends Page implements HasTable
             ->defaultPaginationPageOption(25)
             ->defaultSort('name');
     }
+
 }

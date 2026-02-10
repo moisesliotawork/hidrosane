@@ -279,7 +279,7 @@ class NoteResource extends Resource
                     ->collapsed()
                     ->columnSpanFull()
                     ->itemLabel(function (array $state): ?string {
-                        
+
                         $observationText = $state['observation'] ?? 'Nueva observación';
                         $limitedObservation = Str::limit($observationText, 30);
 
@@ -655,67 +655,69 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-
-        // Query base
         $query = parent::getEloquentQuery();
 
-        // 1) FILTRO POR COMERCIAL solo para commercial / team_leader
-        if (!$user->hasRole('sales_manager')) {
+        $active = request()->query('activeTab', '');
 
-            // IDs base: propio usuario
-            $ids = collect([$user->id]);
-
-            // Si es líder, añadir miembros
-            if ($user->hasRole('team_leader')) {
-                $team = Team::where('team_leader_id', $user->id)->first();
-                if ($team) {
-                    $ids = $ids->merge(
-                        $team->members()->pluck('users.id')
-                    )->unique();
-                }
-            }
-
-            // Aplicamos filtro por comerciales permitidos
-            $query->whereIn('comercial_id', $ids->all());
-
-            // Detectar tab activo: “com_{ID}”
-            $active = request()->query('activeTab', '');
-
+        // ========= FILTRO POR TAB =========
+        if ($user->hasRole('sales_manager')) {
+            // Sales manager: ve todo, y si hay tab com_X filtra por ese comercial
             if (Str::startsWith($active, 'com_')) {
                 $comId = (int) Str::after($active, 'com_');
-
                 if ($comId > 0) {
                     $query->where('comercial_id', $comId);
                 }
             }
+
+        } elseif ($user->hasRole('team_leader')) {
+
+            // Team leader: su equipo (incluyéndose)
+            $team = Team::where('team_leader_id', $user->id)->first();
+
+            $teamIds = collect([$user->id]);
+            if ($team) {
+                $teamIds = $teamIds->merge(
+                    $team->members()->pluck('users.id')
+                )->unique()->values();
+            }
+
+            // ✅ SOLO cuando está en un tab com_X, restringe a su equipo
+            if (Str::startsWith($active, 'com_')) {
+                $comId = (int) Str::after($active, 'com_');
+
+                // primero limitar a su equipo
+                $query->whereIn('comercial_id', $teamIds->all());
+
+                // luego filtrar por el comId del tab (si es de su equipo)
+                if ($comId > 0) {
+                    if (!$teamIds->contains($comId)) {
+                        // tab inválido para este TL => no mostrar nada
+                        $query->whereRaw('1=0');
+                    } else {
+                        $query->where('comercial_id', $comId);
+                    }
+                }
+            }
+            // ✅ Si NO está en com_X => NO filtras por comercial_id => ve TODO el mundo
 
         } else {
-            $active = request()->query('activeTab', '');
-
-            if (Str::startsWith($active, 'com_')) {
-                $comId = (int) Str::after($active, 'com_');
-
-                if ($comId > 0) {
-                    $query->where('comercial_id', $comId);
-                }
-            }
+            // Commercial normal: siempre solo él (y tab com_X opcional, pero igual queda él)
+            $query->where('comercial_id', $user->id);
         }
 
-        // 2) Estado terminal: null, '', o AUSENTE
+        // ========= RESTO DE TUS REGLAS (igual) =========
+
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')
-                ->orWhere('estado_terminal', '') // vacío exacto
+                ->orWhere('estado_terminal', '')
                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
         })
-            ->whereDoesntHave('venta'); // sin venta
+            ->whereDoesntHave('venta');
 
-        // 3) Rango de fecha: desde hoy-5 hasta hoy (INCLUSIVO)
         $desde = now()->subDays(5)->toDateString();
         $hasta = now()->toDateString();
-
         $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
 
-        // 4) Sin reten
         $query->where('reten', false);
 
         return $query;
