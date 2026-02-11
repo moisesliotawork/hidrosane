@@ -220,6 +220,9 @@ class Venta extends Model
         'entrada' => 0,
         'mostrar_tipo_vivienda' => true,
         'mostrar_situacion_lab' => true,
+        'pasadas_financieras' => null,
+        'seguimiento' => null,
+        'financieras_reparto' => null,
     ];
 
     protected $guarded = [];
@@ -230,9 +233,9 @@ class Venta extends Model
         parent::boot();
 
         static::creating(function ($venta) {
-            if (!$venta->nro_contrato) {
+            if (!$venta->nro_contr_adm) {
                 // Buscar el nro_contrato más alto
-                $max = self::max('nro_contrato');
+                $max = self::max('nro_contr_adm');
 
                 // Convertir a número entero (si existe) y sumar 1
                 if ($max) {
