@@ -245,7 +245,7 @@ class Venta extends Model
                 }
 
                 // Rellenar con ceros hasta 5 caracteres
-                $venta->nro_contrato = str_pad($next, 5, '0', STR_PAD_LEFT);
+                $venta->nro_contr_adm = str_pad($next, 5, '0', STR_PAD_LEFT);
             }
         });
 
