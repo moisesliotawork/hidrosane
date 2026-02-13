@@ -37,7 +37,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Provincia',
             //'CP',
             'DNI',
-            'Importe Total',
+            'Total Final',
             'Productos',
             'Estado Venta',
             'Seguimiento',
@@ -94,7 +94,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $venta->customer?->provincia ?? $venta->provincia,
            // $venta->customer?->postal_code ?? $venta->postal_code,
             $venta->customer?->dni,
-            $venta->importe_total,
+            $venta->total_final,
 
             // Lógica de productos (sin cambios)
             $venta->ventaOfertas->flatMap(function ($ventaOferta) {
