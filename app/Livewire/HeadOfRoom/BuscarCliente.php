@@ -8,7 +8,6 @@ use Filament\Forms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
 
-use Filament\Actions\Action;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\Concerns\InteractsWithActions;
 
@@ -20,7 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Notifications\Actions\Action as NotificationAction;
 
 use App\Enums\EstadoTerminal;
-use Illuminate\Support\Facades\DB;
+// use Illuminate\Support\Facades\DB; // ⛔ comentado: no se usa sin búsqueda por dirección
 
 class BuscarCliente extends Component implements HasForms, HasActions
 {
@@ -30,20 +29,22 @@ class BuscarCliente extends Component implements HasForms, HasActions
     public ?array $data = [];
     public bool $phoneNotFound = false;
 
-    public array $addressMatches = [];
-    public ?string $addressMatchesTitle = null;
+    // ⛔ comentado: no se usa sin búsqueda por dirección
+    // public array $addressMatches = [];
+    // public ?string $addressMatchesTitle = null;
 
     public function mount(): void
     {
         $this->form->fill([
             'phone_query' => null,
 
-            'primary_address' => null,
-            'secondary_address' => null,
-            'nro_piso' => null,
-            'postal_code' => null,
-            'ayuntamiento' => null,
-            'provincia' => null,
+            // ⛔ comentado: campos de dirección (no se usan por ahora)
+            // 'primary_address' => null,
+            // 'secondary_address' => null,
+            // 'nro_piso' => null,
+            // 'postal_code' => null,
+            // 'ayuntamiento' => null,
+            // 'provincia' => null,
         ]);
     }
 
@@ -84,6 +85,10 @@ class BuscarCliente extends Component implements HasForms, HasActions
                         ->content('NO SE ENCONTRO TELÉFONO')
                         ->visible(fn() => $this->phoneNotFound),
 
+                    /**
+                     * ⛔ Comentado: UI de dirección + botón buscar por dirección
+                     */
+                    /*
                     Forms\Components\Grid::make(2)
                         ->schema([
                             Forms\Components\TextInput::make('primary_address')
@@ -139,11 +144,14 @@ class BuscarCliente extends Component implements HasForms, HasActions
                             ->visible(fn() => $this->phoneNotFound)
                             ->action(fn() => $this->buscarDireccion()),
                     ]),
+                    */
                 ])
                 ->columns(1),
         ];
     }
 
+    // ⛔ comentado: ya no se usa si no hay dirección
+    /*
     protected function continueCreateUrl(): string
     {
         $state = $this->form->getState();
@@ -159,6 +167,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
             'ciudad' => $state['ayuntamiento'] ?? null,
         ]));
     }
+    */
 
     /**
      * Regla Jefe de Sala:
@@ -215,6 +224,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
         $state = $this->form->getState();
         $digits = preg_replace('/\D+/', '', (string) ($state['phone_query'] ?? ''));
 
+        // Si no cumple formato, no hagas nada (o podrías notificar)
         if (strlen($digits) !== 9) {
             $this->phoneNotFound = false;
             return;
@@ -225,18 +235,31 @@ class BuscarCliente extends Component implements HasForms, HasActions
             ->orWhere('secondary_phone', $digits)
             ->first();
 
+        // ✅ Si existe, aplica tu regla actual (notificación jefe de sala)
         if ($customer) {
             $this->phoneNotFound = false;
             $this->notifyCustomerEncontrado($customer);
             return;
         }
 
+        // ✅ Si NO existe, saltar a crear nota con el teléfono ya llenado
         $this->phoneNotFound = true;
+
+        redirect()->to(
+            NoteResource::getUrl('create', [
+                'phone' => $digits,
+            ])
+        );
     }
 
-    public function addressMatchesAction(): Action
+
+    /**
+     * ⛔ Comentado: Action y método de dirección (no se usan por ahora)
+     */
+    /*
+    public function addressMatchesAction(): \Filament\Actions\Action
     {
-        return Action::make('addressMatches')
+        return \Filament\Actions\Action::make('addressMatches')
             ->label('Coincidencias')
             ->modalHeading($this->addressMatchesTitle ?: 'Coincidencias por dirección')
             ->modalWidth('7xl')
@@ -244,263 +267,15 @@ class BuscarCliente extends Component implements HasForms, HasActions
             ->modalCancelActionLabel('Cerrar')
             ->modalContent(view('livewire.head-of-room.modals.address-matches', [
                 'rows' => $this->addressMatches,
-                'continue_url' => $this->continueCreateUrl(), // ✅ botón arriba del modal
+                'continue_url' => $this->continueCreateUrl(),
             ]));
     }
 
     public function buscarDireccion(): void
     {
-        $state = $this->form->getState();
-
-        $norm = function (?string $v): string {
-            $v = trim((string) $v);
-            $v = preg_replace('/\s+/u', ' ', $v);
-            return mb_strtolower($v, 'UTF-8');
-        };
-
-        $primaryAddress = $norm($state['primary_address'] ?? null);
-        $secondaryAddress = $norm($state['secondary_address'] ?? null);
-        $nroPiso = $norm($state['nro_piso'] ?? null);
-        $postalCode = $norm($state['postal_code'] ?? null);
-        $ciudad = $norm($state['ayuntamiento'] ?? null); // DB: ciudad
-        $provincia = $norm($state['provincia'] ?? null);
-
-        // ✅ basta con 1 campo para buscar (como ya lo tenías)
-        if (
-            $primaryAddress === '' &&
-            $secondaryAddress === '' &&
-            $nroPiso === '' &&
-            $postalCode === '' &&
-            $ciudad === '' &&
-            $provincia === ''
-        ) {
-            Notification::make()
-                ->title('Faltan datos')
-                ->body('Escribe al menos un dato (nro/piso, CP, provincia, ciudad, dirección).')
-                ->warning()
-                ->send();
-            return;
-        }
-
-        /**
-         * ✅ 1) PRIMERO: coincidencia exacta por TODOS los campos (case-insensitive)
-         * Solo aplica si TODOS vienen llenos, excepto secondary que puede ser vacío.
-         */
-        $allRequiredFilled =
-            $primaryAddress !== '' &&
-            $nroPiso !== '' &&
-            $postalCode !== '' &&
-            $ciudad !== '' &&
-            $provincia !== '';
-
-        if ($allRequiredFilled) {
-            $exactCustomer = Customer::query()
-                ->whereRaw("LOWER(TRIM(primary_address)) = ?", [$primaryAddress])
-                // secondary: vacío debe poder matchear null o ''
-                ->whereRaw("LOWER(TRIM(COALESCE(secondary_address,''))) = ?", [$secondaryAddress])
-                ->whereRaw("LOWER(TRIM(nro_piso)) = ?", [$nroPiso])
-                ->whereRaw("LOWER(TRIM(postal_code)) = ?", [$postalCode])
-                ->whereRaw("LOWER(TRIM(ciudad)) = ?", [$ciudad])
-                ->whereRaw("LOWER(TRIM(provincia)) = ?", [$provincia])
-                ->first();
-
-            if ($exactCustomer) {
-                $customerName = trim(($exactCustomer->first_name ?? '') . ' ' . ($exactCustomer->last_name ?? ''))
-                    ?: ($exactCustomer->name ?? 'Cliente');
-
-                Notification::make()
-                    ->title('Cliente ya existe (coincidencia exacta)')
-                    ->body("Coincide exactamente con: {$customerName} (ID: {$exactCustomer->id}).")
-                    ->persistent()
-                    ->warning()
-                    ->actions([
-                        NotificationAction::make('continuar')
-                            ->label('Continuar y crear nota')
-                            ->button()
-                            ->color('success')
-                            ->url($this->continueCreateUrl()),
-
-                        NotificationAction::make('ver_notas')
-                            ->label('Ver notas')
-                            ->button()
-                            ->color('danger')
-                            ->url(NoteResource::getUrl('index')),
-                    ])
-                    ->send();
-
-                return;
-            }
-        }
-
-        /**
-         * ✅ 2) Si NO hay match exacto, sigue tu lógica actual: OR por campo + razones
-         */
-        $allIds = collect();
-        $reasonsById = [];
-
-        $pushIds = function (string $group, \Illuminate\Support\Collection $ids) use (&$allIds, &$reasonsById) {
-            foreach ($ids as $row) {
-                $id = is_object($row) ? $row->id : $row;
-
-                if (!$allIds->contains($id)) {
-                    $allIds->push($id);
-                }
-
-                $reasonsById[$id] ??= [];
-                $reasonsById[$id][] = $group;
-            }
-        };
-
-        // 1) nro_piso
-        if ($nroPiso !== '') {
-            $numeroSolo = preg_replace('/\D+/', '', $nroPiso);
-
-            $q = Customer::query()->select('id');
-
-            if ($numeroSolo !== '') {
-                $q->whereRaw(
-                    "LOWER(TRIM(nro_piso)) REGEXP ?",
-                    ['(^|[^0-9])' . $numeroSolo . '([^0-9]|$)']
-                );
-            } else {
-                $q->whereRaw("LOWER(TRIM(nro_piso)) LIKE ?", ['%' . $nroPiso . '%']);
-            }
-
-            $pushIds('nro_piso', $q->limit(200)->get());
-        }
-
-        // 2) provincia
-        if ($provincia !== '') {
-            $pushIds('provincia', Customer::query()
-                ->select('id')
-                ->whereRaw("LOWER(TRIM(provincia)) LIKE ?", ['%' . $provincia . '%'])
-                ->limit(200)->get());
-        }
-
-        // 3) ciudad
-        if ($ciudad !== '') {
-            $pushIds('ciudad', Customer::query()
-                ->select('id')
-                ->whereRaw("LOWER(TRIM(ciudad)) LIKE ?", ['%' . $ciudad . '%'])
-                ->limit(200)->get());
-        }
-
-        // 4) CP
-        if ($postalCode !== '') {
-            $pushIds('postal_code', Customer::query()
-                ->select('id')
-                ->whereRaw("LOWER(TRIM(postal_code)) LIKE ?", ['%' . $postalCode . '%'])
-                ->limit(200)->get());
-        }
-
-        // 5) dir principal
-        if ($primaryAddress !== '') {
-            $pushIds('primary_address', Customer::query()
-                ->select('id')
-                ->whereRaw("LOWER(TRIM(primary_address)) LIKE ?", ['%' . $primaryAddress . '%'])
-                ->limit(200)->get());
-        }
-
-        // 6) dir secundaria
-        if ($secondaryAddress !== '') {
-            $pushIds('secondary_address', Customer::query()
-                ->select('id')
-                ->whereRaw("LOWER(TRIM(secondary_address)) LIKE ?", ['%' . $secondaryAddress . '%'])
-                ->limit(200)->get());
-        }
-
-        // ✅ si NO hay coincidencias => crear nota con esos campos
-        if ($allIds->isEmpty()) {
-            redirect()->to($this->continueCreateUrl());
-            return;
-        }
-
-        // ✅ si solo 1 => notificación con regla jefe de sala
-        if ($allIds->count() === 1) {
-            $customer = Customer::find($allIds->first());
-            if ($customer) {
-                $this->notifyCustomerEncontrado($customer);
-                return;
-            }
-        }
-
-        // ✅ (resto de tu código del modal tal cual)
-        $ST = EstadoTerminal::SIN_ESTADO->value;
-        $OF = EstadoTerminal::SALA->value;
-        $VTA = EstadoTerminal::VENTA->value;
-
-        $customers = Customer::query()
-            ->whereIn('id', $allIds->all())
-            ->select([
-                'customers.*',
-                DB::raw("(SELECT MAX(n.created_at) FROM notes n WHERE n.customer_id = customers.id) as last_note_at"),
-                DB::raw("(SELECT n2.status FROM notes n2 WHERE n2.customer_id = customers.id ORDER BY n2.created_at DESC LIMIT 1) as last_note_status"),
-            ])
-            ->withCount([
-                'notes as st_count' => fn($q) => $q->where('estado_terminal', $ST),
-                'notes as of_count' => fn($q) => $q->where('estado_terminal', $OF),
-                'notes as vta_count' => fn($q) => $q->where('estado_terminal', $VTA),
-            ])
-            ->get()
-            ->keyBy('id');
-
-        $label = fn(string $g) => match ($g) {
-            'nro_piso' => 'Coincide No. y Piso',
-            'provincia' => 'Coincide Provincia',
-            'ciudad' => 'Coincide Ciudad',
-            'postal_code' => 'Coincide CP',
-            'primary_address' => 'Coincide Dir. principal',
-            'secondary_address' => 'Coincide Dir. secundaria',
-            default => 'Coincidencia',
-        };
-
-        $rows = [];
-
-        foreach ($allIds as $id) {
-            $c = $customers->get($id);
-            if (!$c)
-                continue;
-
-            $reasons = array_values(array_unique($reasonsById[$id] ?? []));
-            $matchLabel = implode(' • ', array_map($label, $reasons)) ?: 'Coincidencia';
-
-            $customerName = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? '')) ?: ($c->name ?? 'Cliente');
-
-            $summary = sprintf(
-                'ST: %d, OF: %d, VTA: %d',
-                (int) ($c->st_count ?? 0),
-                (int) ($c->of_count ?? 0),
-                (int) ($c->vta_count ?? 0),
-            );
-
-            $rows[] = [
-                'match_reason' => $matchLabel,
-
-                'customer_id' => $c->id,
-                'customer_name' => $customerName,
-                'customer_phone' => $c->phone ?? null,
-
-                'primary_address' => $c->primary_address ?? null,
-                'nro_piso' => $c->nro_piso ?? null,
-                'secondary_address' => $c->secondary_address ?? null,
-                'postal_code' => $c->postal_code ?? null,
-                'ciudad' => $c->ciudad ?? null,
-                'provincia' => $c->provincia ?? null,
-
-                'note_date' => $c->last_note_at
-                    ? \Carbon\Carbon::parse($c->last_note_at)->format('d/m/Y H:i')
-                    : null,
-                'note_status' => $c->last_note_status ?? null,
-
-                'note_excerpt' => $summary,
-            ];
-        }
-
-        $this->addressMatchesTitle = "Coincidencias encontradas: {$allIds->count()}";
-        $this->addressMatches = $rows;
-
-        $this->mountAction('addressMatches');
+        // deshabilitado por ahora
     }
+    */
 
     public function render()
     {
