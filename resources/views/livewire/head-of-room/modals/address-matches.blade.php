@@ -1,6 +1,16 @@
 <div class="space-y-3">
-    <div class="text-sm text-gray-600 dark:text-gray-300">
-        Revisa el histórico de notas asociadas a los clientes encontrados.
+    <div class="flex items-start justify-between gap-3">
+        <div class="text-sm text-gray-600 dark:text-gray-300">
+            Revisa el histórico de notas asociadas a los clientes encontrados.
+        </div>
+
+        {{-- ✅ Botón para continuar aunque haya coincidencias --}}
+        @if(!empty($continue_url))
+            <a href="{{ $continue_url }}"
+               class="shrink-0 inline-flex items-center rounded-lg px-3 py-2 text-xs font-semibold bg-success-600 text-white hover:bg-success-500">
+                Continuar y crear nota
+            </a>
+        @endif
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
@@ -36,45 +46,20 @@
                             </div>
                         </td>
 
-                        <td class="px-3 py-2">
-                            {{ $row['customer_phone'] ?? '-' }}
-                        </td>
+                        <td class="px-3 py-2">{{ $row['customer_phone'] ?? '-' }}</td>
 
-                        <td class="px-3 py-2">
-                            {{ $row['primary_address'] ?? '-' }}
-                        </td>
+                        <td class="px-3 py-2">{{ $row['primary_address'] ?? '-' }}</td>
+                        <td class="px-3 py-2">{{ $row['nro_piso'] ?? '-' }}</td>
 
-                        <td class="px-3 py-2">
-                            {{ $row['nro_piso'] ?? '-' }}
-                        </td>
+                        <td class="px-3 py-2">{{ $row['postal_code'] ?? '-' }}</td>
+                        <td class="px-3 py-2">{{ $row['ciudad'] ?? '-' }}</td>
+                        <td class="px-3 py-2">{{ $row['provincia'] ?? '-' }}</td>
 
-                        <td class="px-3 py-2">
-                            {{ $row['postal_code'] ?? '-' }}
-                        </td>
+                        <td class="px-3 py-2">{{ $row['note_date'] ?? '-' }}</td>
+                        <td class="px-3 py-2">{{ $row['note_status'] ?? '-' }}</td>
 
-                        <td class="px-3 py-2">
-                            {{ $row['ciudad'] ?? '-' }}
-                        </td>
-
-                        <td class="px-3 py-2">
-                            {{ $row['provincia'] ?? '-' }}
-                        </td>
-
-                        <td class="px-3 py-2">
-                            {{ $row['note_date'] ?? '-' }}
-                        </td>
-
-                        <td class="px-3 py-2">
-                            {{ $row['note_status'] ?? '-' }}
-                        </td>
-
-                        <td class="px-3 py-2">
-                            {{ $row['note_excerpt'] ?? '-' }}
-                        </td>
-
-                        <td class="px-3 py-2">
-                            {{ $row['match_reason'] ?? '-' }}
-                        </td>
+                        <td class="px-3 py-2">{{ $row['note_excerpt'] ?? '-' }}</td>
+                        <td class="px-3 py-2">{{ $row['match_reason'] ?? '-' }}</td>
                     </tr>
                 @empty
                     <tr>
