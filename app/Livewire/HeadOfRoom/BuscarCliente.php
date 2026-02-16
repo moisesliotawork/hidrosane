@@ -265,7 +265,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
         $ciudad = $norm($state['ayuntamiento'] ?? null); // DB: ciudad
         $provincia = $norm($state['provincia'] ?? null);
 
-        // ✅ basta con 1 campo
+        // ✅ basta con 1 campo para buscar (como ya lo tenías)
         if (
             $primaryAddress === '' &&
             $secondaryAddress === '' &&
@@ -282,7 +282,59 @@ class BuscarCliente extends Component implements HasForms, HasActions
             return;
         }
 
-        // ✅ OR por campo + razones
+        /**
+         * ✅ 1) PRIMERO: coincidencia exacta por TODOS los campos (case-insensitive)
+         * Solo aplica si TODOS vienen llenos, excepto secondary que puede ser vacío.
+         */
+        $allRequiredFilled =
+            $primaryAddress !== '' &&
+            $nroPiso !== '' &&
+            $postalCode !== '' &&
+            $ciudad !== '' &&
+            $provincia !== '';
+
+        if ($allRequiredFilled) {
+            $exactCustomer = Customer::query()
+                ->whereRaw("LOWER(TRIM(primary_address)) = ?", [$primaryAddress])
+                // secondary: vacío debe poder matchear null o ''
+                ->whereRaw("LOWER(TRIM(COALESCE(secondary_address,''))) = ?", [$secondaryAddress])
+                ->whereRaw("LOWER(TRIM(nro_piso)) = ?", [$nroPiso])
+                ->whereRaw("LOWER(TRIM(postal_code)) = ?", [$postalCode])
+                ->whereRaw("LOWER(TRIM(ciudad)) = ?", [$ciudad])
+                ->whereRaw("LOWER(TRIM(provincia)) = ?", [$provincia])
+                ->first();
+
+            if ($exactCustomer) {
+                $customerName = trim(($exactCustomer->first_name ?? '') . ' ' . ($exactCustomer->last_name ?? ''))
+                    ?: ($exactCustomer->name ?? 'Cliente');
+
+                Notification::make()
+                    ->title('Cliente ya existe (coincidencia exacta)')
+                    ->body("Coincide exactamente con: {$customerName} (ID: {$exactCustomer->id}).")
+                    ->persistent()
+                    ->warning()
+                    ->actions([
+                        NotificationAction::make('continuar')
+                            ->label('Continuar y crear nota')
+                            ->button()
+                            ->color('success')
+                            ->url($this->continueCreateUrl()),
+
+                        NotificationAction::make('ver_notas')
+                            ->label('Ver notas')
+                            ->button()
+                            ->color('danger')
+                            ->url(NoteResource::getUrl('index')),
+                    ])
+                    ->send();
+
+                return;
+            }
+        }
+
+        /**
+         * ✅ 2) Si NO hay match exacto, sigue tu lógica actual: OR por campo + razones
+         */
         $allIds = collect();
         $reasonsById = [];
 
@@ -372,7 +424,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
             }
         }
 
-        // ✅ conteos para resumen ST/OF/VTA + última nota
+        // ✅ (resto de tu código del modal tal cual)
         $ST = EstadoTerminal::SIN_ESTADO->value;
         $OF = EstadoTerminal::SALA->value;
         $VTA = EstadoTerminal::VENTA->value;
@@ -414,7 +466,6 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
             $customerName = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? '')) ?: ($c->name ?? 'Cliente');
 
-            // ✅ Resumen como en notificación
             $summary = sprintf(
                 'ST: %d, OF: %d, VTA: %d',
                 (int) ($c->st_count ?? 0),
@@ -441,7 +492,6 @@ class BuscarCliente extends Component implements HasForms, HasActions
                     : null,
                 'note_status' => $c->last_note_status ?? null,
 
-                // ✅ la columna "Resumen" del modal
                 'note_excerpt' => $summary,
             ];
         }
