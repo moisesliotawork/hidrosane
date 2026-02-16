@@ -1,6 +1,6 @@
 <div class="space-y-3">
     <div class="text-sm text-gray-600 dark:text-gray-300">
-        Revisa el histórico. Si corresponde, crea una nueva nota usando el botón de la derecha.
+        Revisa el histórico de notas asociadas a los clientes encontrados.
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
@@ -9,11 +9,19 @@
                 <tr class="text-left">
                     <th class="px-3 py-2 font-semibold">Cliente</th>
                     <th class="px-3 py-2 font-semibold">Teléfono</th>
-                    <th class="px-3 py-2 font-semibold">Dirección</th>
+
+                    <th class="px-3 py-2 font-semibold">Dir. principal</th>
+                    <th class="px-3 py-2 font-semibold">No./Piso</th>
+                    <th class="px-3 py-2 font-semibold">Dir. secundaria</th>
+
+                    <th class="px-3 py-2 font-semibold">CP</th>
+                    <th class="px-3 py-2 font-semibold">Ciudad</th>
+                    <th class="px-3 py-2 font-semibold">Provincia</th>
+
                     <th class="px-3 py-2 font-semibold">Fecha nota</th>
                     <th class="px-3 py-2 font-semibold">Estado</th>
                     <th class="px-3 py-2 font-semibold">Resumen</th>
-                    <th class="px-3 py-2 font-semibold text-right">Acción</th>
+                    <th class="px-3 py-2 font-semibold">Coincidencia</th>
                 </tr>
             </thead>
 
@@ -34,7 +42,27 @@
                         </td>
 
                         <td class="px-3 py-2">
-                            {{ $row['customer_address'] ?: '-' }}
+                            {{ $row['primary_address'] ?? '-' }}
+                        </td>
+
+                        <td class="px-3 py-2">
+                            {{ $row['nro_piso'] ?? '-' }}
+                        </td>
+
+                        <td class="px-3 py-2">
+                            {{ $row['secondary_address'] ?? '-' }}
+                        </td>
+
+                        <td class="px-3 py-2">
+                            {{ $row['postal_code'] ?? '-' }}
+                        </td>
+
+                        <td class="px-3 py-2">
+                            {{ $row['ciudad'] ?? '-' }}
+                        </td>
+
+                        <td class="px-3 py-2">
+                            {{ $row['provincia'] ?? '-' }}
                         </td>
 
                         <td class="px-3 py-2">
@@ -49,19 +77,13 @@
                             {{ $row['note_excerpt'] ?? '-' }}
                         </td>
 
-                        <td class="px-3 py-2 text-right">
-                            <a
-                                href="{{ $row['create_url'] }}"
-                                class="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold
-                                       bg-primary-600 text-white hover:bg-primary-500"
-                            >
-                                Crear nota
-                            </a>
+                        <td class="px-3 py-2">
+                            {{ $row['match_reason'] ?? '-' }}
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-3 py-6 text-center text-gray-500">
+                        <td colspan="12" class="px-3 py-6 text-center text-gray-500">
                             No hay coincidencias para mostrar.
                         </td>
                     </tr>
