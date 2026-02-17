@@ -90,11 +90,11 @@ class VentaResource extends Resource
             Hidden::make('note_id')->required(),
 
             TextInput::make('seguimiento')
-            ->label('Seguimiento'),
+                ->label('Seguimiento'),
             TextInput::make('financieras_reparto')
-            ->label('Financieras Reparto'),
+                ->label('Financieras Reparto'),
             TextInput::make('pasadas_financieras')
-            ->label('Como Van Pasadas Las Financieras'),
+                ->label('Como Van Pasadas Las Financieras'),
 
 
 
@@ -147,9 +147,9 @@ class VentaResource extends Resource
 
 
             Section::make('Informe al repartidor')
-            ->collapsed()
+                ->collapsed()
 
-            ->compact()
+                ->compact()
                 ->schema([
 
                     Select::make('repartidor_id')
@@ -195,7 +195,7 @@ class VentaResource extends Resource
                         ->native(false),
 
                     Select::make('motivo_horario')
-                    ->columnSpan(2)
+                        ->columnSpan(2)
                         ->label('¿Por qué pusiste ese horario?')
                         ->options([
                             '3ª personas' => '3ª personas',
@@ -293,7 +293,7 @@ class VentaResource extends Resource
                             ]),
 
                         TextInput::make('email')->label('Email')
-                        ->email(),
+                            ->email(),
                         //->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')
@@ -318,9 +318,9 @@ class VentaResource extends Resource
                             ->label('Provincia'),
 
                         TextInput::make('primary_address')
-                        ->required()
-                        ->label('Dirección 1')
-                        ->columnSpan(2),
+                            ->required()
+                            ->label('Dirección 1')
+                            ->columnSpan(2),
                         TextInput::make('secondary_address')->label('Dirección 2')->columnSpan(2),
                         /*
                         TextInput::make('ayuntamiento') SE HA JUNTADO CON AYUNTAMIENTO/LOCALIDAD: columna: ciudad OJO
@@ -401,7 +401,7 @@ class VentaResource extends Resource
                 ])
                 ->columns(5),
 
-                /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
+            /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
             Section::make('Mostrar Datos en pdf')
                 ->schema([
                     Toggle::make('mostrar_ingresos')
@@ -420,80 +420,80 @@ class VentaResource extends Resource
                 ->columns(3),
 
 
-Grid::make(2) // 1. Creamos una rejilla de 2 columnas
-    ->schema([
-
-
-            /* ------------- Comercial asociado a la nota/venta -------------- */
-            Section::make('Comercial')
-                ->columnSpan(1)
+            Grid::make(2) // 1. Creamos una rejilla de 2 columnas
                 ->schema([
-                    Select::make('comercial_id')
-                        ->label('Comercial')
-                        ->searchable()
-                        ->native(false)
-                        ->nullable()
-                        ->preload()
-                        ->options(
-                            fn() =>
-                            User::role(['commercial', 'team_leader', 'sales_manager'])
-                                ->select('id', 'empleado_id', 'name', 'last_name')
-                                ->orderBy('empleado_id')
-                                ->get()
-                                ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                ])
-                                ->all()
-                        )
-                        ->getSearchResultsUsing(function (string $search) {
-                            return User::role(['commercial', 'team_leader', 'sales_manager'])
-                                ->where(function ($q) use ($search) {
-                                    $q->where('empleado_id', 'like', "%{$search}%")
-                                        ->orWhere('name', 'like', "%{$search}%")
-                                        ->orWhere('last_name', 'like', "%{$search}%");
+
+
+                    /* ------------- Comercial asociado a la nota/venta -------------- */
+                    Section::make('Comercial')
+                        ->columnSpan(1)
+                        ->schema([
+                            Select::make('comercial_id')
+                                ->label('Comercial')
+                                ->searchable()
+                                ->native(false)
+                                ->nullable()
+                                ->preload()
+                                ->options(
+                                    fn() =>
+                                    User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('empleado_id')
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()
+                                )
+                                ->getSearchResultsUsing(function (string $search) {
+                                    return User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->where(function ($q) use ($search) {
+                                            $q->where('empleado_id', 'like', "%{$search}%")
+                                                ->orWhere('name', 'like', "%{$search}%")
+                                                ->orWhere('last_name', 'like', "%{$search}%");
+                                        })
+                                        ->limit(50)
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all();
                                 })
-                                ->limit(50)
-                                ->get()
-                                ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                ])
-                                ->all();
-                        })
-                        ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                                ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                        ]),
+
+
+
+
+                    /* ------------- Compañero -------------- */
+                    Section::make('¿Estás en pareja con otro compañero?')
+                        ->columnSpan(1)
+                        ->schema([
+                            Select::make('companion_id')
+                                ->label('Compañero')
+                                ->searchable()
+                                ->native(false)
+                                ->nullable()
+                                ->default(null)
+                                ->options(
+                                    fn() => ['' => 'SIN COMPAÑERO']      // primera opción
+                                    + User::role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereKeyNot(auth()->id())     // excluir al propio usuario
+                                        ->select('id', 'empleado_id', 'name', 'last_name')
+                                        ->orderBy('name')
+                                        ->distinct()
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [
+                                            $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
+                                        ])
+                                        ->all()
+                                )
+                                ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
+                        ]),
+
                 ]),
 
-
-
-
-            /* ------------- Compañero -------------- */
-            Section::make('¿Estás en pareja con otro compañero?')
-            ->columnSpan(1)
-            ->schema([
-                    Select::make('companion_id')
-                        ->label('Compañero')
-                        ->searchable()
-                        ->native(false)
-                        ->nullable()
-                        ->default(null)
-                        ->options(
-                            fn() => ['' => 'SIN COMPAÑERO']      // primera opción
-                            + User::role(['commercial', 'team_leader', 'sales_manager'])
-                                ->whereKeyNot(auth()->id())     // excluir al propio usuario
-                                ->select('id', 'empleado_id', 'name', 'last_name')
-                                ->orderBy('name')
-                                ->distinct()
-                                ->get()
-                                ->mapWithKeys(fn($u) => [
-                                    $u->id => "{$u->empleado_id} - {$u->name} {$u->last_name}",
-                                ])
-                                ->all()
-                        )
-                        ->dehydrateStateUsing(fn($state) => blank($state) ? null : $state),
-                ]),
-
-]),
-
-                ////// SECCION DATOS DE LA VENTA/////
+            ////// SECCION DATOS DE LA VENTA/////
             Section::make('Datos de la venta')
                 ->schema([
                     TextInput::make('importe_total')
@@ -786,7 +786,7 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $producto = Producto::find($state);   // Model|null
-
+                                            
                                                         /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 
@@ -902,7 +902,7 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
                     $lineas = collect($get('ventaOfertas') ?? [])
                         ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
                         ->values();   // renumeramos para que el índice sea 0-n
-
+        
                     // b) Todos los IDs presentes
                     $ids = $lineas->pluck('producto_id')->filter()->all();
 
@@ -910,7 +910,7 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
                     $nombres = Producto::query()
                         ->whereIn('id', $ids)
                         ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
-
+        
                     // d) Filtramos solo los que son “Producto Externo”
                     $externas = $lineas->filter(
                         fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'
@@ -936,7 +936,7 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
-                    self::docCard( 'precontractual', 'Precontractual', true, true),
+                    self::docCard('precontractual', 'Precontractual', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
@@ -959,56 +959,64 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
     {
         return $table
 
-        ->headerActions([
-            // 👇 DESCARGA EXCEL
-            Action::make('export_mensual')
-                ->label('Descarga Excel Contr x Mes')
-                ->icon('heroicon-o-calendar')
-                ->color('success')
-                ->form([
-                    Grid::make(2)->schema([
-                        Select::make('mes')
-                            ->label('Mes')
-                            ->options([
-                                '01' => 'Enero', '02' => 'Febrero', '03' => 'Marzo',
-                                '04' => 'Abril', '05' => 'Mayo', '06' => 'Junio',
-                                '07' => 'Julio', '08' => 'Agosto', '09' => 'Septiembre',
-                                '10' => 'Octubre', '11' => 'Noviembre', '12' => 'Diciembre',
-                            ])
-                            ->default(now()->format('m'))
-                            ->required(),
-                        Select::make('anio')
-                            ->label('Año')
-                            ->options(function() {
-                                $years = range(now()->year, 2020);
-                                return array_combine($years, $years);
-                            })
-                            ->default(now()->year)
-                            ->required(),
-                    ]),
-                ])
-                ->modalHeading('Selecciona período')
-                ->modalSubmitActionLabel('Descargar Excel')
-                ->action(function ($data, $livewire) {
-                    // 1. Obtenemos la consulta base
-                    $query = Venta::query();
+            ->headerActions([
+                // 👇 DESCARGA EXCEL
+                Action::make('export_mensual')
+                    ->label('Descarga Excel Contr x Mes')
+                    ->icon('heroicon-o-calendar')
+                    ->color('success')
+                    ->form([
+                        Grid::make(2)->schema([
+                            Select::make('mes')
+                                ->label('Mes')
+                                ->options([
+                                    '01' => 'Enero',
+                                    '02' => 'Febrero',
+                                    '03' => 'Marzo',
+                                    '04' => 'Abril',
+                                    '05' => 'Mayo',
+                                    '06' => 'Junio',
+                                    '07' => 'Julio',
+                                    '08' => 'Agosto',
+                                    '09' => 'Septiembre',
+                                    '10' => 'Octubre',
+                                    '11' => 'Noviembre',
+                                    '12' => 'Diciembre',
+                                ])
+                                ->default(now()->format('m'))
+                                ->required(),
+                            Select::make('anio')
+                                ->label('Año')
+                                ->options(function () {
+                                    $years = range(now()->year, 2020);
+                                    return array_combine($years, $years);
+                                })
+                                ->default(now()->year)
+                                ->required(),
+                        ]),
+                    ])
+                    ->modalHeading('Selecciona período')
+                    ->modalSubmitActionLabel('Descargar Excel')
+                    ->action(function ($data, $livewire) {
+                        // 1. Obtenemos la consulta base
+                        $query = Venta::query();
 
-                    // 2. Filtramos por el rango de fechas seleccionado
-                    // NOTA: Asegúrate que 'created_at' es tu campo de fecha. Si usas 'fecha_venta', cámbialo aquí.
-                    $inicio = Carbon::createFromDate($data['anio'], $data['mes'], 1)->startOfDay();
-                    $fin = Carbon::createFromDate($data['anio'], $data['mes'], 1)->endOfMonth()->endOfDay();
+                        // 2. Filtramos por el rango de fechas seleccionado
+                        // NOTA: Asegúrate que 'created_at' es tu campo de fecha. Si usas 'fecha_venta', cámbialo aquí.
+                        $inicio = Carbon::createFromDate($data['anio'], $data['mes'], 1)->startOfDay();
+                        $fin = Carbon::createFromDate($data['anio'], $data['mes'], 1)->endOfMonth()->endOfDay();
 
-                    $query->whereBetween('fecha_venta', [$inicio, $fin]);
+                        $query->whereBetween('fecha_venta', [$inicio, $fin]);
 
-                    // 3. Descargamos
-                    return Excel::download(
-                        new VentaDirectExport($query),
-                        'Ventas_' . $data['mes'] . '-' . $data['anio'] . '.xlsx'
-                    );
-                }),
-        ])
+                        // 3. Descargamos
+                        return Excel::download(
+                            new VentaDirectExport($query),
+                            'Ventas_' . $data['mes'] . '-' . $data['anio'] . '.xlsx'
+                        );
+                    }),
+            ])
 
-        ->modifyQueryUsing(function (Builder $query) {
+            ->modifyQueryUsing(function (Builder $query) {
                 $query->where(function ($q) {
                     $q->whereNull('nro_contr_adm')
                         ->orWhere('nro_contr_adm', '=', '')
@@ -1037,43 +1045,43 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
                     ->searchable(false),
 
 
-                    /* FUENTE DE LA TELEOPERADORA //
-                     TextColumn::make('note.fuente')
-                ->label('Fuente'),  */
+                /* FUENTE DE LA TELEOPERADORA //
+                 TextColumn::make('note.fuente')
+            ->label('Fuente'),  */
                 TextColumn::make('note.fuente')
-                ->label('Fuente')
-                ->badge()
-                // 1. COLOR A PRUEBA DE FALLOS:
-                // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
-    ->color(fn ($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
-        FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
-        FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
-        FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
-        default => 'gray',
-    })
-    // 2. TEXTO BONITO:
-    ->formatStateUsing(function ($state) {
-        // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
-        $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
-        return $enum?->getLabel() ?? $state;
-    })
-    // 3. ACCIÓN DE ROTACIÓN:
-    ->action(function ($record) {
-        $cases = FuenteNotas::cases();
+                    ->label('Fuente')
+                    ->badge()
+                    // 1. COLOR A PRUEBA DE FALLOS:
+                    // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
+                    ->color(fn($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
+                        FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
+                        FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
+                        FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
+                        default => 'gray',
+                    })
+                    // 2. TEXTO BONITO:
+                    ->formatStateUsing(function ($state) {
+                        // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
+                        $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
+                        return $enum?->getLabel() ?? $state;
+                    })
+                    // 3. ACCIÓN DE ROTACIÓN:
+                    ->action(function ($record) {
+                        $cases = FuenteNotas::cases();
 
-        // Obtenemos el valor actual (sea objeto o texto)
-        $val = $record->note->fuente;
-        $val = $val instanceof FuenteNotas ? $val : FuenteNotas::tryFrom($val);
+                        // Obtenemos el valor actual (sea objeto o texto)
+                        $val = $record->note->fuente;
+                        $val = $val instanceof FuenteNotas ? $val : FuenteNotas::tryFrom($val);
 
-        // Buscamos índice y rotamos
-        $idx = array_search($val, $cases);
-        $nextIdx = ($idx === false) ? 0 : ($idx + 1) % count($cases);
+                        // Buscamos índice y rotamos
+                        $idx = array_search($val, $cases);
+                        $nextIdx = ($idx === false) ? 0 : ($idx + 1) % count($cases);
 
-        // Guardamos
-        $record->note->update([
-            'fuente' => $cases[$nextIdx],
-        ]);
-    }),
+                        // Guardamos
+                        $record->note->update([
+                            'fuente' => $cases[$nextIdx],
+                        ]);
+                    }),
 
 
 
@@ -1173,39 +1181,39 @@ Grid::make(2) // 1. Creamos una rejilla de 2 columnas
 
 
 
-            /*
-            // FILTRO PARA FECHAS EN EXCEL
+                /*
+                // FILTRO PARA FECHAS EN EXCEL
 
-            Filter::make('fecha_venta')
-    ->form([
-        DatePicker::make('desde')->label('Desde'),
-        DatePicker::make('hasta')->label('Hasta'),
-    ])
-    ->query(function (Builder $query, array $data): Builder {
-        return $query
-            ->when($data['desde'], fn ($q) => $q->whereDate('fecha_venta', '>=', $data['desde']))
-            ->when($data['hasta'], fn ($q) => $q->whereDate('fecha_venta', '<=', $data['hasta']));
-    }),
-*/
+                Filter::make('fecha_venta')
+        ->form([
+            DatePicker::make('desde')->label('Desde'),
+            DatePicker::make('hasta')->label('Hasta'),
+        ])
+        ->query(function (Builder $query, array $data): Builder {
+            return $query
+                ->when($data['desde'], fn ($q) => $q->whereDate('fecha_venta', '>=', $data['desde']))
+                ->when($data['hasta'], fn ($q) => $q->whereDate('fecha_venta', '<=', $data['hasta']));
+        }),
+    */
 
 
                 SelectFilter::make('origen_venta')
-                ->label('Origen')
-                ->native(false)
-                ->options([
-                    '__NULL__' => 'SIN ORIGEN',
-                    'puerta_fria' => 'PUERTA FRÍA',
-                    'venta_normal' => 'VENTA NORMAL',
-                ])
-                ->query(function ($query, array $data) {
-                    $value = $data['value'] ?? null;
-                    return match (true) {
-                        $value === '__NULL__' => $query->whereNull('origen_venta'),
-                        blank($value) => $query,
-                        default => $query->where('origen_venta', $value),
-                    };
-                }),
-        ])
+                    ->label('Origen')
+                    ->native(false)
+                    ->options([
+                        '__NULL__' => 'SIN ORIGEN',
+                        'puerta_fria' => 'PUERTA FRÍA',
+                        'venta_normal' => 'VENTA NORMAL',
+                    ])
+                    ->query(function ($query, array $data) {
+                        $value = $data['value'] ?? null;
+                        return match (true) {
+                            $value === '__NULL__' => $query->whereNull('origen_venta'),
+                            blank($value) => $query,
+                            default => $query->where('origen_venta', $value),
+                        };
+                    }),
+            ])
             ->bulkActions([]);  // sin bulk delete
     }
 

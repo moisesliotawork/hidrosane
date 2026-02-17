@@ -163,6 +163,9 @@ class Venta extends Model
         'financieras_reparto',
         'pasadas_financieras',
 
+        'seguimiento',
+        'financieras_reparto',
+        'pasadas_financieras',
 
     ];
 

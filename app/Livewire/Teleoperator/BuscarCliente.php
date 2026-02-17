@@ -17,6 +17,8 @@ use App\Filament\Teleoperator\Resources\NoteResource;
 
 use Filament\Notifications\Notification;
 
+use App\Filament\Teleoperator\Pages\NotasDireccionPage;
+
 class BuscarCliente extends Component implements HasForms, HasActions
 {
     use InteractsWithForms;
@@ -222,6 +224,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
         $customer = Customer::query()
             ->where('phone', $digits)
             ->orWhere('secondary_phone', $digits)
+            ->orWhere('third_phone', $digits)
             ->first();
 
         // ✅ Si existe: aplica tu lógica (cliente antiguo / duplicada / etc.)
@@ -234,7 +237,8 @@ class BuscarCliente extends Component implements HasForms, HasActions
         // ✅ Si NO existe: ir directo a CREAR con el teléfono precargado
         $this->phoneNotFound = true;
 
-        redirect()->to(NoteResource::getUrl('create', [
+        redirect()->to(NotasDireccionPage::getUrl([
+            // opcional: pasar el teléfono para mostrarlo arriba o usarlo luego
             'phone' => $digits,
         ]));
     }
