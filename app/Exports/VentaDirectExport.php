@@ -32,6 +32,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Nº Cliente',
             'Nombre',
             'Apellidos',
+            'Fecha Nacimiento',
             'TELEFONOS', // 👈 Fusión de Tel 1 y 2
             'DIRECCION', // 👈 Fusión de Dirección, Piso y Localidad
             'Provincia',
@@ -70,10 +71,10 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
 
         // Formato: Calle Falsa 123 (Piso: 1B) - Madrid
         $direccionFinal = "{$direccion}" .
-                          ($piso ? " (Piso: {$piso}" : "") .
-                          ($ciudad ? " - {$ciudad}" : "") .
-                          ($cpostal ? "  {$cpostal}" : "")
-                          ;
+            ($piso ? " (Piso: {$piso}" : "") .
+            ($ciudad ? " - {$ciudad}" : "") .
+            ($cpostal ? "  {$cpostal}" : "")
+        ;
 
         // 3. PREPARAR EQUIPO (Comercial + Compañero)
         $comercial = $venta->comercial?->name;
@@ -88,11 +89,15 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $venta->customer?->first_names,
             $venta->customer?->last_names,
 
+            $venta->customer?->birth_date
+            ? \Carbon\Carbon::parse($venta->customer->birth_date)->format('d/m/Y')
+            : null,
+
             $telefonosFinal, // Columna TELEFONOS fusionada
             $direccionFinal, // Columna DIRECCION fusionada
 
             $venta->customer?->provincia ?? $venta->provincia,
-           // $venta->customer?->postal_code ?? $venta->postal_code,
+            // $venta->customer?->postal_code ?? $venta->postal_code,
             $venta->customer?->dni,
             $venta->total_final,
 

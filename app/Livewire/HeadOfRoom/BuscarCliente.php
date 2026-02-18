@@ -13,10 +13,12 @@ use Filament\Actions\Concerns\InteractsWithActions;
 
 use App\Models\Customer;
 use App\Models\Note;
-use App\Filament\Teleoperator\Resources\NoteResource;
+use App\Filament\HeadOfRoom\Resources\NoteResource;
 
 use Filament\Notifications\Notification;
 use Filament\Notifications\Actions\Action as NotificationAction;
+
+use App\Filament\HeadOfRoom\Pages\NotasDireccionPage;
 
 use App\Enums\EstadoTerminal;
 // use Illuminate\Support\Facades\DB; // ⛔ comentado: no se usa sin búsqueda por dirección
@@ -245,11 +247,10 @@ class BuscarCliente extends Component implements HasForms, HasActions
         // ✅ Si NO existe, saltar a crear nota con el teléfono ya llenado
         $this->phoneNotFound = true;
 
-        redirect()->to(
-            NoteResource::getUrl('create', [
-                'phone' => $digits,
-            ])
-        );
+        redirect()->to(NotasDireccionPage::getUrl([
+            // opcional: pasar el teléfono para mostrarlo arriba o usarlo luego
+            'phone' => $digits,
+        ]));
     }
 
 

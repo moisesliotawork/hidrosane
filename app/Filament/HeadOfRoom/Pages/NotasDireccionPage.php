@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Teleoperator\Pages;
+namespace App\Filament\HeadOfRoom\Pages;
 
 use App\Models\Note;
 use Filament\Pages\Page;
@@ -11,7 +11,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Illuminate\Database\Eloquent\Builder;
 
 use Filament\Actions\Action;
-use App\Filament\Teleoperator\Resources\NoteResource;
+use App\Filament\HeadOfRoom\Resources\NoteResource;
 
 class NotasDireccionPage extends Page implements HasTable
 {
@@ -24,7 +24,7 @@ class NotasDireccionPage extends Page implements HasTable
     protected static ?int $navigationSort = 20;
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static string $view = 'filament.teleoperator.pages.notas-direccion';
+    protected static string $view = 'filament.head-of-room.pages.notas-direccion';
 
     public ?string $phone = null;
 
@@ -58,13 +58,7 @@ class NotasDireccionPage extends Page implements HasTable
      */
     protected function getTableQuery(): Builder
     {
-        // Corte por meses calendario:
-        // Ej (15-Feb-2026) => límite = 01-Sep-2025
-        $cutoff = now()->startOfMonth()->subMonthsNoOverflow(5);
-
-        return Note::query()
-            ->with(['customer'])
-            ->where('created_at', '<', $cutoff);
+        return Note::query()->with(['customer']);
     }
 
 
