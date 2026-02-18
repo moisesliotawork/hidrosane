@@ -64,7 +64,7 @@ class NotasDireccionPage extends Page implements HasTable
 
         return Note::query()
             ->with(['customer'])
-            ->where('created_at', '<', $cutoff);
+            ->where('created_at', '>=', $cutoff);
     }
 
 

@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Actions\Action;
 use App\Exports\VentaDirectExport;
 use Maatwebsite\Excel\Facades\Excel;
+use Filament\Tables\Columns\IconColumn;
 
 class VentaResource extends Resource
 {
@@ -1044,6 +1045,16 @@ class VentaResource extends Resource
                     ->sortable(false)
                     ->searchable(false),
 
+                IconColumn::make('cf')
+                    ->label('CF')
+                    ->alignCenter()
+                    ->state(fn(Venta $record): bool => filled($record->contrato_firmado))
+                    ->boolean() // ✅ muestra check verde / x roja
+                    ->sortable(query: function (Builder $query, string $direction) {
+                        // Ordena: primero los que tienen contrato_firmado (no null)
+                        return $query->orderByRaw("contrato_firmado IS NULL {$direction}");
+                    }),
+
 
                 /* FUENTE DE LA TELEOPERADORA //
                  TextColumn::make('note.fuente')
@@ -1179,6 +1190,15 @@ class VentaResource extends Resource
             ])
             ->filters([
 
+                Tables\Filters\TernaryFilter::make('cf')
+                    ->label('CF (Contrato firmado)')
+                    ->trueLabel('Con CF')
+                    ->falseLabel('Sin CF')
+                    ->queries(
+                        true: fn(Builder $q) => $q->whereNotNull('contrato_firmado'),
+                        false: fn(Builder $q) => $q->whereNull('contrato_firmado'),
+                        blank: fn(Builder $q) => $q,
+                    ),
 
 
                 /*
@@ -1289,7 +1309,7 @@ class VentaResource extends Resource
                     ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
                 </div>'
                 ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
+                ->visible(fn(Get $get, ?Venta $record) => $required && !self::isContratoB($record) && blank($get($field))),
 
             FileUpload::make($field)
                 ->label("")
@@ -1297,7 +1317,7 @@ class VentaResource extends Resource
                 ->directory('ventas')
                 ->openable()
                 ->downloadable()
-                ->required($required)
+                ->required(fn(?Venta $record) => $required && !self::isContratoB($record))
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
@@ -1332,5 +1352,11 @@ class VentaResource extends Resource
                 ->columnSpanFull(),
         ])->columns(1);
     }
+
+    protected static function isContratoB(?Venta $record): bool
+    {
+        return filled($record?->nro_contr_adm) && str_contains($record->nro_contr_adm, '-B');
+    }
+
 
 }
