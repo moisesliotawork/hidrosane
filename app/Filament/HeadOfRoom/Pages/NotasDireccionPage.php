@@ -41,14 +41,14 @@ class NotasDireccionPage extends Page implements HasTable
                 ->label('Descartar')
                 ->icon('heroicon-o-x-mark')
                 ->color('gray')
-                ->url(fn () => NoteResource::getUrl('index')),
+                ->url(fn() => NoteResource::getUrl('index')),
 
             Action::make('seguir')
                 ->label('Seguir')
                 ->icon('heroicon-o-arrow-right')
                 ->color('warning')
-                ->disabled(fn () => blank($this->phone))
-                ->url(fn () => NoteResource::getUrl('create', [
+                ->disabled(fn() => blank($this->phone))
+                ->url(fn() => NoteResource::getUrl('create', [
                     'phone' => $this->phone,
                 ])),
         ];
@@ -66,12 +66,10 @@ class NotasDireccionPage extends Page implements HasTable
     protected function getTableQuery(): Builder
     {
         $from = now()->startOfMonth()->subMonthsNoOverflow(4);
-        $to   = now()->startOfMonth(); // excluye mes actual
 
         return Note::query()
             ->with(['customer'])
             ->where('visit_date', '>=', $from)
-            ->where('visit_date', '<=', $to)
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,
                 EstadoTerminal::VENTA->value,
