@@ -13,11 +13,13 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\Concerns\InteractsWithActions;
 
 use App\Models\Customer;
+use App\Models\Note;
+use App\Enums\EstadoTerminal;
+
 use App\Filament\Teleoperator\Resources\NoteResource;
+use App\Filament\Teleoperator\Pages\NotasDireccionPage;
 
 use Filament\Notifications\Notification;
-
-use App\Filament\Teleoperator\Pages\NotasDireccionPage;
 
 class BuscarCliente extends Component implements HasForms, HasActions
 {
@@ -25,25 +27,12 @@ class BuscarCliente extends Component implements HasForms, HasActions
     use InteractsWithActions;
 
     public ?array $data = [];
-
     public bool $phoneNotFound = false;
-
-    // ⛔ comentado: no se usa sin búsqueda por dirección
-    // public array $addressMatches = [];
-    // public ?string $addressMatchesTitle = null;
 
     public function mount(): void
     {
         $this->form->fill([
             'phone_query' => null,
-
-            // ⛔ comentado: campos de dirección (no se usan por ahora)
-            // 'primary_address' => null,
-            // 'secondary_address' => null,
-            // 'nro_piso' => null,
-            // 'postal_code' => null,
-            // 'ayuntamiento' => null,
-            // 'provincia' => null,
         ]);
     }
 
@@ -78,87 +67,36 @@ class BuscarCliente extends Component implements HasForms, HasActions
                         Forms\Components\Placeholder::make('no_encontrado')
                             ->content('NO SE ENCONTRO TELÉFONO')
                             ->visible(fn() => $this->phoneNotFound),
-
-                        /**
-                         * ⛔ Comentado: UI de dirección + botón buscar por dirección
-                         */
-                        /*
-                        Forms\Components\Grid::make(2)
-                            ->schema([
-                                Forms\Components\TextInput::make('primary_address')
-                                    ->label('Dirección (principal)')
-                                    ->placeholder('Calle')
-                                    ->required()
-                                    ->visible(fn() => $this->phoneNotFound)
-                                    ->columnSpanFull(),
-
-                                Forms\Components\TextInput::make('secondary_address')
-                                    ->label('Dirección (secundaria)')
-                                    ->placeholder('Bloque / Escalera / Referencia')
-                                    ->visible(fn() => $this->phoneNotFound)
-                                    ->columnSpanFull(),
-
-                                Forms\Components\TextInput::make('nro_piso')
-                                    ->label('No. y Piso')
-                                    ->placeholder('Nº 1')
-                                    ->required()
-                                    ->visible(fn() => $this->phoneNotFound),
-
-                                Forms\Components\TextInput::make('postal_code')
-                                    ->label('Código Postal')
-                                    ->minLength(5)
-                                    ->maxLength(5)
-                                    ->placeholder('15551')
-                                    ->required()
-                                    ->visible(fn() => $this->phoneNotFound),
-
-                                Forms\Components\TextInput::make('ayuntamiento')
-                                    ->label('Ayuntamiento/Localidad')
-                                    ->required()
-                                    ->visible(fn() => $this->phoneNotFound),
-
-                                Forms\Components\Select::make('provincia')
-                                    ->label('Provincia')
-                                    ->required()
-                                    ->options([
-                                        'Pontevedra' => 'Pontevedra',
-                                        'A Coruña'   => 'A Coruña',
-                                        'Orense'     => 'Orense',
-                                        'Lugo'       => 'Lugo',
-                                    ])
-                                    ->placeholder('Pontevedra')
-                                    ->visible(fn() => $this->phoneNotFound),
-                            ])
-                            ->visible(fn() => $this->phoneNotFound),
-
-                        Forms\Components\Actions::make([
-                            Forms\Components\Actions\Action::make('buscarDireccion')
-                                ->label('Buscar por dirección')
-                                ->color('info')
-                                ->visible(fn() => $this->phoneNotFound)
-                                ->action(fn() => $this->buscarDireccion()),
-                        ]),
-                        */
                     ])
                     ->columns(1),
             ])
             ->statePath('data');
     }
 
-    protected function notifyNotaDuplicada(string $detalle): void
+    protected function notifyNoSePuedeLlamar(string $detalle): void
     {
         Notification::make()
-            ->title('NOTA DUPLICADA')
+            ->title('NO SE PUEDE LLAMAR')
             ->body($detalle)
             ->danger()
             ->persistent()
             ->send();
     }
 
-    protected function notifyClienteAntiguo(string $detalle): void
+    protected function notifySePuedeLlamar(string $detalle): void
     {
         Notification::make()
-            ->title('CLIENTE EXISTE')
+            ->title('SE PUEDE LLAMAR')
+            ->body($detalle)
+            ->warning()
+            ->persistent()
+            ->send();
+    }
+
+    protected function notifyClienteExistePeroAntiguo(string $detalle): void
+    {
+        Notification::make()
+            ->title('CLIENTE EXISTE (ANTIGUO)')
             ->body($detalle)
             ->warning()
             ->persistent()
@@ -166,48 +104,77 @@ class BuscarCliente extends Component implements HasForms, HasActions
     }
 
     /**
-     * Regla (por MESES calendario):
-     * - En cualquier día del mes actual, se permite crear nota si la última nota
-     *   pertenece al mes "5 meses atrás" o anterior (ej: 01-Feb permite Sep y antes).
-     *
-     * Implementación:
-     * - Corte = primer día del mes de hace 4 meses.
-     *   Ej: now = Feb 2026 -> cutoff = 2025-10-01. Todo lo < cutoff es Sep o antes => permitir.
+     * Reglas:
+     * Caso 2: cliente existe
+     * 2.1 buscar última nota
+     * 2.2 si última nota es "hace más de 5 meses" (por meses calendario) => permitir crear + notificar
+     * 2.3 si última nota es "hace menos de 5 meses" => validar estado terminal:
+     *      2.3.1 si terminal es OFICINA (SALA), AUSENTE o SIN_ESTADO (incluye null, '', EMPTY) => permitir + notificar
+     *      2.3.2 si no => bloquear + notificar
      */
-    protected function handleCustomerFound(Customer $customer, ?string $digits = null, array $extraCreateParams = []): void
+    protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
     {
+        /** @var Note|null $lastNote */
         $lastNote = $customer->notes()->latest('created_at')->first();
 
         // Si no tiene notas, permitir crear nota
         if (!$lastNote) {
-            redirect()->to(NoteResource::getUrl('create', array_merge([
+            redirect()->to(NoteResource::getUrl('create', [
                 'customer_id' => $customer->id,
                 'phone' => $digits ?: null,
-            ], $extraCreateParams)));
+            ]));
             return;
         }
 
-        // ✅ Regla por meses (NO exacto en días)
+        // Corte por MESES calendario (no exacto en días)
+        // Ej: ahora Feb 2026 -> cutoff = 2025-10-01 => todo lo < cutoff (Sep 2025 o antes) se permite
         $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
 
-        if ($lastNote->created_at?->lt($cutoff)) {
-            $fecha = optional($lastNote->created_at)->format('d/m/Y');
-            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y');
+        $fechaUltima = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
+        $terminal = $lastNote->estado_terminal; // Enum gracias a tu accessor
+        $terminalLabel = method_exists($terminal, 'label') ? $terminal->label() : (string) $terminal->value;
 
-            $this->notifyClienteAntiguo(
-                "El cliente existe, pero la última llamada/nota fue el {$fecha}. " .
+        // 2.2: más de 5 meses (por meses calendario)
+        if ($lastNote->created_at && $lastNote->created_at->lt($cutoff)) {
+            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y'); // el “mes 5”
+            $this->notifyClienteExistePeroAntiguo(
+                "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
                 "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
             );
 
-            redirect()->to(NoteResource::getUrl('create', array_merge([
+            redirect()->to(NoteResource::getUrl('create', [
                 'customer_id' => $customer->id,
                 'phone' => $digits ?: null,
-            ], $extraCreateParams)));
+            ]));
             return;
         }
 
-        $fecha = optional($lastNote->created_at)->format('d/m/Y');
-        $this->notifyNotaDuplicada("El cliente ya fue llamado recientemente. Última nota: {$fecha}.");
+        // 2.3: menos de 5 meses => validar terminal
+        $terminalPermite = in_array($terminal, [
+            EstadoTerminal::SALA,       // "Oficina" (según tu enum label OF)
+            EstadoTerminal::AUSENTE,    // "Ausente"
+            EstadoTerminal::SIN_ESTADO, // incluye null/''/EMPTY por tu accessor
+        ], true);
+
+        if ($terminalPermite) {
+            $this->notifySePuedeLlamar(
+                "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
+                "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
+            );
+
+            redirect()->to(NoteResource::getUrl('create', [
+                'customer_id' => $customer->id,
+                'phone' => $digits ?: null,
+            ]));
+            return;
+        }
+
+        // 2.3.2: bloquear
+        $this->notifyNoSePuedeLlamar(
+            "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
+            "No se puede llamar porque fue contactado hace menos de 5 meses y su estado terminal no permite rellamada."
+        );
+
         redirect()->to(NoteResource::getUrl('index'));
     }
 
@@ -227,44 +194,20 @@ class BuscarCliente extends Component implements HasForms, HasActions
             ->orWhere('third_phone', $digits)
             ->first();
 
-        // ✅ Si existe: aplica tu lógica (cliente antiguo / duplicada / etc.)
+        // Caso 2: existe cliente
         if ($customer) {
             $this->phoneNotFound = false;
             $this->handleCustomerFound($customer, $digits);
             return;
         }
 
-        // ✅ Si NO existe: ir directo a CREAR con el teléfono precargado
+        // Caso 1: no existe cliente => redirigir a NotasDireccionPage
         $this->phoneNotFound = true;
 
         redirect()->to(NotasDireccionPage::getUrl([
-            // opcional: pasar el teléfono para mostrarlo arriba o usarlo luego
             'phone' => $digits,
         ]));
     }
-
-    /**
-     * ⛔ Comentado: Action y método de dirección (no se usan por ahora)
-     */
-    /*
-    public function addressMatchesAction(): \Filament\Actions\Action
-    {
-        return \Filament\Actions\Action::make('addressMatches')
-            ->label('Coincidencias')
-            ->modalHeading($this->addressMatchesTitle ?: 'Coincidencias por dirección')
-            ->modalWidth('7xl')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Cerrar')
-            ->modalContent(view('livewire.teleoperator.modals.address-matches', [
-                'rows' => $this->addressMatches,
-            ]));
-    }
-
-    public function buscarDireccion(): void
-    {
-        // deshabilitado por ahora
-    }
-    */
 
     public function render()
     {

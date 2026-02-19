@@ -1317,7 +1317,14 @@ class VentaResource extends Resource
                     ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
                 </div>'
                 ))
-                ->visible(fn(Get $get, ?Venta $record) => $required && !self::isContratoB($record) && blank($get($field))),
+                ->visible(
+                    fn(Get $get, ?Venta $record) =>
+                    $required
+                    && !request()->routeIs('filament.admin.resources.ventas.create-b')
+                    && !self::isContratoB($record)
+                    && blank($get($field))
+                ),
+
 
             FileUpload::make($field)
                 ->label("")
@@ -1325,7 +1332,12 @@ class VentaResource extends Resource
                 ->directory('ventas')
                 ->openable()
                 ->downloadable()
-                ->required(fn(?Venta $record) => $required && !self::isContratoB($record))
+                ->required(
+                    fn(?Venta $record) =>
+                    $required
+                    && !request()->routeIs('filament.admin.resources.ventas.create-b')
+                    && !self::isContratoB($record)
+                )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

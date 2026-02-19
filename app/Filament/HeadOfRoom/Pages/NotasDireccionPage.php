@@ -3,6 +3,7 @@
 namespace App\Filament\HeadOfRoom\Pages;
 
 use App\Models\Note;
+use App\Enums\EstadoTerminal;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -40,27 +41,43 @@ class NotasDireccionPage extends Page implements HasTable
                 ->label('Descartar')
                 ->icon('heroicon-o-x-mark')
                 ->color('gray')
-                ->url(fn() => NoteResource::getUrl('index')),
+                ->url(fn () => NoteResource::getUrl('index')),
 
             Action::make('seguir')
                 ->label('Seguir')
                 ->icon('heroicon-o-arrow-right')
                 ->color('warning')
-                ->disabled(fn() => blank($this->phone))
-                ->url(fn() => NoteResource::getUrl('create', [
-                    'phone' => $this->phone, // ✅ parámetro que viene de la page anterior
+                ->disabled(fn () => blank($this->phone))
+                ->url(fn () => NoteResource::getUrl('create', [
+                    'phone' => $this->phone,
                 ])),
         ];
     }
 
     /**
-     * Query base de la tabla
+     * SOLO NOTAS NO CANDIDATAS:
+     * - Rango: entre 1 y 4 meses atrás (por meses calendario)
+     * - Estados terminal: NUL, VENTA, CONFIRMADO
+     *
+     * Ej: si hoy es Feb-2026:
+     * - 1 a 4 meses atrás => Oct-2025, Nov-2025, Dic-2025, Ene-2026
+     * - NO incluye Feb-2026 (0 meses) ni Sep-2025 (5 meses)
      */
     protected function getTableQuery(): Builder
     {
-        return Note::query()->with(['customer']);
-    }
+        $from = now()->startOfMonth()->subMonthsNoOverflow(4);
+        $to   = now()->startOfMonth(); // excluye mes actual
 
+        return Note::query()
+            ->with(['customer'])
+            ->where('created_at', '>=', $from)
+            ->where('created_at', '<', $to)
+            ->whereIn('estado_terminal', [
+                EstadoTerminal::NUL->value,
+                EstadoTerminal::VENTA->value,
+                EstadoTerminal::CONFIRMADO->value,
+            ]);
+    }
 
     public function table(Table $table): Table
     {
@@ -145,7 +162,6 @@ class NotasDireccionPage extends Page implements HasTable
                         return $query;
                     }),
 
-                // ✅ Postal Code
                 Tables\Filters\Filter::make('postal_code')
                     ->label('CP')
                     ->form([
@@ -163,7 +179,6 @@ class NotasDireccionPage extends Page implements HasTable
                         return $query;
                     }),
 
-                // ✅ Nro Piso
                 Tables\Filters\Filter::make('nro_piso')
                     ->label('Nro Piso')
                     ->form([
