@@ -63,18 +63,32 @@ class NotasDireccionPage extends Page implements HasTable
      * - 1 a 4 meses atrás => Oct-2025, Nov-2025, Dic-2025, Ene-2026
      * - NO incluye Feb-2026 (0 meses) ni Sep-2025 (5 meses)
      */
+
     protected function getTableQuery(): Builder
     {
         $from = now()->startOfMonth()->subMonthsNoOverflow(4);
+        $todayEnd = now()->endOfDay();            // incluye hoy completo
+        $tomorrow = now()->addDay()->startOfDay(); // futuro desde mañana
 
         return Note::query()
             ->with(['customer'])
-            ->where('visit_date', '>=', $from)
-            ->whereIn('estado_terminal', [
-                EstadoTerminal::NUL->value,
-                EstadoTerminal::VENTA->value,
-                EstadoTerminal::CONFIRMADO->value,
-            ]);
+            ->where(function (Builder $q) use ($from, $todayEnd, $tomorrow) {
+                // (A) Histórico: 4 meses -> hoy, con filtro de estados
+                $q->where(function (Builder $h) use ($from, $todayEnd) {
+                    $h->where('visit_date', '>=', $from)
+                        ->where('visit_date', '<=', $todayEnd)
+                        ->whereIn('estado_terminal', [
+                            EstadoTerminal::NUL->value,
+                            EstadoTerminal::VENTA->value,
+                            EstadoTerminal::CONFIRMADO->value,
+                        ]);
+                })
+
+                    // (B) Futuro: mañana en adelante, sin importar estado_terminal
+                    ->orWhere(function (Builder $f) use ($tomorrow) {
+                    $f->where('visit_date', '>=', $tomorrow);
+                });
+            });
     }
 
     public function table(Table $table): Table
