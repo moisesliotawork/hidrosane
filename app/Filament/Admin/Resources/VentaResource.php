@@ -1175,6 +1175,14 @@ class VentaResource extends Resource
                     })
                     ->sortable(),
 
+                TextColumn::make('contrato_firmado_at')
+                    ->label('CF At')
+                    ->dateTime('d/m/Y H:i')
+                    ->timezone('Europe/Madrid')
+                    ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('d/m/Y H:i') : '—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
