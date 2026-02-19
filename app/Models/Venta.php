@@ -167,9 +167,13 @@ class Venta extends Model
         'financieras_reparto',
         'pasadas_financieras',
 
+        'contrato_firmado_at',
+
+
     ];
 
     protected $casts = [
+        'contrato_firmado_at' => 'datetime',
         'fecha_venta' => 'datetime',
         'importe_total' => 'decimal:2',
         'num_cuotas' => 'integer',
@@ -325,6 +329,9 @@ class Venta extends Model
     protected static function booted()
     {
         static::saving(function (Venta $venta) {
+            if ($venta->isDirty('contrato_firmado')) {
+                $venta->contrato_firmado_at = now();
+            }
             // Asegura importes y derivados antes de cualquier save()
             $venta->recomputarImportesDesdeOfertas(false); // ← sin persistir
             $venta->calcularComisiones(false);             // ← sin persistir
