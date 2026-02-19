@@ -70,8 +70,8 @@ class NotasDireccionPage extends Page implements HasTable
 
         return Note::query()
             ->with(['customer'])
-            ->where('created_at', '>=', $from)
-            ->where('created_at', '<', $to)
+            ->where('visit_date', '>=', $from)
+            ->where('visit_date', '<=', $to)
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,
                 EstadoTerminal::VENTA->value,

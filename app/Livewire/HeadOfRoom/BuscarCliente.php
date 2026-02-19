@@ -115,7 +115,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
     protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
     {
         /** @var Note|null $lastNote */
-        $lastNote = $customer->notes()->latest('created_at')->first();
+        $lastNote = $customer->notes()->latest('visit_date')->first();
 
         // Si no tiene notas, permitir crear nota
         if (!$lastNote) {
