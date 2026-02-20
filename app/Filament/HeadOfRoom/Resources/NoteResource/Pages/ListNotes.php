@@ -23,6 +23,10 @@ class ListNotes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\CreateAction::make()
+                ->label('Crear Nota')
+                ->icon('heroicon-o-plus')
+                ->color('primary'),
 
             \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
                 ->label('Generar PDF (Oficina)')

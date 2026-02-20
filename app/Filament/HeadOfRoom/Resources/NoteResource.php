@@ -495,19 +495,19 @@ class NoteResource extends Resource
                     ->alignCenter()
                     ->toggleable(isToggledHiddenByDefault: false), // cámbialo a true si quieres ocultarla por defecto
 
-     Tables\Columns\TextColumn::make('printed')
-    ->label('Impr.')
-    ->badge()
-    ->formatStateUsing(fn (bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
-    ->color(fn (bool $state) => $state ? 'gray' : 'warning')
-    ->alignCenter()
-    ->sortable()
-    ->action(function (Note $record) { // <--- USAR ESTO PARA CAMBIAR EL ESTADO
-        $record->update([
-            'printed' => ! $record->printed
-        ]);
-    }),
-                   
+                Tables\Columns\TextColumn::make('printed')
+                    ->label('Impr.')
+                    ->badge()
+                    ->formatStateUsing(fn(bool $state) => $state ? 'IMPRESO' : 'NO IMPRESO')
+                    ->color(fn(bool $state) => $state ? 'gray' : 'warning')
+                    ->alignCenter()
+                    ->sortable()
+                    ->action(function (Note $record) { // <--- USAR ESTO PARA CAMBIAR EL ESTADO
+                        $record->update([
+                            'printed' => !$record->printed
+                        ]);
+                    }),
+
 
                 Tables\Columns\TextColumn::make('reten')
                     ->label('Reten')
@@ -651,7 +651,7 @@ class NoteResource extends Resource
 
 
 
-            
+
                 Tables\Actions\EditAction::make()
                     ->label(''),
                 Tables\Actions\DeleteAction::make()
@@ -710,7 +710,7 @@ class NoteResource extends Resource
                                 ->required(false),
                         ];
                     })
-                    
+
                     ->action(function (Note $record, array $data): void {
                         try {
                             // Se mantiene tu lógica existente
@@ -1083,7 +1083,7 @@ class NoteResource extends Resource
                 //        });
 //
                 //        $displayComercial = $retenCommercial->display_name; // "empleado_id - nombre apellidos"
-            //
+                //
                 //        $bodyLines = [
                 //            "Total de notas enviadas a RETEN: {$totalEnviadas}",
                 //            "Notas sin comercial asignadas ahora a {$displayComercial}: {$asignadasAReten}",
