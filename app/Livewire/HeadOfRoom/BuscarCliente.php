@@ -154,12 +154,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
             );
 
             // Opción A (recomendada): llevarlo directo a esa nota
-            redirect()->to(NoteResource::getUrl('edit', [
-                'record' => $lastNote,
-            ]));
-
-            // Opción B: si prefieres mandarlo al listado:
-            // redirect()->to(NoteResource::getUrl('index'));
+            redirect()->to(NoteResource::getUrl('index'));
 
             return;
         }

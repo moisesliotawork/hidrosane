@@ -173,10 +173,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
                 "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
             );
 
-            redirect()->to(NoteResource::getUrl('create', [
-                'customer_id' => $customer->id,
-                'phone' => $digits ?: null,
-            ]));
+            redirect()->to(NoteResource::getUrl('index'));
             return;
         }
 
