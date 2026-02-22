@@ -119,11 +119,13 @@ class NotasDeComercial extends Component
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
     {
-        return User::role(['commercial', 'team_leader', 'sales_manager'])
+        return User::query()
+            ->role(['commercial', 'team_leader', 'sales_manager'])
+            ->whereNull('baja')   // ✅ solo activos
             ->orderBy('empleado_id')
             ->get()
             ->mapWithKeys(fn($u) => [
-                $u->id => "{$u->empleado_id} {$u->name} {$u->last_name}",
+                $u->id => trim("{$u->empleado_id} {$u->name} {$u->last_name}"),
             ])
             ->toArray();
     }
