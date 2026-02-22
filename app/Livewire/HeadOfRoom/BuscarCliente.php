@@ -127,18 +127,49 @@ class BuscarCliente extends Component implements HasForms, HasActions
         }
 
         // Corte por MESES calendario (no exacto en días)
-        // Ej: ahora Feb 2026 -> cutoff = 2025-10-01 => todo lo < cutoff (Sep 2025 o antes) se permite
+        // Ej: ahora Feb 2026 -> cutoff = 2025-10-01
         $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
 
-        $fechaUltima = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
-        $terminal = $lastNote->estado_terminal; // Enum gracias a tu accessor
-        $terminalLabel = method_exists($terminal, 'label') ? $terminal->label() : (string) $terminal->value;
+        $fechaUltimaCreacion = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
+        $fechaVisita = optional($lastNote->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+
+        $terminal = $lastNote->estado_terminal; // Enum por tu accessor (o null)
+        $terminalLabel = $terminal
+            ? (method_exists($terminal, 'label') ? $terminal->label() : (string) ($terminal->value ?? $terminal))
+            : 'Sin estado';
+
+        /*
+         | NUEVA REGLA:
+         | Si la nota es "reciente" (menos de 5 meses por meses calendario)
+         | PERO su visit_date es FUTURA (mañana en adelante), entonces NO se puede llamar.
+         */
+        $notaReciente = $lastNote->created_at && $lastNote->created_at->gte($cutoff);
+        $visitaFutura = $lastNote->visit_date && $lastNote->visit_date->startOfDay()->gte(now()->startOfDay());
+
+        if ($notaReciente && $visitaFutura) {
+            $this->notifyNoSePuedeLlamar(
+                "Cliente encontrado, pero ya tiene una nota PROGRAMADA para el {$fechaVisita}. " .
+                "Última nota creada: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
+                "No se puede llamar hasta gestionar esa nota."
+            );
+
+            // Opción A (recomendada): llevarlo directo a esa nota
+            redirect()->to(NoteResource::getUrl('edit', [
+                'record' => $lastNote,
+            ]));
+
+            // Opción B: si prefieres mandarlo al listado:
+            // redirect()->to(NoteResource::getUrl('index'));
+
+            return;
+        }
 
         // 2.2: más de 5 meses (por meses calendario)
         if ($lastNote->created_at && $lastNote->created_at->lt($cutoff)) {
-            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y'); // el “mes 5”
+            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y');
+
             $this->notifyClienteExistePeroAntiguo(
-                "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
+                "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
                 "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
             );
 
@@ -151,14 +182,14 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
         // 2.3: menos de 5 meses => validar terminal
         $terminalPermite = in_array($terminal, [
-            EstadoTerminal::SALA,       // "Oficina" (según tu enum label OF)
-            EstadoTerminal::AUSENTE,    // "Ausente"
-            EstadoTerminal::SIN_ESTADO, // incluye null/''/EMPTY por tu accessor
+            EstadoTerminal::SALA,
+            EstadoTerminal::AUSENTE,
+            EstadoTerminal::SIN_ESTADO,
         ], true);
 
         if ($terminalPermite) {
             $this->notifySePuedeLlamar(
-                "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
+                "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
                 "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
             );
 
@@ -171,7 +202,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
         // 2.3.2: bloquear
         $this->notifyNoSePuedeLlamar(
-            "Cliente encontrado. Última nota: {$fechaUltima}. Estado terminal: {$terminalLabel}. " .
+            "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
             "No se puede llamar porque fue contactado hace menos de 5 meses y su estado terminal no permite rellamada."
         );
 
