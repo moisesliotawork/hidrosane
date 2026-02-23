@@ -154,12 +154,12 @@ class BuscarCliente extends Component implements HasForms, HasActions
             );
 
             // Opción A (recomendada): llevarlo directo a esa nota
-            redirect()->to(NoteResource::getUrl('edit', [
-                'record' => $lastNote,
-            ]));
+            //redirect()->to(NoteResource::getUrl('edit', [
+            //    'record' => $lastNote,
+            //]));
 
             // Opción B: si prefieres mandarlo al listado:
-            // redirect()->to(NoteResource::getUrl('index'));
+            redirect()->to(NoteResource::getUrl('index'));
 
             return;
         }
@@ -173,29 +173,32 @@ class BuscarCliente extends Component implements HasForms, HasActions
                 "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
             );
 
-            redirect()->to(NoteResource::getUrl('index'));
-            return;
-        }
-
-        // 2.3: menos de 5 meses => validar terminal
-        $terminalPermite = in_array($terminal, [
-            EstadoTerminal::SALA,
-            EstadoTerminal::AUSENTE,
-            EstadoTerminal::SIN_ESTADO,
-        ], true);
-
-        if ($terminalPermite) {
-            $this->notifySePuedeLlamar(
-                "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-                "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
-            );
-
             redirect()->to(NoteResource::getUrl('create', [
                 'customer_id' => $customer->id,
                 'phone' => $digits ?: null,
             ]));
             return;
         }
+
+        // 2.3: menos de 5 meses => validar terminal
+        //$terminalPermite = in_array($terminal, [
+        //    EstadoTerminal::SALA,
+        //    EstadoTerminal::AUSENTE,
+        //    EstadoTerminal::SIN_ESTADO,
+        //], true);
+//
+        //if ($terminalPermite) {
+        //    $this->notifySePuedeLlamar(
+        //        "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
+        //        "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
+        //    );
+//
+        //    redirect()->to(NoteResource::getUrl('create', [
+        //        'customer_id' => $customer->id,
+        //        'phone' => $digits ?: null,
+        //    ]));
+        //    return;
+        //}
 
         // 2.3.2: bloquear
         $this->notifyNoSePuedeLlamar(

@@ -176,24 +176,24 @@ class BuscarCliente extends Component implements HasForms, HasActions
         }
 
         // 2.3: menos de 5 meses => validar terminal
-        $terminalPermite = in_array($terminal, [
-            EstadoTerminal::SALA,
-            EstadoTerminal::AUSENTE,
-            EstadoTerminal::SIN_ESTADO,
-        ], true);
-
-        if ($terminalPermite) {
-            $this->notifySePuedeLlamar(
-                "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-                "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
-            );
-
-            redirect()->to(NoteResource::getUrl('create', [
-                'customer_id' => $customer->id,
-                'phone' => $digits ?: null,
-            ]));
-            return;
-        }
+        //$terminalPermite = in_array($terminal, [
+        //    EstadoTerminal::SALA,
+        //    EstadoTerminal::AUSENTE,
+        //    EstadoTerminal::SIN_ESTADO,
+        //], true);
+//
+        //if ($terminalPermite) {
+        //    $this->notifySePuedeLlamar(
+        //        "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
+        //        "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
+        //    );
+//
+        //    redirect()->to(NoteResource::getUrl('create', [
+        //        'customer_id' => $customer->id,
+        //        'phone' => $digits ?: null,
+        //    ]));
+        //    return;
+        //}
 
         // 2.3.2: bloquear
         $this->notifyNoSePuedeLlamar(
