@@ -577,6 +577,7 @@ class VentaResource extends Resource
                             'Contado' => 'Contado',
                             'Financiado' => 'Financiado',
                             'NS' => 'NG',
+                            'Giro '
                         ])
                         ->default('Financiado')
                         ->required()
