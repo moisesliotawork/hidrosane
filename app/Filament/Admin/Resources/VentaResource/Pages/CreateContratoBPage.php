@@ -118,6 +118,8 @@ class CreateContratoBPage extends Page implements HasForms
 
         $data['fecha_venta'] ??= now();
 
+        $data['num_cuotas'] = (($data['modalidad_pago'] ?? null) === 'Contado') ? 1 : ($data['num_cuotas'] ?? 6);
+
         $nueva = DB::transaction(function () use ($data) {
 
             // 1) Crear venta SIN depender de importe_total del state

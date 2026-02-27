@@ -60,11 +60,7 @@ class VentaResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-
-            Hidden::make('productos_externos')
-                ->default(fn(?Venta $record) => $record->productos_externos ?? [])
-                ->dehydrated(),
-
+            
             Placeholder::make('nro_nota')
                 ->label('Nº Nota')
                 ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
@@ -877,59 +873,39 @@ class VentaResource extends Resource
 
 
             Section::make('Productos externos')
-                // 1️⃣  Mostrar la sección solo si hay al menos un “Producto Externo”
                 ->visible(function (Get $get) {
-
-                    // IDs de todos los productos en las ofertas
                     $ids = collect($get('ventaOfertas') ?? [])
                         ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
                         ->pluck('producto_id')
                         ->filter()
                         ->all();
 
-                    if (empty($ids)) {
-                        return false;   // sin productos ⇒ nada que mostrar
-                    }
+                    if (empty($ids))
+                        return false;
 
                     return Producto::query()
                         ->whereIn('id', $ids)
                         ->where('nombre', 'Producto Externo')
-                        ->exists();     // true si al menos uno es externo
+                        ->exists();
                 })
-
-                // 2️⃣  Generar inputs solo para los externos
-                ->schema(function (Get $get) {
-
-                    // a) Agrupamos todos los productos y sus posiciones
-                    $lineas = collect($get('ventaOfertas') ?? [])
-                        ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
-                        ->values();   // renumeramos para que el índice sea 0-n
-        
-                    // b) Todos los IDs presentes
-                    $ids = $lineas->pluck('producto_id')->filter()->all();
-
-                    // c) Mapa [id => nombre] para saber cuáles son externos
-                    $nombres = Producto::query()
-                        ->whereIn('id', $ids)
-                        ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
-        
-                    // d) Filtramos solo los que son “Producto Externo”
-                    $externas = $lineas->filter(
-                        fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'
-                    )->values();
-
-                    // e) Creamos un TextInput por cada línea externa
-                    return $externas->map(
-                        fn($__, $idx) =>
-                        TextInput::make("productos_externos.$idx")
-                            ->label('Nombre producto externo #' . ($idx + 1))
-                            ->required()
-                            ->dehydrated()
-                    )->all();
-                })
+                ->schema([
+                    Forms\Components\Repeater::make('productos_externos')
+                        ->label(false)
+                        ->simple(
+                            TextInput::make('value')
+                                ->label(function ($state, $component) {
+                                    // índice humano 1..n
+                                    $index = method_exists($component, 'getIndex') ? $component->getIndex() : null;
+                                    return 'Nombre producto externo #' . (($index ?? 0) + 1);
+                                })
+                                ->required()
+                                ->live(onBlur: true) // ✅ evita pérdidas mientras escribes
+                        )
+                        ->dehydrated()
+                        ->minItems(1),
+                ])
                 ->columns(1)
-                ->collapsible()
-                ->reactive(),
+                ->collapsible(),
 
 
             /* ────────── Datos de la venta ────────── */
