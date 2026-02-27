@@ -60,7 +60,7 @@ class VentaResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            
+
             Placeholder::make('nro_nota')
                 ->label('Nº Nota')
                 ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
@@ -1312,8 +1312,8 @@ class VentaResource extends Resource
                 ->required(
                     fn(?Venta $record) =>
                     $required
-                    && !request()->routeIs('filament.admin.resources.ventas.create-b')
-                    && !self::isContratoB($record)
+                    && filled($record)           // solo en EDIT
+                    && !self::isContratoB($record) // y que NO sea contrato -B
                 )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
