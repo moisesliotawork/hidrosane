@@ -9,6 +9,7 @@ use Filament\Infolists\Concerns\InteractsWithInfolists;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Tabs;
 use Filament\Infolists\Components\TextEntry;
+use Illuminate\Support\Facades\Auth;
 
 class DeclaracionesComercialDetalleHoy extends Page implements HasInfolists
 {
@@ -26,6 +27,14 @@ class DeclaracionesComercialDetalleHoy extends Page implements HasInfolists
     public function mount(User $record): void
     {
         $this->record = $record;
+    }
+
+    public static function canAccess(): bool
+    {
+        return Auth::user()?->hasAnyRole([
+            'team_leader',
+            'sales_manager',
+        ]) ?? false;
     }
 
     public static function getSlug(): string

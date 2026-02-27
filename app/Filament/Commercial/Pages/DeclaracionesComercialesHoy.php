@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\Action;
 use App\Filament\Commercial\Pages\DeclaracionesComercialDetalleHoy;
 use App\Filament\Commercial\Pages\DeclaracionesComercialesAyer;
+use Illuminate\Support\Facades\Auth;
 
 class DeclaracionesComercialesHoy extends Page implements HasTable
 {
@@ -26,6 +27,14 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
     public function getTitle(): string
     {
         return 'REPORTES DE HOY';
+    }
+
+    public static function canAccess(): bool
+    {
+        return Auth::user()?->hasAnyRole([
+            'team_leader',
+            'sales_manager',
+        ]) ?? false;
     }
 
     public function getHeaderActions(): array

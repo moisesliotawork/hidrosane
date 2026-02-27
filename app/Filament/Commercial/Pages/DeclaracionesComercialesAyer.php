@@ -11,6 +11,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Commercial\Pages\DeclaracionesComercialDetalleAyer;
+use Illuminate\Support\Facades\Auth;
 
 class DeclaracionesComercialesAyer extends Page implements HasTable
 {
@@ -27,6 +28,14 @@ class DeclaracionesComercialesAyer extends Page implements HasTable
     public function getTitle(): string
     {
         return 'REPORTES DE AYER';
+    }
+
+    public static function canAccess(): bool
+    {
+        return Auth::user()?->hasAnyRole([
+            'team_leader',
+            'sales_manager',
+        ]) ?? false;
     }
 
     public function table(Table $table): Table
