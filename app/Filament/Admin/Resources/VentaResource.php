@@ -784,7 +784,7 @@ class VentaResource extends Resource
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $producto = Producto::find($state);   // Model|null
-                                            
+
                                                         /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 
@@ -1045,6 +1045,7 @@ class VentaResource extends Resource
                         FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
                         FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
                         FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
+                        FuenteNotas::PTA_FRIA => 'danger',
                         default => 'gray',
                     })
                     // 2. TEXTO BONITO:
@@ -1067,7 +1068,7 @@ class VentaResource extends Resource
 
                         // Guardamos
                         $record->note->update([
-                            'fuente' => $cases[$nextIdx],
+                            'fuente' => $cases[$nextIdx]->value,
                         ]);
                     }),
 

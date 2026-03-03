@@ -11,6 +11,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
     case CALLE = 'CALLE';
     case VIP_INT = 'VIP-INT';
     case VIP_EXT = 'VIP-EXT';
+    case PTA_FRIA = 'PtaFria'; // NUEVO CASO PARA DIF CALLE DE PTA FRIA
 
     public function getLabel(): string
     {
@@ -18,6 +19,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::CALLE => 'Calle',
             self::VIP_INT => 'VIP Interno',
             self::VIP_EXT => 'VIP Externo',
+            self::PTA_FRIA => 'Puerta Fría',
         };
     }
 
@@ -27,6 +29,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::CALLE => 4950,
             self::VIP_INT => 8900,
             self::VIP_EXT => 7500,
+            self::PTA_FRIA => 0,
         };
     }
 
@@ -36,6 +39,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::CALLE => 'orange',
             self::VIP_INT => 'success',
             self::VIP_EXT => 'yellow',
+            self::PTA_FRIA => 'danger' //
         };
     }
 
@@ -46,6 +50,7 @@ enum FuenteNotas: string implements HasLabel, HasColor
             self::CALLE->value => self::CALLE->getLabel(),
             self::VIP_INT->value => self::VIP_INT->getLabel(),
             self::VIP_EXT->value => self::VIP_EXT->getLabel(),
+            self::PTA_FRIA->value => self::PTA_FRIA->getLabel(),
         ];
     }
 }

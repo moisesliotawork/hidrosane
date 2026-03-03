@@ -38,9 +38,9 @@ class CustomerResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Section::make('Vision Global del Cliente')
+            Section::make('Posición Global del Cliente')
                 ->columns(6)
-                ->schema([
+                ->schema([      
                     TextEntry::make('nro_cliente')->label('CLIENTE'),
 
                     TextEntry::make('name')
@@ -50,7 +50,14 @@ class CustomerResource extends Resource
                     TextEntry::make('dni')
                         ->label('DNI'),
 
-                    TextEntry::make('primary_address')->label('DOMICILIO'),
+                        TextEntry::make('primary_address')
+                        ->label('DOMICILIO')
+                        ->state(function (Customer $r) {
+                            return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
+                        })
+                        ->columnSpan(2),
+
+                   // TextEntry::make('primary_address')->label('DOMICILIO'),
 
                     TextEntry::make('secondary_address')
                         ->label('DOMICILIO 2')

@@ -105,6 +105,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'created_at' => $fechaVenta,
                 'updated_at' => $fechaVenta,
                 'estado_terminal' => EstadoTerminal::VENTA,
+                'fuente' => \App\Enums\FuenteNotas::PTA_FRIA->value,
             ];
 
             $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));

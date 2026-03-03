@@ -58,6 +58,22 @@ class CustomerNotesTable extends BaseWidget
                 ->date('d/m/Y')
                 ->sortable(),
 
+                TextColumn::make('fuente')
+                ->label('Fuente')
+                ->badge()
+                // Mantenemos tu mapeo manual de colores
+                ->color(fn($state) => match ($state instanceof \App\Enums\FuenteNotas ? $state : \App\Enums\FuenteNotas::tryFrom($state)) {
+                    \App\Enums\FuenteNotas::CALLE => 'warning',
+                    \App\Enums\FuenteNotas::VIP_INT => 'success',
+                    \App\Enums\FuenteNotas::VIP_EXT => 'info',
+                    \App\Enums\FuenteNotas::PTA_FRIA => 'danger', // Rojo para Puerta Fría
+                    default => 'gray',
+                })
+                ->formatStateUsing(function ($state) {
+                    $enum = $state instanceof \App\Enums\FuenteNotas ? $state : \App\Enums\FuenteNotas::tryFrom($state);
+                    return $enum?->getLabel() ?? $state;
+                }),
+
             TextColumn::make('visit_date')
                 ->label('Visita')
                 ->date('d/m/Y')
