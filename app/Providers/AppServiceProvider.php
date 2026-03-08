@@ -25,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
+
+
+
         \App\Models\Venta::observe(\App\Observers\VentaObserver::class);
         // \App\Models\VentaOferta::observe(VentaOfertaObserver::class);
 
@@ -49,4 +53,5 @@ class AppServiceProvider extends ServiceProvider
         //    Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/app.css'),
         //]);
     }
+
 }

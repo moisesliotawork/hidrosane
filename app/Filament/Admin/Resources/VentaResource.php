@@ -1033,9 +1033,8 @@ class VentaResource extends Resource
                     }),
 
 
-                /* FUENTE DE LA TELEOPERADORA //
-                 TextColumn::make('note.fuente')
-            ->label('Fuente'),  */
+                // FUENTE DE LA TELEOPERADORA //
+            
                 TextColumn::make('note.fuente')
                     ->label('Fuente')
                     ->badge()
@@ -1053,27 +1052,7 @@ class VentaResource extends Resource
                         // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
                         $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
                         return $enum?->getLabel() ?? $state;
-                    })
-                    // 3. ACCIÓN DE ROTACIÓN:
-                    ->action(function ($record) {
-                        $cases = FuenteNotas::cases();
-
-                        // Obtenemos el valor actual (sea objeto o texto)
-                        $val = $record->note->fuente;
-                        $val = $val instanceof FuenteNotas ? $val : FuenteNotas::tryFrom($val);
-
-                        // Buscamos índice y rotamos
-                        $idx = array_search($val, $cases);
-                        $nextIdx = ($idx === false) ? 0 : ($idx + 1) % count($cases);
-
-                        // Guardamos
-                        $record->note->update([
-                            'fuente' => $cases[$nextIdx]->value,
-                        ]);
                     }),
-
-
-
 
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')

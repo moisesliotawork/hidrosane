@@ -76,8 +76,57 @@ class VentaDesdeCeroResource extends Resource
                         ->numeric()
                         ->label('Edad')
                         ->readOnly()                // no editable
-                        ->dehydrated(false),        // no se envía al backend (la calcula el modelo)
-                    TextInput::make('phone')->label('Teléfono')->tel()->required(),
+                        ->dehydrated(false),
+                // no se envía al backend (la calcula el modelo)
+
+
+
+
+
+
+
+
+
+TextInput::make('phone')
+    ->label('Teléfono')
+    ->required()
+    ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+    ->extraInputAttributes([
+        'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+        'x-data' => '',
+        'x-on:input' => "
+            \$nextTick(() => {
+                // Extraer solo dígitos y limitar a 9
+                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let formatted = '';
+                if (digits.length > 0) formatted += digits.substring(0, 3);
+                if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                \$el.value = formatted;
+            })
+        ",
+    ])
+    ->dehydrateStateUsing(function (?string $state): ?string {
+        // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
+        return $state ? preg_replace('/\D/', '', $state) : null;
+    }),
+
+
+
+/*
+                    TextInput::make('phone')
+                    ->label('Teléfono')
+                    ->tel()
+                    ->required(),
+                    */
+
+
+
+
+
+
+
+
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
@@ -89,7 +138,8 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->maxLength(20)
+                        ->weight(“bold”)
+                        ->maxLength(5)
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001'),

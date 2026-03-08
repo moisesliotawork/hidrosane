@@ -62,7 +62,11 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
 
-                    TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                    TextInput::make('dni')
+                    ->columnspan(2)
+                    ->label('DNI')
+                    ->maxLength(10),
+                //->columnSpanFull(),
 
                     DatePicker::make('fecha_nac')
                         ->label('Fec. nac.')
@@ -77,17 +81,69 @@ class VentaDesdeCeroResource extends Resource
                             $set('age', $state ? Carbon::parse($state)->age : null);
                         }),
 
+
+
+
+TextInput::make('phone')
+    ->label('Teléfono Principal')
+    ->required()
+    ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+    ->extraInputAttributes([
+        'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+        'x-data' => '',
+        'x-on:input' => "
+            \$nextTick(() => {
+                // Extraer solo dígitos y limitar a 9
+                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let formatted = '';
+                if (digits.length > 0) formatted += digits.substring(0, 3);
+                if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                \$el.value = formatted;
+            })
+        ",
+    ])
+    ->dehydrateStateUsing(function (?string $state): ?string {
+        // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
+        return $state ? preg_replace('/\D/', '', $state) : null;
+    }),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+                    TextInput::make('phone')
+                    ->label('Teléfono')
+                    ->tel()
+                    ->required(),
+*/
+
+                    TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                    TextInput::make('third_phone')
+                        ->label('Teléfono 3')
+                        ->tel(),
+
+
                     TextInput::make('age')
                         ->numeric()
                         ->label('Edad')
                         ->readOnly()                // no editable
                         ->dehydrated(false),        // no se envía al backend (la calcula el modelo)
 
-                    TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                    TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                    TextInput::make('third_phone')
-                        ->label('Teléfono 3')
-                        ->tel(),
+
+
+
 
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
