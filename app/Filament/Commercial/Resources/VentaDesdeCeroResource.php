@@ -63,10 +63,10 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('last_names')->label('Apellidos')->required(),
 
                     TextInput::make('dni')
-                    ->columnspan(2)
-                    ->label('DNI')
-                    ->maxLength(10),
-                //->columnSpanFull(),
+                        ->columnspan(2)
+                        ->label('DNI')
+                        ->maxLength(10),
+                    //->columnSpanFull(),
 
                     DatePicker::make('fecha_nac')
                         ->label('Fec. nac.')
@@ -84,14 +84,14 @@ class VentaDesdeCeroResource extends Resource
 
 
 
-TextInput::make('phone')
-    ->label('Teléfono Principal')
-    ->required()
-    ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
-    ->extraInputAttributes([
-        'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
-        'x-data' => '',
-        'x-on:input' => "
+                    TextInput::make('phone')
+                        ->label('Teléfono Principal')
+                        ->required()
+                        ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                        ->extraInputAttributes([
+                            'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                            'x-data' => '',
+                            'x-on:input' => "
             \$nextTick(() => {
                 // Extraer solo dígitos y limitar a 9
                 let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
@@ -102,11 +102,11 @@ TextInput::make('phone')
                 \$el.value = formatted;
             })
         ",
-    ])
-    ->dehydrateStateUsing(function (?string $state): ?string {
-        // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
-        return $state ? preg_replace('/\D/', '', $state) : null;
-    }),
+                        ])
+                        ->dehydrateStateUsing(function (?string $state): ?string {
+                            // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
+                            return $state ? preg_replace('/\D/', '', $state) : null;
+                        }),
 
 
 
@@ -121,13 +121,13 @@ TextInput::make('phone')
 
 
 
-/*
+                    /*
 
-                    TextInput::make('phone')
-                    ->label('Teléfono')
-                    ->tel()
-                    ->required(),
-*/
+                                        TextInput::make('phone')
+                                        ->label('Teléfono')
+                                        ->tel()
+                                        ->required(),
+                    */
 
                     TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
                     TextInput::make('third_phone')
@@ -587,6 +587,7 @@ TextInput::make('phone')
             Section::make('Gestión Documentos')
                 ->schema([
                     self::docCard('precontractual', 'Precontractual', true, true),
+                    self::docCard('foto_sorteo', 'Foto Sorteo', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),

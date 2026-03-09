@@ -485,6 +485,7 @@ TextInput::make('phone')
 
                     //RESTO: CÁMARA
                     self::docCard('precontractual', 'Precontractual', true, true),
+                    self::docCard('foto_sorteo', 'Foto Sorteo', true, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                     self::docCard('documento_titularidad', 'Documento de titularidad', false, true),

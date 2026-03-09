@@ -62,6 +62,8 @@ use App\Enums\OrigenVenta;
  * @property-read \App\Models\Note $note
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\VentaOferta> $ventaOfertas
  * @property-read int|null $venta_ofertas_count
+ * @property string|null $foto_sorteo
+ * @property-read mixed $foto_sorteo_url
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Venta query()
@@ -122,6 +124,7 @@ class Venta extends Model
         'horario_entrega',
         'productos_externos',
         'precontractual',
+        'foto_sorteo',
         'otros_documentos',
         'dni_anverso',
         'dni_reverso',
@@ -217,6 +220,7 @@ class Venta extends Model
         'nomina_url',
         'pension_url',
         'contrato_firmado_url',
+        'foto_sorteo_url',
     ];
 
     protected $attributes = [
@@ -385,6 +389,10 @@ class Venta extends Model
     public function getOtrosDocumentosUrlAttribute()
     {
         return $this->urlFor('otros_documentos');
+    }
+    public function getFotoSorteoUrlAttribute()
+    {
+        return $this->urlFor('foto_sorteo');
     }
 
 
