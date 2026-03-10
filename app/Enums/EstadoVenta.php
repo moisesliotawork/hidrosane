@@ -10,8 +10,8 @@ enum EstadoVenta: string
     case EN_REPARTO = 'en_reparto';
     case NULO_EN_REPARTO = 'nulo_en_reparto';
     case FACTURADO = 'facturado';
-    case FALTAN_DATOS = 'faltan_datos';
-    case NULO_POR_OFICINA = 'nulo_por_oficina';
+    //case FALTAN_DATOS = 'faltan_datos';
+    //case NULO_POR_OFICINA = 'nulo_por_oficina';
     case PENDIENTE_DE_COBRO = 'pendiente_de_cobro';
     case RETROCESO = 'retroceso';
     case NULO_FINANCIERO = 'nulo_financiero';
@@ -30,8 +30,8 @@ enum EstadoVenta: string
             self::EN_REPARTO => 'En reparto',
             self::NULO_EN_REPARTO => 'Nulo en reparto',
             self::FACTURADO => 'Facturado',
-            self::FALTAN_DATOS => 'Faltan datos',
-            self::NULO_POR_OFICINA => 'Nulo por oficina',
+            //self::FALTAN_DATOS => 'Faltan datos',
+            //self::NULO_POR_OFICINA => 'Nulo por oficina',
             self::PENDIENTE_DE_COBRO => 'Pendiente de cobro',
             self::RETROCESO => 'Retroceso',
             self::NULO_FINANCIERO => 'Nulo financiero',
@@ -49,8 +49,8 @@ enum EstadoVenta: string
             self::EN_REPARTO => 'success',         // Verde
             self::NULO_EN_REPARTO => 'orange',     // Naranja
             self::FACTURADO => 'gray',             // Gris
-            self::FALTAN_DATOS => 'yellow',        // Amarillo
-            self::NULO_POR_OFICINA => 'pink',      // Rosa
+            //self::FALTAN_DATOS => 'yellow',        // Amarillo
+            //self::NULO_POR_OFICINA => 'pink',      // Rosa
             self::PENDIENTE_DE_COBRO => 'warning', // Ámbar
             self::RETROCESO => 'orange',           // Naranja
             self::NULO_FINANCIERO => 'teal',       // Verde azulado
