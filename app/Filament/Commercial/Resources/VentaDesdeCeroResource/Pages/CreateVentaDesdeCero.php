@@ -161,8 +161,10 @@ class CreateVentaDesdeCero extends CreateRecord
                 'pension' => $data['pension'] ?? null,
                 //'contrato_firmado' => $data['contrato_firmado'] ?? null,
                 'otros_documentos' => $data['otros_documentos'] ?? null,
+                'foto_sorteo' => $data['foto_sorteo'] ?? null,
 
                 'origen_venta' => \App\Enums\OrigenVenta::PUERTA_FRIA,
+
 
             ]);
 
@@ -210,6 +212,30 @@ class CreateVentaDesdeCero extends CreateRecord
         return NotasHoy::getUrl();
     }
 
+// CAMBIAMOS //
+/*
+protected function getFormActions(): array
+{
+    return [
+        $this->getCreateFormAction()
+            ->label('Crear Venta')
+            ->action(function () {
+                // Revisamos manualmente si el campo está en el estado de la página
+                if (blank($this->data['foto_sorteo'] ?? null)) {
+                    $this->addError('data.foto_sorteo', 'Debes subir la foto del sorteo.');
+                    return;
+                }
+
+                $this->create();
+            }),
+        $this->getCancelFormAction()->label('Cancelar')->url(NotasHoy::getUrl()),
+    ];
+}
+*/
+
+
+
+
     protected function getFormActions(): array
     {
         return [
@@ -217,4 +243,13 @@ class CreateVentaDesdeCero extends CreateRecord
             $this->getCancelFormAction()->label('Cancelar')->url(NotasHoy::getUrl()),
         ];
     }
+
+
+
+
+
+
+
+
+
 }
