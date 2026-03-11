@@ -20,3 +20,6 @@ class AppSetting extends Model
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
     }
 }
+
+
+

@@ -86,8 +86,8 @@ class VentaResource extends Resource
                                         ->maxDate(now())              // no permitir fechas futuras
                                         ->reactive()
                                         ->afterStateHydrated(function ($state, Set $set) {
-                                            $set('age', $state ? Carbon::parse($state)->age : null);
-                                        })
+                                            $set('age', $state ?
+                                                Carbon::parse($state)->age : null);})
                                         ->afterStateUpdated(function ($state, Set $set) {
                                             $set('age', $state ? Carbon::parse($state)->age : null);
                                         }),
@@ -96,7 +96,7 @@ class VentaResource extends Resource
                                         ->numeric()
                                         ->label('Edad')
                                         ->readOnly()                  // no editable
-                                        ->dehydrated(false),          // NO enviar al backend; el modelo la calcula
+                                        ->dehydrated(false),  // NO enviar al backend; el modelo la calcula
 
 
                                     // ➋ Contacto
@@ -265,7 +265,7 @@ class VentaResource extends Resource
                                 $precios = Oferta::query()
                                     ->whereIn('id', $ids)
                                     ->pluck('precio_base', 'id');   // [id => precio_base]
-                    
+
                                 // 3. Calculamos el total
                                 $total = collect($get('ventaOfertas') ?? [])
                                     ->sum(fn($o) => (float) ($precios[$o['oferta_id']] ?? 0));
@@ -423,7 +423,7 @@ class VentaResource extends Resource
                                                         )
                                                         ->afterStateUpdated(function (Get $get, Set $set, $state): void {
 
-                                                            // ── Traemos lo justo 
+                                                            // ── Traemos lo justo
                                                             $nombre = Producto::query()
                                                                 ->whereKey($get('producto_id'))
                                                                 ->value('nombre');
@@ -438,10 +438,10 @@ class VentaResource extends Resource
 
                                                             $set('cantidad', $cantidad);
 
-                                                            // ── Puntos de la línea 
+                                                            // ── Puntos de la línea
                                                             $set('puntos_linea', $cantidad * $puntosUnidad);
 
-                                                            // ── Total de puntos de la oferta 
+                                                            // ── Total de puntos de la oferta
                                                             $total = collect($get('../../productos') ?? [])
                                                                 ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
 
@@ -498,7 +498,7 @@ class VentaResource extends Resource
                         $lineas = collect($get('ventaOfertas') ?? [])
                             ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
                             ->values();   // renumeramos para que el índice sea 0-n
-            
+
                         // b) Todos los IDs presentes
                         $ids = $lineas->pluck('producto_id')->filter()->all();
 
@@ -506,7 +506,7 @@ class VentaResource extends Resource
                         $nombres = Producto::query()
                             ->whereIn('id', $ids)
                             ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
-            
+
                         // d) Filtramos solo los que son “Producto Externo”
                         $externas = $lineas->filter(
                             fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'
