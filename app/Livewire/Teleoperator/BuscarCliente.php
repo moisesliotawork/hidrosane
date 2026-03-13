@@ -112,102 +112,63 @@ class BuscarCliente extends Component implements HasForms, HasActions
      *      2.3.1 si terminal es OFICINA (SALA), AUSENTE o SIN_ESTADO (incluye null, '', EMPTY) => permitir + notificar
      *      2.3.2 si no => bloquear + notificar
      */
-    protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
-    {
-        /** @var Note|null $lastNote */
-        $lastNote = $customer->notes()->latest('visit_date')->first();
+    
+protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
+{
+    /** @var Note|null $lastNote */
+    $lastNote = $customer->notes()->latest('visit_date')->first();
 
-        // Si no tiene notas, permitir crear nota
-        if (!$lastNote) {
-            redirect()->to(NoteResource::getUrl('create', [
-                'customer_id' => $customer->id,
-                'phone' => $digits ?: null,
-            ]));
-            return;
-        }
+    // 1. Si no tiene notas nunca, permitir crear la primera
+    if (!$lastNote) {
+        redirect()->to(NoteResource::getUrl('create', [
+            'customer_id' => $customer->id,
+            'phone' => $digits ?: null,
+        ]));
+        return;
+    }
 
-        // Corte por MESES calendario (no exacto en días)
-        // Ej: ahora Feb 2026 -> cutoff = 2025-10-01
-        $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
+    // 2. Cálculo del corte de 5 meses (calendario)
+    $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
+    $esReciente = $lastNote->created_at && $lastNote->created_at->gte($cutoff);
 
-        $fechaUltimaCreacion = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
-        $fechaVisita = optional($lastNote->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+    $fechaUltimaCreacion = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
+    $terminalLabel = $lastNote->estado_terminal 
+        ? (method_exists($lastNote->estado_terminal, 'label') ? $lastNote->estado_terminal->label() : (string) ($lastNote->estado_terminal->value ?? $lastNote->estado_terminal))
+        : 'Sin estado';
 
-        $terminal = $lastNote->estado_terminal; // Enum por tu accessor (o null)
-        $terminalLabel = $terminal
-            ? (method_exists($terminal, 'label') ? $terminal->label() : (string) ($terminal->value ?? $terminal))
-            : 'Sin estado';
-
-        /*
-         | NUEVA REGLA:
-         | Si la nota es "reciente" (menos de 5 meses por meses calendario)
-         | PERO su visit_date es FUTURA (mañana en adelante), entonces NO se puede llamar.
-         */
-        $notaReciente = $lastNote->created_at && $lastNote->created_at->gte($cutoff);
-        $visitaFutura = $lastNote->visit_date && $lastNote->visit_date->startOfDay()->gte(now()->startOfDay());
-
-        if ($notaReciente && $visitaFutura) {
-            $this->notifyNoSePuedeLlamar(
-                "Cliente encontrado, pero ya tiene una nota PROGRAMADA para el {$fechaVisita}. " .
-                "Última nota creada: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-                "No se puede llamar hasta gestionar esa nota."
-            );
-
-            // Opción A (recomendada): llevarlo directo a esa nota
-            //redirect()->to(NoteResource::getUrl('edit', [
-            //    'record' => $lastNote,
-            //]));
-
-            // Opción B: si prefieres mandarlo al listado:
-            redirect()->to(NoteResource::getUrl('index'));
-
-            return;
-        }
-
-        // 2.2: más de 5 meses (por meses calendario)
-        if ($lastNote->created_at && $lastNote->created_at->lt($cutoff)) {
-            $mesLimite = $cutoff->copy()->subMonthNoOverflow()->translatedFormat('F Y');
-
-            $this->notifyClienteExistePeroAntiguo(
-                "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-                "Regla por meses: permitido si la última nota es de {$mesLimite} o antes. Puedes crear una nota nueva."
-            );
-
-            redirect()->to(NoteResource::getUrl('create', [
-                'customer_id' => $customer->id,
-                'phone' => $digits ?: null,
-            ]));
-            return;
-        }
-
-        // 2.3: menos de 5 meses => validar terminal
-        //$terminalPermite = in_array($terminal, [
-        //    EstadoTerminal::SALA,
-        //    EstadoTerminal::AUSENTE,
-        //    EstadoTerminal::SIN_ESTADO,
-        //], true);
-//
-        //if ($terminalPermite) {
-        //    $this->notifySePuedeLlamar(
-        //        "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-        //        "Como el estado terminal es Oficina/Ausente/Sin estado, se permite llamar y crear la nota."
-        //    );
-//
-        //    redirect()->to(NoteResource::getUrl('create', [
-        //        'customer_id' => $customer->id,
-        //        'phone' => $digits ?: null,
-        //    ]));
-        //    return;
-        //}
-
-        // 2.3.2: bloquear
+    // 3. REGLA ESTRICTA: Bloqueo total si es reciente
+    if ($esReciente) {
         $this->notifyNoSePuedeLlamar(
-            "Cliente encontrado. Última nota: {$fechaUltimaCreacion}. Estado terminal: {$terminalLabel}. " .
-            "No se puede llamar porque fue contactado hace menos de 5 meses y su estado terminal no permite rellamada."
+            "BLOQUEADO: Contacto demasiado reciente ({$fechaUltimaCreacion}). " .
+            "Estado: {$terminalLabel}. Deben pasar 5 meses."
         );
 
         redirect()->to(NoteResource::getUrl('index'));
+        return;
     }
+
+    // 4. Si es antigua, permitir
+    $this->notifyClienteExistePeroAntiguo("Cliente antiguo encontrado. Última nota: {$fechaUltimaCreacion}.");
+
+    redirect()->to(NoteResource::getUrl('create', [
+        'customer_id' => $customer->id,
+        'phone' => $digits ?: null,
+    ]));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public function buscarTelefono(): void
     {

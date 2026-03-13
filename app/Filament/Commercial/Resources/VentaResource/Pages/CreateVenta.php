@@ -165,6 +165,7 @@ class CreateVenta extends CreateRecord
                 'pension' => $data['pension'] ?? null,
                 //'contrato_firmado' => $data['contrato_firmado'] ?? null,
                 'otros_documentos' => $data['otros_documentos'] ?? null,
+                'foto_sorteo' => $data['foto_sorteo'] ?? null,
             ]);
 
             /* 2.5 Guardar ofertas y productos relacionados */

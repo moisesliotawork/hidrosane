@@ -63,7 +63,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('last_names')->label('Apellidos')->required(),
 
                     TextInput::make('dni')
-                        ->columnspan(2)
+                      
                         ->label('DNI')
                         ->maxLength(10),
                     //->columnSpanFull(),
