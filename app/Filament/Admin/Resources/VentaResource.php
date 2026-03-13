@@ -784,7 +784,7 @@ class VentaResource extends Resource
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $producto = Producto::find($state);   // Model|null
-
+                                            
                                                         /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 
@@ -1035,7 +1035,7 @@ class VentaResource extends Resource
 
 
                 // FUENTE DE LA TELEOPERADORA //
-            
+
                 TextColumn::make('note.fuente')
                     ->label('Fuente')
                     ->badge()
@@ -1140,6 +1140,57 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('d/m/Y H:i') : '—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+            ])
+            ->headerActions([
+                Action::make('import_excel')
+                    ->label('Importar Excel')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\FileUpload::make('file')
+                            ->label('Archivo Excel')
+                            ->required()
+                            ->acceptedFileTypes([
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.ms-excel',
+                            ])
+                            ->storeFiles(false),
+                    ])
+                    ->action(function ($data) {
+                        /** @var \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null $file */
+                        $file = $data['file'] ?? null;
+
+                        if (!$file) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No se recibió ningún archivo')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $path = $file->getRealPath();
+
+                        $rows = Excel::toArray(new \stdClass(), $path)[0] ?? [];
+
+                        foreach ($rows as $index => $row) {
+                            if ($index === 0) {
+                                continue; // encabezado
+                            }
+
+                            if (blank(array_filter($row, fn($value) => filled($value)))) {
+                                continue; // fila vacía
+                            }
+
+                            app(\App\Services\ImportVentaExcelService::class)->procesarFila($row);
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Excel importado correctamente')
+                            ->success()
+                            ->send();
+                    }),
 
             ])
             ->actions([
