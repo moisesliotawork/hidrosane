@@ -399,37 +399,34 @@ class NotasDeComercial extends Component
     }
 
     /** TODAS (excepto hoy) */
-    public function getNotesAllProperty()
+   public function getNotesAllProperty()
     {
-        $query = Note::with(['customer', 'comercial'])
-            ->whereDate('assignment_date', '<>', today())
-            ->where(function ($q) {
-                $q->whereNull('estado_terminal')
-                    ->orWhere('estado_terminal', '')
-                    ->orWhere('estado_terminal', 'ausente');
-            })
-            ->whereDoesntHave('venta')
-            ->where('assignment_date', '>=', now()->subDays(5)->startOfDay());
+        // 1. Iniciamos la consulta
+        $query = Note::query()->with(['customer', 'comercial']);
 
+        // 2. Filtros de fecha (Líneas independientes para evitar errores de paréntesis)
+        $query->whereDate('assignment_date', '<>', today());
+        $query->whereDate('assignment_date', '<', today());
+        $query->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay());
+        $query->where(function ($subquery) {
+        $subquery->whereNull('estado_terminal')->orWhere('estado_terminal', '')->orWhere('estado_terminal', 'ausente');
+        });
+
+        // 4. Filtro de venta
+        $query->whereDoesntHave('venta');
+
+        // 5. Filtro de Retén o Comercial
         if ($this->esReten) {
-            // 🔴 RETEN: todas las notas reten = true (con los mismos filtros de arriba)
             $query->where('reten', true);
         } else {
-            // 🧑‍💼 Comercial normal: mismas querys de antes + reten = false
-            $query->where('comercial_id', $this->comercialId)
-                ->where('reten', false);
-            // o versión con null permitido igual que antes:
-            // ->where(function ($q) {
-            //     $q->whereNull('reten')->orWhere('reten', false);
-            // });
+            $query->where('comercial_id', $this->comercialId);
+            $query->where('reten', false);
         }
 
-        return $query
-            ->latest('assignment_date')
+        return $query->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
-    }
-
+            }
     private function mapNote(Note $note): array
     {
         $customer = $note->customer;
@@ -510,7 +507,7 @@ class NotasDeComercial extends Component
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
-            'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),
+            'visit_date' => \Carbon\Carbon::parse($note->assignment_date)->format('d/m/Y'),
             'visit_schedule' => $note->visit_schedule ?? '--:--',
             'observations' => $note->observations,
             'fuente' => $note->fuente->value,
