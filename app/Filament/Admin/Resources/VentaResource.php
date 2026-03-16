@@ -45,6 +45,7 @@ use Filament\Tables\Actions\Action;
 use App\Exports\VentaDirectExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Filament\Tables\Columns\IconColumn;
+use Illuminate\Support\Facades\Storage;
 
 class VentaResource extends Resource
 {
@@ -1170,9 +1171,25 @@ class VentaResource extends Resource
                             return;
                         }
 
-                        $path = $file->getRealPath();
+                        $disk = 'public';
+                        $folder = 'ventas_excel';
 
-                        $rows = Excel::toArray(new \stdClass(), $path)[0] ?? [];
+                        // Crear carpeta si no existe
+                        if (!Storage::disk($disk)->exists($folder)) {
+                            Storage::disk($disk)->makeDirectory($folder);
+                        }
+
+                        // Nombre único del archivo
+                        $extension = $file->getClientOriginalExtension() ?: 'xlsx';
+                        $fileName = 'ventas_import_' . now()->format('Ymd_His') . '_' . Str::random(6) . '.' . $extension;
+
+                        // Guardar archivo en storage/app/public/ventas_excel
+                        $storedPath = $file->storeAs($folder, $fileName, $disk);
+
+                        // Ruta física completa para leerlo con maatwebsite/excel
+                        $absolutePath = Storage::disk($disk)->path($storedPath);
+
+                        $rows = Excel::toArray(new \stdClass(), $absolutePath)[0] ?? [];
 
                         foreach ($rows as $index => $row) {
                             if ($index === 0) {
@@ -1183,11 +1200,16 @@ class VentaResource extends Resource
                                 continue; // fila vacía
                             }
 
-                            app(\App\Services\ImportVentaExcelService::class)->procesarFila($row);
+                            app(\App\Services\ImportVentaExcelService::class)->procesarFila(
+                                row: $row,
+                                origenVenta: OrigenVenta::EXCEL,
+                                archivoImportado: $storedPath,
+                            );
                         }
 
                         \Filament\Notifications\Notification::make()
                             ->title('Excel importado correctamente')
+                            ->body("Archivo guardado en: {$storedPath}")
                             ->success()
                             ->send();
                     }),

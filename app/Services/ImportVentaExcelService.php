@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\EstadoTerminal;
 use App\Enums\FuenteNotas;
+use App\Enums\OrigenVenta;
 use App\Models\Customer;
 use App\Models\Note;
 use App\Models\User;
@@ -14,12 +15,16 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class ImportVentaExcelService
 {
-    public function procesarFila(array $row): void
-    {
+    public function procesarFila(
+        array $row,
+        OrigenVenta $origenVenta = OrigenVenta::VENTA_NORMAL,
+        ?string $archivoImportado = null
+    ): void {
+
         $fechaVenta = $this->parseFechaExcel($row[0] ?? null);
 
         // Saltar fila si la fecha no se pudo interpretar
-        if (! $fechaVenta) {
+        if (!$fechaVenta) {
             return;
         }
 
@@ -31,7 +36,8 @@ class ImportVentaExcelService
             return;
         }
 
-        DB::transaction(function () use ($row, $fechaVenta, $telefonos) {
+        DB::transaction(function () use ($row, $fechaVenta, $telefonos, $origenVenta, $archivoImportado) {
+
             $nombre = trim((string) ($row[3] ?? ''));
             $apellidos = trim((string) ($row[4] ?? ''));
             $dni = trim((string) ($row[8] ?? ''));
@@ -57,7 +63,7 @@ class ImportVentaExcelService
                 $customer = Customer::where('dni', $dni)->first();
             }
 
-            if (! $customer) {
+            if (!$customer) {
                 $customer = Customer::where(function ($q) use ($telefonos) {
                     foreach ($telefonos as $tel) {
                         $q->orWhere('phone', $tel)
@@ -72,7 +78,7 @@ class ImportVentaExcelService
             | 2) Crear cliente si no existe
             |--------------------------------------------------------------------------
             */
-            if (! $customer) {
+            if (!$customer) {
                 $customer = Customer::create([
                     'first_names' => $nombre !== '' ? $nombre : 'Nombre',
                     'last_names' => $apellidos !== '' ? $apellidos : 'Apellidos',
@@ -122,7 +128,7 @@ class ImportVentaExcelService
                 'show_phone' => true,
                 'de_camino' => false,
                 'estado_terminal' => EstadoTerminal::VENTA,
-                'fuente' => FuenteNotas::PTA_FRIA,
+                'fuente' => FuenteNotas::EXCEL,
                 'created_at' => $fechaVenta,
                 'updated_at' => $fechaVenta,
             ]);
@@ -144,7 +150,12 @@ class ImportVentaExcelService
                 'financieras_reparto' => $financieras,
                 'pasadas_financieras' => $pasadas,
                 'estado_venta' => 'en_revision',
-                'origen_venta' => 'venta_normal',
+
+                // 🔹 NUEVO
+                'origen_venta' => $origenVenta->value,
+
+                // 🔹 opcional si agregas columna
+                // 'archivo_importacion' => $archivoImportado,
             ]);
         });
     }
@@ -158,8 +169,8 @@ class ImportVentaExcelService
         $tels = preg_split('/[\/,;|-]/', (string) $raw);
 
         return collect($tels)
-            ->map(fn ($t) => preg_replace('/\D+/', '', (string) $t))
-            ->filter(fn ($t) => $t !== '')
+            ->map(fn($t) => preg_replace('/\D+/', '', (string) $t))
+            ->filter(fn($t) => $t !== '')
             ->unique()
             ->values()
             ->toArray();
@@ -172,24 +183,23 @@ class ImportVentaExcelService
         }
 
         try {
-            // Si Excel la entrega como serial numérico
+
             if (is_numeric($value)) {
                 return Carbon::instance(ExcelDate::excelToDateTimeObject($value));
             }
 
             $value = trim((string) $value);
 
-            // dd/mm/yyyy
             if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
                 return Carbon::createFromFormat('d/m/Y', $value);
             }
 
-            // d/m/yyyy
             if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', $value)) {
                 return Carbon::createFromFormat('j/n/Y', $value);
             }
 
             return null;
+
         } catch (\Throwable $e) {
             return null;
         }
@@ -204,7 +214,7 @@ class ImportVentaExcelService
         $value = (string) $value;
         $value = str_replace(['€', 'EUR', ' '], '', $value);
         $value = str_replace(',', '.', $value);
-        $value = preg_replace('/[^\d.\\-]/', '', $value);
+        $value = preg_replace('/[^\d.\-]/', '', $value);
 
         return is_numeric($value) ? (float) $value : 0;
     }
