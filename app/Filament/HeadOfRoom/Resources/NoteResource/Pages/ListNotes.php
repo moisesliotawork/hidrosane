@@ -103,37 +103,61 @@ class ListNotes extends ListRecords
             'sala' => Tab::make('Oficina')
                 ->icon('heroicon-o-building-office')
                 ->badge(
-                    $baseScope(Note::query())
-                        ->where('estado_terminal', EstadoTerminal::SALA)
+                    Note::query()
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                         ->count()
                 )
                 ->badgeColor('pink')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $baseScope($query)->where('estado_terminal', EstadoTerminal::SALA)
+                    fn(Builder $query) => $query->where('estado_terminal', EstadoTerminal::SALA->value)
                 ),
 
-            'todas' => Tab::make('Todas')
-                ->icon('heroicon-o-list-bullet')
-                ->badge($baseScope(Note::query())->count())
-                ->badgeColor('gray')
-                ->modifyQueryUsing(fn(Builder $query) => $baseScope($query)),
+            'no_impresas' => Tab::make('NO IMPRESAS')
+                ->icon('heroicon-o-document-text')
+                ->badge(
+                    Note::query()
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where('printed', false)
+                        ->count()
+                )
+                ->badgeColor('warning')
+                ->modifyQueryUsing(
+                    fn(Builder $query) => $query
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where('printed', false)
+                ),
 
-            'se' => Tab::make('S/E')
+            'impresas' => Tab::make('IMPRESAS')
+                ->icon('heroicon-o-printer')
+                ->badge(
+                    Note::query()
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where('printed', true)
+                        ->count()
+                )
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn(Builder $query) => $query
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where('printed', true)
+                ),
+
+            'se' => Tab::make('No Asignadas')
                 ->icon('heroicon-o-question-mark-circle')
                 ->badge(
-                    $baseScope(Note::query())
+                    Note::query()
                         ->where(function (Builder $q) {
                             $q->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO);
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
                         })
                         ->count()
                 )
                 ->badgeColor('gray')
                 ->modifyQueryUsing(
                     fn(Builder $query) =>
-                    $baseScope($query)->where(function (Builder $q) {
+                    $query->where(function (Builder $q) {
                         $q->whereNull('estado_terminal')
-                            ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO);
+                            ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
                     })
                 ),
         ];
@@ -141,6 +165,6 @@ class ListNotes extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'todas';
+        return 'sala';
     }
 }

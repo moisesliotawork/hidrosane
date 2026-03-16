@@ -648,10 +648,6 @@ class NoteResource extends Resource
 
             ])
             ->actions([
-
-
-
-
                 Tables\Actions\EditAction::make()
                     ->label(''),
                 Tables\Actions\DeleteAction::make()
