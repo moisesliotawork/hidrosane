@@ -91,14 +91,6 @@ class ListNotes extends ListRecords
 
     public function getTabs(): array
     {
-        $baseScope = fn(Builder $q) => $q->where(function (Builder $qq) {
-            $qq->whereNull('estado_terminal')
-                ->orWhereIn('estado_terminal', [
-                    EstadoTerminal::SIN_ESTADO->value,
-                    EstadoTerminal::SALA->value,
-                ]);
-        });
-
         return [
             'sala' => Tab::make('Oficina')
                 ->icon('heroicon-o-building-office')
@@ -142,21 +134,34 @@ class ListNotes extends ListRecords
                         ->where('printed', true)
                 ),
 
-            'se' => Tab::make('No Asignadas')
+            'no_asignadas' => Tab::make('No Asignadas')
+                ->icon('heroicon-o-user-minus')
+                ->badge(
+                    Note::query()
+                        ->whereNull('comercial_id')
+                        ->count()
+                )
+                ->badgeColor('gray')
+                ->modifyQueryUsing(
+                    fn(Builder $query) => $query->whereNull('comercial_id')
+                ),
+
+            'se' => Tab::make('SE')
                 ->icon('heroicon-o-question-mark-circle')
                 ->badge(
                     Note::query()
                         ->where(function (Builder $q) {
                             $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
                                 ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
                         })
                         ->count()
                 )
-                ->badgeColor('gray')
+                ->badgeColor('info')
                 ->modifyQueryUsing(
-                    fn(Builder $query) =>
-                    $query->where(function (Builder $q) {
+                    fn(Builder $query) => $query->where(function (Builder $q) {
                         $q->whereNull('estado_terminal')
+                            ->orWhere('estado_terminal', '')
                             ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
                     })
                 ),
