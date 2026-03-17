@@ -13,12 +13,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 
-
 class ListNotes extends ListRecords
 {
     protected static string $resource = NoteResource::class;
-
-
 
     protected function getHeaderActions(): array
     {
@@ -36,7 +33,7 @@ class ListNotes extends ListRecords
                 ->action(function () {
                     // 1) IDs de notas en SALA y NO impresas
                     $ids = Note::query()
-                        ->where('estado_terminal', EstadoTerminal::SALA->value) // columna string
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                         ->where('printed', false)
                         ->pluck('id')
                         ->all();
@@ -84,8 +81,6 @@ class ListNotes extends ListRecords
                         'notas-oficina-' . now()->format('Ymd-His') . '.pdf'
                     );
                 }),
-
-
         ];
     }
 
@@ -108,14 +103,24 @@ class ListNotes extends ListRecords
                 ->icon('heroicon-o-document-text')
                 ->badge(
                     Note::query()
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->where('printed', false)
                         ->count()
                 )
                 ->badgeColor('warning')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->where('printed', false)
                 ),
 
@@ -123,14 +128,24 @@ class ListNotes extends ListRecords
                 ->icon('heroicon-o-printer')
                 ->badge(
                     Note::query()
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->where('printed', true)
                         ->count()
                 )
                 ->badgeColor('success')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->where('printed', true)
                 ),
 
@@ -139,14 +154,14 @@ class ListNotes extends ListRecords
                 ->badge(
                     Note::query()
                         ->whereNull('comercial_id')
-                        ->where('printed', false) // ✅ SOLO NO IMPRESAS
+                        ->where('printed', false)
                         ->count()
                 )
                 ->badgeColor('gray')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
                         ->whereNull('comercial_id')
-                        ->where('printed', false) // ✅ FILTRO REAL
+                        ->where('printed', false)
                 ),
 
             'se' => Tab::make('SE')
