@@ -139,11 +139,14 @@ class ListNotes extends ListRecords
                 ->badge(
                     Note::query()
                         ->whereNull('comercial_id')
+                        ->where('printed', false) // ✅ SOLO NO IMPRESAS
                         ->count()
                 )
                 ->badgeColor('gray')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->whereNull('comercial_id')
+                    fn(Builder $query) => $query
+                        ->whereNull('comercial_id')
+                        ->where('printed', false) // ✅ FILTRO REAL
                 ),
 
             'se' => Tab::make('SE')
