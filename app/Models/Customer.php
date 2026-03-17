@@ -19,6 +19,8 @@ class Customer extends Model
         'phone',
         'secondary_phone',
         'third_phone',
+        'phone1_commercial',
+        'phone2_commercial',
         'email',
         'nro_piso',
         'postal_code_id',
@@ -84,16 +86,16 @@ class Customer extends Model
 
     /** Retorna nro_cliente_admin de la primera venta o "-" */
 
-/** Relación: un cliente puede tener muchas notas */
-public function notes(): HasMany
-{
-    return $this->hasMany(Note::class, 'customer_id');
-}
+    /** Relación: un cliente puede tener muchas notas */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(Note::class, 'customer_id');
+    }
 
 
 
 
-    
+
     public function firstVentaClienteAdmin(): string
     {
         return $this->ventas()
@@ -175,6 +177,24 @@ public function notes(): HasMany
     }
 
     protected function thirdPhone(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => ($value === null || $value === '')
+            ? null
+            : preg_replace('/\D+/', '', (string) $value),
+        );
+    }
+
+    protected function phone1Commercial(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => ($value === null || $value === '')
+            ? null
+            : preg_replace('/\D+/', '', (string) $value),
+        );
+    }
+
+    protected function phone2Commercial(): Attribute
     {
         return Attribute::make(
             set: fn($value) => ($value === null || $value === '')

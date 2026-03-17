@@ -152,8 +152,23 @@
         })($venta->customer->tipo_vivienda ?? null)
         : '';
 
-    $telefonos = collect([$venta->customer->phone ?? null, $venta->customer->secondary_phone ?? null])
-        ->filter()->implode(' / ');
+    $phone1Commercial = $venta->customer->phone1_commercial ?? null;
+    $phone2Commercial = $venta->customer->phone2_commercial ?? null;
+    $thirdPhone = $venta->customer->third_phone ?? null;
+
+    $hasCommercialPhones = filled($phone1Commercial) || filled($phone2Commercial);
+
+    $telefonos = $hasCommercialPhones
+        ? collect([$phone1Commercial, $phone2Commercial, $thirdPhone])
+            ->filter()
+            ->implode(' / ')
+        : collect([
+            $venta->customer->phone ?? null,
+            $venta->customer->secondary_phone ?? null,
+            $thirdPhone,
+        ])
+            ->filter()
+            ->implode(' / ');
 
     $mostrarIngresos = (bool) ($venta->mostrar_ingresos ?? true);
     $ingresos = $mostrarIngresos ? mb_strtoupper($venta->customer->ingresos_rango ?? '', 'UTF-8') : '';

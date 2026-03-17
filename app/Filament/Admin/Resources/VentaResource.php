@@ -290,6 +290,26 @@ class VentaResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
+                        TextInput::make('phone1_commercial')
+                            ->tel()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono comercial 1')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
+
+                        TextInput::make('phone2_commercial')
+                            ->tel()
+                            ->maxLength(11)
+                            ->minLength(11)
+                            ->mask('999 999 999')
+                            ->label('Teléfono comercial 2')
+                            ->validationMessages([
+                                'min' => 'Debe tener exactamente 9 cifras',
+                            ]),
+
                         TextInput::make('email')->label('Email')
                             ->email(),
                         //->columnSpanFull(),

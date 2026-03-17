@@ -87,7 +87,8 @@ class VentaResource extends Resource
                                         ->reactive()
                                         ->afterStateHydrated(function ($state, Set $set) {
                                             $set('age', $state ?
-                                                Carbon::parse($state)->age : null);})
+                                                Carbon::parse($state)->age : null);
+                                        })
                                         ->afterStateUpdated(function ($state, Set $set) {
                                             $set('age', $state ? Carbon::parse($state)->age : null);
                                         }),
@@ -108,6 +109,14 @@ class VentaResource extends Resource
                                     //TextInput::make('secondary_phone')
                                     //    ->label('Teléfono 2')
                                     //    ->tel(),
+
+                                    TextInput::make('phone1_commercial')
+                                        ->label('Teléfono comercial 1')
+                                        ->tel(),
+
+                                    TextInput::make('phone2_commercial')
+                                        ->label('Teléfono comercial 2')
+                                        ->tel(),
 
                                     TextInput::make('third_phone')
                                         ->label('Teléfono 3')
@@ -265,7 +274,7 @@ class VentaResource extends Resource
                                 $precios = Oferta::query()
                                     ->whereIn('id', $ids)
                                     ->pluck('precio_base', 'id');   // [id => precio_base]
-
+                    
                                 // 3. Calculamos el total
                                 $total = collect($get('ventaOfertas') ?? [])
                                     ->sum(fn($o) => (float) ($precios[$o['oferta_id']] ?? 0));
@@ -498,7 +507,7 @@ class VentaResource extends Resource
                         $lineas = collect($get('ventaOfertas') ?? [])
                             ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
                             ->values();   // renumeramos para que el índice sea 0-n
-
+            
                         // b) Todos los IDs presentes
                         $ids = $lineas->pluck('producto_id')->filter()->all();
 
@@ -506,7 +515,7 @@ class VentaResource extends Resource
                         $nombres = Producto::query()
                             ->whereIn('id', $ids)
                             ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
-
+            
                         // d) Filtramos solo los que son “Producto Externo”
                         $externas = $lineas->filter(
                             fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'

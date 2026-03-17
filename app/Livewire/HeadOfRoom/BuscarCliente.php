@@ -112,49 +112,49 @@ class BuscarCliente extends Component implements HasForms, HasActions
      *      2.3.1 si terminal es OFICINA (SALA), AUSENTE o SIN_ESTADO (incluye null, '', EMPTY) => permitir + notificar
      *      2.3.2 si no => bloquear + notificar
      */
-    
-protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
-{
-    /** @var Note|null $lastNote */
-    $lastNote = $customer->notes()->latest('visit_date')->first();
 
-    // 1. Si no tiene notas nunca, permitir crear la primera
-    if (!$lastNote) {
+    protected function handleCustomerFound(Customer $customer, ?string $digits = null): void
+    {
+        /** @var Note|null $lastNote */
+        $lastNote = $customer->notes()->latest('visit_date')->first();
+
+        // 1. Si no tiene notas nunca, permitir crear la primera
+        if (!$lastNote) {
+            redirect()->to(NoteResource::getUrl('create', [
+                'customer_id' => $customer->id,
+                'phone' => $digits ?: null,
+            ]));
+            return;
+        }
+
+        // 2. Cálculo del corte de 5 meses (calendario)
+        $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
+        $esReciente = $lastNote->created_at && $lastNote->created_at->gte($cutoff);
+
+        $fechaUltimaCreacion = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
+        $terminalLabel = $lastNote->estado_terminal
+            ? (method_exists($lastNote->estado_terminal, 'label') ? $lastNote->estado_terminal->label() : (string) ($lastNote->estado_terminal->value ?? $lastNote->estado_terminal))
+            : 'Sin estado';
+
+        // 3. REGLA ESTRICTA: Bloqueo total si es reciente
+        if ($esReciente) {
+            $this->notifyNoSePuedeLlamar(
+                "BLOQUEADO: Contacto demasiado reciente ({$fechaUltimaCreacion}). " .
+                "Estado: {$terminalLabel}. Deben pasar 5 meses."
+            );
+
+            redirect()->to(NoteResource::getUrl('index'));
+            return;
+        }
+
+        // 4. Si es antigua, permitir
+        $this->notifyClienteExistePeroAntiguo("Cliente antiguo encontrado. Última nota: {$fechaUltimaCreacion}.");
+
         redirect()->to(NoteResource::getUrl('create', [
             'customer_id' => $customer->id,
             'phone' => $digits ?: null,
         ]));
-        return;
     }
-
-    // 2. Cálculo del corte de 5 meses (calendario)
-    $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
-    $esReciente = $lastNote->created_at && $lastNote->created_at->gte($cutoff);
-
-    $fechaUltimaCreacion = optional($lastNote->created_at)->format('d/m/Y') ?? 'Sin fecha';
-    $terminalLabel = $lastNote->estado_terminal 
-        ? (method_exists($lastNote->estado_terminal, 'label') ? $lastNote->estado_terminal->label() : (string) ($lastNote->estado_terminal->value ?? $lastNote->estado_terminal))
-        : 'Sin estado';
-
-    // 3. REGLA ESTRICTA: Bloqueo total si es reciente
-    if ($esReciente) {
-        $this->notifyNoSePuedeLlamar(
-            "BLOQUEADO: Contacto demasiado reciente ({$fechaUltimaCreacion}). " .
-            "Estado: {$terminalLabel}. Deben pasar 5 meses."
-        );
-
-        redirect()->to(NoteResource::getUrl('index'));
-        return;
-    }
-
-    // 4. Si es antigua, permitir
-    $this->notifyClienteExistePeroAntiguo("Cliente antiguo encontrado. Última nota: {$fechaUltimaCreacion}.");
-
-    redirect()->to(NoteResource::getUrl('create', [
-        'customer_id' => $customer->id,
-        'phone' => $digits ?: null,
-    ]));
-}
 
 
 
@@ -172,6 +172,8 @@ protected function handleCustomerFound(Customer $customer, ?string $digits = nul
             ->where('phone', $digits)
             ->orWhere('secondary_phone', $digits)
             ->orWhere('third_phone', $digits)
+            ->orWhere('phone1_commercial', $digits)
+            ->orWhere('phone2_commercial', $digits)
             ->first();
 
         // Caso 2: existe cliente
