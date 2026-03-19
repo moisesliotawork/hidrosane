@@ -18,7 +18,7 @@ class TeleoperadorasEstadisticasMensuales extends Page implements HasTable
     use InteractsWithTable;
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
-    protected static ?string $navigationLabel = 'Estadísticas Teleoperadoras';
+    protected static ?string $navigationLabel = 'Estad.TeleOp';
     protected static ?string $slug = 'teleoperadoras-estadisticas-mensuales';
 
     protected static string $view = 'filament.jefe-sala.pages.teleoperadoras-estadisticas-mensuales';
