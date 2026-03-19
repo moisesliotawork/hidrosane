@@ -10,9 +10,11 @@ Artisan::command('inspire', function () {
 
 Schedule::command('picking:backfill')
     ->everyFiveMinutes()
-    ->withoutOverlapping()      // evita ejecuciones solapadas
-    ->onOneServer()             // si usas varios servers
-    ->appendOutputTo(storage_path('logs/picking.log')); // (opcional) log
+    ->timezone('Europe/Madrid')   // 🔥 IMPORTANTE
+    ->between('08:00', '21:55')   // 🔥 SOLO en ese rango
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/picking.log'));
 
 Schedule::command('supervisiones:purge-expired')
     ->dailyAt('00:01')
@@ -34,9 +36,11 @@ Schedule::command('creams:generate-next-day')
     ->withoutOverlapping()
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/creams_generate_next_day.log'));
-    
+
 Schedule::command('bi:build-teleoperator-monthly-stats --year=' . now()->year)
     ->everyTenMinutes()
+    ->timezone('Europe/Madrid')   // 🔥 IMPORTANTE
+    ->between('08:00', '21:55')   // 🔥 SOLO en ese rango
     ->timezone('Europe/Madrid')
     ->withoutOverlapping()
     ->onOneServer()
