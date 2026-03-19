@@ -38,7 +38,7 @@ class CustomerResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Section::make('Posición Global del Cliente')
+            Section::make('Datos Personales del Cliente')
                 ->columns(6)
                 ->schema([      
                     TextEntry::make('nro_cliente')->label('CLIENTE'),

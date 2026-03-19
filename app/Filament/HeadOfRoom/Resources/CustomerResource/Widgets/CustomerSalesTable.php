@@ -10,7 +10,7 @@ use App\Models\{Customer, Venta};
 
 class CustomerSalesTable extends BaseWidget
 {
-    protected static ?string $heading = 'Ventas del Cliente';
+    protected static ?string $heading = 'Contratos de este Cliente:';
     protected int|string|array $columnSpan = 'full';
 
     /** Filament inyecta el registro actual del ViewRecord */

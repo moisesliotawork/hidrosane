@@ -12,7 +12,7 @@ use App\Filament\HeadOfRoom\Resources\NoteDescResource; // para ver la nota en s
 
 class CustomerNotesTable extends BaseWidget
 {
-    protected static ?string $heading = 'HISTORICO DE CONTRATOS';
+    protected static ?string $heading = 'HISTORIAL DE ESTE CLIENTE:';
     protected int|string|array $columnSpan = 'full';
 
     /** Filament inyecta el registro actual del ViewRecord */
