@@ -233,7 +233,9 @@ class BuscarCliente extends Component implements HasForms, HasActions
             ->where(function ($query) use ($digits) {
                 $query->where('phone', $digits)
                     ->orWhere('secondary_phone', $digits)
-                    ->orWhere('third_phone', $digits);
+                    ->orWhere('third_phone', $digits)
+                    ->orWhere('phone1_commercial', $digits)
+                    ->orWhere('phone2_commercial', $digits);
             })
             ->get();
 
