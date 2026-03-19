@@ -31,7 +31,6 @@ class ListNotes extends ListRecords
                 ->color('pink')
                 ->requiresConfirmation()
                 ->action(function () {
-                    // 1) IDs de notas en SALA y NO impresas
                     $ids = Note::query()
                         ->where('estado_terminal', EstadoTerminal::SALA->value)
                         ->where('printed', false)
@@ -46,7 +45,6 @@ class ListNotes extends ListRecords
                         return;
                     }
 
-                    // 2) Marcar como impresas ANTES de generar el PDF
                     DB::transaction(function () use ($ids) {
                         Note::whereIn('id', $ids)->update([
                             'printed' => 1,
@@ -54,7 +52,6 @@ class ListNotes extends ListRecords
                         ]);
                     });
 
-                    // 3) Cargar datos y generar PDF
                     $notes = Note::query()
                         ->whereIn('id', $ids)
                         ->with([
@@ -96,63 +93,49 @@ class ListNotes extends ListRecords
                 )
                 ->badgeColor('pink')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->where('estado_terminal', EstadoTerminal::SALA->value)
+                    fn(Builder $query) => $query
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                 ),
 
             'no_impresas' => Tab::make('NO IMPRESAS')
                 ->icon('heroicon-o-document-text')
                 ->badge(
                     Note::query()
-                        ->where(function (Builder $q) {
-                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
-                                ->orWhereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
                         ->where('printed', false)
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                         ->count()
                 )
                 ->badgeColor('warning')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
-                        ->where(function (Builder $q) {
-                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
-                                ->orWhereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
                         ->where('printed', false)
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                 ),
 
             'impresas' => Tab::make('IMPRESAS')
                 ->icon('heroicon-o-printer')
                 ->badge(
                     Note::query()
-                        ->where(function (Builder $q) {
-                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
-                                ->orWhereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
                         ->where('printed', true)
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                         ->count()
                 )
                 ->badgeColor('success')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
-                        ->where(function (Builder $q) {
-                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
-                                ->orWhereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '');
-                        })
                         ->where('printed', true)
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
                 ),
 
             'no_asignadas' => Tab::make('No Asignadas')
                 ->icon('heroicon-o-user-minus')
                 ->badge(
                     Note::query()
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->whereNull('comercial_id')
                         ->where('printed', false)
                         ->count()
@@ -160,6 +143,11 @@ class ListNotes extends ListRecords
                 ->badgeColor('gray')
                 ->modifyQueryUsing(
                     fn(Builder $query) => $query
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                ->orWhereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '');
+                        })
                         ->whereNull('comercial_id')
                         ->where('printed', false)
                 ),
@@ -177,11 +165,12 @@ class ListNotes extends ListRecords
                 )
                 ->badgeColor('info')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->where(function (Builder $q) {
-                        $q->whereNull('estado_terminal')
-                            ->orWhere('estado_terminal', '')
-                            ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
-                    })
+                    fn(Builder $query) => $query
+                        ->where(function (Builder $q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
+                                ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
+                        })
                 ),
         ];
     }

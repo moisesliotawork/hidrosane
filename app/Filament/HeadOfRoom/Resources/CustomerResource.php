@@ -23,7 +23,7 @@ class CustomerResource extends Resource
     protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-user';
-    protected static ?string $navigationLabel = 'Posicion Global de Cliente';
+    protected static ?string $navigationLabel = 'Pos.Gl:cliente';
     protected static ?string $modelLabel = 'Posicion Global de Cliente';
 
 
@@ -38,7 +38,7 @@ class CustomerResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Section::make('Posición Global del Cliente')
+            Section::make('Datos Personales del Cliente')
                 ->columns(6)
                 ->schema([      
                     TextEntry::make('nro_cliente')->label('CLIENTE'),

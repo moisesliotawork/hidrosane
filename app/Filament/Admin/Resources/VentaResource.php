@@ -101,7 +101,11 @@ class VentaResource extends Resource
                 ->collapsible(true)
 
                 ->schema([
-                    Grid::make(5)->schema([
+                    Grid::make([
+    'default' => 1, // 1 columna en móvil
+    'sm' => 2,      // 2 en tablets
+    'lg' => 5,      // 5 en PC
+])->schema([
                         TextInput::make('nro_contr_adm')
                             ->label('NRO CONTRATO')
                             ->maxLength(50)
@@ -230,11 +234,17 @@ class VentaResource extends Resource
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
                 ->schema([
-                    Grid::make(['default' => 1, 'md' => 2, 'xl' => 5])->schema([
+                    Grid::make([
+                        'default' => 1, 
+                        'md' => 2, 
+                        'xl' => 5])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI'),
-                        //->columnSpanFull(),
+                        TextInput::make('dni')->label('DNI')
+                        ->columnSpan([
+                    'default' => 1, 
+                    'xl' => 5   // Solo ocupa todo el ancho en pantallas grandes
+                ]),
                         TextInput::make('customer.edadTelOp')
                             ->label('Edad (Tel. Op.)')
                             ->readOnly()
@@ -264,6 +274,7 @@ class VentaResource extends Resource
                             ->required()
                             ->maxLength(11)
                             ->minLength(11)
+                            ->columnSpan(1)
                             ->mask('999 999 999')
                             ->label('Teléfono 1 (requerido)')
                             ->validationMessages([
@@ -274,6 +285,7 @@ class VentaResource extends Resource
                             ->tel()
                             ->maxLength(11)
                             ->minLength(11)
+                            //->columnSpan(['default' => 1])
                             ->mask('999 999 999')
                             ->label('Teléfono 2 (opcional)')
                             ->validationMessages([
@@ -284,6 +296,7 @@ class VentaResource extends Resource
                             ->tel()
                             ->maxLength(11)
                             ->minLength(11)
+                            //->columnSpan(['default' => 1])
                             ->mask('999 999 999')
                             ->label('Teléfono 3 (opcional)')
                             ->validationMessages([
@@ -312,7 +325,7 @@ class VentaResource extends Resource
 
                         TextInput::make('email')->label('Email')
                             ->email(),
-                        //->columnSpanFull(),
+                      
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
@@ -338,8 +351,16 @@ class VentaResource extends Resource
                         TextInput::make('primary_address')
                             ->required()
                             ->label('Dirección 1')
-                            ->columnSpan(2),
-                        TextInput::make('secondary_address')->label('Dirección 2')->columnSpan(2),
+                            ->columnSpan([
+                    'default' => 1,
+                    'lg' => 3, 
+                ]),
+                        TextInput::make('secondary_address')
+                        ->label('Dirección 2')
+                        ->columnSpan([
+                    'default' => 1,
+                    'lg' => 3, 
+                ]),
                         /*
                         TextInput::make('ayuntamiento') SE HA JUNTADO CON AYUNTAMIENTO/LOCALIDAD: columna: ciudad OJO
                             ->label('Ayuntamiento')
@@ -370,7 +391,7 @@ class VentaResource extends Resource
 
                         /* ---------- IBAN con formato ---------- */
                         TextInput::make('iban')
-                            ->columnSpan(2)
+                            ->columnSpanFull()
                             ->label('IBAN')
                             // Visual: mayúsculas
                             ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
@@ -416,8 +437,9 @@ class VentaResource extends Resource
                             ->required()
                             ->native(false),
                     ]),
-                ])
-                ->columns(5),
+                ]),
+                //->columns(1),
+              
 
             /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
             Section::make('Mostrar Datos en pdf')
