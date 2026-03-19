@@ -14,6 +14,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 
 use App\Models\Customer;
 use App\Models\Note;
+use App\Enums\EstadoTerminal;
 
 use App\Filament\Teleoperator\Resources\NoteResource;
 use App\Filament\Teleoperator\Pages\NotasDireccionPage;
@@ -118,8 +119,10 @@ class BuscarCliente extends Component implements HasForms, HasActions
      * 1. Buscar TODOS los customers con ese teléfono.
      * 2. Tomar la última nota de cada customer por visit_date.
      * 3. Si NINGUNO tiene notas => permitir crear.
-     * 4. Si TODAS las últimas notas son de hace más de 5 meses => permitir crear.
-     * 5. Si AL MENOS UNA última nota es de menos de 5 meses => bloquear.
+     * 4. Si AL MENOS UNA última nota es de menos de 5 meses => bloquear.
+     * 5. Si TODAS las últimas notas son de más de 5 meses:
+     *    5.1 Si alguna está en SALA y printed = true => bloquear e indicar nro_nota.
+     *    5.2 Si no => permitir crear.
      *
      * TODO se calcula por visit_date.
      */
@@ -183,7 +186,26 @@ class BuscarCliente extends Component implements HasForms, HasActions
             return;
         }
 
-        // Todas las últimas notas son antiguas => permitir
+        // Todas las últimas notas son antiguas => validar si alguna está en SALA y printed = true
+        $printedSalaNote = $notesFound->first(function (Note $note) {
+            return $note->estado_terminal === EstadoTerminal::SALA
+                && (bool) $note->printed === true;
+        });
+
+        if ($printedSalaNote) {
+            $fechaVisita = optional($printedSalaNote->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+            $nroNota = $printedSalaNote->nro_nota ?? 'S/N';
+
+            $this->notifyNoSePuedeLlamar(
+                "BLOQUEADO: La nota {$nroNota} corresponde a OFICINA y ya fue impresa. " .
+                "Fecha de visita: {$fechaVisita}."
+            );
+
+            redirect()->to(NoteResource::getUrl('index'));
+            return;
+        }
+
+        // Todas las últimas notas son antiguas y ninguna está en SALA + printed => permitir
         $ultimaNotaMasRecienteEntreAntiguas = $notesFound
             ->sortByDesc(fn (Note $note) => $note->visit_date?->timestamp ?? 0)
             ->first();
