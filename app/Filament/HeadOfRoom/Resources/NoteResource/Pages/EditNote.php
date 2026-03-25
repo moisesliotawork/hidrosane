@@ -13,10 +13,12 @@ class EditNote extends EditRecord
 {
     protected static string $resource = NoteResource::class;
 
-    protected function getRedirectUrl(): string
-    {
-        return $this->getResource()::getUrl('index');
-    }
+   protected function getRedirectUrl(): string
+{
+    // Si Filament sabe de dónde venimos (incluyendo el tab ?activeTab=...), vuelve ahí.
+    // Si no lo sabe, vuelve al index normal por seguridad.
+    return $this->previousUrl ?? $this->getResource()::getUrl('index');
+}
 
     protected function mutateFormDataBeforeFill(array $data): array
     {

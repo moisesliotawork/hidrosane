@@ -17,6 +17,12 @@ class TeleoperadorasEstadisticasMensuales extends Page implements HasTable
 {
     use InteractsWithTable;
 
+    //JEFE DE SALA CARMEN SOLICITA OCULTAR 
+    // ESTE RESOURCE DE MANERA TEMPORAL, con esta funcion ocultaremos: //
+public static function shouldRegisterNavigation(): bool
+{
+    return false;
+}
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Estad.TeleOp';
     protected static ?string $slug = 'teleoperadoras-estadisticas-mensuales';
