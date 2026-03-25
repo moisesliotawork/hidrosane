@@ -84,6 +84,57 @@ class ListNotes extends ListRecords
     public function getTabs(): array
     {
         return [
+            'notas' => Tab::make('NOTAS')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->badge(
+                    Note::query()
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+
+                                // NO ASIGNADAS
+                                ->orWhere(function (Builder $q2) {
+                                    $q2->where(function (Builder $q3) {
+                                        $q3->where('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                            ->orWhereNull('estado_terminal')
+                                            ->orWhere('estado_terminal', '');
+                                    })
+                                        ->whereNull('comercial_id')
+                                        ->where('printed', false);
+                                })
+
+                                // SE
+                                ->orWhere(function (Builder $q4) {
+                                    $q4->whereNull('estado_terminal')
+                                        ->orWhere('estado_terminal', '')
+                                        ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
+                                });
+                        })
+                        ->count()
+                )
+                ->badgeColor('primary')
+                ->modifyQueryUsing(
+                    fn(Builder $query) => $query
+                        ->where(function (Builder $q) {
+                            $q->where('estado_terminal', EstadoTerminal::SALA->value)
+
+                                ->orWhere(function (Builder $q2) {
+                                    $q2->where(function (Builder $q3) {
+                                        $q3->where('estado_terminal', EstadoTerminal::SIN_ESTADO->value)
+                                            ->orWhereNull('estado_terminal')
+                                            ->orWhere('estado_terminal', '');
+                                    })
+                                        ->whereNull('comercial_id')
+                                        ->where('printed', false);
+                                })
+
+                                ->orWhere(function (Builder $q4) {
+                                    $q4->whereNull('estado_terminal')
+                                        ->orWhere('estado_terminal', '')
+                                        ->orWhere('estado_terminal', EstadoTerminal::SIN_ESTADO->value);
+                                });
+                        })
+                ),
+                
             'sala' => Tab::make('Oficina')
                 ->icon('heroicon-o-building-office')
                 ->badge(
