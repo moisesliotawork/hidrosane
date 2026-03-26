@@ -98,8 +98,8 @@ class NoteResource extends Resource
                             })
                             ->getOptionLabelUsing(
                                 fn($value): ?string => $value
-                                ? User::find($value)?->display_name
-                                : null
+                                    ? User::find($value)?->display_name
+                                    : null
                             )
                             ->required(),
                     ])
@@ -585,7 +585,7 @@ class NoteResource extends Resource
                     ->label('Comercial')
                     ->options(function () {
                         return User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
-                            ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                        ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
                             ->get()
@@ -685,14 +685,14 @@ class NoteResource extends Resource
 
                                     // Opciones base (siempre)
                                     $baseOptions = [
-                                        null => 'Sin asignar',
-                                    ] + $options;
+                                            null => 'Sin asignar',
+                                        ] + $options;
 
                                     // ⬇️ SOLO si la nota YA tiene comercial asignado mostramos COMERCIAL RETEN
                                     if (!is_null($record->comercial_id)) {
                                         $baseOptions = [
-                                            '__RETEN__' => 'COMERCIAL RETEN',
-                                        ] + $baseOptions;
+                                                '__RETEN__' => 'COMERCIAL RETEN',
+                                            ] + $baseOptions;
                                     }
 
                                     return $baseOptions;
@@ -869,12 +869,12 @@ class NoteResource extends Resource
                         $validIds = Note::query()
                             ->whereIn('id', $idsNoImpresas)
                             ->where(function (Builder $q) {
-                            $q->whereNull('estado_terminal')
-                                ->orWhereIn('estado_terminal', [
-                                    EstadoTerminal::SIN_ESTADO->value,
-                                    EstadoTerminal::SALA->value,
-                                ]);
-                        })
+                                $q->whereNull('estado_terminal')
+                                    ->orWhereIn('estado_terminal', [
+                                        EstadoTerminal::SIN_ESTADO->value,
+                                        EstadoTerminal::SALA->value,
+                                    ]);
+                            })
                             ->pluck('id')
                             ->all();
 
@@ -954,14 +954,14 @@ class NoteResource extends Resource
                                 'integer',
                                 Rule::exists('users', 'id')->where(function ($q) {
                                     $q->whereNull('baja') // <-- activos
-                                        ->whereExists(function ($sq) {
-                                            $sq->selectRaw(1)
-                                                ->from('model_has_roles as mhr')
-                                                ->join('roles as r', 'r.id', '=', 'mhr.role_id')
-                                                ->whereColumn('mhr.model_id', 'users.id')
-                                                ->where('mhr.model_type', User::class)
-                                                ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
-                                        });
+                                    ->whereExists(function ($sq) {
+                                        $sq->selectRaw(1)
+                                            ->from('model_has_roles as mhr')
+                                            ->join('roles as r', 'r.id', '=', 'mhr.role_id')
+                                            ->whereColumn('mhr.model_id', 'users.id')
+                                            ->where('mhr.model_type', User::class)
+                                            ->whereIn('r.name', ['commercial', 'team_leader', 'sales_manager']);
+                                    });
                                 }),
                             ]),
                         Forms\Components\DatePicker::make('assignment_date')

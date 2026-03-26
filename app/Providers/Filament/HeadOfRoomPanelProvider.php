@@ -23,6 +23,7 @@ use App\Filament\HeadOfRoom\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\HtmlString;
 
 class HeadOfRoomPanelProvider extends PanelProvider
 {
@@ -52,6 +53,9 @@ class HeadOfRoomPanelProvider extends PanelProvider
                 </div>
             @endif')
             )
+
+
+
             ->topNavigation()
             ->discoverResources(in: app_path('Filament/HeadOfRoom/Resources'), for: 'App\\Filament\\HeadOfRoom\\Resources')
             ->discoverPages(in: app_path('Filament/HeadOfRoom/Pages'), for: 'App\\Filament\\HeadOfRoom\\Pages')

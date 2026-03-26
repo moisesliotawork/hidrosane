@@ -168,7 +168,33 @@ class VentaResource extends Resource
                                         ->label('Situación laboral')
                                         ->required()
                                         ->options(\App\Enums\SituacionLaboral::options())
-                                        ->native(false),
+                                        ->native(false)
+                                        ->live(),
+
+                                    Select::make('antiguedad')
+                                        ->label('Antigüedad')
+                                        ->options([
+                                            '1' => '1 año',
+                                            '2' => '2 años',
+                                            '3' => '3 años',
+                                            '4' => '4 años',
+                                            '5' => '5 años',
+                                            '6' => '6 años',
+                                            '7' => '7 años',
+                                            '8+' => 'Más de 8 años',
+                                        ])
+                                        ->required()
+                                        ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                            TextInput::make('oficio')
+                                ->label('Oficio/Profesión')
+                                ->required()
+                                ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                            TextInput::make('nombre_empresa')
+                                        ->label('Nombre de la Empresa')
+                                        ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
 
                                     Select::make('ingresos_rango')
                                         ->label('Ingresos netos mensuales')
