@@ -134,7 +134,7 @@ class ListNotes extends ListRecords
                                 });
                         })
                 ),
-                
+
             'sala' => Tab::make('Oficina')
                 ->icon('heroicon-o-building-office')
                 ->badge(
@@ -163,20 +163,20 @@ class ListNotes extends ListRecords
                         ->where('estado_terminal', EstadoTerminal::SALA->value)
                 ),
 
-            'impresas' => Tab::make('IMPRESAS')
-                ->icon('heroicon-o-printer')
-                ->badge(
-                    Note::query()
-                        ->where('printed', true)
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
-                        ->count()
-                )
-                ->badgeColor('success')
-                ->modifyQueryUsing(
-                    fn(Builder $query) => $query
-                        ->where('printed', true)
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
-                ),
+            // 'impresas' => Tab::make('IMPRESAS')
+            //     ->icon('heroicon-o-printer')
+            //     ->badge(
+            //         Note::query()
+            //             ->where('printed', true)
+            //             ->where('estado_terminal', EstadoTerminal::SALA->value)
+            //             ->count()
+            //     )
+            //     ->badgeColor('success')
+            //     ->modifyQueryUsing(
+            //         fn(Builder $query) => $query
+            //             ->where('printed', true)
+            //             ->where('estado_terminal', EstadoTerminal::SALA->value)
+            //     ),
 
             'no_asignadas' => Tab::make('No Asignadas')
                 ->icon('heroicon-o-user-minus')

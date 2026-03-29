@@ -212,6 +212,15 @@ class EditMisSupervisiones extends EditRecord
                                 ),
                         ]),
 
+                    TextInput::make('phone1_commercial')
+                        ->label('Teléfono Principal')
+                        ->required()
+                        ->default(fn() => $this->record->customer?->phone1_commercial),
+
+                    TextInput::make('phone2_commercial')
+                        ->label('Teléfono Secundario')
+                        ->default(fn() => $this->record->customer?->phone2_commercial),
+
                     Textarea::make('observation')
                         ->label('Observación (opcional)')
                         ->placeholder('Escribe una observación (opcional)…')
@@ -270,6 +279,13 @@ class EditMisSupervisiones extends EditRecord
 
                     // 2️⃣ Flujo normal: sí tiene cremas (o marcó que no entregó crema)
                     DB::transaction(function () use ($data, $dioCrema, $companionId) {
+
+                        if ($this->record->customer) {
+                            $this->record->customer->update([
+                                'phone1_commercial' => $data['phone1_commercial'] ?? $this->record->customer->phone1_commercial,
+                                'phone2_commercial' => $data['phone2_commercial'] ?? $this->record->customer->phone2_commercial,
+                            ]);
+                        }
 
                         $confirmation = NoteConfirmation::create([
                             'note_id' => $this->record->id,
