@@ -477,6 +477,23 @@ class NotasJV extends Component
                 NoteSalaEvent::insert($rows);
             }
 
+            // 2.5) Agregar observación automática si son 2 o más
+            if (count($eligible) >= 2) {
+                $obsRows = [];
+                foreach ($eligible as $noteId) {
+                    $obsRows[] = [
+                        'note_id' => $noteId,
+                        'author_id' => $userId,
+                        'observation' => 'Envío Masivo a sala',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+                if (!empty($obsRows)) {
+                    \App\Models\NoteSalaObservation::insert($obsRows);
+                }
+            }
+
             // 3) Evento afterCommit (igual)
             \DB::afterCommit(function () use ($eligible) {
                 $comercial = auth()->user();
@@ -845,7 +862,7 @@ class NotasJV extends Component
                     ? "$postalCodeSimple, $citySimple"
                     : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
                 // ============================================
-    
+
                 return [
                     'id' => $note->id,
                     'nro_nota' => $note->nro_nota,

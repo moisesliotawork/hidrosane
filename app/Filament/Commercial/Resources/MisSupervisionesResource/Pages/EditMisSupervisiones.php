@@ -15,6 +15,7 @@ use Carbon\Carbon;
 
 use App\Enums\EstadoTerminal;
 use App\Filament\Commercial\Resources\VentaResource;
+use App\Models\AnotacionVisita;
 use App\Models\AbsentHistory;
 use App\Models\NoteNullReason;
 use App\Models\NoteSalaObservation;
@@ -83,6 +84,14 @@ class EditMisSupervisiones extends EditRecord
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
                         'autor_id' => Auth::id(),
+                    ]);
+
+                    // 3.1) Crear Anotacion de Visita para que aparezca en el PDF
+                    AnotacionVisita::create([
+                        'nota_id' => $this->record->id,
+                        'author_id' => auth()->id(),
+                        'asunto' => 'AUSENTE',
+                        'cuerpo' => $data['observacion'] ?? 'Marcado como AUSENTE',
                     ]);
 
                     // 4) Notificación + redirect

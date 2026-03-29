@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Filament\Commercial\Resources\VentaResource;
 use Carbon\Carbon;
+use App\Models\AnotacionVisita;
 use App\Models\AbsentHistory;
 use Illuminate\Support\Facades\App;
 use Filament\Forms;
@@ -84,6 +85,14 @@ class EditNote extends EditRecord
                         'longitud' => $lng,
                         'observacion' => $data['observacion'] ?? null,
                         'autor_id' => Auth::id(),
+                    ]);
+
+                    // 3.1) Crear Anotacion de Visita para que aparezca en el PDF
+                    AnotacionVisita::create([
+                        'nota_id' => $this->record->id,
+                        'author_id' => auth()->id(),
+                        'asunto' => 'AUSENTE',
+                        'cuerpo' => $data['observacion'] ?? 'Marcado como AUSENTE',
                     ]);
 
                     // 4) Notificación + redirect
