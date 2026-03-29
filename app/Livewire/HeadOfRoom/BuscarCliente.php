@@ -115,23 +115,38 @@ class BuscarCliente extends Component implements HasForms, HasActions
     /**
      * Reglas:
      * 1. Buscar TODOS los customers con ese teléfono.
-     * 2. Tomar la última nota de cada customer por visit_date.
-     * 3. Si NINGUNO tiene notas => permitir crear.
-     * 4. Si AL MENOS UNA última nota es de menos de 5 meses => bloquear.
-     * 5. Si TODAS las últimas notas son de más de 5 meses:
-     *    5.1 Si alguna está en SALA y printed = true => bloquear e indicar nro_nota.
-     *    5.2 Si no => permitir crear.
+     * 2. Tomar la última nota de cada customer priorizando assignment_date sobre visit_date.
+     * 3. Si tiene ventas => bloquear.
+     * 4. Si NINGUNO tiene notas => permitir crear.
+     * 5. Si AL MENOS UNA última nota es de menos de 5 meses => bloquear.
+     * 6. Si TODAS las últimas notas son de más de 5 meses:
+     *    6.1 Si alguna está en SALA y printed = true => bloquear e indicar nro_nota.
+     *    6.2 Si no => permitir crear.
      *
-     * TODO por visit_date.
+     * Se calcula por assignment_date (o visit_date si no tiene).
      */
     protected function handleCustomersFound(Collection $customers, ?string $digits = null): void
     {
+        // 0) Si algún cliente tiene ventas, bloqueamos directamente (requerimiento "menos aún si tienen ventas")
+        $customerWithVentas = $customers->first(fn(Customer $c) => $c->ventas()->exists());
+        if ($customerWithVentas) {
+            $this->notifyNoSePuedeLlamar(
+                "BLOQUEADO: El cliente (ID: {$customerWithVentas->id}) tiene ventas registradas. No se puede crear nueva nota."
+            );
+            redirect()->to(NoteResource::getUrl('index'));
+            return;
+        }
+
         $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
 
         $customersWithLastNote = $customers->map(function (Customer $customer) {
             /** @var Note|null $lastNote */
             $lastNote = $customer->notes()
-                ->whereNotNull('visit_date')
+                ->where(function ($query) {
+                    $query->whereNotNull('assignment_date')
+                        ->orWhereNotNull('visit_date');
+                })
+                ->latest('assignment_date')
                 ->latest('visit_date')
                 ->first();
 
@@ -159,11 +174,13 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
         // 2) Si al menos una última nota es reciente => bloquear
         $recentEntry = $customersWithLastNote->first(function (array $item) use ($cutoff) {
+            /** @var Note|null $lastNote */
             $lastNote = $item['last_note'];
+            if (!$lastNote) return false;
 
-            return $lastNote
-                && $lastNote->visit_date
-                && $lastNote->visit_date->gte($cutoff);
+            $fechaReferencia = $lastNote->assignment_date ?? $lastNote->visit_date;
+
+            return $fechaReferencia && $fechaReferencia->gte($cutoff);
         });
 
         if ($recentEntry) {
@@ -173,10 +190,10 @@ class BuscarCliente extends Component implements HasForms, HasActions
             /** @var \App\Models\Note $blockedNote */
             $blockedNote = $recentEntry['last_note'];
 
-            $fechaUltimaVisita = optional($blockedNote->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+            $fechaRef = ($blockedNote->assignment_date ?? $blockedNote->visit_date)->format('d/m/Y');
 
             $this->notifyNoSePuedeLlamar(
-                "BLOQUEADO: Existe un cliente duplicado con nota reciente ({$fechaUltimaVisita}). " .
+                "BLOQUEADO: Existe un cliente duplicado con actividad reciente ({$fechaRef}). " .
                 "Cliente ID: {$blockedCustomer->id}. Deben pasar 5 meses."
             );
 
@@ -191,12 +208,12 @@ class BuscarCliente extends Component implements HasForms, HasActions
         });
 
         if ($printedSalaNote) {
-            $fechaVisita = optional($printedSalaNote->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+            $fechaRef = ($printedSalaNote->assignment_date ?? $printedSalaNote->visit_date)?->format('d/m/Y') ?? 'Sin fecha';
             $nroNota = $printedSalaNote->nro_nota ?? 'S/N';
 
             $this->notifyNoSePuedeLlamar(
                 "BLOQUEADO: La nota {$nroNota} corresponde a OFICINA y ya fue impresa. " .
-                "Fecha de visita: {$fechaVisita}."
+                "Fecha de referencia: {$fechaRef}."
             );
 
             redirect()->to(NoteResource::getUrl('index'));
@@ -205,10 +222,10 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
         // 4) Todas son antiguas y ninguna está en SALA + printed => permitir
         $ultimaNotaMasRecienteEntreAntiguas = $notesFound
-            ->sortByDesc(fn(Note $note) => $note->visit_date?->timestamp ?? 0)
+            ->sortByDesc(fn(Note $note) => ($note->assignment_date ?? $note->visit_date)?->timestamp ?? 0)
             ->first();
 
-        $fechaReferencia = optional($ultimaNotaMasRecienteEntreAntiguas?->visit_date)->format('d/m/Y') ?? 'Sin fecha';
+        $fechaReferencia = optional($ultimaNotaMasRecienteEntreAntiguas->assignment_date ?? $ultimaNotaMasRecienteEntreAntiguas->visit_date)->format('d/m/Y') ?? 'Sin fecha';
 
         $firstCustomer = $customers->first();
 

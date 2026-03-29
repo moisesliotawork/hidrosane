@@ -1,482 +1,290 @@
 <!doctype html>
 <html>
-
 <head>
     <meta charset="utf-8">
-    <title>Notas en Oficina</title>
+    <title>Notas en Oficina v3</title>
     <style>
-        @page {
-            margin: 24mm 18mm;
-        }
+        @page { margin: 15mm; }
+        body { font-family: sans-serif; font-size: 11px; color: #333; line-height: 1.4; }
+        .sheet { page-break-after: always; margin-bottom: 20px; border-bottom: 1px dashed #ccc; padding-bottom: 20px; }
+        .header-table { width: 100%; border-bottom: 2px solid #333; margin-bottom: 15px; }
+        .brand { font-size: 18px; font-weight: bold; }
+        .nro-nota { text-align: right; font-size: 14px; font-weight: bold; }
 
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 12px;
-            color: #111;
-        }
+        .data-table { width: 100%; border-collapse: separate; border-spacing: 5px; margin-bottom: 10px; table-layout: fixed; }
+        .card { border: 1px solid #ddd; padding: 8px; vertical-align: top; border-radius: 5px; background-color: #f9f9f9; }
+        .label { font-size: 9px; color: #777; text-transform: uppercase; font-weight: bold; margin-bottom: 3px; border-bottom: 1px solid #eee; display: block; }
+        .value { font-size: 12px; font-weight: bold; color: #000; word-wrap: break-word; }
 
-        .sheet {
-            page-break-after: always;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .brand {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: .5px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-        }
-
-        .pink {
-            background: #ffd1e6;
-            color: #a31164;
-        }
-
-        .gray {
-            background: #eee;
-            color: #333;
-        }
-
-        .green {
-            background: #d6f5d6;
-            color: #1b7a1b;
-        }
-
-        .muted {
-            color: #666;
-        }
-
-        .title {
-            font-size: 16px;
-            font-weight: 600;
-            margin: 0 0 2px;
-        }
-
-        .sub {
-            font-size: 12px;
-            margin: 0;
-        }
-
-        .grid {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-        }
-
-        .grid th {
-            text-align: left;
-            font-size: 11px;
-            color: #666;
-            padding: 6px 8px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .grid td {
-            padding: 8px;
-            vertical-align: top;
-        }
-
-        .row {
-            display: flex;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
-        .card {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 10px 12px;
-            flex: 1;
-        }
-
-        .label {
-            font-size: 10px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .4px;
-        }
-
-        .value {
-            font-size: 13px;
-            font-weight: 600;
-            margin-top: 2px;
-        }
-
-        .footer {
-            margin-top: 12px;
-            font-size: 10px;
-            color: #777;
-            text-align: right;
-        }
-
-        .subgrid {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 6px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-        }
-
-        .subgrid thead th {
-            text-align: left;
-            font-size: 10px;
-            color: #6b7280;
-            padding: 6px 8px;
-            background: #f7f7f7;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-        }
-
-        .subgrid tbody td {
-            padding: 6px 8px;
-            font-size: 12px;
-            vertical-align: top;
-            border-top: 1px solid #f0f0f0;
-        }
-
-        .subgrid .empty {
-            color: #777;
-            font-style: italic;
-        }
-
-        .section-title {
-            font-size: 10px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .4px;
-            margin-top: 8px;
-        }
-
-        .subgrid {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 6px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-        }
-
-        .subgrid thead th {
-            text-align: left;
-            font-size: 10px;
-            color: #6b7280;
-            padding: 6px 8px;
-            background: #f7f7f7;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-        }
-
-        .subgrid tbody td {
-            padding: 6px 8px;
-            font-size: 12px;
-            vertical-align: top;
-            border-top: 1px solid #f0f0f0;
-        }
-
-        .subgrid .empty {
-            color: #777;
-            font-style: italic;
-        }
-
-        .section-title {
-            font-size: 10px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: .4px;
-            margin-top: 12px;
-            margin-bottom: 4px;
-        }
+        .obs-title { background: #eee; padding: 5px 10px; font-weight: bold; margin-top: 15px; border-radius: 3px; font-size: 10px; text-transform: uppercase; }
+        .obs-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .obs-table th { background: #f5f5f5; text-align: left; padding: 5px; font-size: 9px; border: 1px solid #ddd; }
+        .obs-table td { padding: 5px; border: 1px solid #ddd; font-size: 10px; vertical-align: top; }
+        .empty { font-style: italic; color: #999; text-align: center; padding: 10px; }
+        .footer { text-align: right; font-size: 9px; color: #999; margin-top: 10px; }
     </style>
 </head>
-
 <body>
     @foreach($notes as $note)
         @php
             $c = $note->customer;
-            $cp = $c?->postal_code;
-            $city = $c?->ciudad;
             $cpCode = $c?->postal_code;
-            $user = $note->user
+            $city = $c?->ciudad;
         @endphp
 
         <div class="sheet">
-            <div class="header">
-                <div class="brand">ENVIADAS A OFICINA</div>
-                <div>
-                    <span class="badge pink">SALA</span>
-                    <span class="badge gray"># Nota: {{ $note->nro_nota }}</span>
-                </div>
-            </div>
+            <table class="header-table">
+                <tr>
+                    <td class="brand">ENVIADAS A OFICINA - SALA</td>
+                    <td class="nro-nota"># Nota: {{ $note->nro_nota }}</td>
+                </tr>
+            </table>
 
-            <div class="row">
-                <div class="card">
-                    <div class="label">Cliente</div>
-                    <div class="value">{{ $c?->name }}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Teléfonos</div>
-                    <div class="value">
-                        @php
-                            $phones = [];
+            <!-- FILA 1: Nombre y Teléfonos -->
+            <table class="data-table">
+                <tr>
+                    <td class="card" width="50%">
+                        <span class="label">CLIENTE</span>
+                        <div class="value">{{ $c?->name ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="50%">
+                        <span class="label">TELÉFONOS</span>
+                        <div class="value">
+                            @php
+                                $phones = array_filter([$c?->phone, $c?->secondary_phone, $c?->third_phone]);
+                            @endphp
+                            {{ implode(' / ', $phones) ?: '—' }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
 
-                            if ($c?->phone) {
-                                $phones[] = 'Principal: ' . $c->phone;
-                            }
+            <!-- FILA 2: Dirección y Nro/Piso -->
+            <table class="data-table">
+                <tr>
+                    <td class="card" width="70%">
+                        <span class="label">DIRECCIÓN</span>
+                        <div class="value">{{ $c?->primary_address ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="30%">
+                        <span class="label">NRO Y PISO</span>
+                        <div class="value">{{ $c?->nro_piso ?? '—' }}</div>
+                    </td>
+                </tr>
+            </table>
 
-                            if ($c?->secondary_phone) {
-                                $phones[] = 'Secundario: ' . $c->secondary_phone;
-                            }
+            <!-- FILA 3: CP, Ciudad, Ayuntamiento -->
+            <table class="data-table">
+                <tr>
+                    <td class="card" width="25%">
+                        <span class="label">CÓDIGO POSTAL</span>
+                        <div class="value">{{ $cpCode ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="35%">
+                        <span class="label">CIUDAD</span>
+                        <div class="value">{{ $city ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="40%">
+                        <span class="label">AYUNTAMIENTO</span>
+                        <div class="value">{{ $note->ayuntamiento ?? '—' }}</div>
+                    </td>
+                </tr>
+            </table>
 
-                            if ($c?->third_phone) {
-                                $phones[] = 'Tercero: ' . $c->third_phone;
-                            }
-                        @endphp
-
-                        @if(count($phones))
-                            @foreach($phones as $line)
-                                {{ $line }}<br>
-                            @endforeach
-                        @else
-                            —
-                        @endif
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="label">CP / Ciudad</div>
-                    <div class="value">{{ $cpCode }} {{ $city ? '— ' . $city : '' }}</div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="card">
-                    <div class="label">Dirección</div>
-                    <div class="value">{{ $c?->primary_address }}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Nro y Piso</div>
-                    <div class="value">{{ $c?->nro_piso ?? '—' }}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Ayuntamiento</div>
-                    <div class="value">{{ $note->ayuntamiento }}</div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="card">
-                    <div class="label">Comercial</div>
-                    <div class="value">
-                        {{ $note->comercial?->empleado_id ? ($note->comercial?->empleado_id . ' - ') : '' }}
-                        {{ $note->comercial?->name ?? 'Sin asignar' }}
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="label">Tel Op</div>
-                    <div class="value">
-                        {{ $note->user?->empleado_id ? ($note->user->empleado_id . ' - ') : '' }}
-                        {{ $note->user?->name ?? 'Sin asignar' }}
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="label">Asignación</div>
-                    <div class="value">{{ optional($note->assignment_date)->format('d/m/Y') ?? '—' }}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Horario</div>
-                    <div class="value">{{ $note->visit_schedule ?? '—' }}</div>
-                </div>
-            </div>
+            <!-- FILA 4: Fecha Visita, Horario, Teleoperadora, Comercial -->
+            <table class="data-table">
+                <tr>
+                    <td class="card" width="20%">
+                        <span class="label">FECHA VISITA</span>
+                        <div class="value">{{ optional($note->assignment_date)->format('d/m/Y') ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="20%">
+                        <span class="label">HORARIO</span>
+                        <div class="value">{{ $note->visit_schedule ?? '—' }}</div>
+                    </td>
+                    <td class="card" width="30%">
+                        <span class="label">TELEOPERADORA</span>
+                        <div class="value">{{ $note->user?->name ?? 'Sin asignar' }}</div>
+                    </td>
+                    <td class="card" width="30%">
+                        <span class="label">COMERCIAL</span>
+                        <div class="value">{{ $note->comercial?->name ?? 'Sin asignar' }}</div>
+                    </td>
+                </tr>
+            </table>
 
             @php
-                /** ===== JSON: Tel Op. / Jefe de Sala ===== */
-                $jsonRaw = $note->getAttribute('observations'); // atributo JSON, NO relación
-                if (is_string($jsonRaw)) {
-                    $decoded = json_decode($jsonRaw, true);
-                    if (json_last_error() === JSON_ERROR_NONE)
-                        $jsonRaw = $decoded;
-                }
-
+                // Procesar Observaciones JSON
+                $jsonRaw = $note->getAttribute('observations');
+                if (is_string($jsonRaw)) $jsonRaw = json_decode($jsonRaw, true);
                 $jsonRows = [];
                 if (is_array($jsonRaw)) {
                     foreach ($jsonRaw as $row) {
-                        // Texto
-                        $txt = is_array($row) ? ($row['observation'] ?? null) : $row;
-                        $txt = trim((string) $txt);
-
-                        // Autor (si se guardó author_id en el JSON)
-                        $authorName = null;
-                        if (is_array($row) && !empty($row['author_id'])) {
-                            $u = \App\Models\User::find($row['author_id']);
-                            if ($u) {
-                                // Ej: "E123 - Nombre Apellido" si hay empleado_id
-                                $authorName = trim(($u->empleado_id ? ($u->empleado_id . ' - ') : '') . ($u->name . ' ' . $u->last_name));
+                        $txt = is_array($row) ? ($row['observation'] ?? '') : $row;
+                        if (trim($txt)) {
+                            $author = '';
+                            $date = '';
+                            if (is_array($row)) {
+                                if (!empty($row['author_id'])) {
+                                    $u = \App\Models\User::find($row['author_id']);
+                                    if ($u) $author = $u->name;
+                                }
+                                if (!empty($row['created_at'])) {
+                                    $date = \Carbon\Carbon::parse($row['created_at'])->format('d/m/Y H:i');
+                                }
                             }
-                        }
-
-                        // Fecha (si existe en el JSON). Muchos JSON no tienen fecha; se deja vacío.
-                        $fechaStr = null;
-                        if (is_array($row) && !empty($row['created_at'])) {
-                            try {
-                                $fechaStr = \Illuminate\Support\Carbon::parse($row['created_at'])->format('d/m/Y H:i');
-                            } catch (\Throwable $e) { /* silencioso */
-                            }
-                        }
-
-                        if ($txt !== '') {
-                            $jsonRows[] = [
-                                'fecha' => $fechaStr,
-                                'autor' => $authorName,
-                                'detalle' => $txt,
-                            ];
+                            $jsonRows[] = ['detalle' => $txt, 'autor' => $author, 'fecha' => $date];
                         }
                     }
                 }
 
-                /** ===== Comercial: relación observations (con author) ===== */
-                if ($note->relationLoaded('observations')) {
-                    $rels = $note->getRelation('observations');
-                } else {
-                    $rels = $note->observations()->with('author')->get();
-                }
+                // Observaciones Relación (Filtrar por rol para separar Comercial de Sala)
+                $allObservations = $note->observations()->with('author.roles')->get();
+                $anotaciones = $note->anotacionesVisitas()->with('autor.roles')->get();
 
-                $comRows = $rels->sortBy('created_at')->map(function ($o) {
-                    $autor = null;
-                    if ($o->author) {
-                        $autor = trim(($o->author->empleado_id ? ($o->author->empleado_id . ' - ') : '')
-                            . ($o->author->name . ' ' . $o->author->last_name));
-                    }
+                $comRows = $allObservations->filter(function($o) {
+                    $user = $o->author;
+                    if (!$user) return false;
+                    return $user->hasRole('commercial') || $user->hasRole('team_leader');
+                })->map(fn($o) => [
+                    'detalle' => $o->observation,
+                    'autor' => $o->author?->name ?? '—',
+                    'fecha' => $o->created_at?->format('d/m/Y H:i') ?? ''
+                ])->toArray();
+
+                // Añadir Anotaciones de Visita (DENTRO, DE CAMINO, AUSENTE)
+                $anotacionRows = $anotaciones->filter(function($a) {
+                    return in_array($a->asunto, ['DENTRO', 'DE CAMINO', 'AUSENTE']);
+                })->map(function($a) {
+                    $user = $a->autor;
                     return [
-                        'fecha' => $o->created_at ? $o->created_at->format('d/m/Y H:i') : null,
-                        'autor' => $autor,
-                        'detalle' => trim((string) ($o->observation ?? '')),
+                        'detalle' => $a->asunto,
+                        'autor' => $user?->name ?? '—',
+                        'fecha' => $a->created_at?->format('d/m/Y H:i') ?? ''
                     ];
-                })->filter(fn($r) => $r['detalle'] !== '')->values()->all();
+                })->toArray();
 
-                /** ===== Observaciones de Sala (relación salaObservations con author) ===== */
-                if ($note->relationLoaded('salaObservations')) {
-                    $sala = $note->getRelation('salaObservations');
-                } else {
-                    $sala = $note->observacionesSala()->with('author')->get();
-                }
+                $comRows = array_merge($comRows, $anotacionRows);
 
-                $salaRows = $sala->sortBy('created_at')->map(function ($o) {
-                    $autor = null;
-                    if ($o->author) {
-                        $autor = trim(($o->author->empleado_id ? ($o->author->empleado_id . ' - ') : '')
-                            . ($o->author->name . ' ' . $o->author->last_name));
+                // Filtrar nulos o vacíos en comRows
+                $comRows = array_filter($comRows, fn($r) => trim($r['detalle']));
+
+                // Deduplicar Observaciones Comerciales
+                $uniqueComRows = [];
+                $seenCom = [];
+                foreach ($comRows as $row) {
+                    $key = trim($row['detalle']) . '|' . trim($row['autor']);
+                    if (!isset($seenCom[$key])) {
+                        $uniqueComRows[$key] = $row;
+                        $seenCom[$key] = true;
+                    } else {
+                        if (!empty($row['fecha']) && empty($uniqueComRows[$key]['fecha'])) {
+                            $uniqueComRows[$key] = $row;
+                        }
                     }
-                    return [
-                        'fecha' => $o->created_at ? $o->created_at->format('d/m/Y H:i') : null,
-                        'autor' => $autor,
-                        'detalle' => trim((string) ($o->observation ?? '')),
-                    ];
-                })->filter(fn($r) => $r['detalle'] !== '')->values()->all();
+                }
+                $comRows = array_values($uniqueComRows);
+
+                $jsonRowsFromTable = $allObservations->filter(function($o) {
+                    $user = $o->author;
+                    if (!$user) return true; // Por defecto a la primera sección si no hay autor
+                    return $user->hasRole('teleoperator') || $user->hasRole('head_of_room') || $user->hasRole('admin') || $user->hasRole('super_admin');
+                })->map(fn($o) => [
+                    'detalle' => $o->observation,
+                    'autor' => $o->author?->name ?? '—',
+                    'fecha' => $o->created_at?->format('d/m/Y H:i') ?? ''
+                ])->filter(fn($r) => trim($r['detalle']))->all();
+
+                $jsonRows = array_merge($jsonRows, $jsonRowsFromTable);
+
+                // Deduplicar Observaciones de Teleoperadora / Jefe de Sala
+                // Se prioriza la versión que tiene fecha si el detalle y autor coinciden
+                $uniqueJsonRows = [];
+                $seen = [];
+                foreach ($jsonRows as $row) {
+                    $key = trim($row['detalle']) . '|' . trim($row['autor']);
+                    if (!isset($seen[$key])) {
+                        $uniqueJsonRows[$key] = $row;
+                        $seen[$key] = true;
+                    } else {
+                        // Si ya existe pero el nuevo tiene fecha y el guardado no, lo reemplazamos
+                        if (!empty($row['fecha']) && empty($uniqueJsonRows[$key]['fecha'])) {
+                            $uniqueJsonRows[$key] = $row;
+                        }
+                    }
+                }
+                $jsonRows = array_values($uniqueJsonRows);
+
+                // Observaciones Oficina
+                $salaRows = $note->observacionesSala()->with('author')->get()->map(fn($o) => [
+                    'detalle' => $o->observation,
+                    'autor' => $o->author?->name ?? '—',
+                    'fecha' => $o->created_at?->format('d/m/Y H:i') ?? ''
+                ])->filter(fn($r) => trim($r['detalle']))->all();
             @endphp
 
-            {{-- ========= TABLA: Tel Op. / Jefe de Sala (JSON) ========= --}}
-            <div class="section-title">Observaciones Tel Op. / Jefe de Sala</div>
-            <table class="subgrid">
-                <thead>
-                    <tr>
-                        <th style="width:22%">Fecha</th>
-                        <th style="width:28%">Autor</th>
-                        <th>Detalle</th>
-                    </tr>
-                </thead>
+            <div class="obs-title">OBSERVACIONES DE TELEOPERADORA / JEFE DE SALA</div>
+            <table class="obs-table">
+                <thead><tr><th width="20%">Autor</th><th width="60%">Detalle</th><th width="20%">Fecha</th></tr></thead>
                 <tbody>
-                    @if(empty($jsonRows))
+                    @forelse($jsonRows as $r)
                         <tr>
-                            <td class="empty" colspan="3">No existen observaciones de teleoperadora o jefe de sala.</td>
+                            <td>{{ $r['autor'] }}</td>
+                            <td>{{ $r['detalle'] }}</td>
+                            <td style="font-size: 8px; color: #888;">{{ $r['fecha'] ?? '' }}</td>
                         </tr>
-                    @else
-                        @foreach($jsonRows as $r)
-                            <tr>
-                                <td>{{ $r['fecha'] ?? '—' }}</td>
-                                <td>{{ $r['autor'] ?? '—' }}</td>
-                                <td>• {{ $r['detalle'] }}</td>
-                            </tr>
-                        @endforeach
-                    @endif
+                    @empty
+                        <tr><td colspan="3" class="empty">Sin observaciones</td></tr>
+                    @endforelse
                 </tbody>
             </table>
 
-            {{-- separador visual --}}
-            <div style="height:10px;"></div>
-
-            {{-- ========= TABLA: Observaciones Comercial (relación) ========= --}}
-            <div class="section-title">Observaciones Comercial</div>
-            <table class="subgrid">
-                <thead>
-                    <tr>
-                        <th style="width:22%">Fecha</th>
-                        <th style="width:28%">Autor</th>
-                        <th>Detalle</th>
-                    </tr>
-                </thead>
+            <div class="obs-title">OBSERVACIONES COMERCIAL</div>
+            <table class="obs-table">
+                <thead><tr><th width="20%">Autor</th><th width="60%">Detalle</th><th width="20%">Fecha</th></tr></thead>
                 <tbody>
-                    @if(empty($comRows))
+                    @forelse($comRows as $r)
                         <tr>
-                            <td class="empty" colspan="3">No existen observaciones de comerciales.</td>
+                            <td>{{ $r['autor'] }}</td>
+                            <td>{{ $r['detalle'] }}</td>
+                            <td style="font-size: 8px; color: #888;">{{ $r['fecha'] ?? '' }}</td>
                         </tr>
-                    @else
-                        @foreach($comRows as $r)
-                            <tr>
-                                <td>{{ $r['fecha'] ?? '—' }}</td>
-                                <td>{{ $r['autor'] ?? '—' }}</td>
-                                <td>• {{ $r['detalle'] }}</td>
-                            </tr>
-                        @endforeach
-                    @endif
+                    @empty
+                        <tr><td colspan="3" class="empty">Sin observaciones</td></tr>
+                    @endforelse
                 </tbody>
             </table>
 
-            {{-- ========= TABLA: Observaciones de Sala (relación) ========= --}}
-            @if(
-                    ($note->estado_terminal instanceof \App\Enums\EstadoTerminal
-                        ? $note->estado_terminal === \App\Enums\EstadoTerminal::SALA
-                        : (string) $note->estado_terminal === \App\Enums\EstadoTerminal::SALA->value)
-                )
-                <div class="section-title">Observaciones de Oficina</div>
-                <table class="subgrid">
-                    <thead>
-                        <tr>
-                            <th style="width:22%">Fecha</th>
-                            <th style="width:28%">Autor</th>
-                            <th>Detalle</th>
-                        </tr>
-                    </thead>
+            @php
+                $estado = $note->estado_terminal;
+                $esSala = false;
+                if ($estado instanceof \App\Enums\EstadoTerminal) {
+                    $esSala = ($estado === \App\Enums\EstadoTerminal::SALA);
+                } else {
+                    $esSala = ((string)$estado === 'sala' || (string)$estado === \App\Enums\EstadoTerminal::SALA->value);
+                }
+            @endphp
+
+            @if($esSala)
+                <div class="obs-title">OBSERVACIONES DEL COMERCIAL (AL ENVIAR A OFICINA)</div>
+                <table class="obs-table">
+                    <thead><tr><th width="20%">Autor</th><th width="60%">Detalle</th><th width="20%">Fecha</th></tr></thead>
                     <tbody>
-                        @if(empty($salaRows))
+                        @forelse($salaRows as $r)
                             <tr>
-                                <td class="empty" colspan="3">No existen observaciones de oficina.</td>
+                                <td>{{ $r['autor'] }}</td>
+                                <td>{{ $r['detalle'] }}</td>
+                                <td style="font-size: 8px; color: #888;">{{ $r['fecha'] ?? '' }}</td>
                             </tr>
-                        @else
-                            @foreach($salaRows as $r)
-                                <tr>
-                                    <td>{{ $r['fecha'] ?? '—' }}</td>
-                                    <td>{{ $r['autor'] ?? '—' }}</td>
-                                    <td>• {{ $r['detalle'] }}</td>
-                                </tr>
-                            @endforeach
-                        @endif
+                        @empty
+                            <tr><td colspan="3" class="empty">Sin observaciones</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             @endif
 
-            <div class="footer">Generado: {{ now()->format('d/m/Y H:i') }}</div>
+            <div class="footer">Generado: {{ date('d/m/Y H:i') }}</div>
         </div>
     @endforeach
 </body>
-
 </html>
