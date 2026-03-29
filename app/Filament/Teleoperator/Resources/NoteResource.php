@@ -404,6 +404,24 @@ class NoteResource extends Resource
                 //    }),
             ])
             ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    // BOTÓN VER SELECCIÓN
+                    Tables\Actions\BulkAction::make('ver_seleccion')
+                        ->label('VER SELECCIÓN')
+                        ->icon('heroicon-o-eye')
+                        ->color('warning')
+                        ->modalHeading('Revisión de Notas Seleccionadas')
+                        ->modalSubmitActionLabel('Cerrar')
+                        // Usamos la misma vista que ya creamos antes
+                        ->modalContent(fn (\Illuminate\Support\Collection $records) => view(
+                            'filament.head-of-room.components.bulk-preview',
+                            ['records' => $records],
+                        ))
+                        ->action(fn () => null),
+
+                    Tables\Actions\DeleteBulkAction::make(),
+                ])->label('Acciones de Grupo'),
+            
 
             ]);
     }

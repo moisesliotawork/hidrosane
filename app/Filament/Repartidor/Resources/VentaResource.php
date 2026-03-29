@@ -33,7 +33,7 @@ class VentaResource extends Resource
     {
         return $infolist->schema([
             // ▓▓▓ Cliente
-            Section::make('DATOS DEL CONTARTO')
+            Section::make('Datos del CONTRATO')
                 ->schema([
                     Grid::make(2)->schema([
                         TextEntry::make('nro_contrato')

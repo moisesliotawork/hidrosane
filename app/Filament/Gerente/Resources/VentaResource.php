@@ -218,7 +218,37 @@ class VentaResource extends Resource
                         Select::make('situacion_laboral')->label('Situación laboral')
                             ->options(\App\Enums\SituacionLaboral::options())
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->live(),
+
+                        Select::make('antiguedad')
+                            ->label('Antigüedad')
+                            ->options([
+                                '1' => '1 año',
+                                '2' => '2 años',
+                                '3' => '3 años',
+                                '4' => '4 años',
+                                '5' => '5 años',
+                                '6' => '6 años',
+                                '7' => '7 años',
+                                '8+' => 'Más de 8 años',
+                            ])
+                            ->required()
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                        TextInput::make('oficio')
+                            ->label('Oficio/Profesión')
+                            ->required()
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+
+
+
+                        TextInput::make('nombre_empresa')
+                            ->label('Nombre de la Empresa')
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+
 
                         Select::make('ingresos_rango')->label('Ingresos netos mensuales')
                             ->options(\App\Enums\IngresosRango::options())
@@ -509,7 +539,7 @@ class VentaResource extends Resource
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $producto = Producto::find($state);   // Model|null
-                                            
+
                                                         /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 
@@ -541,7 +571,7 @@ class VentaResource extends Resource
                                                     )
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state): void {
 
-                                                        // ── Traemos lo justo 
+                                                        // ── Traemos lo justo
                                                         $nombre = Producto::query()
                                                             ->whereKey($get('producto_id'))
                                                             ->value('nombre');
@@ -556,10 +586,10 @@ class VentaResource extends Resource
 
                                                         $set('cantidad', $cantidad);
 
-                                                        // ── Puntos de la línea 
+                                                        // ── Puntos de la línea
                                                         $set('puntos_linea', $cantidad * $puntosUnidad);
 
-                                                        // ── Total de puntos de la oferta 
+                                                        // ── Total de puntos de la oferta
                                                         $total = collect($get('../../productos') ?? [])
                                                             ->sum(fn($l) => (int) ($l['puntos_linea'] ?? 0));
 
@@ -625,7 +655,7 @@ class VentaResource extends Resource
                     $lineas = collect($get('ventaOfertas') ?? [])
                         ->flatMap(fn($oferta) => $oferta['productos'] ?? [])
                         ->values();   // renumeramos para que el índice sea 0-n
-        
+
                     // b) Todos los IDs presentes
                     $ids = $lineas->pluck('producto_id')->filter()->all();
 
@@ -633,7 +663,7 @@ class VentaResource extends Resource
                     $nombres = Producto::query()
                         ->whereIn('id', $ids)
                         ->pluck('nombre', 'id');   // ej. [17 => 'Producto Externo', 22 => 'Colchón']
-        
+
                     // d) Filtramos solo los que son “Producto Externo”
                     $externas = $lineas->filter(
                         fn($l) => ($nombres[$l['producto_id']] ?? '') === 'Producto Externo'

@@ -41,6 +41,10 @@ class Customer extends Model
         'postal_code',
         'ciudad',
         'provincia',
+        //3 campos nuevos//
+        'antiguedad',
+        'nombre_empresa',
+        'oficio',
     ];
 
     protected $casts = [
@@ -119,8 +123,8 @@ class Customer extends Model
         return Attribute::set(fn($v) => self::properCase($v));
     }
 
-    /** 
-     * Normaliza mayúsculas/minúsculas en nombres 
+    /**
+     * Normaliza mayúsculas/minúsculas en nombres
      * con reglas castellanas.
      */
     protected static function properCase(?string $s): ?string

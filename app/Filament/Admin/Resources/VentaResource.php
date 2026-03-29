@@ -235,14 +235,14 @@ class VentaResource extends Resource
                 ->relationship('customer')   // ← ¡clave!
                 ->schema([
                     Grid::make([
-                        'default' => 1, 
-                        'md' => 2, 
+                        'default' => 1,
+                        'md' => 2,
                         'xl' => 5])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
                         TextInput::make('dni')->label('DNI')
                         ->columnSpan([
-                    'default' => 1, 
+                    'default' => 1,
                     'xl' => 5   // Solo ocupa todo el ancho en pantallas grandes
                 ]),
                         TextInput::make('customer.edadTelOp')
@@ -325,7 +325,7 @@ class VentaResource extends Resource
 
                         TextInput::make('email')->label('Email')
                             ->email(),
-                      
+
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
@@ -353,13 +353,13 @@ class VentaResource extends Resource
                             ->label('Dirección 1')
                             ->columnSpan([
                     'default' => 1,
-                    'lg' => 3, 
+                    'lg' => 3,
                 ]),
                         TextInput::make('secondary_address')
                         ->label('Dirección 2')
                         ->columnSpan([
                     'default' => 1,
-                    'lg' => 3, 
+                    'lg' => 3,
                 ]),
                         /*
                         TextInput::make('ayuntamiento') SE HA JUNTADO CON AYUNTAMIENTO/LOCALIDAD: columna: ciudad OJO
@@ -379,7 +379,32 @@ class VentaResource extends Resource
                         Select::make('situacion_laboral')->label('Situación laboral')
                             ->options(\App\Enums\SituacionLaboral::options())
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->live(),
+
+                        Select::make('antiguedad')
+                            ->label('Antigüedad')
+                            ->options([
+                                '1' => '1 año',
+                                '2' => '2 años',
+                                '3' => '3 años',
+                                '4' => '4 años',
+                                '5' => '5 años',
+                                '6' => '6 años',
+                                '7' => '7 años',
+                                '8+' => 'Más de 8 años',
+                            ])
+                            ->required()
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                        TextInput::make('nombre_empresa')
+                            ->label('NOMBRE DE LA EMPRESA')
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                        TextInput::make('oficio')
+                            ->label('OFICIO')
+                            ->required()
+                            ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
 
                         Select::make('num_hab_casa')->label(' # Personas en Casa')
                             ->options(fn() => collect(range(1, 10))
@@ -439,7 +464,7 @@ class VentaResource extends Resource
                     ]),
                 ]),
                 //->columns(1),
-              
+
 
             /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
             Section::make('Mostrar Datos en pdf')
@@ -827,7 +852,7 @@ class VentaResource extends Resource
                                                     ->required()
                                                     ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                                         $producto = Producto::find($state);   // Model|null
-                                            
+
                                                         /** @var \App\Models\Producto|null $producto */   // ← esto aclara el tipo
                                                         $cantidad = (int) ($get('cantidad') ?? 1);
 

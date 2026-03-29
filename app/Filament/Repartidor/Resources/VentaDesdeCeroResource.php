@@ -95,8 +95,42 @@ class VentaDesdeCeroResource extends Resource
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
                     Select::make('estado_civil')->label('Estado civil')
                         ->options(\App\Enums\EstadoCivil::options())->required()->native(false),
+
+
+
+
                     Select::make('situacion_laboral')->label('Situación laboral')
-                        ->options(\App\Enums\SituacionLaboral::options())->required()->native(false),
+                        ->options(\App\Enums\SituacionLaboral::options())
+                        ->required()
+                        ->native(false)
+                        ->live(),
+
+                    Select::make('antiguedad')
+                        ->label('Antigüedad')
+                        ->options([
+                            '1' => '1 año',
+                            '2' => '2 años',
+                            '3' => '3 años',
+                            '4' => '4 años',
+                            '5' => '5 años',
+                            '6' => '6 años',
+                            '7' => '7 años',
+                            '8+' => 'Más de 8 años',
+                        ])
+                        ->required()
+                        ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                    TextInput::make('oficio')
+                        ->label('Oficio')
+                        ->required()
+                        ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+                    TextInput::make('nombre_empresa')
+                        ->label('Nombre de la empresa')
+                        ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
+
+
+
                     Select::make('ingresos_rango')->label('Ingresos netos mensuales')
                         ->options(\App\Enums\IngresosRango::options())->required()->native(false),
                     Select::make('num_hab_casa')->label('Número de habitaciones')
