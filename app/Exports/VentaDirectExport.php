@@ -34,6 +34,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             'Apellidos',
             'Fecha Nacimiento',
             'TELEFONOS', // 👈 Fusión de Tel 1 y 2
+            'TELEFONOS COMERCIAL', // 👈 Fusión de phone1_commercial y phone2_commercial
             'DIRECCION', // 👈 Fusión de Dirección, Piso y Localidad
             'Provincia',
             //'CP',
@@ -62,6 +63,11 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
         $tel2 = $venta->customer?->secondary_phone;
         // Si hay teléfono 2, añade " / ", si no, deja solo el 1
         $telefonosFinal = $tel1 . ($tel2 ? " / " . $tel2 : "");
+
+        // TELEFONOS COMERCIAL
+        $telC1 = $venta->customer?->phone1_commercial;
+        $telC2 = $venta->customer?->phone2_commercial;
+        $telefonosComercialFinal = $telC1 . ($telC2 ? " / " . $telC2 : "");
 
         // 2. PREPARAR DIRECCIÓN COMPLETA
         $direccion = $venta->customer?->primary_address;
@@ -94,6 +100,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             : null,
 
             $telefonosFinal, // Columna TELEFONOS fusionada
+            $telefonosComercialFinal, // Columna TELEFONOS COMERCIAL fusionada
             $direccionFinal, // Columna DIRECCION fusionada
 
             $venta->customer?->provincia ?? $venta->provincia,

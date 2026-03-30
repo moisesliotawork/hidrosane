@@ -1006,62 +1006,6 @@ class VentaResource extends Resource
     {
         return $table
 
-            ->headerActions([
-                // 👇 DESCARGA EXCEL
-                Action::make('export_mensual')
-                    ->label('Descarga Excel Contr x Mes')
-                    ->icon('heroicon-o-calendar')
-                    ->color('success')
-                    ->form([
-                        Grid::make(2)->schema([
-                            Select::make('mes')
-                                ->label('Mes')
-                                ->options([
-                                    '01' => 'Enero',
-                                    '02' => 'Febrero',
-                                    '03' => 'Marzo',
-                                    '04' => 'Abril',
-                                    '05' => 'Mayo',
-                                    '06' => 'Junio',
-                                    '07' => 'Julio',
-                                    '08' => 'Agosto',
-                                    '09' => 'Septiembre',
-                                    '10' => 'Octubre',
-                                    '11' => 'Noviembre',
-                                    '12' => 'Diciembre',
-                                ])
-                                ->default(now()->format('m'))
-                                ->required(),
-                            Select::make('anio')
-                                ->label('Año')
-                                ->options(function () {
-                                    $years = range(now()->year, 2020);
-                                    return array_combine($years, $years);
-                                })
-                                ->default(now()->year)
-                                ->required(),
-                        ]),
-                    ])
-                    ->modalHeading('Selecciona período')
-                    ->modalSubmitActionLabel('Descargar Excel')
-                    ->action(function ($data, $livewire) {
-                        // 1. Obtenemos la consulta base
-                        $query = Venta::query();
-
-                        // 2. Filtramos por el rango de fechas seleccionado
-                        // NOTA: Asegúrate que 'created_at' es tu campo de fecha. Si usas 'fecha_venta', cámbialo aquí.
-                        $inicio = Carbon::createFromDate($data['anio'], $data['mes'], 1)->startOfDay();
-                        $fin = Carbon::createFromDate($data['anio'], $data['mes'], 1)->endOfMonth()->endOfDay();
-
-                        $query->whereBetween('fecha_venta', [$inicio, $fin]);
-
-                        // 3. Descargamos
-                        return Excel::download(
-                            new VentaDirectExport($query),
-                            'Ventas_' . $data['mes'] . '-' . $data['anio'] . '.xlsx'
-                        );
-                    }),
-            ])
 
             ->modifyQueryUsing(function (Builder $query) {
                 $query->where(function ($q) {
@@ -1211,6 +1155,55 @@ class VentaResource extends Resource
 
             ])
             ->headerActions([
+                // 👇 EXPORTAR EXCEL POR MES
+                Action::make('export_mensual')
+                    ->label('Descarga Excel Contr x Mes')
+                    ->icon('heroicon-o-calendar')
+                    ->color('success')
+                    ->form([
+                        Grid::make(2)->schema([
+                            Select::make('mes')
+                                ->label('Mes')
+                                ->options([
+                                    '01' => 'Enero',
+                                    '02' => 'Febrero',
+                                    '03' => 'Marzo',
+                                    '04' => 'Abril',
+                                    '05' => 'Mayo',
+                                    '06' => 'Junio',
+                                    '07' => 'Julio',
+                                    '08' => 'Agosto',
+                                    '09' => 'Septiembre',
+                                    '10' => 'Octubre',
+                                    '11' => 'Noviembre',
+                                    '12' => 'Diciembre',
+                                ])
+                                ->default(now()->format('m'))
+                                ->required(),
+                            Select::make('anio')
+                                ->label('Año')
+                                ->options(function () {
+                                    $years = range(now()->year, 2020);
+                                    return array_combine($years, $years);
+                                })
+                                ->default(now()->year)
+                                ->required(),
+                        ]),
+                    ])
+                    ->modalHeading('Selecciona período')
+                    ->modalSubmitActionLabel('Descargar Excel')
+                    ->action(function ($data) {
+                        $query = Venta::query();
+                        $inicio = Carbon::createFromDate($data['anio'], $data['mes'], 1)->startOfDay();
+                        $fin = Carbon::createFromDate($data['anio'], $data['mes'], 1)->endOfMonth()->endOfDay();
+                        $query->whereBetween('fecha_venta', [$inicio, $fin]);
+                        return Excel::download(
+                            new VentaDirectExport($query),
+                            'Ventas_' . $data['mes'] . '-' . $data['anio'] . '.xlsx'
+                        );
+                    }),
+
+                // 👇 IMPORTAR EXCEL
                 Action::make('import_excel')
                     ->label('Importar Excel')
                     ->icon('heroicon-o-arrow-up-tray')
