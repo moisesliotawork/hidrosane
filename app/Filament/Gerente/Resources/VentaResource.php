@@ -725,6 +725,31 @@ class VentaResource extends Resource
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
                 TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
+                TextColumn::make('telefonos_cl')
+                    ->label('Teléfonos_CL')
+                    ->state(function (Venta $record): string {
+                        $customer = $record->customer;
+                        if (!$customer) return '-';
+
+                        return collect([
+                            $customer->phone,
+                            $customer->secondary_phone,
+                            $customer->third_phone,
+                            $customer->phone1_commercial,
+                            $customer->phone2_commercial,
+                        ])->filter()->join(' | ');
+                    })
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function ($q) use ($search) {
+                            $q->where('phone', 'like', "%{$search}%")
+                              ->orWhere('secondary_phone', 'like', "%{$search}%")
+                              ->orWhere('third_phone', 'like', "%{$search}%")
+                              ->orWhere('phone1_commercial', 'like', "%{$search}%")
+                              ->orWhere('phone2_commercial', 'like', "%{$search}%");
+                        });
+                    })
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')

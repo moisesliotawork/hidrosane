@@ -42,13 +42,13 @@ class CustomerResource extends Resource
             Section::make('Vision Global del Cliente')
                 ->columns(6)
                 ->schema([
-                    TextEntry::make('nro_cliente')
-                        ->label('CLIENTE')
-                        ->state(fn(Customer $r) => $r->firstVentaClienteAdmin()),
-
                     TextEntry::make('name')
-                        ->label('NOMBRE')
+                        ->label('Nombre de Cliente')
                         ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names))),
+
+                    TextEntry::make('nro_cliente')
+                        ->label('ID/Cliente')
+                        ->state(fn(Customer $r) => $r->firstVentaClienteAdmin()),
 
                     TextEntry::make('dni')
                         ->label('DNI'),
@@ -92,8 +92,14 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('name')
+                    ->label('Nombre de Cliente')
+                    ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                    ->searchable(['first_names', 'last_names'])
+                    ->wrap(),
+
                 TextColumn::make('nro_cliente')
-                    ->label('CLIENTE')
+                    ->label('ID/Cliente')
                     ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
                     ->searchable(query: function (Builder $query, string $search) {
                         $query->whereHas('ventas', function ($q) use ($search) {
@@ -111,12 +117,6 @@ class CustomerResource extends Resource
 
                         $query->orderBy($firstVentaAdmin, $direction);
                     }),
-
-                TextColumn::make('name')
-                    ->label('NOMBRE')
-                    ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
-                    ->searchable(['first_names', 'last_names'])
-                    ->wrap(),
 
                 TextColumn::make('dni')
                     ->label('DNI')
