@@ -371,7 +371,7 @@ class NotasDeComercial extends Component
     public function getNotesTodayProperty()
     {
         $query = Note::with(['customer', 'comercial'])
-            ->where('comercial_id', '!=', 991)
+            ->where('comercial_id', '!=', 1)
             ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
@@ -405,7 +405,7 @@ class NotasDeComercial extends Component
         // 1. Iniciamos la consulta
         $query = Note::query()->with(['customer', 'comercial']);
 
-        $query->where('comercial_id', '!=', 991);
+        $query->where('comercial_id', '!=', 1);
 
         // 2. Filtros de fecha (Líneas independientes para evitar errores de paréntesis)
         $query->whereDate('assignment_date', '<>', today());
