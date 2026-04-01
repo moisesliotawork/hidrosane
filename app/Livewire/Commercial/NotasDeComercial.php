@@ -371,6 +371,7 @@ class NotasDeComercial extends Component
     public function getNotesTodayProperty()
     {
         $query = Note::with(['customer', 'comercial'])
+            ->where('comercial_id', '!=', 991)
             ->whereDate('assignment_date', today())
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
@@ -399,17 +400,19 @@ class NotasDeComercial extends Component
     }
 
     /** TODAS (excepto hoy) */
-   public function getNotesAllProperty()
+    public function getNotesAllProperty()
     {
         // 1. Iniciamos la consulta
         $query = Note::query()->with(['customer', 'comercial']);
+
+        $query->where('comercial_id', '!=', 991);
 
         // 2. Filtros de fecha (Líneas independientes para evitar errores de paréntesis)
         $query->whereDate('assignment_date', '<>', today());
         $query->whereDate('assignment_date', '<', today());
         $query->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay());
         $query->where(function ($subquery) {
-        $subquery->whereNull('estado_terminal')->orWhere('estado_terminal', '')->orWhere('estado_terminal', 'ausente');
+            $subquery->whereNull('estado_terminal')->orWhere('estado_terminal', '')->orWhere('estado_terminal', 'ausente');
         });
 
         // 4. Filtro de venta
@@ -426,7 +429,7 @@ class NotasDeComercial extends Component
         return $query->latest('assignment_date')
             ->get()
             ->map(fn($note) => $this->mapNote($note));
-            }
+    }
     private function mapNote(Note $note): array
     {
         $customer = $note->customer;

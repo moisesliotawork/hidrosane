@@ -51,7 +51,8 @@ class ComercialesVerNotas extends Page implements HasTable
 
             $query = User::query()
                 ->role(['commercial', 'team_leader', 'sales_manager'])
-                ->whereNull('baja');
+                ->whereNull('baja')
+                ->where('id', '!=', 991);
 
         } else {
             abort(403);
