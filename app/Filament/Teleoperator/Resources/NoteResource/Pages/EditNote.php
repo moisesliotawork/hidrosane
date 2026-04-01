@@ -90,7 +90,9 @@ class EditNote extends EditRecord
                 ->where(function ($q) use ($numero) {
                     $q->where('phone', $numero)
                         ->orWhere('secondary_phone', $numero)
-                        ->orWhere('third_phone', $numero); // 👈 ajusta si tu campo se llama distinto
+                        ->orWhere('third_phone', $numero)
+                        ->orWhere('phone1_commercial', $numero)
+                        ->orWhere('phone2_commercial', $numero);
                 })
                 ->exists();
 

@@ -142,7 +142,7 @@ class CreateNote extends CreateRecord
         $data['third_phone'] = $thr === '' ? null : $thr;
 
         // ===== 2) Buscar cliente existente SOLO por teléfono =====
-        // (lo busca en phone, secondary_phone o third_phone)
+        // (lo busca en phone, secondary_phone, third_phone, phone1_commercial o phone2_commercial)
         $customer = null;
 
         if (!empty($data['phone'])) {
@@ -150,13 +150,15 @@ class CreateNote extends CreateRecord
                 ->where(function ($q) use ($data) {
                     $q->where('phone', $data['phone'])
                         ->orWhere('secondary_phone', $data['phone'])
-                        ->orWhere('third_phone', $data['phone']);
+                        ->orWhere('third_phone', $data['phone'])
+                        ->orWhere('phone1_commercial', $data['phone'])
+                        ->orWhere('phone2_commercial', $data['phone']);
                 })
                 ->first();
         }
 
         // ===== 3) Validar duplicados de teléfonos (excluyendo el customer encontrado) =====
-        // Regla: ningún número del form puede existir en otro customer (en phone/secondary/third)
+        // Regla: ningún número del form puede existir en otro customer (en cualquiera de los 5 campos)
         $numerosAValidar = collect([
             $data['phone'] ?? null,
             $data['secondary_phone'] ?? null,
@@ -171,7 +173,9 @@ class CreateNote extends CreateRecord
                 ->where(function ($q) use ($numero) {
                     $q->where('phone', $numero)
                         ->orWhere('secondary_phone', $numero)
-                        ->orWhere('third_phone', $numero);
+                        ->orWhere('third_phone', $numero)
+                        ->orWhere('phone1_commercial', $numero)
+                        ->orWhere('phone2_commercial', $numero);
                 })
                 ->exists();
 

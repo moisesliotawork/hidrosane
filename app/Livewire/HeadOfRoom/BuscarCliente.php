@@ -115,26 +115,30 @@ class BuscarCliente extends Component implements HasForms, HasActions
     /**
      * Reglas:
      * 1. Buscar TODOS los customers con ese teléfono.
-     * 2. Tomar la última nota de cada customer priorizando assignment_date sobre visit_date.
-     * 3. Si tiene ventas => bloquear.
-     * 4. Si NINGUNO tiene notas => permitir crear.
-     * 5. Si AL MENOS UNA última nota es de menos de 5 meses => bloquear.
-     * 6. Si TODAS las últimas notas son de más de 5 meses:
-     *    6.1 Si alguna está en SALA y printed = true => bloquear e indicar nro_nota.
-     *    6.2 Si no => permitir crear.
+     * 2. Si algún customer tiene cualquier nota impresa (printed=true) => bloquear SIEMPRE.
+     * 3. Tomar la última nota priorizando assignment_date sobre visit_date.
+     * 4. Si algún customer tiene ventas registradas O nota en estado VENTA:
+     *    4.1 Si la última nota es reciente (>= día 1 del mes hace 4 meses) => bloquear.
+     *    4.2 Si la última nota es antigua => se permite (cae al flujo normal).
+     *    4.3 Si no tiene notas con fecha => bloquear por seguridad.
+     * 5. Si NINGUNO tiene notas con fecha => permitir crear.
+     * 6. Si AL MENOS UNA última nota es reciente => bloquear.
+     * 7. Si TODAS las últimas notas son antiguas => permitir crear.
      *
-     * Se calcula por assignment_date (o visit_date si no tiene).
+     * Fecha de referencia: assignment_date (o visit_date si no tiene assignment_date).
+     * Cutoff: primer día del mes de hace 4 meses (now()->startOfMonth()->subMonthsNoOverflow(4)).
      */
     protected function handleCustomersFound(Collection $customers, ?string $digits = null): void
     {
-        // 0) Si algún cliente tiene ventas, bloqueamos directamente (requerimiento "menos aún si tienen ventas")
-        $customerWithVentas = $customers->first(fn(Customer $c) => $c->ventas()->exists());
-        if ($customerWithVentas) {
-            $this->notifyNoSePuedeLlamar(
-                "BLOQUEADO: El cliente (ID: {$customerWithVentas->id}) tiene ventas registradas. No se puede crear nueva nota."
-            );
-            redirect()->to(NoteResource::getUrl('index'));
-            return;
+        // 0) Si algún customer tiene cualquier nota impresa → bloquear siempre
+        foreach ($customers as $customer) {
+            if ($customer->notes()->where('printed', true)->exists()) {
+                $this->notifyNoSePuedeLlamar(
+                    "BLOQUEADO: El cliente (ID: {$customer->id}) tiene una nota impresa. No se puede crear nueva nota."
+                );
+                redirect()->to(NoteResource::getUrl('index'));
+                return;
+            }
         }
 
         $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
@@ -160,7 +164,47 @@ class BuscarCliente extends Component implements HasForms, HasActions
             ->pluck('last_note')
             ->filter();
 
-        // 1) Ninguno tiene notas
+        // 0) Si algún cliente tiene ventas registradas o nota en estado VENTA → revisar fecha
+        foreach ($customersWithLastNote as $item) {
+            /** @var Customer $customer */
+            $customer = $item['customer'];
+            /** @var Note|null $lastNote */
+            $lastNote = $item['last_note'];
+
+            $hasVentaRecord = $customer->ventas()->exists();
+            $hasVentaNote   = $customer->notes()->where('estado_terminal', EstadoTerminal::VENTA)->exists();
+
+            if ($hasVentaRecord || $hasVentaNote) {
+                if ($lastNote) {
+                    $fechaReferencia = $lastNote->assignment_date ?? $lastNote->visit_date;
+                    if ($fechaReferencia && $fechaReferencia->gte($cutoff)) {
+                        $fechaRefStr = $fechaReferencia->format('d/m/Y');
+                        $motivo = $hasVentaRecord ? "ventas registradas" : "una nota marcada como VENTA";
+                        $this->notifyNoSePuedeLlamar(
+                            "BLOQUEADO: El cliente (ID: {$customer->id}) tiene {$motivo} y actividad reciente ({$fechaRefStr})."
+                        );
+                        redirect()->to(NoteResource::getUrl('index'));
+                        return;
+                    }
+                    // Nota antigua → se permite, continúa el flujo normal
+                } elseif ($hasVentaRecord) {
+                    // Sin nota con fecha → usar fecha_venta de la tabla ventas
+                    $fechaVenta = $customer->ventas()->latest('fecha_venta')->value('fecha_venta');
+                    if ($fechaVenta && \Carbon\Carbon::parse($fechaVenta)->gte($cutoff)) {
+                        $fechaRefStr = \Carbon\Carbon::parse($fechaVenta)->format('d/m/Y');
+                        $this->notifyNoSePuedeLlamar(
+                            "BLOQUEADO: El cliente (ID: {$customer->id}) tiene ventas registradas con fecha reciente ({$fechaRefStr})."
+                        );
+                        redirect()->to(NoteResource::getUrl('index'));
+                        return;
+                    }
+                    // Venta antigua y sin nota → se permite, continúa el flujo normal
+                }
+                // hasVentaNote sin nota con fecha → sin fecha determinable, se trata como antigua → continúa
+            }
+        }
+
+        // 1) Ningún customer tiene notas con fecha válida → permitir
         if ($notesFound->isEmpty()) {
             $firstCustomer = $customers->first();
 
@@ -172,7 +216,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
             return;
         }
 
-        // 2) Si al menos una última nota es reciente => bloquear
+        // 2) Si al menos una última nota tiene menos de 5 meses → bloquear
         $recentEntry = $customersWithLastNote->first(function (array $item) use ($cutoff) {
             /** @var Note|null $lastNote */
             $lastNote = $item['last_note'];
@@ -201,26 +245,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
             return;
         }
 
-        // 3) Todas son antiguas => validar si alguna de esas últimas notas está en SALA y printed = true
-        $printedSalaNote = $notesFound->first(function (Note $note) {
-            return $note->estado_terminal === EstadoTerminal::SALA
-                && (bool) $note->printed === true;
-        });
-
-        if ($printedSalaNote) {
-            $fechaRef = ($printedSalaNote->assignment_date ?? $printedSalaNote->visit_date)?->format('d/m/Y') ?? 'Sin fecha';
-            $nroNota = $printedSalaNote->nro_nota ?? 'S/N';
-
-            $this->notifyNoSePuedeLlamar(
-                "BLOQUEADO: La nota {$nroNota} corresponde a OFICINA y ya fue impresa. " .
-                "Fecha de referencia: {$fechaRef}."
-            );
-
-            redirect()->to(NoteResource::getUrl('index'));
-            return;
-        }
-
-        // 4) Todas son antiguas y ninguna está en SALA + printed => permitir
+        // 3) Todas las últimas notas son antiguas → permitir
         $ultimaNotaMasRecienteEntreAntiguas = $notesFound
             ->sortByDesc(fn(Note $note) => ($note->assignment_date ?? $note->visit_date)?->timestamp ?? 0)
             ->first();
