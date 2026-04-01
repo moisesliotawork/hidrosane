@@ -98,6 +98,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
     protected function notifyClienteExistePeroAntiguo(string $detalle): void
     {
         Notification::make()
+
             ->title('CLIENTE EXISTE (ANTIGUO)')
             ->body($detalle)
             ->warning()
