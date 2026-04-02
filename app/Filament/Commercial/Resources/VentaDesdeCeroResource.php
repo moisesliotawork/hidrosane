@@ -153,12 +153,6 @@ class VentaDesdeCeroResource extends Resource
                         }),
 
 
-                    TextInput::make('third_phone')
-                        ->label('Teléfono 3')
-                        ->maxLength(11)
-                        ->tel(),
-
-
                     TextInput::make('age')
                         ->numeric()
                         ->label('Edad')

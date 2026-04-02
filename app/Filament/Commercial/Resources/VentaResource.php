@@ -135,8 +135,8 @@ class VentaResource extends Resource
                                 }),
 
                             TextInput::make('phone2_commercial')
-                                ->label('Teléfono Principal')
-                                ->required()
+                                ->label('Teléfono Secundario')
+
                                 ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
                                 ->extraInputAttributes([
                                     'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible

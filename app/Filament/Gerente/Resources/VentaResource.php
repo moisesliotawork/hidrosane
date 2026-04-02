@@ -177,8 +177,11 @@ class VentaResource extends Resource
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
 
-                        TextInput::make('phone')->label('Teléfono')->tel()->required(),
+                        TextInput::make('phone')->label('Teléfono 1')->tel()->required(),
                         TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                        TextInput::make('phone1_commercial')->label('Teléfono comercial 1')->tel(),
+                        TextInput::make('phone2_commercial')->label('Teléfono comercial 2')->tel(),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')
