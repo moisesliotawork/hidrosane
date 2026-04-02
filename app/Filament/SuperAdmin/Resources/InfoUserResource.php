@@ -33,6 +33,10 @@ class InfoUserResource extends Resource
                 TextInput::make('empleado_id')
                     ->label('ID Empleado')
                     ->disabled(),
+                TextInput::make('clave')
+                    ->label('Clave')
+                    ->maxLength(255)
+                    ->nullable(),
                 TextInput::make('name')
                     ->label('Nombre')
                     ->disabled(),
@@ -44,17 +48,13 @@ class InfoUserResource extends Resource
                     ->disabled(),
             ])->columns(2),
 
-            Section::make('Acceso y notas')->schema([
-                TextInput::make('clave')
-                    ->label('Clave')
-                    ->maxLength(255)
-                    ->nullable(),
+            Section::make('Notas')->schema([
                 Textarea::make('informacion_general')
                     ->label('Información General')
                     ->rows(6)
                     ->columnSpanFull()
                     ->nullable(),
-            ])->columns(2),
+            ])->columns(1),
 
             Section::make('Fechas')->schema([
                 DatePicker::make('alta_empleado')
@@ -78,11 +78,13 @@ class InfoUserResource extends Resource
             ->defaultSort('empleado_id')
             ->columns([
                 TextColumn::make('empleado_id')
-                    ->label('ID Empleado')
+                    ->label('ID ')
                     ->badge()
                     ->color(Color::Blue)
                     ->sortable()
+                    ->width('10px')
                     ->searchable(),
+
                 TextColumn::make('name')
                     ->label('Nombre')
                     ->state(fn(User $r) => strtoupper(trim("{$r->name} {$r->last_name}")))
@@ -92,18 +94,17 @@ class InfoUserResource extends Resource
                         ->orWhere('last_name', 'like', "%{$search}%")
                     )
                     ->sortable(),
-                TextColumn::make('email')
-                    ->label('Correo')
-                    ->badge()
-                    ->color('warning')
-                    ->searchable(),
                 TextColumn::make('clave')
                     ->label('Clave')
+                    ->extraAttributes(['class' => 'font-bold'])
                     ->searchable()
+                    ->color('pink')
                     ->toggleable(isToggledHiddenByDefault: false),
+
+
                 TextColumn::make('informacion_general')
                     ->label('Información General')
-                    ->limit(80)
+                    ->limit(50)
                     ->tooltip(fn($state) => $state)
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: false),
@@ -111,14 +112,22 @@ class InfoUserResource extends Resource
                     ->label('Fecha Alta')
                     ->date('d/m/Y')
                     ->badge()
+                    ->toggleable()
                     ->color('success')
                     ->sortable(),
                 TextColumn::make('baja')
                     ->label('Fecha Baja')
                     ->date('d/m/Y')
                     ->badge()
+                    ->toggleable()
                     ->color('danger')
                     ->sortable(),
+                TextColumn::make('email')
+                    ->label('Correo')
+                    ->badge()
+                    ->color('warning')
+                    ->toggleable()
+                    ->searchable(),
             ])
             ->paginated(false)
             ->filters([])
