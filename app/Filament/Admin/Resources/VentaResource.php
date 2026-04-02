@@ -1046,9 +1046,18 @@ class VentaResource extends Resource
                         return $b?->nro_contr_adm ?? '—';
                     })
                     ->url(function (Venta $r) {
-                        // Hacer clic para editar el -B si existe
                         $b = method_exists($r, 'contratoB') ? $r->contratoB() : $r->asociadas()->where('nro_contr_adm', 'like', '%-B')->first();
-                        return $b ? self::getUrl('edit', ['record' => $b]) : null;
+                        if (!$b) return null;
+                        // Usar la VentaResource del panel activo para generar la URL correcta
+                        $panel = \Filament\Facades\Filament::getCurrentPanel();
+                        if ($panel) {
+                            foreach ($panel->getResources() as $resource) {
+                                if ($resource::getModel() === \App\Models\Venta::class) {
+                                    return $resource::getUrl('edit', ['record' => $b]);
+                                }
+                            }
+                        }
+                        return self::getUrl('edit', ['record' => $b]);
                     })
                     ->openUrlInNewTab(false)
                     ->tooltip('Editar contrato -B')
