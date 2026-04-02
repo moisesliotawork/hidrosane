@@ -33,6 +33,9 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Support\Colors\Color;
 
 class VentaResource extends Resource
 {
@@ -715,8 +718,13 @@ class VentaResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
-                TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contrato')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
                     ->color(fn(EstadoVenta $state): string => $state->color())
@@ -724,21 +732,41 @@ class VentaResource extends Resource
                     ->sortable()
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
-                TextColumn::make('customer.name')->label('Nombre')->searchable()->sortable(),
+                TextColumn::make('customer.name')
+                    ->label('Nombre')
+                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('customer.postal_code')
+                    ->label('CP')
+                    ->badge()
+                    ->color('info')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('telefonos_cl')
                     ->label('Teléfonos_CL')
                     ->state(function (Venta $record): string {
                         $customer = $record->customer;
                         if (!$customer) return '-';
 
-                        return collect([
+                        $fmt = fn(?string $p): string => $p
+                            ? implode('&nbsp;', str_split(preg_replace('/\D/', '', $p), 3))
+                            : '';
+
+                        $phones = collect([
                             $customer->phone,
                             $customer->secondary_phone,
                             $customer->third_phone,
                             $customer->phone1_commercial,
                             $customer->phone2_commercial,
-                        ])->filter()->join(' | ');
+                        ])->filter()->map($fmt)->join('<br>');
+
+                        return $phones
+                            ? "<span class=\"font-bold text-amber-500\">{$phones}</span>"
+                            : '-';
                     })
+                    ->html()
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function ($q) use ($search) {
                             $q->where('phone', 'like', "%{$search}%")
@@ -750,12 +778,46 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
+                TextColumn::make('tlf_comerciales')
+                    ->label('Tlf_Com')
+                    ->state(function (Venta $record): string {
+                        $customer = $record->customer;
+                        if (!$customer) return '-';
+
+                        $fmt = fn(?string $p): string => $p
+                            ? implode('&nbsp;', str_split(preg_replace('/\D/', '', $p), 3))
+                            : '';
+
+                        $phones = collect([
+                            $customer->phone1_commercial,
+                            $customer->phone2_commercial,
+                        ])->filter()->map($fmt)->join('<br>');
+
+                        return $phones
+                            ? "<span class=\"font-bold text-amber-500\">{$phones}</span>"
+                            : '-';
+                    })
+                    ->html()
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function ($q) use ($search) {
+                            $q->where('phone1_commercial', 'like', "%{$search}%")
+                              ->orWhere('phone2_commercial', 'like', "%{$search}%");
+                        });
+                    })
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: false),
+                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
                     ->sortable(),
-                TextColumn::make('comercial.name')->label('Comercial')->sortable()->searchable(),
+                TextColumn::make('comercial.name')
+                    ->label('Comercial')
+                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->searchable(),
                 TextColumn::make('fecha_entrega')->label('F. repartidor')->date('d/m/Y'),
                 TextColumn::make('horario_entrega')->label('Horario rep.'),
                 TextColumn::make('customer.primary_address')
@@ -775,6 +837,27 @@ class VentaResource extends Resource
                     ->modalDescription('Esta acción eliminará el contrato y sus datos relacionados. ¿Deseas continuar?')
                     ->successNotificationTitle('Contrato eliminado'),
             ])
+            ->filters([
+                Filter::make('cp_contrato')
+                    ->form([
+                        TextInput::make('cp')
+                            ->label('Contr-CP')
+                            ->numeric()
+                            ->minLength(5)
+                            ->maxLength(5)
+                            ->placeholder('Ej: 28001'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            filled($data['cp'] ?? null) && strlen((string) $data['cp']) === 5,
+                            fn($q) => $q->whereHas('customer', fn($cq) => $cq->where('postal_code', $data['cp']))
+                        );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        return filled($data['cp'] ?? null) ? 'CP: ' . $data['cp'] : null;
+                    }),
+            ])
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->bulkActions([]);  // sin bulk delete
     }
 

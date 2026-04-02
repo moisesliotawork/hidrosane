@@ -35,6 +35,8 @@ use App\Enums\VendidoPor;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Support\Colors\Color;
 use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
 use Filament\Tables\Actions\ExportAction;
@@ -1017,7 +1019,25 @@ class VentaResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
 
-                TextColumn::make('nro_contr_adm')->label('Nº Contrato')->sortable()->searchable(),
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contrato')
+                    ->badge()
+                    ->color('success')
+                    ->sortable()
+                    ->searchable(),
+                TextColumn::make('customer.name')
+                    ->label('Nombre')
+                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->searchable(['first_names', 'last_names'])
+                    ->sortable(),
+                TextColumn::make('customer.postal_code')
+                    ->label('CP')
+                    ->badge()
+                    ->color('info')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('contrato_b')
                     ->label('-B')
                     ->state(function (Venta $r) {
@@ -1051,7 +1071,6 @@ class VentaResource extends Resource
                 TextColumn::make('note.fuente')
                     ->label('Fuente')
                     ->badge()
-                    // 1. COLOR A PRUEBA DE FALLOS:
                     // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
                     ->color(fn($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
                         FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
@@ -1067,7 +1086,7 @@ class VentaResource extends Resource
                         return $enum?->getLabel() ?? $state;
                     }),
 
-                TextColumn::make('note.nro_nota')->label('Nº Nota')->sortable()->searchable(),
+                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
                     ->color(fn(EstadoVenta $state): string => $state->color())
@@ -1075,21 +1094,29 @@ class VentaResource extends Resource
                     ->sortable()
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
-                TextColumn::make('customer.name')->label('Nombre')->searchable(['first_names', 'last_names'])->sortable(),
                 TextColumn::make('telefonos_cl')
                     ->label('Teléfonos_CL')
                     ->state(function (Venta $record): string {
                         $customer = $record->customer;
                         if (!$customer) return '-';
 
-                        return collect([
+                        $fmt = fn(?string $p): string => $p
+                            ? implode('&nbsp;', str_split(preg_replace('/\D/', '', $p), 3))
+                            : '';
+
+                        $phones = collect([
                             $customer->phone,
                             $customer->secondary_phone,
                             $customer->third_phone,
                             $customer->phone1_commercial,
                             $customer->phone2_commercial,
-                        ])->filter()->join(' | ');
+                        ])->filter()->map($fmt)->join('<br>');
+
+                        return $phones
+                            ? "<span class=\"font-bold text-amber-500\">{$phones}</span>"
+                            : '-';
                     })
+                    ->html()
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function ($q) use ($search) {
                             $q->where('phone', 'like', "%{$search}%")
@@ -1101,7 +1128,35 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->sortable(),
+                TextColumn::make('tlf_comerciales')
+                    ->label('Tlf_Com')
+                    ->state(function (Venta $record): string {
+                        $customer = $record->customer;
+                        if (!$customer) return '-';
+
+                        $fmt = fn(?string $p): string => $p
+                            ? implode('&nbsp;', str_split(preg_replace('/\D/', '', $p), 3))
+                            : '';
+
+                        $phones = collect([
+                            $customer->phone1_commercial,
+                            $customer->phone2_commercial,
+                        ])->filter()->map($fmt)->join('<br>');
+
+                        return $phones
+                            ? "<span class=\"font-bold text-amber-500\">{$phones}</span>"
+                            : '-';
+                    })
+                    ->html()
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function ($q) use ($search) {
+                            $q->where('phone1_commercial', 'like', "%{$search}%")
+                              ->orWhere('phone2_commercial', 'like', "%{$search}%");
+                        });
+                    })
+                    ->wrap()
+                    ->toggleable(isToggledHiddenByDefault: false),
+                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
@@ -1112,7 +1167,9 @@ class VentaResource extends Resource
                         $u = $r->comercial;
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
                     })
-                    ->formatStateUsing(fn($state) => $state ?: '--')
+                    ->formatStateUsing(fn($state) => strtoupper($state ?: '--'))
+                    ->badge()
+                    ->color('success')
                     ->searchable(query: function ($query, string $search) {
                         $query->whereHas('comercial', function ($q) use ($search) {
                             $q->where('empleado_id', 'like', "%{$search}%")
@@ -1132,6 +1189,8 @@ class VentaResource extends Resource
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
                     })
                     ->formatStateUsing(fn($state) => $state ?: '--')
+                    ->badge()
+                    ->color(fn($state) => $state && $state !== '--' ? 'success' : 'gray')
                     ->searchable(query: function ($query, string $search) {
                         $query->whereHas('companion', function ($q) use ($search) {
                             $q->where('empleado_id', 'like', "%{$search}%")
@@ -1140,7 +1199,6 @@ class VentaResource extends Resource
                         });
                     })
                     ->sortable(query: function ($query, string $direction) {
-                        // Ordena por empleado_id del compañero
                         $query->leftJoin('users as comp', 'comp.id', '=', 'ventas.companion_id')
                             ->orderBy('comp.empleado_id', $direction)
                             ->select('ventas.*');
@@ -1314,6 +1372,26 @@ class VentaResource extends Resource
             ])
             ->filters([
 
+                Filter::make('cp_contrato')
+                    ->form([
+                        TextInput::make('cp')
+                            ->label('Contr-CP')
+                            ->numeric()
+                            ->minLength(5)
+                            ->maxLength(5)
+                            ->placeholder('Ej: 28001'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            filled($data['cp'] ?? null) && strlen((string) $data['cp']) === 5,
+                            fn($q) => $q->whereHas('customer', fn($cq) => $cq->where('postal_code', $data['cp']))
+                        );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        return filled($data['cp'] ?? null) ? 'CP: ' . $data['cp'] : null;
+                    }),
+
+                /*
                 Tables\Filters\TernaryFilter::make('cf')
                     ->label('CF (Contrato firmado)')
                     ->trueLabel('Con CF')
@@ -1323,7 +1401,7 @@ class VentaResource extends Resource
                         false: fn(Builder $q) => $q->whereNull('contrato_firmado'),
                         blank: fn(Builder $q) => $q,
                     ),
-
+                */
 
                 /*
                 // FILTRO PARA FECHAS EN EXCEL
@@ -1339,7 +1417,6 @@ class VentaResource extends Resource
                 ->when($data['hasta'], fn ($q) => $q->whereDate('fecha_venta', '<=', $data['hasta']));
         }),
     */
-
 
                 SelectFilter::make('origen_venta')
                     ->label('Origen')
@@ -1358,6 +1435,7 @@ class VentaResource extends Resource
                         };
                     }),
             ])
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->bulkActions([]);  // sin bulk delete
     }
 

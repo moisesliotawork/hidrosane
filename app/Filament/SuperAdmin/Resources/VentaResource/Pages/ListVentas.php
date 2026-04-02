@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources\VentaResource\Pages;
+namespace App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 
-use App\Filament\Admin\Resources\VentaResource;
-use Filament\Actions;
+use App\Filament\SuperAdmin\Resources\VentaResource;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\MaxWidth;
 
@@ -18,8 +17,6 @@ class ListVentas extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-        
-        ];
+        return [];
     }
 }
