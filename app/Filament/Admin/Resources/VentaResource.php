@@ -112,13 +112,13 @@ class VentaResource extends Resource
                             ->label('NRO CONTRATO')
                             ->maxLength(50)
                             ->placeholder('Ej. 01023')
-                            ->disabled(fn() => request()->routeIs('filament.admin.resources.ventas.create-b')),
+                            ->disabled(fn() => request()->routeIs('filament.*.resources.ventas*.create-b')),
 
                         TextInput::make('nro_cliente_adm')
                             ->label('NRO CLIENTE')
                             ->maxLength(50)
                             ->placeholder('Ej. 00527')
-                            ->disabled(fn() => request()->routeIs('filament.admin.resources.ventas.create-b')),
+                            ->disabled(fn() => request()->routeIs('filament.*.resources.ventas*.create-b')),
 
                         Select::make('mes_contr')
                             ->label('MES')
@@ -140,7 +140,7 @@ class VentaResource extends Resource
                             ->required()
                             ->visible(
                                 fn(?Venta $record) =>
-                                request()->routeIs('filament.admin.resources.ventas.create-b')
+                                request()->routeIs('filament.*.resources.ventas*.create-b')
                                 || (filled($record?->nro_contr_adm) && str_ends_with($record->nro_contr_adm, '-B'))
                             )
                         // (opcional) si quieres que SOLO se vea y no la puedan cambiar:
@@ -571,7 +571,7 @@ class VentaResource extends Resource
                         ->dehydrated()
                         ->reactive()
                         ->afterStateHydrated(function (Get $get, Set $set) {
-                            if (request()->routeIs('filament.admin.resources.ventas.create-b')) {
+                            if (request()->routeIs('filament.*.resources.ventas*.create-b')) {
                                 // en -B arrancamos en cero limpio
                                 $set('importe_total', 0);
                                 $set('monto_extra', 0);
@@ -733,7 +733,7 @@ class VentaResource extends Resource
             Section::make('Ofertas incluidas')
                 ->schema([
                     Repeater::make('ventaOfertas')
-                        ->defaultItems(fn() => request()->routeIs('filament.admin.resources.ventas.create-b') ? 0 : 1)
+                        ->defaultItems(fn() => request()->routeIs('filament.*.resources.ventas*.create-b') ? 0 : 1)
                         ->relationship()
                         ->minItems(1)
                         ->label(false)
@@ -1523,7 +1523,7 @@ class VentaResource extends Resource
                 ->visible(
                     fn(Get $get, ?Venta $record) =>
                     $required
-                    && !request()->routeIs('filament.admin.resources.ventas.create-b')
+                    && !request()->routeIs('filament.*.resources.ventas*.create-b')
                     && !self::isContratoB($record)
                     && blank($get($field))
                 ),

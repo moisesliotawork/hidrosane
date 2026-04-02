@@ -172,7 +172,7 @@ class CreateContratoBPage extends Page implements HasForms
             ->success()
             ->send();
 
-        return redirect(VentaResource::getUrl('edit', ['record' => $nueva]));
+        return redirect(static::getResource()::getUrl('edit', ['record' => $nueva]));
     }
 
 
