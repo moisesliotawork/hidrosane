@@ -59,9 +59,59 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
                     DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
                     TextInput::make('age')->numeric()->label('Edad'),
-                    TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                    TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                    TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                    TextInput::make('phone1_commercial')
+                        ->label('Teléfono Principal')
+                        ->required()
+                        ->maxLength(11)
+                        ->extraInputAttributes([
+                            'style' => 'font-weight: bold; color: goldenrod;',
+                            'x-data' => '',
+                            'x-on:input' => "
+                                \$nextTick(() => {
+                                    let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                                    let formatted = '';
+                                    if (digits.length > 0) formatted += digits.substring(0, 3);
+                                    if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                                    if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                                    \$el.value = formatted;
+                                })
+                            ",
+                        ])
+                        ->dehydrateStateUsing(fn(?string $state): ?string => $state ? preg_replace('/\D/', '', $state) : null),
+                    TextInput::make('phone2_commercial')
+                        ->label('Teléfono 2')
+                        ->maxLength(11)
+                        ->extraInputAttributes([
+                            'x-data' => '',
+                            'x-on:input' => "
+                                \$nextTick(() => {
+                                    let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                                    let formatted = '';
+                                    if (digits.length > 0) formatted += digits.substring(0, 3);
+                                    if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                                    if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                                    \$el.value = formatted;
+                                })
+                            ",
+                        ])
+                        ->dehydrateStateUsing(fn(?string $state): ?string => $state ? preg_replace('/\D/', '', $state) : null),
+                    TextInput::make('third_phone')
+                        ->label('Teléfono 3')
+                        ->maxLength(11)
+                        ->extraInputAttributes([
+                            'x-data' => '',
+                            'x-on:input' => "
+                                \$nextTick(() => {
+                                    let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                                    let formatted = '';
+                                    if (digits.length > 0) formatted += digits.substring(0, 3);
+                                    if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                                    if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                                    \$el.value = formatted;
+                                })
+                            ",
+                        ])
+                        ->dehydrateStateUsing(fn(?string $state): ?string => $state ? preg_replace('/\D/', '', $state) : null),
                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                     Forms\Components\TextInput::make('nro_piso')

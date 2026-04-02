@@ -110,23 +110,66 @@ class VentaResource extends Resource
                                     //    ->label('Teléfono 2')
                                     //    ->tel(),
 
-                                    TextInput::make('phone1_commercial')
-                                        ->label('Teléfono comercial 1')
-                                        ->required()
-                                        ->tel(),
+                            TextInput::make('phone1_commercial')
+                                ->label('Teléfono Principal')
+                                ->required()
+                                ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                                ->extraInputAttributes([
+                                    'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                                    'x-data' => '',
+                                    'x-on:input' => "
+            \$nextTick(() => {
+                // Extraer solo dígitos y limitar a 9
+                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let formatted = '';
+                if (digits.length > 0) formatted += digits.substring(0, 3);
+                if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                \$el.value = formatted;
+            })
+        ",
+                                ])
+                                ->dehydrateStateUsing(function (?string $state): ?string {
+                                    // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
+                                    return $state ? preg_replace('/\D/', '', $state) : null;
+                                }),
 
-                                    TextInput::make('phone2_commercial')
-                                        ->label('Teléfono comercial 2')
-                                        ->tel(),
-
+                            TextInput::make('phone2_commercial')
+                                ->label('Teléfono Principal')
+                                ->required()
+                                ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                                ->extraInputAttributes([
+                                    'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                                    'x-data' => '',
+                                    'x-on:input' => "
+            \$nextTick(() => {
+                // Extraer solo dígitos y limitar a 9
+                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let formatted = '';
+                if (digits.length > 0) formatted += digits.substring(0, 3);
+                if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
+                if (digits.length > 6) formatted += ' ' + digits.substring(6, 9);
+                \$el.value = formatted;
+            })
+        ",
+                                ])
+                                ->dehydrateStateUsing(function (?string $state): ?string {
+                                    // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
+                                    return $state ? preg_replace('/\D/', '', $state) : null;
+                                }),
                                     TextInput::make('third_phone')
                                         ->label('Teléfono 3')
+                                        ->maxLength(11)
                                         ->tel(),
 
                                     TextInput::make('email')
                                         ->label('Email')
                                         ->email()
                                         ->columnSpanFull(),
+                            TextInput::make('primary_address')
+                                ->label('Dirección 1')
+                                ->required()
+                                ->columnSpanFull(),
 
                                     // ➍ Dirección
                                     Forms\Components\TextInput::make('postal_code')
@@ -149,10 +192,6 @@ class VentaResource extends Resource
                                         ->maxLength(255)
                                         ->label('Provincia'),
 
-                                    TextInput::make('primary_address')
-                                        ->label('Dirección 1')
-                                        ->required()
-                                        ->columnSpanFull(),
 
                                     TextInput::make('secondary_address')
                                         ->label('Dirección 2')
