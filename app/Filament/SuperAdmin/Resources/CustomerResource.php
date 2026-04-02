@@ -39,7 +39,7 @@ class CustomerResource extends Resource
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
-            Section::make('Vision Global del Cliente')
+            Section::make('Posición Global del Cliente')
                 ->columns(6)
                 ->schema([
                     TextEntry::make('name')
@@ -53,20 +53,16 @@ class CustomerResource extends Resource
                     TextEntry::make('dni')
                         ->label('DNI'),
 
-                    TextEntry::make('primary_address')->label('DOMICILIO'),
+                    TextEntry::make('primary_address')
+                        ->label('DOMICILIO')
+                        ->state(function (Customer $r) {
+                            return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
+                        })
+                        ->columnSpan(2),
 
                     TextEntry::make('secondary_address')
                         ->label('DOMICILIO 2')
                         ->visible(fn(Customer $r) => filled($r->secondary_address)),
-
-                    TextEntry::make('phones')
-                        ->label('TELEFONOS')
-                        ->state(
-                            fn(Customer $r) =>
-                            filled($r->secondary_phone)
-                            ? "{$r->phone} | {$r->secondary_phone}"
-                            : $r->phone
-                        ),
 
                     TextEntry::make('fecha_nac')
                         ->label('F. Nac')
@@ -83,6 +79,32 @@ class CustomerResource extends Resource
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
                         }),
 
+                ])
+                ->columnSpan(6),
+
+            Section::make('Teléfonos')
+                ->columns(2)
+                ->schema([
+                    TextEntry::make('all_phones')
+                        ->label('TELÉFONOS CLIENTE')
+                        ->state(function (Customer $r): string {
+                            $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                            return collect([$r->phone, $r->secondary_phone, $r->third_phone])
+                                ->filter()->map($fmt)->join('   |   ') ?: '—';
+                        })
+                        ->color('warning')
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold),
+
+                    TextEntry::make('all_phones_commercial')
+                        ->label('TELÉFONOS COMERCIAL')
+                        ->state(function (Customer $r): string {
+                            $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                            return collect([$r->phone1_commercial, $r->phone2_commercial])
+                                ->filter()->map($fmt)->join('   |   ') ?: '—';
+                        })
+                        ->color('warning')
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                        ->visible(fn(Customer $r) => filled($r->phone1_commercial) || filled($r->phone2_commercial)),
                 ])
                 ->columnSpan(6),
         ]);
@@ -123,15 +145,37 @@ class CustomerResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('ventas_count')
+                    ->label('#VENTAS')
+                    ->state(fn(Customer $r): int => $r->ventas()->count())
+                    ->badge()
+                    ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray'),
+
                 TextColumn::make('phones')
                     ->label('TELEFONOS')
-                    ->state(
-                        fn(Customer $r) =>
-                        filled($r->secondary_phone)
-                        ? "{$r->phone} | {$r->secondary_phone}"
-                        : $r->phone
-                    )
+                    ->state(function (Customer $r): string {
+                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        return collect([$r->phone, $r->secondary_phone, $r->third_phone])
+                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                    })
+                    ->color('warning')
+                    ->weight(\Filament\Support\Enums\FontWeight::Bold)
                     ->searchable(['phone', 'secondary_phone']),
+
+                TextColumn::make('phones_commercial')
+                    ->label('TEL. COMERCIAL')
+                    ->state(function (Customer $r): string {
+                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        return collect([$r->phone1_commercial, $r->phone2_commercial])
+                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                    })
+                    ->color('warning')
+                    ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->where('phone1_commercial', 'like', "%{$search}%")
+                                     ->orWhere('phone2_commercial', 'like', "%{$search}%");
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
             ])
             ->defaultSort('id', 'desc')

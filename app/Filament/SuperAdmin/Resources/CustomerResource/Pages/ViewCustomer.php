@@ -14,7 +14,7 @@ class ViewCustomer extends ViewRecord
 
     public function getTitle(): string
     {
-        return 'Vision Global del Cliente';
+        return 'Posición Global del Cliente';
     }
 
     protected function getFooterWidgets(): array

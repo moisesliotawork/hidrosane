@@ -8,14 +8,20 @@ use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\{Customer, Venta};
 use App\Filament\Admin\Resources\VentaResource;
+use Closure;
 
 class CustomerSalesTable extends BaseWidget
 {
-    protected static ?string $heading = 'Ventas del Cliente';
+    protected static ?string $heading = 'HISTÓRICO DE CONTRATOS"';
     protected int|string|array $columnSpan = 'full';
 
     /** Filament inyecta el registro actual del ViewRecord */
     public ?Customer $record = null;
+
+    protected function getTableRecordUrlUsing(): ?Closure
+    {
+        return fn(Venta $record): string => VentaResource::getUrl('edit', ['record' => $record]);
+    }
 
     protected function getTableQuery(): Builder
     {
