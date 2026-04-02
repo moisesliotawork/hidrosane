@@ -95,6 +95,8 @@ class User extends Authenticatable implements FilamentUser, HasName
         'baja',
         'dni',
         'is_active',
+        'clave',
+        'informacion_general',
     ];
 
     /**
