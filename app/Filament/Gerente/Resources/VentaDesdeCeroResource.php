@@ -107,13 +107,6 @@ class VentaDesdeCeroResource extends Resource
                         ])
                         ->dehydrateStateUsing(fn(?string $state): ?string => $state ? preg_replace('/\D/', '', $state) : null),
 
-
-
-
-
-
-
-
                     TextInput::make('phone2_commercial')
                         ->label('Teléfono 2')
                         ->maxLength(11)
@@ -142,7 +135,6 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->weight(“bold”)
                         ->maxLength(5)
                         ->minLength(5)
                         ->numeric()
