@@ -856,6 +856,22 @@ class VentaResource extends Resource
                     ->indicateUsing(function (array $data): ?string {
                         return filled($data['cp'] ?? null) ? 'CP: ' . $data['cp'] : null;
                     }),
+
+                Filter::make('localidad')
+                    ->form([
+                        TextInput::make('localidad')
+                            ->label('Localidad')
+                            ->placeholder('Ej: Madrid'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            filled($data['localidad'] ?? null),
+                            fn($q) => $q->whereHas('customer', fn($cq) => $cq->where('ciudad', 'like', '%' . $data['localidad'] . '%'))
+                        );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        return filled($data['localidad'] ?? null) ? 'Localidad: ' . $data['localidad'] : null;
+                    }),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->bulkActions([]);  // sin bulk delete
