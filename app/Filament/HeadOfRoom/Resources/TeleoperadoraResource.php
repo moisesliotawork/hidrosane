@@ -80,9 +80,9 @@ class TeleoperadoraResource extends Resource
                     'notes as vendidas_count' => fn($q) =>
                         $q->where('estado_terminal', EstadoTerminal::VENTA->value)
                             ->whereBetween('fecha_declaracion', [$start, $end]),
-                    // NUEVO: total de notas asociadas dentro del período
+                    // Producción: notas creadas por la teleoperadora en el período
                     'notes as aproduccion_count' => fn($q) =>
-                        $q->whereBetween('fecha_declaracion', [$start, $end]),
+                        $q->whereBetween('created_at', [$start, $end]),
                 ]);
             })
             ->columns([
