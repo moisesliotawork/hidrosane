@@ -1028,6 +1028,7 @@ class VentaResource extends Resource
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
+                    ->badge()
                     ->state(function (Venta $r) {
                         // Si agregaste el helper en el modelo:
                         $b = method_exists($r, 'contratoB') ? $r->contratoB() : $r->asociadas()->where('nro_contr_adm', 'like', '%-B')->first();
@@ -1086,11 +1087,16 @@ class VentaResource extends Resource
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->color(fn(EstadoVenta $state): string => $state->color())
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
-                TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
+                TextColumn::make('nro_cliente_adm')
+                    ->label('Nº Cliente')
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('customer.name')
                     ->label('Nombre')
                     ->extraAttributes(['class' => 'font-bold'])
@@ -1099,12 +1105,14 @@ class VentaResource extends Resource
                 TextColumn::make('customer.postal_code')
                     ->label('CP')
                     ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->color('info')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('telefonos_cl')
                     ->label('Teléfonos_CL')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (Venta $record): string {
                         $customer = $record->customer;
                         if (!$customer) return '-';
@@ -1139,6 +1147,7 @@ class VentaResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('tlf_comerciales')
                     ->label('Tlf_Com')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (Venta $record): string {
                         $customer = $record->customer;
                         if (!$customer) return '-';
@@ -1168,10 +1177,12 @@ class VentaResource extends Resource
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
                     ->sortable(),
                 TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (Venta $r) {
                         $u = $r->comercial;
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
@@ -1193,6 +1204,7 @@ class VentaResource extends Resource
                     }),
                 TextColumn::make('companion.empleado_id')
                     ->label('Compañero')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->state(function (Venta $r) {
                         $u = $r->companion;
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
@@ -1212,7 +1224,10 @@ class VentaResource extends Resource
                             ->orderBy('comp.empleado_id', $direction)
                             ->select('ventas.*');
                     }),
-                TextColumn::make('fecha_entrega')->label('F. repartidor')->date('d/m/Y'),
+                TextColumn::make('fecha_entrega')
+                    ->label('F. repartidor')
+                    ->badge()
+                    ->date('d/m/Y'),
                 TextColumn::make('horario_entrega')->label('Horario rep.'),
                 TextColumn::make('customer.primary_address')
                     ->label('Dirección')
