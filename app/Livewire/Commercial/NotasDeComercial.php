@@ -384,13 +384,8 @@ class NotasDeComercial extends Component
             // 🔴 RETEN: no importa el comercial, solo reten = true
             $query->where('reten', true);
         } else {
-            // 🧑‍💼 Comercial normal: mismas querys de antes + reten = false
-            $query->where('comercial_id', $this->comercialId)
-                ->where('reten', false);
-            // si quieres incluir null también:
-            // ->where(function ($q) {
-            //     $q->whereNull('reten')->orWhere('reten', false);
-            // });
+            // 🧑‍💼 Comercial específico: mostrar todas sus notas (reten=true y reten=false)
+            $query->where('comercial_id', $this->comercialId);
         }
 
         return $query
@@ -422,8 +417,8 @@ class NotasDeComercial extends Component
         if ($this->esReten) {
             $query->where('reten', true);
         } else {
+            // Comercial específico: mostrar todas sus notas (reten=true y reten=false)
             $query->where('comercial_id', $this->comercialId);
-            $query->where('reten', false);
         }
 
         return $query->latest('assignment_date')
