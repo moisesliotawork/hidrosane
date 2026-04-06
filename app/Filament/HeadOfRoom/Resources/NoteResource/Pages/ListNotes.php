@@ -135,18 +135,18 @@ class ListNotes extends ListRecords
                         })
                 ),
 
-            'sala' => Tab::make('Oficina')
-                ->icon('heroicon-o-building-office')
-                ->badge(
-                    Note::query()
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
-                        ->count()
-                )
-                ->badgeColor('pink')
-                ->modifyQueryUsing(
-                    fn(Builder $query) => $query
-                        ->where('estado_terminal', EstadoTerminal::SALA->value)
-                ),
+            // 'sala' => Tab::make('Oficina')
+            //     ->icon('heroicon-o-building-office')
+            //     ->badge(
+            //         Note::query()
+            //             ->where('estado_terminal', EstadoTerminal::SALA->value)
+            //             ->count()
+            //     )
+            //     ->badgeColor('pink')
+            //     ->modifyQueryUsing(
+            //         fn(Builder $query) => $query
+            //             ->where('estado_terminal', EstadoTerminal::SALA->value)
+            //     ),
 
             'no_impresas' => Tab::make('NO IMPRESAS')
                 ->icon('heroicon-o-document-text')
@@ -228,6 +228,6 @@ class ListNotes extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'sala';
+        return 'notas';
     }
 }

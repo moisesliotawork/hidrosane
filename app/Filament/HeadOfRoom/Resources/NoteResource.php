@@ -522,70 +522,59 @@ class NoteResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                Tables\Filters\Filter::make('assignment_range')
-                    ->label('Asignación (rango)')
+                // Fila 1: Desde | Hasta | Fecha de Asignación | Comercial
+                Tables\Filters\Filter::make('assignment_from')
+                    ->label('Desde')
                     ->form([
                         Forms\Components\DatePicker::make('start')
                             ->label('Desde')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
+                    ])
+                    ->query(fn(Builder $q, array $data) =>
+                        $q->when($data['start'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '>=', $d))
+                    )
+                    ->indicateUsing(fn(array $data) =>
+                        ($data['start'] ?? null) ? 'Desde: ' . Carbon::parse($data['start'])->format('d/m/Y') : null
+                    ),
+
+                Tables\Filters\Filter::make('assignment_to')
+                    ->label('Hasta')
+                    ->form([
                         Forms\Components\DatePicker::make('end')
                             ->label('Hasta')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        $start = $data['start'] ?? null;
-                        $end = $data['end'] ?? null;
-
-                        return $query
-                            ->when($start, fn(Builder $q) => $q->whereDate('assignment_date', '>=', $start))
-                            ->when($end, fn(Builder $q) => $q->whereDate('assignment_date', '<=', $end));
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        $start = $data['start'] ?? null;
-                        $end = $data['end'] ?? null;
-
-                        if ($start && $end) {
-                            return 'Asignación: ' . Carbon::parse($start)->format('d/m/Y') .
-                                ' → ' . Carbon::parse($end)->format('d/m/Y');
-                        }
-                        if ($start) {
-                            return 'Asignación desde: ' . Carbon::parse($start)->format('d/m/Y');
-                        }
-                        if ($end) {
-                            return 'Asignación hasta: ' . Carbon::parse($end)->format('d/m/Y');
-                        }
-                        return null;
-                    }),
+                    ->query(fn(Builder $q, array $data) =>
+                        $q->when($data['end'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '<=', $d))
+                    )
+                    ->indicateUsing(fn(array $data) =>
+                        ($data['end'] ?? null) ? 'Hasta: ' . Carbon::parse($data['end'])->format('d/m/Y') : null
+                    ),
 
                 Tables\Filters\Filter::make('assignment_date')
+                    ->label('Fecha de Asignación')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha exacta de asignación')
+                            ->label('Fecha de Asignación')
                             ->displayFormat('d/m/Y')
-                            ->native(false)
+                            ->native(false),
                     ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['assignment_date'],
-                                fn(Builder $query, $date) => $query->whereDate('assignment_date', $date)
-                            );
-                    })
-                    ->indicateUsing(function (array $data): ?string {
-                        if (!$data['assignment_date']) {
-                            return null;
-                        }
-
-                        return 'Fecha de asignación: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y');
-                    }),
+                    ->query(fn(Builder $q, array $data) =>
+                        $q->when($data['assignment_date'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', $d))
+                    )
+                    ->indicateUsing(fn(array $data) =>
+                        ($data['assignment_date'] ?? null)
+                            ? 'Asignación: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y')
+                            : null
+                    ),
 
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
                     ->options(function () {
-                        return User::role(['commercial', 'team_leader', 'sales_manager']) // 👈 ambos roles
-                        ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                        return User::role(['commercial', 'team_leader', 'sales_manager'])
+                            ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                             ->orderBy('users.name')
                             ->distinct()
                             ->get()
@@ -596,11 +585,13 @@ class NoteResource extends Resource
                     })
                     ->searchable()
                     ->native(false),
+
+                // Fila 2: Fecha Oficina | Impresas | Retén
                 Tables\Filters\Filter::make('sent_to_sala_date')
-                    ->label('Fecha Sala')
+                    ->label('Fecha Oficina')
                     ->form([
                         Forms\Components\DatePicker::make('sent_to_sala_at')
-                            ->label('Fecha Exacta de Oficina')
+                            ->label('Fecha Oficina')
                             ->displayFormat('d/m/Y')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
@@ -614,13 +605,12 @@ class NoteResource extends Resource
                                     ->where('estado_terminal', EstadoTerminal::SALA->value)
                             );
                     })
-                    ->indicateUsing(function (array $data): ?string {
-                        if (!($data['sent_to_sala_at'] ?? null)) {
-                            return null;
-                        }
+                    ->indicateUsing(fn(array $data) =>
+                        ($data['sent_to_sala_at'] ?? null)
+                            ? 'Oficina: ' . Carbon::parse($data['sent_to_sala_at'])->format('d/m/Y')
+                            : null
+                    ),
 
-                        return 'Sala: ' . Carbon::parse($data['sent_to_sala_at'])->format('d/m/Y');
-                    }),
                 TernaryFilter::make('printed')
                     ->label('Impresas')
                     ->trueLabel('Solo impresas')
@@ -630,23 +620,24 @@ class NoteResource extends Resource
                     ->queries(
                         true: fn(Builder $q) => $q->where('printed', true),
                         false: fn(Builder $q) => $q->where('printed', false),
-                        blank: fn(Builder $q) => $q, // sin filtro
+                        blank: fn(Builder $q) => $q,
                     ),
 
-
                 Tables\Filters\TernaryFilter::make('reten')
-                    ->label('Reten')
-                    ->trueLabel('Solo en Reten')
-                    ->falseLabel('Solo fuera de Reten')
+                    ->label('Retén')
+                    ->trueLabel('Solo en Retén')
+                    ->falseLabel('Solo fuera de Retén')
                     ->placeholder('Todas')
                     ->native(false)
                     ->queries(
                         true: fn(Builder $q) => $q->where('reten', true),
                         false: fn(Builder $q) => $q->where('reten', false),
-                        blank: fn(Builder $q) => $q, // sin filtro
+                        blank: fn(Builder $q) => $q,
                     ),
 
             ])
+            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->label(''),

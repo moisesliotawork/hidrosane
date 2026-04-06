@@ -1025,18 +1025,6 @@ class VentaResource extends Resource
                     ->color('success')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('customer.name')
-                    ->label('Nombre')
-                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
-                    ->extraAttributes(['class' => 'font-bold'])
-                    ->searchable(['first_names', 'last_names'])
-                    ->sortable(),
-                TextColumn::make('customer.postal_code')
-                    ->label('CP')
-                    ->badge()
-                    ->color('info')
-                    ->searchable()
-                    ->sortable(),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1075,7 +1063,6 @@ class VentaResource extends Resource
                         return $query->orderByRaw("contrato_firmado IS NULL {$direction}");
                     }),
 
-
                 // FUENTE DE LA TELEOPERADORA //
 
                 TextColumn::make('note.fuente')
@@ -1104,6 +1091,18 @@ class VentaResource extends Resource
                     ->sortable()
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
+                TextColumn::make('customer.name')
+                    ->label('Nombre')
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->searchable(['first_names', 'last_names'])
+                    ->sortable(),
+                TextColumn::make('customer.postal_code')
+                    ->label('CP')
+                    ->badge()
+                    ->color('info')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('telefonos_cl')
                     ->label('Teléfonos_CL')
                     ->state(function (Venta $record): string {
