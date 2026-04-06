@@ -37,6 +37,9 @@ class Customer extends Model
         'num_hab_casa',
         'ayuntamiento',
         'edadTelOp',
+        'merged_into_id',
+        'merged_at',
+        'merged_by_user_id',
 
         'postal_code',
         'ciudad',
@@ -51,6 +54,7 @@ class Customer extends Model
         'fecha_nac' => 'date:Y-m-d',
         'age' => 'integer',
         'edadTelOp' => 'integer',
+        'merged_at' => 'datetime',
     ];
 
     protected static function booted()
@@ -205,6 +209,36 @@ class Customer extends Model
             ? null
             : preg_replace('/\D+/', '', (string) $value),
         );
+    }
+
+    public function mergedInto(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'merged_into_id');
+    }
+
+    public function mergedChildren(): HasMany
+    {
+        return $this->hasMany(Customer::class, 'merged_into_id');
+    }
+
+    public function mergedBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'merged_by_user_id');
+    }
+
+    public function scopeNotMerged($query)
+    {
+        return $query->whereNull('merged_into_id');
+    }
+
+    public function scopeMerged($query)
+    {
+        return $query->whereNotNull('merged_into_id');
+    }
+
+    public function getIsMergedAttribute(): bool
+    {
+        return !is_null($this->merged_into_id);
     }
 
 
