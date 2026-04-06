@@ -5,22 +5,23 @@ namespace App\Filament\Admin\Resources\CustomerResource\Widgets;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\Textarea;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\{Customer, Note};
+use App\Models\{Customer, Note, NoteSalaObservation};
 use App\Enums\{NoteStatus, EstadoTerminal};
-use App\Filament\HeadOfRoom\Resources\NoteDescResource; // para ver la nota en su recurso
+use App\Filament\HeadOfRoom\Resources\NoteDescResource;
 
 class CustomerNotesTable extends BaseWidget
 {
     protected static ?string $heading = 'HISTORICO DE ESTE CLIENTE';
     protected int|string|array $columnSpan = 'full';
 
-    /** Filament inyecta el registro actual del ViewRecord */
     public ?Customer $record = null;
 
     protected function getTableQuery(): Builder
     {
         return Note::query()
+            ->with(['salaObservations.author', 'observations.author'])
             ->where('customer_id', $this->record?->id)
             ->latest('created_at');
     }
@@ -91,6 +92,63 @@ class CustomerNotesTable extends BaseWidget
                     EstadoTerminal::CONFIRMADO => 'orange',
                     EstadoTerminal::SALA => 'pink',
                     default => 'gray',
+                }),
+
+            TextColumn::make('observaciones_sala')
+                ->label('Observaciones')
+                ->html()
+                ->state(function (Note $record): string {
+                    $lines = [];
+
+                    foreach (($record->getRelation('observations') ?? collect())->sortBy('created_at') as $o) {
+                        if (empty($o->observation)) continue;
+                        $lines[] =
+                            '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
+                            '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
+                            '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
+                            e($o->observation) .
+                            '</div>';
+                    }
+
+                    foreach (($record->getRelation('salaObservations') ?? collect())->sortBy('created_at') as $o) {
+                        $lines[] =
+                            '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
+                            '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
+                            '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
+                            e($o->observation) .
+                            '</div>';
+                    }
+
+                    if (empty($lines)) {
+                        return '<span style="color:#9ca3af;font-size:0.7rem;font-style:italic">—</span>';
+                    }
+                    return implode('', $lines);
+                })
+                ->wrap(),
+        ];
+    }
+
+    protected function getTableActions(): array
+    {
+        return [
+            Tables\Actions\Action::make('añadir_observacion')
+                ->label('+ Obs.')
+                ->icon('heroicon-o-chat-bubble-left-ellipsis')
+                ->color('warning')
+                ->modalHeading('Añadir observación a esta nota')
+                ->form([
+                    Textarea::make('observation')
+                        ->label('Observación')
+                        ->required()
+                        ->rows(3)
+                        ->placeholder('Escribe una observación...'),
+                ])
+                ->action(function (Note $record, array $data): void {
+                    NoteSalaObservation::create([
+                        'note_id'     => $record->id,
+                        'author_id'   => auth()->id(),
+                        'observation' => $data['observation'],
+                    ]);
                 }),
         ];
     }

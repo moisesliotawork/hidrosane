@@ -96,6 +96,12 @@ class Customer extends Model
         return $this->hasMany(Note::class, 'customer_id');
     }
 
+    /** Relación: un cliente puede tener muchas observaciones */
+    public function customerObservations(): HasMany
+    {
+        return $this->hasMany(CustomerObservation::class, 'customer_id');
+    }
+
 
 
 
