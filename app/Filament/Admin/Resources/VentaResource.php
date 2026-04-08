@@ -1087,7 +1087,7 @@ class VentaResource extends Resource
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->color(fn(EstadoVenta $state): string => $state->color())
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
@@ -1173,7 +1173,7 @@ class VentaResource extends Resource
                         });
                     })
                     ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
@@ -1182,7 +1182,7 @@ class VentaResource extends Resource
                     ->sortable(),
                 TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->state(function (Venta $r) {
                         $u = $r->comercial;
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
@@ -1204,7 +1204,7 @@ class VentaResource extends Resource
                     }),
                 TextColumn::make('companion.empleado_id')
                     ->label('Compañero')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->state(function (Venta $r) {
                         $u = $r->companion;
                         return $u ? "{$u->empleado_id} - {$u->name} {$u->last_name}" : null;
