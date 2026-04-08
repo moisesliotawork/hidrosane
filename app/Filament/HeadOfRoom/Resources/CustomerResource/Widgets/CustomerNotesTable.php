@@ -21,7 +21,7 @@ class CustomerNotesTable extends BaseWidget
     protected function getTableQuery(): Builder
     {
         return Note::query()
-            ->with(['salaObservations.author', 'observations.author'])
+            ->with(['salaObservations.author', 'observations.author', 'venta'])
             ->where('customer_id', $this->record?->id)
             ->latest('created_at');
     }
@@ -126,6 +126,15 @@ class CustomerNotesTable extends BaseWidget
                             '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
                             '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
                             e($o->observation) .
+                            '</div>';
+                    }
+
+                    $obsRep = trim($record->venta?->observaciones_repartidor ?? '');
+                    if ($obsRep !== '') {
+                        $lines[] =
+                            '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4;color:#92400e">' .
+                            '<strong>Obs. Comercial:</strong> ' .
+                            e($obsRep) .
                             '</div>';
                     }
 
