@@ -1094,7 +1094,7 @@ class VentaResource extends Resource
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')
                     ->label('Nº Cliente')
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: false)
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('customer.name')

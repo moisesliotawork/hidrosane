@@ -13,6 +13,17 @@ class ListVentas extends ListRecords
 {
     protected static string $resource = VentaResource::class;
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        data_set($this->toggledTableColumns, 'tlf_comerciales', false);
+        data_set($this->toggledTableColumns, 'telefonos_cl', false);
+        session()->put([
+            $this->getTableColumnToggleFormStateSessionKey() => $this->toggledTableColumns,
+        ]);
+    }
+
     public function getMaxContentWidth(): MaxWidth | string | null
     {
         return MaxWidth::Full;
