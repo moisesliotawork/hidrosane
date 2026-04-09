@@ -12,8 +12,8 @@ class ContratosCardPage extends Page
     use WithPagination;
 
     protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
-    protected static ?string $navigationLabel = 'Contratos (Cards)';
-    protected static ?string $title = 'Contratos – Vista compacta';
+    protected static ?string $navigationLabel = 'Acción Contratos';
+    protected static ?string $title = 'Acción de Contratos';
     protected static ?string $slug = 'contratos-cards';
     protected static string $view = 'filament.gerente.pages.contratos-card-page';
     protected static ?int $navigationSort = -1;
