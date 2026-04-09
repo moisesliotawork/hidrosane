@@ -50,7 +50,7 @@ class ContratosCardPage extends Page
     public function ventas()
     {
         return Venta::query()
-            ->with(['customer', 'comercial', 'companion', 'note.user', 'note.comercial', 'note.observations.author', 'note.observacionesSala.author', 'ventaOfertas.oferta', 'ventaOfertas.productos.producto'])
+            ->with(['customer', 'comercial', 'companion', 'note.user', 'note.observations.author', 'note.observacionesSala.author', 'ventaOfertas.oferta', 'ventaOfertas.productos.producto'])
             ->when($this->search, function ($q) {
                 $s = $this->search;
                 $q->where(function ($q) use ($s) {
