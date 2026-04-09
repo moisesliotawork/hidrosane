@@ -206,14 +206,11 @@
                             @endif
                         </div>
 
-                        {{-- Comercial + Compañero --}}
-                        @php
-                            $comercialUser = $venta->note?->comercial ?? $venta->comercial;
-                        @endphp
+                        {{-- Comercial + Compañero (mismos campos que el formulario Admin) --}}
                         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-                            @if($comercialUser)
+                            @if($venta->comercial)
                                 <span style="display:inline-block;font-size:15px;font-weight:800;padding:2px 9px;border-radius:9999px;background:#dbeafe;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em">
-                                    👤 {{ trim(($comercialUser->empleado_id ? $comercialUser->empleado_id.' - ' : '').$comercialUser->name.' '.($comercialUser->last_name ?? '')) }}
+                                    👤 {{ trim(($venta->comercial->empleado_id ? $venta->comercial->empleado_id.' - ' : '').$venta->comercial->name.' '.($venta->comercial->last_name ?? '')) }}
                                 </span>
                             @endif
                             @if($venta->companion)
