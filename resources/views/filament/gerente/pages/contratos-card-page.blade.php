@@ -207,15 +207,18 @@
                         </div>
 
                         {{-- Comercial + Compañero --}}
+                        @php
+                            $comercialUser = $venta->note?->comercial ?? $venta->comercial;
+                        @endphp
                         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-                            @if($venta->comercial)
+                            @if($comercialUser)
                                 <span style="display:inline-block;font-size:15px;font-weight:800;padding:2px 9px;border-radius:9999px;background:#dbeafe;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em">
-                                    👤 {{ $venta->comercial->name }}
+                                    👤 {{ trim(($comercialUser->empleado_id ? $comercialUser->empleado_id.' - ' : '').$comercialUser->name.' '.($comercialUser->last_name ?? '')) }}
                                 </span>
                             @endif
                             @if($venta->companion)
                                 <span style="display:inline-block;font-size:15px;font-weight:800;padding:2px 9px;border-radius:9999px;background:#dbeafe;color:#1e3a8a;text-transform:uppercase;letter-spacing:.04em">
-                                    👤 {{ $venta->companion->name }}
+                                    👤 {{ trim(($venta->companion->empleado_id ? $venta->companion->empleado_id.' - ' : '').$venta->companion->name.' '.($venta->companion->last_name ?? '')) }}
                                 </span>
                             @endif
                         </div>
