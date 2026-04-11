@@ -8,8 +8,11 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use App\Models\Observation;
+use App\Models\Venta;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 
 class CreateNote extends CreateRecord
 {
@@ -157,6 +160,20 @@ class CreateNote extends CreateRecord
         }
 
         if ($customer) {
+            // Bloquear si el cliente ya tiene una venta registrada
+            if (Venta::where('customer_id', $customer->id)->exists()) {
+                Notification::make()
+                    ->title('Cliente con venta existente')
+                    ->body('El cliente ' . $customer->first_names . ' ' . $customer->last_names . ' ya tiene una venta registrada. No se puede crear una nueva nota.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                throw ValidationException::withMessages([
+                    'first_names' => 'Este cliente ya tiene una venta registrada.',
+                ]);
+            }
+
             $customer->update([
                 'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
                 'email' => $data['email'] ?? $customer->email,
