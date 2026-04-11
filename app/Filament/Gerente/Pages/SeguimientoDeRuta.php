@@ -8,14 +8,14 @@ use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
-class NotasActivasComerciales extends Page
+class SeguimientoDeRuta extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $navigationLabel = 'Notas Activas';
-    protected static ?string $slug = 'notas-activas-comerciales';
+    protected static ?string $navigationLabel = 'Seguimiento de ruta';
+    protected static ?string $slug = 'seguimiento-de-ruta';
     protected static ?int $navigationSort = 11;
 
-    protected static string $view = 'filament.gerente.pages.notas-activas-comerciales';
+    protected static string $view = 'filament.gerente.pages.seguimiento-de-ruta';
 
     public string $selectedDay = 'hoy';
 
@@ -23,7 +23,7 @@ class NotasActivasComerciales extends Page
 
     public function getTitle(): string
     {
-        return 'Notas activas - Hoy y ayer';
+        return 'Seguimiento de ruta';
     }
 
     public function getReportDaysProperty(): array
