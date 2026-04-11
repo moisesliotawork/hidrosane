@@ -213,6 +213,23 @@ class CreateNote extends CreateRecord
             }
         }
 
+        // ===== 4.5) Bloquear si el cliente ya tiene una venta registrada =====
+        if ($customer && \App\Models\Venta::where('customer_id', $customer->id)->exists()) {
+            Notification::make()
+                ->title('Cliente con venta existente')
+                ->body(
+                    'El cliente ' . $customer->first_names . ' ' . $customer->last_names .
+                    ' ya tiene una venta registrada. No se puede crear una nueva nota.'
+                )
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'phone' => 'Este cliente ya tiene una venta registrada.',
+            ]);
+        }
+
         // ===== 5) Crear o actualizar Customer (según exista por teléfono) =====
         if ($customer) {
             $customer->update([
