@@ -15,11 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Columns\TextColumn;
 use App\Enums\EstadoTerminal;
-use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-use Filament\Tables\Filters\Filter;
-use Filament\Forms\Components\Select;
 
 class TeleoperadoraResource extends Resource
 {
@@ -40,51 +36,6 @@ class TeleoperadoraResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function (Builder $query) {
-                // Lee el filtro, soportando claves viejas y nuevas
-                $filters = request()->input('tableFilters', []);
-                $choice =
-                    data_get($filters, 'periodo.period') // filtro nuevo
-                    ?? data_get($filters, 'period.value') // filtro viejo
-                    ?? 'prev';
-
-                if ($choice === 'all') {
-                    // Desde siempre (sin fechas)
-                    return $query->withCount([
-                        'notes as confirmadas_count' => fn($q) =>
-                            $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value),
-                        'notes as vendidas_count' => fn($q) =>
-                            $q->where('estado_terminal', EstadoTerminal::VENTA->value),
-                        //total de notas asociadas
-                        'notes as aproduccion_count' => fn($q) => $q,
-                    ]);
-                }
-
-                // Mes actual / anterior / hace dos meses
-                $offset = match ($choice) {
-                    'this' => 0,
-                    'prev' => 1,
-                    'two' => 2,
-                    default => 0,
-                };
-
-                // Normaliza a UTC y usa límites de día completos
-                $tz = config('app.timezone', 'UTC');
-                $start = \Carbon\Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->utc()->toDateTimeString();
-                $end = \Carbon\Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->utc()->toDateTimeString();
-
-                return $query->withCount([
-                    'notes as confirmadas_count' => fn($q) =>
-                        $q->where('estado_terminal', EstadoTerminal::CONFIRMADO->value)
-                            ->whereBetween('fecha_declaracion', [$start, $end]),
-                    'notes as vendidas_count' => fn($q) =>
-                        $q->where('estado_terminal', EstadoTerminal::VENTA->value)
-                            ->whereBetween('fecha_declaracion', [$start, $end]),
-                    // Producción: notas creadas por la teleoperadora en el período
-                    'notes as aproduccion_count' => fn($q) =>
-                        $q->whereBetween('created_at', [$start, $end]),
-                ]);
-            })
             ->columns([
                 TextColumn::make('empleado_id')
                     ->label('ID')
@@ -180,31 +131,7 @@ SQL;
                     }),
 
             ])
-            ->filters([
-                Filter::make('periodo')
-                    ->label('Periodo')
-                    ->form([
-                        Select::make('period')
-                            ->label('Periodo')
-                            ->options([
-                                'this' => 'Mes actual',
-                                'prev' => 'Mes anterior',
-                                'two' => 'Hace dos meses',
-                                'all' => 'Desde siempre',
-                            ])
-                            ->default('prev')
-                            ->native(false),
-                    ])
-                    ->indicateUsing(function (array $data): ?string {
-                        return match ($data['period'] ?? 'prev') {
-                            'this' => 'Periodo: Mes actual',
-                            'prev' => 'Periodo: Mes anterior',
-                            'two' => 'Periodo: Hace dos meses',
-                            'all' => 'Periodo: Desde siempre',
-                            default => null,
-                        };
-                    }),
-            ])
+            ->filters([])
             ->actions([])
             ->bulkActions([]);
     }
