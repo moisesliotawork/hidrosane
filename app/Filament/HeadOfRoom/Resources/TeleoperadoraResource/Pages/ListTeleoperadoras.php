@@ -33,6 +33,7 @@ class ListTeleoperadoras extends ListRecords
                         ->where('estado_terminal', EstadoTerminal::VENTA->value)
                         ->whereBetween('fecha_declaracion', [$thisStart, $thisEnd]),
                     'notes as aproduccion_count' => fn ($q) => $q
+                        ->whereNotNull('comercial_id')
                         ->whereBetween('created_at', [$thisStart, $thisEnd]),
                 ])),
 
@@ -45,6 +46,7 @@ class ListTeleoperadoras extends ListRecords
                         ->where('estado_terminal', EstadoTerminal::VENTA->value)
                         ->whereBetween('fecha_declaracion', [$prevStart, $prevEnd]),
                     'notes as aproduccion_count' => fn ($q) => $q
+                        ->whereNotNull('comercial_id')
                         ->whereBetween('created_at', [$prevStart, $prevEnd]),
                 ])),
         ];

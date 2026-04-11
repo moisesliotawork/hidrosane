@@ -44,7 +44,7 @@ class TeleoperadorasDetalle extends Page
                 $q->whereIn('estado_terminal', [EstadoTerminal::VENTA->value, EstadoTerminal::CONFIRMADO->value])
                     ->whereBetween('fecha_declaracion', [$start, $end])
                     ->with(['customer', 'venta'])
-                    ->orderBy('fecha_declaracion', 'desc');
+                    ->orderBy('created_at', 'desc');
             }])
             ->withCount([
                 'notes as confirmadas_count' => fn ($q) => $q
@@ -54,6 +54,7 @@ class TeleoperadorasDetalle extends Page
                     ->where('estado_terminal', EstadoTerminal::VENTA->value)
                     ->whereBetween('fecha_declaracion', [$start, $end]),
                 'notes as aproduccion_count' => fn ($q) => $q
+                    ->whereNotNull('comercial_id')
                     ->whereBetween('created_at', [$start, $end]),
             ])
             ->orderBy('empleado_id')
