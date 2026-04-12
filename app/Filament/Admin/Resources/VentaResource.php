@@ -1229,10 +1229,12 @@ class VentaResource extends Resource
                     ->badge()
                     ->date('d/m/Y'),
                 TextColumn::make('horario_entrega')->label('Horario rep.'),
-                TextColumn::make('customer.primary_address')
+              /*  TextColumn::make('customer.primary_address')
                     ->label('Dirección')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->wrap(),
+
+              */
                 TextColumn::make('origen_venta')
                     ->label('Origen')
                     ->badge()
