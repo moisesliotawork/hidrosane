@@ -64,6 +64,8 @@ class ContratosCardPage extends Page
                             ->orWhere('third_phone', 'like', "%{$s}%")
                             ->orWhere('phone1_commercial', 'like', "%{$s}%")
                             ->orWhere('phone2_commercial', 'like', "%{$s}%")
+                            ->orWhere('ciudad', 'like', "%{$s}%")
+                            ->orWhere('postal_code', 'like', "%{$s}%")
                       )
                       ->orWhereHas('note', fn($nq) => $nq->where('nro_nota', 'like', "%{$s}%"));
                 });
