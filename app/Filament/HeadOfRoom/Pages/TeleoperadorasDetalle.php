@@ -36,16 +36,11 @@ class TeleoperadorasDetalle extends Page
         $prevEnd   = $now->copy()->subMonth()->endOfMonth()->endOfDay()->toDateTimeString();
 
         $userIds  = $this->teleoperadoras->pluck('id');
-        $excluded = [EstadoTerminal::VENTA->value, EstadoTerminal::NUL->value, EstadoTerminal::CONFIRMADO->value];
 
-        $fetchProd = function (string $start, string $end) use ($userIds, $excluded) {
+        $fetchProd = function (string $start, string $end) use ($userIds) {
             return DB::table('notes')
                 ->selectRaw('user_id, DAY(created_at) as day, COUNT(*) as total')
                 ->whereIn('user_id', $userIds)
-                ->where(function ($q) use ($excluded) {
-                    $q->whereNull('estado_terminal')
-                      ->orWhereNotIn('estado_terminal', $excluded);
-                })
                 ->whereBetween('created_at', [$start, $end])
                 ->groupBy('user_id', DB::raw('DAY(created_at)'))
                 ->get()

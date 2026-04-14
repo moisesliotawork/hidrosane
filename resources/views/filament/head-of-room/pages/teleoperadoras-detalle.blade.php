@@ -180,7 +180,7 @@
     {{-- ── TABLA 1: PRODUCCIÓN ── --}}
     <div style="margin-top:28px">
         <div style="font-size:13px;font-weight:700;color:#ffffff;margin-bottom:6px;letter-spacing:0.02em;padding:5px 12px;background:#475569;border-radius:6px;display:inline-block">
-            Producción diaria &mdash; notas en producción (excl. VTA / NUL / CONF)
+            Producción diaria &mdash; todas las notas por fecha de creación
         </div>
         <div style="overflow-x:auto;border-radius:10px;border:2px solid #e2e8f0;background:#fff">
             <table style="border-collapse:collapse;font-size:11px;min-width:100%">
