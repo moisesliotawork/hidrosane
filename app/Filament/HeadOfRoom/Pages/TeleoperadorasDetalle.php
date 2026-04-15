@@ -16,6 +16,8 @@ class TeleoperadorasDetalle extends Page
     protected static ?string $title = 'Detalle de Notas por Teleoperadora';
     protected static ?string $slug = 'teleoperadoras-detalle';
     protected static string $view = 'filament.head-of-room.pages.teleoperadoras-detalle';
+    protected static ?int $navigationSort = 20;
+    protected static bool $shouldRegisterNavigation = false;
 
     public string $periodo = 'this';
 
@@ -69,6 +71,8 @@ class TeleoperadorasDetalle extends Page
             'ventas_prev'     => $fetchByDeclaracion($prevStart, $prevEnd, EstadoTerminal::VENTA->value),
             'conf_curr'       => $fetchByDeclaracion($currStart, $currEnd, EstadoTerminal::CONFIRMADO->value),
             'conf_prev'       => $fetchByDeclaracion($prevStart, $prevEnd, EstadoTerminal::CONFIRMADO->value),
+            'nulas_curr'      => $fetchByDeclaracion($currStart, $currEnd, EstadoTerminal::NUL->value),
+            'nulas_prev'      => $fetchByDeclaracion($prevStart, $prevEnd, EstadoTerminal::NUL->value),
             'curr_days'       => $now->copy()->daysInMonth(),
             'prev_days'       => $now->copy()->subMonth()->daysInMonth(),
             'curr_label'      => ucfirst($now->copy()->locale('es')->translatedFormat('M Y')),
