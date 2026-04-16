@@ -1,6 +1,18 @@
 <x-filament-panels::page>
     <style>
+        body,
+        .fi-layout,
+        .fi-main,
+        .fi-page,
+        .fi-page-content,
+        .fi-section,
+        .fi-section-content,
+        .fi-section-content-ctn {
+            background: #ffffff !important;
+        }
+
         .active-notes-page {
+            background: #ffffff;
             color: #111827;
             font-family: Arial, Helvetica, sans-serif;
             font-size: 14px;
@@ -53,7 +65,7 @@
             max-width: 100%;
             padding: 2px 6px;
             border-radius: 3px;
-            background: #6b7280;
+            background: #374151;
             color: #ffffff;
             font-size: 14px;
             font-weight: 800;
@@ -88,7 +100,7 @@
 
         .active-notes-row {
             display: grid;
-            grid-template-columns: auto auto minmax(0, 1fr) auto;
+            grid-template-columns: auto minmax(120px, auto) auto minmax(0, 1fr) auto auto;
             align-items: start;
             gap: 4px;
             margin-top: 2px;
@@ -98,16 +110,23 @@
             display: inline-block;
             padding: 1px 4px;
             border-radius: 2px;
-            background: #fef3c7;
-            color: #374151;
+            color: #ffffff;
             font-size: 12px;
             font-weight: 800;
             line-height: 1.3;
             white-space: nowrap;
         }
 
+        .active-notes-badge-customer {
+            max-width: 260px;
+            background: #c2410c;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .active-notes-badge-topic {
             background: #e5e7eb;
+            color: #374151;
         }
 
         .active-notes-body {
@@ -127,11 +146,25 @@
             overflow-wrap: anywhere;
         }
 
+        .active-notes-elapsed {
+            display: inline-block;
+            grid-column: -2 / -1;
+            justify-self: end;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: #e5e7eb;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-align: right;
+            white-space: nowrap;
+        }
+
         .active-notes-empty-note {
             margin-top: 2px;
             color: #6b7280;
             font-size: 13px;
-            font-style: italic;
         }
 
         .active-notes-declared {
@@ -147,47 +180,24 @@
             text-transform: uppercase;
         }
 
-        .dark .active-notes-page {
-            color: #f9fafb;
-        }
-
-        .dark .active-notes-tab {
-            border-color: #4b5563;
-            background: #111827;
-            color: #f9fafb;
-        }
-
-        .dark .active-notes-tab.is-active {
-            border-color: #4ade80;
-            background: #16a34a;
-            color: #ffffff;
-        }
-
-        .dark .active-notes-note {
-            border-color: #374151;
-        }
-
-        .dark .active-notes-note-meta,
-        .dark .active-notes-empty-note {
-            color: #d1d5db;
-        }
-
-        .dark .active-notes-body,
-        .dark .active-notes-author {
-            color: #f9fafb;
-        }
-
         @media (max-width: 640px) {
             .active-notes-page {
                 font-size: 13px;
             }
 
             .active-notes-row {
-                grid-template-columns: auto auto minmax(0, 1fr);
+                grid-template-columns: auto minmax(0, 1fr);
             }
 
+            .active-notes-badge-topic,
+            .active-notes-body,
             .active-notes-author {
-                grid-column: 3;
+                grid-column: 1 / -1;
+                text-align: left;
+            }
+
+            .active-notes-elapsed {
+                grid-column: 1 / -1;
                 text-align: left;
             }
         }
@@ -212,6 +222,19 @@
             $day = $this->selectedReportDay;
             $date = $day['date'];
             $dayLabel = $day['label'];
+
+            $formatElapsed = function ($date): string {
+                if (! $date) {
+                    return '--h --m';
+                }
+
+                $minutes = max(0, (int) $date->diffInMinutes(now()));
+                $hours = intdiv($minutes, 60);
+                $remainingMinutes = $minutes % 60;
+
+                return str_pad((string) $hours, 2, '0', STR_PAD_LEFT) . 'h '
+                    . str_pad((string) $remainingMinutes, 2, '0', STR_PAD_LEFT) . 'm';
+            };
         @endphp
 
         <section class="active-notes-day" aria-labelledby="active-notes-{{ $day['key'] }}">
@@ -241,11 +264,12 @@
                         ->count();
 
                     $fullName = trim($comercial->name . ' ' . $comercial->last_name);
+                    $commercialLabelName = mb_strtoupper($fullName, 'UTF-8');
                 @endphp
 
                 <article class="active-notes-commercial">
                     <div class="active-notes-commercial-label">
-                        Comercial {{ $comercial->empleado_id ?? 'SIN-ID' }} {{ $fullName }}
+                        Com {{ $comercial->empleado_id ?? 'SIN-ID' }} - {{ $commercialLabelName }}
                     </div>
 
                     @if($notes->isEmpty())
@@ -276,6 +300,20 @@
 
                                 @php
                                     $anotaciones = $note->anotacionesVisitas->sortBy('created_at')->values();
+                                    $lastActivityAt = $anotaciones->last()?->created_at ?? $note->assignment_date;
+                                    $elapsedLabel = $formatElapsed($lastActivityAt);
+                                    $customerName = mb_strtoupper($note->customer?->name ?: 'SIN CLIENTE', 'UTF-8');
+                                    $fuenteValue = $note->fuente instanceof \App\Enums\FuenteNotas
+                                        ? $note->fuente->value
+                                        : (string) $note->fuente;
+                                    $noteBg = match ($fuenteValue) {
+                                        'CALLE' => '#ea580c',
+                                        'VIP-INT' => '#16a34a',
+                                        'VIP-EXT' => '#a16207',
+                                        'PtaFria' => '#dc2626',
+                                        'excel' => '#0284c7',
+                                        default => '#6b7280',
+                                    };
                                 @endphp
 
                                 @forelse($anotaciones as $anotacion)
@@ -285,7 +323,8 @@
                                     </div>
 
                                     <div class="active-notes-row">
-                                        <span class="active-notes-badge">{{ $note->nro_nota }}</span>
+                                        <span class="active-notes-badge" style="background: {{ $noteBg }}">{{ $note->nro_nota }}</span>
+                                        <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
                                         <span class="active-notes-badge active-notes-badge-topic">
                                             {{ $anotacion->asunto ?: 'SIN ASUNTO' }}
                                         </span>
@@ -293,6 +332,7 @@
                                         <span class="active-notes-author">
                                             {{ $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR' }}
                                         </span>
+                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
                                     </div>
                                 @empty
                                     <div class="active-notes-note-meta">
@@ -301,8 +341,10 @@
                                     </div>
 
                                     <div class="active-notes-row">
-                                        <span class="active-notes-badge">{{ $note->nro_nota }}</span>
+                                        <span class="active-notes-badge" style="background: {{ $noteBg }}">{{ $note->nro_nota }}</span>
+                                        <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
                                         <span class="active-notes-empty-note">Sin anotaciones registradas</span>
+                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
                                     </div>
                                 @endforelse
                             </div>
