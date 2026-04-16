@@ -18,13 +18,13 @@ class DatabaseSeeder extends Seeder
             AdditionalRolesSeeder::class,
             GeneralManagerRoleSeeder::class,
             UserSeeder::class,
-            UsuariosViejos::class,
-            TiposMedidaSeeder::class,
-            ProductosConMedidasSeeder::class,
-            ProductosSimplesSeeder::class,
-            OfertaSeeder::class,
-            CustomerSeeder::class,
-            NoteSeeder::class,
+            //UsuariosViejos::class,
+            //TiposMedidaSeeder::class,
+            //ProductosConMedidasSeeder::class,
+            //ProductosSimplesSeeder::class,
+           // OfertaSeeder::class,
+            //CustomerSeeder::class,
+            //NoteSeeder::class,
             //VentaSeeder::class
         ]);
     }
