@@ -16,11 +16,11 @@
         <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
             <span>Ordenar:</span>
             <button wire:click="setSort('created_at')"
-                class="px-2 py-1 rounded {{ $sortBy === 'created_at' ? 'bg-lime-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
+                class="px-2 py-1 rounded {{ $sortBy === 'created_at' ? 'bg-sky-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
                 Fecha {{ $sortBy === 'created_at' ? ($sortDir === 'desc' ? '↓' : '↑') : '' }}
             </button>
             <button wire:click="setSort('nro_contr_adm')"
-                class="px-2 py-1 rounded {{ $sortBy === 'nro_contr_adm' ? 'bg-lime-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
+                class="px-2 py-1 rounded {{ $sortBy === 'nro_contr_adm' ? 'bg-sky-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
                 Nº Contrato {{ $sortBy === 'nro_contr_adm' ? ($sortDir === 'desc' ? '↓' : '↑') : '' }}
             </button>
         </div>
@@ -29,7 +29,7 @@
             <span>Ver:</span>
             @foreach ([12, 24, 48] as $n)
                 <button wire:click="$set('perPage', {{ $n }})"
-                    class="px-2 py-1 rounded {{ $perPage == $n ? 'bg-lime-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
+                    class="px-2 py-1 rounded {{ $perPage == $n ? 'bg-sky-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100' }}">
                     {{ $n }}
                 </button>
             @endforeach
@@ -51,7 +51,7 @@
                 $palette = match($estado?->value) {
                     'en_revision'        => ['#93c5fd', '#eff6ff', '#3b82f6', '#1e3a8a', '#ffffff'],
                     'comite'             => ['#fca5a5', '#fef2f2', '#ef4444', '#7f1d1d', '#ffffff'],
-                    'stand_by'           => ['#bef264', '#f7fee7', '#84cc16', '#3f6212', '#ffffff'],
+                    'stand_by'           => ['#7dd3fc', '#f0f9ff', '#0ea5e9', '#075985', '#ffffff'],
                     'en_reparto'         => ['#86efac', '#f0fdf4', '#22c55e', '#14532d', '#ffffff'],
                     'nulo_en_reparto'    => ['#fdba74', '#fff7ed', '#f97316', '#7c2d12', '#ffffff'],
                     'facturado'          => ['#9ca3af', '#f9fafb', '#6b7280', '#374151', '#ffffff'],
@@ -59,7 +59,7 @@
                     'retroceso'          => ['#fb923c', '#fff7ed', '#ea580c', '#7c2d12', '#ffffff'],
                     'nulo_financiero'    => ['#5eead4', '#f0fdfa', '#14b8a6', '#134e4a', '#ffffff'],
                     'no_sale_a_calle'    => ['#c4b5fd', '#faf5ff', '#8b5cf6', '#3b0764', '#ffffff'],
-                    'nulo_por_ausente'   => ['#a3e635', '#f7fee7', '#65a30d', '#365314', '#ffffff'],
+                    'nulo_por_ausente'   => ['#38bdf8', '#f0f9ff', '#0284c7', '#075985', '#ffffff'],
                     default              => ['#d1d5db', '#ffffff', '#9ca3af', '#374151', '#ffffff'],
                 };
 

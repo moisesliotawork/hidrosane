@@ -5,11 +5,11 @@
     {{-- Tabs periodo --}}
     <div style="display:flex;gap:8px;margin-bottom:16px">
         <button wire:click="setPeriodo('this')"
-            style="padding:7px 20px;border-radius:6px;font-size:15px;font-weight:700;border:none;cursor:pointer;{{ $periodo === 'this' ? 'background:#65a30d;color:#fff' : 'background:#e5e7eb;color:#374151' }}">
+            style="padding:7px 20px;border-radius:6px;font-size:15px;font-weight:700;border:none;cursor:pointer;{{ $periodo === 'this' ? 'background:#0284c7;color:#fff' : 'background:#e5e7eb;color:#374151' }}">
             Mes actual
         </button>
         <button wire:click="setPeriodo('prev')"
-            style="padding:7px 20px;border-radius:6px;font-size:15px;font-weight:700;border:none;cursor:pointer;{{ $periodo === 'prev' ? 'background:#65a30d;color:#fff' : 'background:#e5e7eb;color:#374151' }}">
+            style="padding:7px 20px;border-radius:6px;font-size:15px;font-weight:700;border:none;cursor:pointer;{{ $periodo === 'prev' ? 'background:#0284c7;color:#fff' : 'background:#e5e7eb;color:#374151' }}">
             Mes anterior
         </button>
     </div>

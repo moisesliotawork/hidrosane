@@ -497,7 +497,7 @@
                         </span>
 
                         <span class="ml-1 text-xs font-black px-2 py-0.5 rounded-full
-                                {{ $tab['active'] ? 'bg-lime-400 text-black' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' }}
+                                {{ $tab['active'] ? 'bg-sky-400 text-black' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white' }}
                             ">
                             {{ $tab['badge'] }}
                         </span>
@@ -579,7 +579,7 @@
                     {{-- badge count --}}
                     @if($this->activeFiltersCount > 0)
                         <span
-                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-lime-500 text-black text-xs font-black flex items-center justify-center">
+                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-sky-500 text-black text-xs font-black flex items-center justify-center">
                             {{ $this->activeFiltersCount }}
                         </span>
                     @endif

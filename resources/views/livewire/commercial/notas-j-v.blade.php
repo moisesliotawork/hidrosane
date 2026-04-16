@@ -333,8 +333,7 @@
 
         .tab-btn.is-active {
             background: rgba(31, 41, 55, .85);
-            color: #a3e635;
-            /* verde similar a la foto */
+            color: #38bdf8;
         }
 
         .tab-ico {
@@ -745,7 +744,7 @@
                     {{-- badge count --}}
                     @if($this->activeFiltersCount > 0)
                         <span
-                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-lime-500 text-black text-xs font-black flex items-center justify-center">
+                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-sky-500 text-black text-xs font-black flex items-center justify-center">
                             {{ $this->activeFiltersCount }}
                         </span>
                     @endif

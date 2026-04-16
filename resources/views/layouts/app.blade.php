@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>@yield('title', 'Ohana Plus')</title>
+    <title>@yield('title', 'Hidrosane')</title>
 
     {{-- Tailwind via CDN solo para estas páginas sueltas --}}
     <script src="https://cdn.tailwindcss.com"></script>

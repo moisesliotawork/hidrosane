@@ -42,7 +42,7 @@ class CommercialPanelProvider extends PanelProvider
                     ->icon('heroicon-o-user'),
             ])
             ->colors([
-                'primary' => Color::Lime,
+                'primary' => Color::Sky,
             ])
             ->renderHook(
 
