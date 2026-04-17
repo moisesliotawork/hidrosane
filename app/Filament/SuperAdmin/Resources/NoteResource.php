@@ -40,12 +40,12 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
+            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
-                        EstadoTerminal::SIN_ESTADO->value,          // ''
-                        EstadoTerminal::SALA->value,                // 'sala'
+                        EstadoTerminal::SIN_ESTADO->value,
+                        EstadoTerminal::SALA->value,
                     ]);
             });
     }

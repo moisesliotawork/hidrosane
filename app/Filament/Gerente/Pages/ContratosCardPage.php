@@ -59,11 +59,14 @@ class ContratosCardPage extends Page
                       ->orWhereHas('customer', fn($cq) => $cq
                             ->where('first_names', 'like', "%{$s}%")
                             ->orWhere('last_names', 'like', "%{$s}%")
+                            ->orWhereRaw("CONCAT(COALESCE(first_names,''), ' ', COALESCE(last_names,'')) LIKE ?", ["%{$s}%"])
                             ->orWhere('phone', 'like', "%{$s}%")
                             ->orWhere('secondary_phone', 'like', "%{$s}%")
                             ->orWhere('third_phone', 'like', "%{$s}%")
                             ->orWhere('phone1_commercial', 'like', "%{$s}%")
                             ->orWhere('phone2_commercial', 'like', "%{$s}%")
+                            ->orWhere('ciudad', 'like', "%{$s}%")
+                            ->orWhere('postal_code', 'like', "%{$s}%")
                       )
                       ->orWhereHas('note', fn($nq) => $nq->where('nro_nota', 'like', "%{$s}%"));
                 });

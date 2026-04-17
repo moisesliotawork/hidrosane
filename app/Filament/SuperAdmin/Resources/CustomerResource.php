@@ -180,11 +180,17 @@ class CustomerResource extends Resource
             ])
             ->defaultSort('id', 'desc')
             ->actions([
-                Tables\Actions\ViewAction::make(), // Ver “Vision Global del Cliente”
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->label(''),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    // sin acciones destructivas por ahora
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Eliminar seleccionados')
+                        ->modalHeading('Eliminar clientes seleccionados')
+                        ->modalDescription('¿Seguro que quieres eliminar los clientes seleccionados? Esta acción no se puede deshacer.')
+                        ->modalSubmitActionLabel('Sí, eliminar'),
                 ]),
             ]);
     }
@@ -215,7 +221,7 @@ class CustomerResource extends Resource
     }
     public static function canDelete($record): bool
     {
-        return false;
+        return true;
     }
 
 }
