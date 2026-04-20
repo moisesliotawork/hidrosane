@@ -23,7 +23,7 @@ Schedule::command('supervisiones:purge-expired')
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/supervisiones_purge.log'));
 
-Schedule::command('notes:sala-overdue --days=5')
+Schedule::command('notes:sala-overdue')
     ->dailyAt('23:30')
     ->timezone('Europe/Madrid') // ajusta si prefieres otra zona
     ->withoutOverlapping()

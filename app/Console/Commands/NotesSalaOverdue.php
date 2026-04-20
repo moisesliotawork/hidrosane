@@ -56,8 +56,7 @@ class NotesSalaOverdue extends Command
                 'estado_terminal' => $valorSala,
                 'sent_to_sala_at' => $now,
                 'fecha_declaracion' => $now,
-                'reten' => false,
-                'printed' => false,            // ✅ aparece en tab NO IMPRESAS de HOR
+                'reten' => false,              // ✅ si estaba en true, pasa a false
                 'updated_at' => $now,
             ]);
 

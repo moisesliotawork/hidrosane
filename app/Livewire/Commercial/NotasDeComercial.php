@@ -207,36 +207,7 @@ class NotasDeComercial extends Component
             return;
         }
 
-        $nuevoEstado = !$note->de_camino;
-
-        if ($nuevoEstado === true) {
-            $user = auth()->user();
-            if ($user->hasRole('commercial') || $user->hasRole('team_leader')) {
-                $notaEnCamino = Note::where('comercial_id', $user->id)
-                    ->where('de_camino', true)
-                    ->where('id', '!=', $noteId)
-                    ->where(function ($q) {
-                        $q->whereNull('estado_terminal')
-                          ->orWhere('estado_terminal', '');
-                    })
-                    ->whereDoesntHave('venta')
-                    ->with('customer:id,first_names,last_names')
-                    ->first();
-
-                if ($notaEnCamino) {
-                    $cliente = $notaEnCamino->customer?->name ?? 'cliente desconocido';
-                    Notification::make()
-                        ->title('TIENES UNA NOTA NO DECLARADA')
-                        ->body('Define qué ha pasado con la nota de "' . $cliente . '" y luego podrás marcar otra como De Camino.')
-                        ->warning()
-                        ->persistent()
-                        ->send();
-                    return;
-                }
-            }
-        }
-
-        $note->de_camino = $nuevoEstado;
+        $note->de_camino = !$note->de_camino;
         $note->save();
 
         AnotacionVisita::create([
@@ -387,31 +358,6 @@ class NotasDeComercial extends Component
         if (!$note) {
             Notification::make()->title('Nota no encontrada')->danger()->send();
             return;
-        }
-
-        $user = auth()->user();
-        if ($user->hasRole('commercial') || $user->hasRole('team_leader')) {
-            $notaEnCamino = Note::where('comercial_id', $user->id)
-                ->where('de_camino', true)
-                ->where('id', '!=', $noteId)
-                ->where(function ($q) {
-                    $q->whereNull('estado_terminal')
-                      ->orWhere('estado_terminal', '');
-                })
-                ->whereDoesntHave('venta')
-                ->with('customer:id,first_names,last_names')
-                ->first();
-
-            if ($notaEnCamino) {
-                $cliente = $notaEnCamino->customer?->name ?? 'cliente desconocido';
-                Notification::make()
-                    ->title('TIENES UNA NOTA NO DECLARADA')
-                    ->body('Define qué ha pasado con la nota de "' . $cliente . '" y luego podrás volver a gestionar otra.')
-                    ->warning()
-                    ->persistent()
-                    ->send();
-                return;
-            }
         }
 
         $url = ($note->reten)
