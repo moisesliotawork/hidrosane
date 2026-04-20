@@ -111,6 +111,34 @@ class NotasToday extends Component
         }
 
         $nuevoEstado = !$note->de_camino;
+
+        if ($nuevoEstado === true) {
+            $user = auth()->user();
+            if ($user->hasRole('commercial') || $user->hasRole('team_leader')) {
+                $notaEnCamino = Note::where('comercial_id', $user->id)
+                    ->where('de_camino', true)
+                    ->where('id', '!=', $noteId)
+                    ->where(function ($q) {
+                        $q->whereNull('estado_terminal')
+                          ->orWhere('estado_terminal', '');
+                    })
+                    ->whereDoesntHave('venta')
+                    ->with('customer:id,first_names,last_names')
+                    ->first();
+
+                if ($notaEnCamino) {
+                    $cliente = $notaEnCamino->customer?->name ?? 'cliente desconocido';
+                    Notification::make()
+                        ->title('TIENES UNA NOTA NO DECLARADA')
+                        ->body('Define qué ha pasado con la nota de "' . $cliente . '" y luego podrás marcar otra como De Camino.')
+                        ->warning()
+                        ->persistent()
+                        ->send();
+                    return;
+                }
+            }
+        }
+
         $note->de_camino = $nuevoEstado;
         $note->save();
 
@@ -140,6 +168,30 @@ class NotasToday extends Component
 
     public function redirigirAVenta(int $noteId)
     {
+        $user = auth()->user();
+        if ($user->hasRole('commercial') || $user->hasRole('team_leader')) {
+            $notaEnCamino = Note::where('comercial_id', $user->id)
+                ->where('de_camino', true)
+                ->where('id', '!=', $noteId)
+                ->where(function ($q) {
+                    $q->whereNull('estado_terminal')
+                      ->orWhere('estado_terminal', '');
+                })
+                ->whereDoesntHave('venta')
+                ->with('customer:id,first_names,last_names')
+                ->first();
+
+            if ($notaEnCamino) {
+                $cliente = $notaEnCamino->customer?->name ?? 'cliente desconocido';
+                Notification::make()
+                    ->title('TIENES UNA NOTA NO DECLARADA')
+                    ->body('Define qué ha pasado con la nota de "' . $cliente . '" y luego podrás volver a gestionar otra.')
+                    ->warning()
+                    ->persistent()
+                    ->send();
+                return;
+            }
+        }
 
         $url = NoteResource::getUrl(
             'edit',
