@@ -36,6 +36,7 @@ class DailyProductionTablesWidget extends Widget
             ->where(function ($q) use ($prevMonth) {
                 $q->whereNull('users.baja')->orWhereDate('users.baja', '>=', $prevMonth);
             })
+            ->whereNotIn('users.empleado_id', ['038', '046'])
             ->orderBy('users.empleado_id')
             ->distinct()
             ->get();
