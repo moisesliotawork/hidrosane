@@ -172,6 +172,7 @@ SQL;
                     // solo mostrar si la baja fue en el mes actual o en el mes anterior
                     ->orWhereDate('users.baja', '>=', $firstDayPreviousMonth);
             })
+            ->whereNotIn('users.empleado_id', ['038', '046'])
             ->distinct('users.id');
     }
 
