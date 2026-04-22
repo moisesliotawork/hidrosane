@@ -15,6 +15,8 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use App\Models\Customer;
 use App\Models\Note;
 use App\Enums\EstadoTerminal;
+use App\Enums\FuenteNotas;
+use Carbon\Carbon;
 
 use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Filament\HeadOfRoom\Pages\NotasDireccionPage;
@@ -131,14 +133,33 @@ class BuscarCliente extends Component implements HasForms, HasActions
      */
     protected function handleCustomersFound(Collection $customers, ?string $digits = null): void
     {
-        // 0) Si algún customer tiene cualquier nota impresa → bloquear siempre
+        // 0) Si algún customer tiene nota impresa → aplicar regla según fuente
         foreach ($customers as $customer) {
-            if ($customer->notes()->where('printed', true)->exists()) {
-                $this->notifyNoSePuedeLlamar(
-                    "BLOQUEADO: El cliente (ID: {$customer->id}) tiene una nota impresa. No se puede crear nueva nota."
-                );
-                redirect()->to(NoteResource::getUrl('index'));
-                return;
+            $printedNotes = $customer->notes()->where('printed', true)->get();
+            foreach ($printedNotes as $printedNote) {
+                if (
+                    $printedNote->fuente === FuenteNotas::PTA_FRIA ||
+                    $printedNote->fuente === FuenteNotas::VIP_EXT
+                ) {
+                    // PuertaFría o Autogenerar: regla de 5 meses
+                    $fechaRef = $printedNote->assignment_date ?? $printedNote->created_at;
+                    $permitidoDesde = Carbon::parse($fechaRef)->addMonths(5)->startOfMonth();
+                    if (now()->lt($permitidoDesde)) {
+                        $this->notifyNoSePuedeLlamar(
+                            "BLOQUEADO: El cliente tiene una nota impresa. Podrá crear nueva nota a partir del {$permitidoDesde->format('d/m/Y')}."
+                        );
+                        redirect()->to(NoteResource::getUrl('index'));
+                        return;
+                    }
+                    // 5 meses cumplidos → se permite continuar
+                } else {
+                    // Fuente de teleoperadora/HoR → bloquear siempre
+                    $this->notifyNoSePuedeLlamar(
+                        "BLOQUEADO: El cliente (ID: {$customer->id}) tiene una nota impresa. No se puede crear nueva nota."
+                    );
+                    redirect()->to(NoteResource::getUrl('index'));
+                    return;
+                }
             }
         }
 
