@@ -741,7 +741,7 @@ class NoteResource extends Resource
             ])
             ->headerActions([
                 Action::make('irABuscarCliente')
-                    ->label('Buscar cliente')
+                    ->label('Crear Nota nueva          ')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),

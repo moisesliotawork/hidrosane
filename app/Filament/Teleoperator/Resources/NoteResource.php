@@ -346,7 +346,7 @@ class NoteResource extends Resource
             ])
             ->headerActions([
                 Action::make('irABuscarCliente')
-                    ->label('Buscar cliente')
+                    ->label('Crea Nota nueva    ')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),
@@ -421,7 +421,7 @@ class NoteResource extends Resource
 
                     Tables\Actions\DeleteBulkAction::make(),
                 ])->label('Acciones de Grupo'),
-            
+
 
             ]);
     }
