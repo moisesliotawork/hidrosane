@@ -143,7 +143,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
                 ) {
                     // PuertaFría o Autogenerar: regla de 5 meses
                     $fechaRef = $printedNote->assignment_date ?? $printedNote->created_at;
-                    $permitidoDesde = Carbon::parse($fechaRef)->addMonths(5)->startOfMonth();
+                    $permitidoDesde = Carbon::parse($fechaRef)->addMonths(4)->startOfMonth();
                     if (now()->lt($permitidoDesde)) {
                         $this->notifyNoSePuedeLlamar(
                             "BLOQUEADO: El cliente tiene una nota impresa. Podrá crear nueva nota a partir del {$permitidoDesde->format('d/m/Y')}."
