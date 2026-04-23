@@ -68,7 +68,16 @@ class VentaResource extends Resource
 
                                     TextInput::make('last_names')
                                         ->label('Apellidos')
-                                        ->required(),
+                                        ->required()
+                                        ->rules([
+                                            function () {
+                                                return function (string $attribute, $value, \Closure $fail) {
+                                                    if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
+                                                        $fail('Debes escribir al menos 2 apellidos del cliente');
+                                                    }
+                                                };
+                                            },
+                                        ]),
 
                                     TextInput::make('dni')
                                         ->label('DNI')

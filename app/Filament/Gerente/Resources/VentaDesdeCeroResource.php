@@ -57,7 +57,16 @@ class VentaDesdeCeroResource extends Resource
             Section::make('Información del cliente')->schema([
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
-                    TextInput::make('last_names')->label('Apellidos')->required(),
+                    TextInput::make('last_names')->label('Apellidos')->required()
+                        ->rules([
+                            function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
+                                        $fail('Debes escribir al menos 2 apellidos del cliente');
+                                    }
+                                };
+                            },
+                        ]),
                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
                     DatePicker::make('fecha_nac')
                         ->label('Fec. nac.')
