@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
 
@@ -40,24 +41,24 @@ class CustomerResource extends Resource
         return $infolist->schema([
             Section::make('Datos Personales del Cliente')
                 ->columns(6)
-                ->schema([      
+                ->schema([
                     TextEntry::make('name')
                         ->label('Nombre de Cliente')
-                        ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names))),
+                        ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                        ->color('success')
+                        ->weight(\Filament\Support\Enums\FontWeight::ExtraBold),
 
                     TextEntry::make('nro_cliente')->label('ID/Cliente'),
 
                     TextEntry::make('dni')
                         ->label('DNI'),
 
-                        TextEntry::make('primary_address')
+                    TextEntry::make('primary_address')
                         ->label('DOMICILIO')
                         ->state(function (Customer $r) {
                             return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
                         })
                         ->columnSpan(2),
-
-                   // TextEntry::make('primary_address')->label('DOMICILIO'),
 
                     TextEntry::make('secondary_address')
                         ->label('DOMICILIO 2')
@@ -80,6 +81,25 @@ class CustomerResource extends Resource
 
                 ])
                 ->columnSpan(6),
+
+            // Alerta grande cuando el cliente está inhabilitado
+            Section::make('')
+                ->columnSpan(6)
+                ->visible(fn(Customer $r) => (bool) $r->inhabilitado)
+                ->schema([
+                    TextEntry::make('inhabilitado_alert')
+                        ->label('')
+                        ->state(fn() => '')
+                        ->extraAttributes(['class' => 'hidden'])
+                        ->helperText(new HtmlString(
+                            '<div style="background:#7f1d1d;border:3px solid #dc2626;border-radius:12px;padding:24px 32px;text-align:center;">'
+                            . '<div style="font-size:64px;line-height:1;">☠️</div>'
+                            . '<div style="color:#fca5a5;font-size:22px;font-weight:900;margin-top:12px;letter-spacing:1px;">'
+                            . 'ESTE CLIENTE YA NO PUEDE SER CONTACTADO POR LA EMPRESA</div>'
+                            . '<div style="color:#f87171;font-size:18px;font-weight:700;margin-top:8px;">ESTÁ DESCARTADO</div>'
+                            . '</div>'
+                        )),
+                ]),
 
             Section::make('Teléfonos')
                 ->columns(2)
@@ -135,6 +155,7 @@ class CustomerResource extends Resource
                     ->badge()
                     ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray'),
 
+
                 TextColumn::make('phones')
                     ->label('TELEFONOS')
                     ->state(function (Customer $r): string {
@@ -160,8 +181,17 @@ class CustomerResource extends Resource
                                      ->orWhere('phone2_commercial', 'like', "%{$search}%");
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('inhabilitado')
+                    ->label('INHAB')
+                    ->state(fn(Customer $r) => $r->inhabilitado ? '☠️' : '')
+                    ->color(fn(Customer $r) => $r->inhabilitado ? 'danger' : null)
+                    ->weight(fn(Customer $r) => $r->inhabilitado ? \Filament\Support\Enums\FontWeight::Bold : null)
+                    ->alignCenter()
+                    ->sortable(),
 
             ])
+
+
             ->defaultSort('id', 'desc')
             ->actions([
                 Tables\Actions\ViewAction::make(), // Ver “Vision Global del Cliente”

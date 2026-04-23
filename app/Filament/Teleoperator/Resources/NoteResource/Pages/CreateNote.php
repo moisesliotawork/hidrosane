@@ -213,6 +213,22 @@ class CreateNote extends CreateRecord
             }
         }
 
+        // ===== 4.4) Bloquear si el cliente está inhabilitado =====
+        if ($customer && $customer->inhabilitado) {
+            Notification::make()
+                ->title('☠️ Cliente inhabilitado')
+                ->body(
+                    'Este cliente ya no puede ser contactado por la empresa, está descartado.'
+                )
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
+            ]);
+        }
+
         // ===== 4.5) Bloquear si el cliente ya tiene una venta registrada =====
         if ($customer && \App\Models\Venta::where('customer_id', $customer->id)->exists()) {
             Notification::make()

@@ -305,6 +305,19 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
         if ($customers->isNotEmpty()) {
             $this->phoneNotFound = false;
+
+            // Bloquear si el cliente está inhabilitado
+            $inhabilitado = $customers->first(fn(Customer $c) => $c->inhabilitado);
+            if ($inhabilitado) {
+                Notification::make()
+                    ->title('☠️ Cliente inhabilitado')
+                    ->body('Este cliente ya no puede ser contactado por la empresa. Está descartado.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+                return;
+            }
+
             $this->handleCustomersFound($customers, $digits);
             return;
         }

@@ -11,6 +11,7 @@ use App\Models\Observation;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 
 class CreateNote extends CreateRecord
 {
@@ -155,6 +156,20 @@ class CreateNote extends CreateRecord
             } catch (\Throwable $e) {
                 $computedAge = null;
             }
+        }
+
+        // ===== Bloquear si el cliente está inhabilitado =====
+        if ($customer && $customer->inhabilitado) {
+            Notification::make()
+                ->title('☠️ Cliente inhabilitado')
+                ->body('Este cliente ya no puede ser contactado por la empresa, está descartado.')
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
+            ]);
         }
 
         if ($customer) {

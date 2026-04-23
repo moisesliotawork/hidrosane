@@ -48,6 +48,8 @@ class Customer extends Model
         'antiguedad',
         'nombre_empresa',
         'oficio',
+
+        'inhabilitado',
     ];
 
     protected $casts = [
@@ -55,6 +57,7 @@ class Customer extends Model
         'age' => 'integer',
         'edadTelOp' => 'integer',
         'merged_at' => 'datetime',
+        'inhabilitado' => 'boolean',
     ];
 
     protected static function booted()
