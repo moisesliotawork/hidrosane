@@ -17,6 +17,10 @@ use App\Models\User;
 
 class Notas extends Component
 {
+    protected $queryString = [
+        'search' => ['except' => ''],
+    ];
+
     public array $selectedNotes = [];
     public string $search = '';
     public ?string $statusFilter = null;

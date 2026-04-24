@@ -117,6 +117,16 @@
             white-space: nowrap;
         }
 
+        a.active-notes-badge {
+            text-decoration: none;
+        }
+
+        a.active-notes-badge:hover,
+        a.active-notes-badge:focus-visible {
+            filter: brightness(0.92);
+            outline: none;
+        }
+
         .active-notes-badge-customer {
             max-width: 260px;
             background: #c2410c;
@@ -314,6 +324,10 @@
                                         'excel' => '#0284c7',
                                         default => '#6b7280',
                                     };
+                                    $notaUrl = \App\Filament\Commercial\Pages\Notas2::getUrl(
+                                        ['search' => $note->nro_nota],
+                                        panel: 'comercial',
+                                    );
                                 @endphp
 
                                 @forelse($anotaciones as $anotacion)
@@ -323,7 +337,9 @@
                                     </div>
 
                                     <div class="active-notes-row">
-                                        <span class="active-notes-badge" style="background: {{ $noteBg }}">{{ $note->nro_nota }}</span>
+                                        <a href="{{ $notaUrl }}" class="active-notes-badge" style="background: {{ $noteBg }}">
+                                            {{ $note->nro_nota }}
+                                        </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
                                         <span class="active-notes-badge active-notes-badge-topic">
                                             {{ $anotacion->asunto ?: 'SIN ASUNTO' }}
@@ -341,7 +357,9 @@
                                     </div>
 
                                     <div class="active-notes-row">
-                                        <span class="active-notes-badge" style="background: {{ $noteBg }}">{{ $note->nro_nota }}</span>
+                                        <a href="{{ $notaUrl }}" class="active-notes-badge" style="background: {{ $noteBg }}">
+                                            {{ $note->nro_nota }}
+                                        </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
                                         <span class="active-notes-empty-note">Sin anotaciones registradas</span>
                                         <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
