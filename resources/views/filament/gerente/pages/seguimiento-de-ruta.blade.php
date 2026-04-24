@@ -324,9 +324,10 @@
                                         'excel' => '#0284c7',
                                         default => '#6b7280',
                                     };
-                                    $notaUrl = \App\Filament\Commercial\Pages\Notas2::getUrl(
-                                        ['search' => $note->nro_nota],
-                                        panel: 'comercial',
+                                    $notaUrl = \App\Filament\Gerente\Resources\NotasGerenteResource::getUrl(
+                                        'edit',
+                                        ['record' => $note],
+                                        panel: 'gerente',
                                     );
                                 @endphp
 
