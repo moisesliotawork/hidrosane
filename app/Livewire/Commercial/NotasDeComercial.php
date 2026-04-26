@@ -30,6 +30,8 @@ class NotasDeComercial extends Component
     /** IDs seleccionados (hoy + todas) */
     public array $selectedNotes = [];
 
+    public bool $showBulkReassignModal = false;
+    public ?string $bulkNewComercialId = null;
 
     protected $listeners = [
         'notaActualizada' => '$refresh',
@@ -128,6 +130,88 @@ class NotasDeComercial extends Component
                 $u->id => trim("{$u->empleado_id} {$u->name} {$u->last_name}"),
             ])
             ->toArray();
+    }
+
+    public function selectAll(): void
+    {
+        $this->selectedNotes = collect($this->notesToday)
+            ->pluck('id')
+            ->merge(collect($this->notesAll)->pluck('id'))
+            ->unique()
+            ->map(fn($id) => (string) $id)
+            ->values()
+            ->toArray();
+    }
+
+    public function deselectAll(): void
+    {
+        $this->selectedNotes = [];
+    }
+
+    public function openBulkReassignModal(): void
+    {
+        $this->bulkNewComercialId = null;
+        $this->showBulkReassignModal = true;
+    }
+
+    public function reassignBulkVisit(): void
+    {
+        if (empty($this->selectedNotes) || !$this->bulkNewComercialId) {
+            Notification::make()->title('Selecciona notas y un destino')->warning()->send();
+            return;
+        }
+
+        $notes = Note::whereIn('id', $this->selectedNotes)->get();
+        $count = 0;
+
+        if ($this->bulkNewComercialId === 'reten') {
+            foreach ($notes as $note) {
+                $note->update([
+                    'reten' => true,
+                    'assignment_date' => now()->startOfDay(),
+                ]);
+                AnotacionVisita::create([
+                    'nota_id' => $note->id,
+                    'author_id' => auth()->id(),
+                    'asunto' => 'REASIGNACIÓN MASIVA',
+                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva.",
+                ]);
+                $count++;
+            }
+            $destino = 'Retén';
+        } else {
+            $nuevo = User::find((int) $this->bulkNewComercialId);
+            $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
+            $empleado = $nuevo->empleado_id ?? 'SIN-ID';
+
+            foreach ($notes as $note) {
+                $note->update([
+                    'comercial_id' => (int) $this->bulkNewComercialId,
+                    'assignment_date' => now()->startOfDay(),
+                    'reten' => false,
+                ]);
+                AnotacionVisita::create([
+                    'nota_id' => $note->id,
+                    'author_id' => auth()->id(),
+                    'asunto' => 'REASIGNACIÓN MASIVA',
+                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado}.",
+                ]);
+                $count++;
+            }
+            $destino = "{$nombre} - {$empleado}";
+        }
+
+        $this->selectedNotes = [];
+        $this->bulkNewComercialId = null;
+        $this->showBulkReassignModal = false;
+
+        Notification::make()
+            ->title('Reasignación masiva completada')
+            ->body("{$count} notas reasignadas a: {$destino}")
+            ->success()
+            ->send();
+
+        $this->dispatch('notaActualizada');
     }
 
     public function avisarSinDentro($notaId): void

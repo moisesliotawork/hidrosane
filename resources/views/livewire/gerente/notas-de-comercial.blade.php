@@ -281,14 +281,13 @@
     </style>
 
     <div class="overflow-x-auto mobile-optimized space-y-6">
-        <div class="flex items-center justify-between gap-2">
-            <div class="text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="text-xs text-gray-500 dark:text-gray-400 mr-2">
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 
             <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-500 dark:text-gray-400">Origen:</span>
-
                 <select wire:model.live="origenVentaFilter"
                     class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-900 dark:text-white dark:border-gray-700">
                     <option value="sin_procedencia">SIN PROCEDENCIA</option>
@@ -298,23 +297,45 @@
                 </select>
             </div>
 
-            <div class="flex gap-2">
-                {{-- ✅ Oficina SIEMPRE visible --}}
+            @php
+                $haySeleccion = count($selectedNotes) > 0;
+                $reasignarAct = $haySeleccion;
+                $oficinaAct   = $haySeleccion;
+                $retenAct     = $haySeleccion && !$esReten;
+            @endphp
+
+            {{-- Fila 1: Seleccionar / Deseleccionar --}}
+            <div class="flex gap-2 w-full">
+                <button class="action-button small"
+                    style="flex:1;background-color:#166534;"
+                    wire:click="selectAll">
+                    SELECCIONAR TODOS
+                </button>
+                <button class="action-button small"
+                    style="flex:1;background-color:#166534;"
+                    wire:click="deselectAll">
+                    QUITAR SELECCION
+                </button>
+            </div>
+
+            {{-- Fila 2: REASIGNAR / Enviar a Oficina / Enviar a Retén --}}
+            <div class="flex gap-2 w-full">
+                <button class="action-button small"
+                    style="flex:1;{{ $reasignarAct ? 'background-color:#2563eb;' : 'opacity:.35;cursor:not-allowed;' }}"
+                    wire:click="openBulkReassignModal" @disabled(!$reasignarAct)>
+                    REASIGNAR
+                </button>
                 <button class="action-button pink small"
+                    style="flex:1;{{ $oficinaAct ? '' : 'opacity:.35;cursor:not-allowed;' }}"
                     wire:click="{{ $esReten ? 'sendSelectedToOfficeFromReten' : 'sendSelectedToOffice' }}"
-                    @disabled(count($selectedNotes) === 0)
-                    style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
+                    @disabled(!$oficinaAct)>
                     Enviar a Oficina
                 </button>
-
-                {{-- ✅ Retén SOLO si NO estás en retén --}}
-                @unless($esReten)
-                    <button class="action-button green" wire:click="sendSelectedToReten"
-                        @disabled(count($selectedNotes) === 0)
-                        style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
-                        Enviar a Retén
-                    </button>
-                @endunless
+                <button class="action-button green small"
+                    style="flex:1;{{ $retenAct ? '' : 'opacity:.35;cursor:not-allowed;' }}"
+                    wire:click="sendSelectedToReten" @disabled(!$retenAct)>
+                    Enviar a Retén
+                </button>
             </div>
         </div>
 
@@ -609,6 +630,40 @@
                     </button>
                     <button wire:click="reassignVisit" class="flex-1 px-3 py-2 rounded text-white"
                         style="background-color:#16a34a">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ===== Modal Reasignación Masiva ===== --}}
+    @if($showBulkReassignModal)
+        <div class="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
+            wire:keydown.escape="$set('showBulkReassignModal', false)">
+            <div class="bg-white dark:bg-gray-900 dark:text-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h3 class="text-lg font-semibold mb-1">Reasignar Selección</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    {{ count($selectedNotes) }} nota(s) seleccionada(s)
+                </p>
+
+                <label class="block text-sm mb-2">Destino</label>
+                <select wire:model="bulkNewComercialId"
+                    class="w-full border rounded p-2 bg-white dark:bg-gray-900 dark:text-white">
+                    <option value="">-- Elegir destino --</option>
+                    <option value="reten">⬛ RETÉN</option>
+                    @foreach($this->comerciales as $id => $label)
+                        <option value="{{ $id }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+
+                <div class="mt-6 flex gap-2">
+                    <button wire:click="$set('showBulkReassignModal', false)"
+                        class="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-700">
+                        Cancelar
+                    </button>
+                    <button wire:click="reassignBulkVisit" class="flex-1 px-3 py-2 rounded text-white"
+                        style="background-color:#2563eb">
                         Confirmar
                     </button>
                 </div>

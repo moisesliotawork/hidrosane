@@ -406,11 +406,13 @@ class NotasGerenteResource extends Resource
                     ])
                     ->action(function (Note $record, array $data): void {
                         try {
+                            $comercialId = $data['comercial_id'] ?? null;
                             $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                'comercial_id' => $comercialId,
+                                'assignment_date' => $comercialId
                                     ? ($data['assignment_date'] ?? now())
                                     : null,
+                                'reten' => $comercialId ? false : $record->reten,
                             ]);
 
                             $message = is_null($data['comercial_id'] ?? null)
