@@ -434,10 +434,12 @@ class NotasDeComercial extends Component
             });
         });
 
+        $enviadas = count($eligible);
         Notification::make()
-            ->title('Notas enviadas a Oficina')
-            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->title('✅ ' . $enviadas . ' nota' . ($enviadas === 1 ? '' : 's') . ' enviada' . ($enviadas === 1 ? '' : 's') . ' a Oficina')
+            ->body($skipped ? "Omitidas (no elegibles): {$skipped}" : null)
             ->success()
+            ->persistent()
             ->send();
 
         $this->selectedNotes = [];
@@ -547,10 +549,12 @@ class NotasDeComercial extends Component
             });
         });
 
+        $enviadas = count($eligible);
         Notification::make()
-            ->title('Notas enviadas a Oficina')
-            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->title('✅ ' . $enviadas . ' nota' . ($enviadas === 1 ? '' : 's') . ' enviada' . ($enviadas === 1 ? '' : 's') . ' a Oficina')
+            ->body($skipped ? "Omitidas (no elegibles): {$skipped}" : null)
             ->success()
+            ->persistent()
             ->send();
 
         $this->selectedNotes = [];
