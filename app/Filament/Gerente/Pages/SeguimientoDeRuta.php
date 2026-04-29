@@ -113,7 +113,7 @@ class SeguimientoDeRuta extends Page
 
     public function getDailyActivitiesForNote(Note $note, Carbon $date): Collection
     {
-        $anotaciones = $note->anotacionesVisitas
+        $anotaciones = ($note->anotacionesVisitas ?? collect())
             ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date))
             ->map(fn($anotacion) => [
                 'type' => 'anotacion',
@@ -124,7 +124,9 @@ class SeguimientoDeRuta extends Page
                 'meta_label' => 'Anotado',
             ]);
 
-        $observaciones = $note->observations
+        $observaciones = ($note->relationLoaded('observations')
+            ? ($note->getRelation('observations') ?? collect())
+            : $note->observations()->with('author')->get())
             ->filter(fn($observacion) => $observacion->created_at?->isSameDay($date))
             ->map(fn($observacion) => [
                 'type' => 'observacion',
