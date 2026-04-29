@@ -139,6 +139,16 @@
             color: #374151;
         }
 
+        .active-notes-badge-topic.is-annotation {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .active-notes-badge-topic.is-observation {
+            background: #dcfce7;
+            color: #166534;
+        }
+
         .active-notes-body {
             min-width: 0;
             color: #111827;
@@ -255,10 +265,17 @@
             @foreach($this->comerciales as $comercial)
                 @php
                     $notes = $comercial->notasDeclaradas
-                        ->filter(fn($note) => $note->assignment_date?->isSameDay($date))
+                        ->map(function ($note) use ($date) {
+                            return [
+                                'note' => $note,
+                                'activities' => $this->getDailyActivitiesForNote($note, $date),
+                            ];
+                        })
+                        ->filter(fn($entry) => $entry['activities']->isNotEmpty())
                         ->values();
 
-                    $activeNotesCount = $notes->filter(function ($note) {
+                    $activeNotesCount = $notes->filter(function ($entry) {
+                        $note = $entry['note'];
                         $estado = $note->getRawOriginal('estado_terminal');
                         $isOpenState = $estado === null
                             || $estado === ''
@@ -270,7 +287,7 @@
                     })->count();
 
                     $declaredTodayCount = $notes
-                        ->filter(fn($note) => $note->fecha_declaracion?->isToday())
+                        ->filter(fn($entry) => $entry['note']->fecha_declaracion?->isToday())
                         ->count();
 
                     $fullName = trim($comercial->name . ' ' . $comercial->last_name);
@@ -284,7 +301,7 @@
 
                     @if($notes->isEmpty())
                         <div class="active-notes-summary">
-                            SIN ANOTACIONES NO TIENE NOTAS ACTIVAS PARA {{ $dayLabel }}
+                            SIN ACTIVIDAD REGISTRADA PARA {{ $dayLabel }}
                         </div>
                     @else
                         <div class="active-notes-summary">
@@ -299,7 +316,12 @@
                             @endif
                         </div>
 
-                        @foreach($notes as $note)
+                        @foreach($notes as $entry)
+                            @php
+                                $note = $entry['note'];
+                                $activities = $entry['activities'];
+                            @endphp
+
                             <div class="active-notes-note">
                                 @if($note->fecha_declaracion?->isToday())
                                     <div class="active-notes-declared">
@@ -309,8 +331,7 @@
                                 @endif
 
                                 @php
-                                    $anotaciones = $note->anotacionesVisitas->sortBy('created_at')->values();
-                                    $lastActivityAt = $anotaciones->last()?->created_at ?? $note->assignment_date;
+                                    $lastActivityAt = $activities->last()['created_at'] ?? null;
                                     $elapsedLabel = $formatElapsed($lastActivityAt);
                                     $customerName = mb_strtoupper($note->customer?->name ?: 'SIN CLIENTE', 'UTF-8');
                                     $fuenteValue = $note->fuente instanceof \App\Enums\FuenteNotas
@@ -331,10 +352,10 @@
                                     );
                                 @endphp
 
-                                @forelse($anotaciones as $anotacion)
+                                @foreach($activities as $activity)
                                     <div class="active-notes-note-meta">
-                                        Anotado el {{ $anotacion->created_at?->format('d/m/Y') ?? 'Sin fecha' }}
-                                        a las <span class="active-notes-note-time">{{ $anotacion->created_at?->format('H:i') ?? '--:--' }}</span>
+                                        {{ $activity['meta_label'] }} el {{ $activity['created_at']?->format('d/m/Y') ?? 'Sin fecha' }}
+                                        a las <span class="active-notes-note-time">{{ $activity['created_at']?->format('H:i') ?? '--:--' }}</span>
                                     </div>
 
                                     <div class="active-notes-row">
@@ -342,30 +363,16 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic">
-                                            {{ $anotacion->asunto ?: 'SIN ASUNTO' }}
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'observacion' ? 'is-observation' : 'is-annotation' }}">
+                                            {{ $activity['topic'] }}
                                         </span>
-                                        <span class="active-notes-body">{{ $anotacion->cuerpo ?: 'Sin contenido' }}</span>
+                                        <span class="active-notes-body">{{ $activity['body'] }}</span>
                                         <span class="active-notes-author">
-                                            {{ $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR' }}
+                                            {{ $activity['author'] }}
                                         </span>
                                         <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
                                     </div>
-                                @empty
-                                    <div class="active-notes-note-meta">
-                                        Nota activa desde {{ $note->assignment_date?->format('d/m/Y') ?? 'Sin fecha' }}
-                                        a las <span class="active-notes-note-time">{{ $note->assignment_date?->format('H:i') ?? '--:--' }}</span>
-                                    </div>
-
-                                    <div class="active-notes-row">
-                                        <a href="{{ $notaUrl }}" class="active-notes-badge" style="background: {{ $noteBg }}">
-                                            {{ $note->nro_nota }}
-                                        </a>
-                                        <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-empty-note">Sin anotaciones registradas</span>
-                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
-                                    </div>
-                                @endforelse
+                                @endforeach
                             </div>
                         @endforeach
                     @endif

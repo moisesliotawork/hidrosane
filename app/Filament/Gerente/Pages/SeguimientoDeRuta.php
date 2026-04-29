@@ -3,6 +3,7 @@
 namespace App\Filament\Gerente\Pages;
 
 use App\Enums\EstadoTerminal;
+use App\Models\Note;
 use App\Models\User;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
@@ -75,6 +76,7 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.customer',
                 'notasDeclaradas.venta',
                 'notasDeclaradas.anotacionesVisitas.autor',
+                'notasDeclaradas.observations.author',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
@@ -107,5 +109,35 @@ class SeguimientoDeRuta extends Page
             })
             ->orderBy('assignment_date')
             ->orderByRaw('CAST(nro_nota AS UNSIGNED) ASC');
+    }
+
+    public function getDailyActivitiesForNote(Note $note, Carbon $date): Collection
+    {
+        $anotaciones = $note->anotacionesVisitas
+            ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date))
+            ->map(fn($anotacion) => [
+                'type' => 'anotacion',
+                'created_at' => $anotacion->created_at,
+                'topic' => $anotacion->asunto ?: 'SIN ASUNTO',
+                'body' => $anotacion->cuerpo ?: 'Sin contenido',
+                'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
+                'meta_label' => 'Anotado',
+            ]);
+
+        $observaciones = $note->observations
+            ->filter(fn($observacion) => $observacion->created_at?->isSameDay($date))
+            ->map(fn($observacion) => [
+                'type' => 'observacion',
+                'created_at' => $observacion->created_at,
+                'topic' => 'OBSERVACION',
+                'body' => $observacion->observation ?: 'Sin contenido',
+                'author' => $observacion->author?->full_name ?? $observacion->author?->display_name ?? 'SIN AUTOR',
+                'meta_label' => 'Observado',
+            ]);
+
+        return $anotaciones
+            ->concat($observaciones)
+            ->sortBy('created_at')
+            ->values();
     }
 }
