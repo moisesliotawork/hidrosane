@@ -45,7 +45,7 @@ class ImportVentaExcelService
             return;
         }
 
-        $telefonoRaw = $row[5] ?? null;
+        $telefonoRaw = $row[4] ?? null;
         $telefonos = $this->extraerTelefonos($telefonoRaw);
 
         Log::debug('ImportVentaExcelService: teléfonos extraídos', [
@@ -66,19 +66,42 @@ class ImportVentaExcelService
         try {
             DB::transaction(function () use ($row, $fechaVenta, $telefonos, $origenVenta, $archivoImportado) {
 
-                $nombre = trim((string) ($row[3] ?? ''));
-                $apellidos = trim((string) ($row[4] ?? ''));
-                $dni = trim((string) ($row[8] ?? ''));
-                $importe = $this->parseImporte($row[9] ?? 0);
+                $nombre = trim((string) ($row[2] ?? ''));
+                $apellidos = trim((string) ($row[3] ?? ''));
+                $dni = trim((string) ($row[6] ?? ''));
+                $importe = $this->parseImporte($row[8] ?? 0);
 
-                $direccion = $this->nullIfBlank($row[6] ?? null);
+                $nroClienteExcel = trim((string) ($row[1] ?? ''));
+                $nroCliente = is_numeric($nroClienteExcel)
+                    ? str_pad((int) $nroClienteExcel, 5, '0', STR_PAD_LEFT)
+                    : null;
+
+                $estadoMap = [
+                    'NULO REPARTO'       => 'nulo_en_reparto',
+                    'NULO EN REPARTO'    => 'nulo_en_reparto',
+                    'NULO FINANCIERO'    => 'nulo_financiero',
+                    'ENTREGADO'          => 'facturado',
+                    'FACTURADO'          => 'facturado',
+                    'EN REPARTO'         => 'en_reparto',
+                    'STAND BY'           => 'stand_by',
+                    'COMITE'             => 'comite',
+                    'COMITÉ'             => 'comite',
+                    'PENDIENTE DE COBRO' => 'pendiente_de_cobro',
+                    'RETROCESO'          => 'retroceso',
+                    'NO SALE A CALLE'    => 'no_sale_a_calle',
+                    'NULO POR AUSENTE'   => 'nulo_por_ausente',
+                ];
+                $estadoRaw = strtoupper(trim((string) ($row[10] ?? '')));
+                $estadoVenta = $estadoMap[$estadoRaw] ?? 'en_revision';
+
+                $direccion = $this->nullIfBlank($row[5] ?? null);
                 $provincia = $this->nullIfBlank($row[7] ?? null);
 
-                $seguimiento = $this->nullIfBlank($row[12] ?? null);
-                $financieras = $this->nullIfBlank($row[13] ?? null);
+                $seguimiento = $this->nullIfBlank($row[11] ?? null);
+                $financieras = $this->nullIfBlank($row[12] ?? null);
                 $pasadas = $this->nullIfBlank($row[14] ?? null);
 
-                $comercialNombre = trim((string) ($row[15] ?? ''));
+                $comercialNombre = trim((string) ($row[13] ?? ''));
 
                 Log::debug('ImportVentaExcelService: datos principales normalizados', [
                     'nombre' => $nombre,
@@ -165,6 +188,12 @@ class ImportVentaExcelService
                     Log::info('ImportVentaExcelService: cliente existente reutilizado', [
                         'customer_id' => $customer->id,
                     ]);
+                }
+
+                // Asignar nro_cliente del Excel antes de crear la venta,
+                // para que el hook created de Venta no lo sobreescriba con un número auto-generado.
+                if ($nroCliente && empty($customer->nro_cliente)) {
+                    $customer->forceFill(['nro_cliente' => $nroCliente])->saveQuietly();
                 }
 
                 /*
@@ -262,8 +291,9 @@ class ImportVentaExcelService
                     'seguimiento' => $seguimiento,
                     'financieras_reparto' => $financieras,
                     'pasadas_financieras' => $pasadas,
-                    'estado_venta' => 'en_revision',
+                    'estado_venta' => $estadoVenta,
                     'origen_venta' => $origenVenta->value,
+                    'nro_cliente_adm' => $nroCliente,
                     // 'archivo_importacion' => $archivoImportado,
                 ]);
 
