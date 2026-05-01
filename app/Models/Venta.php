@@ -487,6 +487,10 @@ class Venta extends Model
     {
         $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
 
+        if ($this->ventaOfertas->isEmpty()) {
+            return $this;
+        }
+
         $impCom = 0.0;
         $impRep = 0.0;
         foreach ($this->ventaOfertas as $vo) {

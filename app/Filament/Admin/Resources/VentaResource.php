@@ -1024,7 +1024,7 @@ class VentaResource extends Resource
                     ->badge()
                     ->color('success')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable(isIndividual: true),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1084,7 +1084,7 @@ class VentaResource extends Resource
                         return $enum?->getLabel() ?? $state;
                     }),
 
-                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
+                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(isIndividual: true),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: false)
@@ -1095,12 +1095,12 @@ class VentaResource extends Resource
                 TextColumn::make('nro_cliente_adm')
                     ->label('Nº Cliente')
                     ->toggleable(isToggledHiddenByDefault: false)
-                    ->searchable()
+                    ->searchable(isIndividual: true)
                     ->sortable(),
                 TextColumn::make('customer.name')
                     ->label('Nombre')
                     ->extraAttributes(['class' => 'font-bold'])
-                    ->searchable(['first_names', 'last_names'])
+                    ->searchable(['first_names', 'last_names'], isIndividual: true)
                     ->sortable(),
                 TextColumn::make('customer.postal_code')
                     ->label('CP')
@@ -1467,6 +1467,7 @@ class VentaResource extends Resource
                         '__NULL__' => 'SIN ORIGEN',
                         'puerta_fria' => 'PUERTA FRÍA',
                         'venta_normal' => 'VENTA NORMAL',
+                        'excel' => 'EXCEL',
                     ])
                     ->query(function ($query, array $data) {
                         $value = $data['value'] ?? null;

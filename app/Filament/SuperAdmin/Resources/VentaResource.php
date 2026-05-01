@@ -7,6 +7,7 @@ use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\DeleteBulkAction;
 
 class VentaResource extends Resource
 {
@@ -26,7 +27,24 @@ class VentaResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return \App\Filament\Admin\Resources\VentaResource::table($table);
+        $table = \App\Filament\Admin\Resources\VentaResource::table($table);
+
+        return $table->bulkActions([
+            DeleteBulkAction::make()
+                ->label('Eliminar seleccionados')
+                ->requiresConfirmation()
+                ->modalHeading('Eliminar contratos')
+                ->modalDescription('Se eliminarán los contratos seleccionados y sus notas asociadas. Esta acción no se puede deshacer.')
+                ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                    foreach ($records as $venta) {
+                        $noteId = $venta->note_id;
+                        $venta->delete();
+                        if ($noteId) {
+                            \App\Models\Note::find($noteId)?->delete();
+                        }
+                    }
+                }),
+        ]);
     }
 
     public static function getRelations(): array
