@@ -3,11 +3,13 @@
 namespace App\Filament\SuperAdmin\Resources;
 
 use App\Models\Venta;
+use App\Models\User;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Columns\SelectColumn;
 
 class VentaResource extends Resource
 {
@@ -28,6 +30,36 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         $table = \App\Filament\Admin\Resources\VentaResource::table($table);
+
+        // Reemplazar los TextColumn de comercial/compañero con SelectColumn editables
+        $userOptions = fn() => User::role(['commercial', 'team_leader', 'sales_manager', 'gerente_general'])
+            ->orderBy('empleado_id')
+            ->get()
+            ->mapWithKeys(fn(User $u) => [
+                $u->id => strtoupper("{$u->empleado_id} - {$u->name} {$u->last_name}"),
+            ])
+            ->toArray();
+
+        $columns = $table->getColumns();
+        $newColumns = [];
+        foreach ($columns as $key => $col) {
+            if ($key === 'comercial.empleado_id') {
+                $newColumns[] = SelectColumn::make('comercial_id')
+                    ->label('Comercial')
+                    ->options($userOptions)
+                    ->searchable()
+                    ->placeholder('Sin comercial');
+            } elseif ($key === 'companion.empleado_id') {
+                $newColumns[] = SelectColumn::make('companion_id')
+                    ->label('Compañero')
+                    ->options($userOptions)
+                    ->searchable()
+                    ->placeholder('Sin compañero');
+            } else {
+                $newColumns[] = $col;
+            }
+        }
+        $table->columns($newColumns);
 
         return $table->bulkActions([
             DeleteBulkAction::make()
