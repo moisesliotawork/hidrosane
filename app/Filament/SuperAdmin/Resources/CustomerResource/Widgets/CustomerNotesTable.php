@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\{Customer, Note, NoteSalaObservation};
@@ -13,7 +14,7 @@ use App\Filament\SuperAdmin\Resources\NoteDescResource;
 
 class CustomerNotesTable extends BaseWidget
 {
-    protected static ?string $heading = 'HISTORICO DE CONTRATOS';
+    protected static ?string $heading = 'HISTORICO DE ESTE CLIENTE';
     protected int|string|array $columnSpan = 'full';
 
     public ?Customer $record = null;
@@ -57,7 +58,22 @@ class CustomerNotesTable extends BaseWidget
             TextColumn::make('assignment_date')
                 ->label('Asig.')
                 ->date('d/m/Y')
-                ->sortable(),
+                ->sortable()
+                ->action(
+                    Tables\Actions\Action::make('edit_assignment_date')
+                        ->modalHeading('Editar fecha de asignación')
+                        ->modalWidth('sm')
+                        ->form([
+                            DatePicker::make('assignment_date')
+                                ->label('Fecha de asignación')
+                                ->displayFormat('d/m/Y')
+                                ->required(),
+                        ])
+                        ->fillForm(fn (Note $record) => ['assignment_date' => $record->assignment_date])
+                        ->action(function (Note $record, array $data): void {
+                            $record->update(['assignment_date' => $data['assignment_date']]);
+                        })
+                ),
 
             TextColumn::make('visit_date')
                 ->label('Visita')
