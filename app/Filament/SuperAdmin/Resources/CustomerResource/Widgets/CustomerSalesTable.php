@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\{Customer, Venta};
 use App\Filament\SuperAdmin\Resources\VentaResource;
@@ -50,7 +51,22 @@ class CustomerSalesTable extends BaseWidget
             TextColumn::make('fecha_venta')
                 ->label('F. Venta')
                 ->date('d/m/Y')
-                ->sortable(),
+                ->sortable()
+                ->action(
+                    Tables\Actions\Action::make('edit_fecha_venta')
+                        ->modalHeading('Editar fecha de venta')
+                        ->modalWidth('sm')
+                        ->form([
+                            DatePicker::make('fecha_venta')
+                                ->label('Fecha de venta')
+                                ->displayFormat('d/m/Y')
+                                ->required(),
+                        ])
+                        ->fillForm(fn (Venta $record) => ['fecha_venta' => $record->fecha_venta])
+                        ->action(function (Venta $record, array $data): void {
+                            $record->update(['fecha_venta' => $data['fecha_venta']]);
+                        })
+                ),
 
             TextColumn::make('importe_total')
                 ->label('Importe')
