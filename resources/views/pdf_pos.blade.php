@@ -92,6 +92,8 @@
     $xA_Vivienda = 128.1;     // “Vivienda:”
     $yA_Ingresos = 64.6;
     $xA_Ingresos = 128.5;     // “Ingresos:”
+    $yA_Email = 68.9;
+    $xA_Email = 112.0;        // “Correo:”
 
     // Tabla productos P1
     $yBase = 94.1;
@@ -172,6 +174,7 @@
 
     $mostrarIngresos = (bool) ($venta->mostrar_ingresos ?? true);
     $ingresos = $mostrarIngresos ? mb_strtoupper($venta->customer->ingresos_rango ?? '', 'UTF-8') : '';
+    $emailCliente = $venta->customer->email ?? '';
 
     // Dirección 2 líneas
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
@@ -471,6 +474,9 @@
                 <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
                 <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
                 <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
+                @if($emailCliente !== '')
+                    <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Correo: {{ $emailCliente }}</div>
+                @endif
                 <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">{{ $repEmpleado }}</div>
 
                 {{-- B. Artículos (ocultos en copia) --}}
