@@ -30,7 +30,7 @@ use Illuminate\Validation\Rule;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Notifications\Actions\Action as NotificationAction;
-use App\Filament\Teleoperator\Pages\BuscarCliente;
+use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
 
@@ -253,6 +253,7 @@ class NoteResource extends Resource
                             ->required()
                             ->native(false)
                             ->live()
+                            ->default(NoteStatus::CONTACTED->value)
                             ->label('Estado')
                             ->validationMessages([
                                 'required' => 'El estado es obligatorio',
@@ -583,6 +584,9 @@ class NoteResource extends Resource
                             ])
                             ->toArray();
                     })
+                    ->query(fn(Builder $q, array $data) =>
+                        $q->when($data['value'] ?? null, fn($q, $v) => $q->where('comercial_id', $v))
+                    )
                     ->searchable()
                     ->native(false),
 

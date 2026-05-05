@@ -174,6 +174,7 @@ class NoteResource extends Resource
                             ->required()
                             ->native(false)
                             ->live()
+                            ->default(NoteStatus::CONTACTED->value)
                             ->label('Estado')
                             ->validationMessages([
                                 'required' => 'El estado es obligatorio',
