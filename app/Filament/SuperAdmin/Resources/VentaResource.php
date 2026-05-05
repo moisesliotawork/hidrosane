@@ -5,9 +5,11 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Models\Venta;
 use App\Models\User;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteBulkAction;
 use Filament\Tables\Columns\SelectColumn;
 
@@ -60,6 +62,30 @@ class VentaResource extends Resource
             }
         }
         $table->columns($newColumns);
+
+        $editFechaAction = Action::make('edit_fecha_venta')
+            ->label('Cambiar fecha')
+            ->icon('heroicon-o-calendar-days')
+            ->color('warning')
+            ->modalHeading('Cambiar fecha de venta')
+            ->modalWidth('sm')
+            ->modalSubmitActionLabel('Guardar')
+            ->form([
+                DatePicker::make('fecha_venta')
+                    ->label('Fecha de venta')
+                    ->native(false)
+                    ->timezone('Europe/Madrid')
+                    ->displayFormat('d/m/Y')
+                    ->required(),
+            ])
+            ->fillForm(fn(Venta $record): array => [
+                'fecha_venta' => $record->fecha_venta,
+            ])
+            ->action(function (Venta $record, array $data): void {
+                $record->update(['fecha_venta' => $data['fecha_venta']]);
+            });
+
+        $table->actions([$editFechaAction, ...$table->getActions()]);
 
         return $table->bulkActions([
             DeleteBulkAction::make()
