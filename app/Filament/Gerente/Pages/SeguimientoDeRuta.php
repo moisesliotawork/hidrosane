@@ -77,6 +77,7 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.venta',
                 'notasDeclaradas.anotacionesVisitas.autor',
                 'notasDeclaradas.observations.author',
+                'notasDeclaradas.confirmations.companion',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
@@ -87,25 +88,27 @@ class SeguimientoDeRuta extends Page
     protected function activeNotesQuery($query, Carbon $from, Carbon $to): void
     {
         $query
-            ->whereDate('assignment_date', '>=', $from->toDateString())
-            ->whereDate('assignment_date', '<=', $to->toDateString())
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query
-                        ->where(function ($query) {
-                            $query
-                                ->whereNull('estado_terminal')
-                                ->orWhere('estado_terminal', '')
-                                ->orWhereRaw('LOWER(TRIM(estado_terminal)) = ?', [EstadoTerminal::AUSENTE->value]);
-                        })
-                        ->whereDoesntHave('venta')
-                        ->where(function ($query) {
-                            $query
-                                ->whereNull('reten')
-                                ->orWhere('reten', false);
-                        });
-                })
-                    ->orWhereDate('fecha_declaracion', today()->toDateString());
+            ->where(function ($query) use ($from, $to) {
+                $query
+                    // Caso 1: nota en rango de asignación con estado abierto
+                    ->where(function ($q) use ($from, $to) {
+                        $q->whereDate('assignment_date', '>=', $from->toDateString())
+                            ->whereDate('assignment_date', '<=', $to->toDateString())
+                            ->where(function ($q2) {
+                                $q2->whereNull('estado_terminal')
+                                    ->orWhere('estado_terminal', '')
+                                    ->orWhereRaw('LOWER(TRIM(estado_terminal)) = ?', [EstadoTerminal::AUSENTE->value]);
+                            })
+                            ->whereDoesntHave('venta')
+                            ->where(function ($q2) {
+                                $q2->whereNull('reten')->orWhere('reten', false);
+                            });
+                    })
+                    // Caso 2: nota declarada hoy o ayer (confirmada, nula, sala...) sin importar assignment_date
+                    ->orWhere(function ($q) use ($from, $to) {
+                        $q->whereDate('fecha_declaracion', '>=', $from->toDateString())
+                            ->whereDate('fecha_declaracion', '<=', $to->toDateString());
+                    });
             })
             ->orderBy('assignment_date')
             ->orderByRaw('CAST(nro_nota AS UNSIGNED) ASC');
@@ -137,8 +140,24 @@ class SeguimientoDeRuta extends Page
                 'meta_label' => 'Observado',
             ]);
 
+        $confirmaciones = ($note->relationLoaded('confirmations')
+            ? ($note->getRelation('confirmations') ?? collect())
+            : $note->confirmations()->with('companion')->get())
+            ->filter(fn($conf) => $conf->created_at?->isSameDay($date))
+            ->map(fn($conf) => [
+                'type' => 'confirmada',
+                'created_at' => $conf->created_at,
+                'topic' => 'CONFIRMADA',
+                'body' => ($conf->companion ? 'Compañero: ' . $conf->companion->display_name : '')
+                    . ($conf->dio_crema ? ' | Crema: SÍ' : ' | Crema: NO')
+                    . (!empty($conf->observation) ? ' | ' . $conf->observation : ''),
+                'author' => $conf->companion?->display_name ?? '—',
+                'meta_label' => 'Confirmada',
+            ]);
+
         return $anotaciones
             ->concat($observaciones)
+            ->concat($confirmaciones)
             ->sortBy('created_at')
             ->values();
     }
