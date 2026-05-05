@@ -25,6 +25,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Enums\FiltersLayout;
 use App\Models\User;
 use Illuminate\Validation\Rule;
 use App\Models\Customer;
@@ -523,20 +524,23 @@ class NoteResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                // Fila 1: Desde | Hasta | Fecha de Asignación | Comercial
                 Tables\Filters\Filter::make('assignment_from')
                     ->label('Desde')
                     ->form([
                         Forms\Components\DatePicker::make('start')
                             ->label('Desde')
+                            ->displayFormat('d/m/Y')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['start'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '>=', $d))
+                    ->query(fn(Builder $query, array $data): Builder =>
+                        $query->when(
+                            $data['start'] ?? null,
+                            fn(Builder $q, $d) => $q->whereDate('assignment_date', '>=', $d)
+                        )
                     )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['start'] ?? null) ? 'Desde: ' . Carbon::parse($data['start'])->format('d/m/Y') : null
+                    ->indicateUsing(fn(array $data): ?string =>
+                        ($data['start'] ?? null) ? 'Asig. desde: ' . Carbon::parse($data['start'])->format('d/m/Y') : null
                     ),
 
                 Tables\Filters\Filter::make('assignment_to')
@@ -544,32 +548,40 @@ class NoteResource extends Resource
                     ->form([
                         Forms\Components\DatePicker::make('end')
                             ->label('Hasta')
+                            ->displayFormat('d/m/Y')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['end'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '<=', $d))
+                    ->query(fn(Builder $query, array $data): Builder =>
+                        $query->when(
+                            $data['end'] ?? null,
+                            fn(Builder $q, $d) => $q->whereDate('assignment_date', '<=', $d)
+                        )
                     )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['end'] ?? null) ? 'Hasta: ' . Carbon::parse($data['end'])->format('d/m/Y') : null
+                    ->indicateUsing(fn(array $data): ?string =>
+                        ($data['end'] ?? null) ? 'Asig. hasta: ' . Carbon::parse($data['end'])->format('d/m/Y') : null
                     ),
 
                 Tables\Filters\Filter::make('assignment_date')
-                    ->label('Fecha de Asignación')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de Asignación')
+                            ->label('Fecha exacta de asignación')
                             ->displayFormat('d/m/Y')
                             ->native(false),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['assignment_date'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', $d))
-                    )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['assignment_date'] ?? null)
-                            ? 'Asignación: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y')
-                            : null
-                    ),
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['assignment_date'],
+                                fn(Builder $query, $date) => $query->whereDate('assignment_date', $date)
+                            );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (!$data['assignment_date']) {
+                            return null;
+                        }
+                        return 'Fecha asig.: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y');
+                    }),
 
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
@@ -584,9 +596,6 @@ class NoteResource extends Resource
                             ])
                             ->toArray();
                     })
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['value'] ?? null, fn($q, $v) => $q->where('comercial_id', $v))
-                    )
                     ->searchable()
                     ->native(false),
 
@@ -640,7 +649,7 @@ class NoteResource extends Resource
                     ),
 
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(4)
             ->actions([
                 Tables\Actions\EditAction::make()
