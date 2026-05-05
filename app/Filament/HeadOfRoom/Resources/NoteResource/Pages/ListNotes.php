@@ -9,11 +9,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
-use Illuminate\Contracts\Pagination\CursorPaginator;
-use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ListNotes extends ListRecords
@@ -234,21 +231,15 @@ class ListNotes extends ListRecords
         return 'notas';
     }
 
-    protected function paginateTableQuery(Builder $query): Paginator|CursorPaginator
+    protected function getTableQuery(): Builder
     {
-        if ($this->activeTab === 'notas' && !$this->hasActiveNotasFilters()) {
-            $items = $query->take(10)->get();
+        $query = parent::getTableQuery();
 
-            return new LengthAwarePaginator(
-                $items,
-                $items->count(),
-                10,
-                1,
-                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
-            );
+        if ($this->activeTab === 'notas' && !$this->hasActiveNotasFilters()) {
+            $query->whereRaw('1 = 0');
         }
 
-        return parent::paginateTableQuery($query);
+        return $query;
     }
 
     private function hasActiveNotasFilters(): bool
