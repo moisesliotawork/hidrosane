@@ -519,7 +519,13 @@ class NoteResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
 
-
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fech/Nota')
+                    ->badge()
+                    ->color('success')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
             ])
             ->defaultSort('created_at', 'desc')

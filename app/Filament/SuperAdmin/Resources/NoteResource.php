@@ -351,6 +351,14 @@ class NoteResource extends Resource
                     })
                     ->label('TN')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fech/Nota')
+                    ->badge()
+                    ->color('success')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
