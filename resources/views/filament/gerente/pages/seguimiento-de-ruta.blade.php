@@ -345,11 +345,17 @@
                                         'excel' => '#0284c7',
                                         default => '#6b7280',
                                     };
-                                    $notaUrl = \App\Filament\Gerente\Resources\NotasGerenteResource::getUrl(
-                                        'edit',
-                                        ['record' => $note],
-                                        panel: 'gerente',
-                                    );
+                                    $comercialId = $note->comercial_id;
+                                    $notaUrl = $comercialId
+                                        ? \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
+                                            ['comercial_id' => $comercialId],
+                                            panel: 'gerente',
+                                        ) . '#note-' . $note->id
+                                        : \App\Filament\Gerente\Resources\NotasGerenteResource::getUrl(
+                                            'edit',
+                                            ['record' => $note],
+                                            panel: 'gerente',
+                                        );
                                 @endphp
 
                                 @foreach($activities as $activity)

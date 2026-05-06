@@ -344,7 +344,7 @@
         <x-filament::section heading="Notas de hoy">
             <div class="space-y-4">
                 @forelse($this->notesToday as $note)
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div id="note-{{ $note['id'] }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                         <div
                             class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
                             <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
@@ -476,7 +476,7 @@
         <x-filament::section heading="Todas las notas">
             <div class="space-y-4">
                 @forelse($this->notesAll as $note)
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div id="note-{{ $note['id'] }}" class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                         <div
                             class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
                             <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
