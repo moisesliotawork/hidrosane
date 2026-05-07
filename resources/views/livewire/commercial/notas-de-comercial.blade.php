@@ -72,6 +72,34 @@
             color: #ffffff;
         }
 
+        .phone-buttons-container {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .phone-button {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.4rem;
+            background-color: #bfdbfe;
+            color: #1e3a5f;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .phone-button:hover {
+            background-color: #93c5fd;
+        }
+
+        .dark .phone-button {
+            color: #0b1120;
+        }
+
         /* Botón verde del mismo estilo */
         .action-button.green {
             background-color: #16a34a;
@@ -372,12 +400,29 @@
 
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -485,12 +530,29 @@
                         </p>
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>

@@ -928,16 +928,22 @@
                         </p>
 
                         @if($note['show_phone'] || $this->canAlwaysSeePhones())
+                            @php
+                                $phone1Raw = $note['phone'] ?? null;
+                                $phone2Raw = $note['secondary_phone'] ?? null;
+                                $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                                $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                            @endphp
                             <div class="mt-1">
                                 <p class="customer-phone">Tlf 1:
-                                    @if($note['phone'])
-                                        <a href="tel:{{ $note['phone'] }}" class="customer-phone-link">{{ $note['phone'] }}</a>
+                                    @if($phone1)
+                                        <a href="tel:{{ $phone1 }}" class="customer-phone-link">{{ $phone1Raw }}</a>
                                     @else
                                         No disponible
                                     @endif
                                 </p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: <a href="tel:{{ $note['secondary_phone'] }}" class="customer-phone-link">{{ $note['secondary_phone'] }}</a></p>
+                                @if($phone2)
+                                    <p class="customer-phone">Tlf 2: <a href="tel:{{ $phone2 }}" class="customer-phone-link">{{ $phone2Raw }}</a></p>
                                 @endif
                             </div>
                         @endif
