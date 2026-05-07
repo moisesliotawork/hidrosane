@@ -83,6 +83,11 @@
             /* Color blanco para modo oscuro */
         }
 
+        .customer-phone-link {
+            color: inherit;
+            text-decoration: underline;
+        }
+
         .bulk-bar {
             display: flex;
             gap: .5rem;
@@ -924,9 +929,15 @@
 
                         @if($note['show_phone'] || $this->canAlwaysSeePhones())
                             <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
+                                <p class="customer-phone">Tlf 1:
+                                    @if($note['phone'])
+                                        <a href="tel:{{ $note['phone'] }}" class="customer-phone-link">{{ $note['phone'] }}</a>
+                                    @else
+                                        No disponible
+                                    @endif
+                                </p>
                                 @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                                    <p class="customer-phone">Tlf 2: <a href="tel:{{ $note['secondary_phone'] }}" class="customer-phone-link">{{ $note['secondary_phone'] }}</a></p>
                                 @endif
                             </div>
                         @endif
