@@ -915,4 +915,4 @@ class VentaResource extends Resource
         ])->columns(1);
     }
 
-}
+}// prueba//
