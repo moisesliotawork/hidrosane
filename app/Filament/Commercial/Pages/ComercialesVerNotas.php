@@ -99,7 +99,7 @@ class ComercialesVerNotas extends Page implements HasTable
             ->striped()
             ->paginated(true)
             ->defaultPaginationPageOption(25)
-            ->defaultSort('name');
+            ->defaultSort('empleado_id');
     }
 
 }

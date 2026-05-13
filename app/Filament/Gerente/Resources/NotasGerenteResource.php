@@ -376,6 +376,7 @@ class NotasGerenteResource extends Resource
                                     ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                                     ->with(['roles:id,name'])                 // cargamos roles
                                     ->role(['commercial', 'team_leader'])     // cualquiera de los dos
+                                    ->whereNull('baja')
                                     ->orderBy('empleado_id')
                                     ->get()
                                     ->unique('id');
