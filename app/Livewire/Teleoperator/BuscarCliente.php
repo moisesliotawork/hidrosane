@@ -130,6 +130,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
      *
      * Fecha de referencia: assignment_date (o visit_date si no tiene assignment_date).
      * Cutoff: primer día del mes de hace 4 meses (now()->startOfMonth()->subMonthsNoOverflow(4)).
+     * 0b. Si algún customer tiene nota enviada a sala (estado_terminal=SALA) => bloquear SIEMPRE.
      */
     protected function handleCustomersFound(Collection $customers, ?string $digits = null): void
     {
@@ -160,6 +161,21 @@ class BuscarCliente extends Component implements HasForms, HasActions
                     redirect()->to(NoteResource::getUrl('index'));
                     return;
                 }
+            }
+        }
+
+        // 0b) Si algún customer tiene nota enviada a sala → bloquear siempre (sin importar fecha)
+        foreach ($customers as $customer) {
+            $hasSalaNote = $customer->notes()
+                ->where('estado_terminal', EstadoTerminal::SALA->value)
+                ->exists();
+
+            if ($hasSalaNote) {
+                $this->notifyNoSePuedeLlamar(
+                    "BLOQUEADO: El cliente (ID: {$customer->id}) tiene una nota enviada a oficina. No se puede crear nueva nota."
+                );
+                redirect()->to(NoteResource::getUrl('index'));
+                return;
             }
         }
 
