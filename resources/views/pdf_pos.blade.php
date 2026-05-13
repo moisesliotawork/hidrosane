@@ -474,9 +474,7 @@
                 <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
                 <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
                 <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
-                @if($emailCliente !== '')
-                    <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Correo: {{ $emailCliente }}</div>
-                @endif
+                <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Email {{ $emailCliente }}</div>
                 <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">{{ $repEmpleado }}</div>
 
                 {{-- B. Artículos (ocultos en copia) --}}

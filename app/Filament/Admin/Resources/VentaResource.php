@@ -325,7 +325,7 @@ class VentaResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
-                        TextInput::make('email')->label('Email')
+                        TextInput::make('email')->label('Correo electrónico')
                             ->email(),
 
 
