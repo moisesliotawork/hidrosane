@@ -185,6 +185,13 @@ class VentaResource extends Resource
                         ->searchable()
                         ->required()
                         ->columnSpan(1),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable()
+                        ->columnSpan(1),
 
                     Select::make('motivo_venta')
                         ->label('¿Por qué vendiste?')

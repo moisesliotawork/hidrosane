@@ -17,6 +17,7 @@ enum EstadoVenta: string
     case NULO_FINANCIERO = 'nulo_financiero';
     case NO_SALE_A_CALLE = 'no_sale_a_calle';
     case NULO_POR_AUSENTE = 'nulo_por_ausente';
+    case NG = 'ng';
 
     /**
      * Devuelve la descripción legible de cada estado.
@@ -37,6 +38,7 @@ enum EstadoVenta: string
             self::NULO_FINANCIERO => 'Nulo financiero',
             self::NO_SALE_A_CALLE => 'No sale a calle',
             self::NULO_POR_AUSENTE => 'Nulo por ausente',
+            self::NG => 'NG',
         };
     }
 
@@ -56,6 +58,7 @@ enum EstadoVenta: string
             self::NULO_FINANCIERO => 'teal',       // Verde azulado
             self::NO_SALE_A_CALLE => 'purple',     // Morado
             self::NULO_POR_AUSENTE => 'lime',      // Verde lima
+            self::NG => 'rose',                    // Rosa
         };
     }
 

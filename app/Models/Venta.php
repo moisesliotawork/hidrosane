@@ -122,6 +122,7 @@ class Venta extends Model
         'cuota_mensual',
         'fecha_entrega',
         'horario_entrega',
+        'horario_entrega_2',
         'productos_externos',
         'precontractual',
         'foto_sorteo',

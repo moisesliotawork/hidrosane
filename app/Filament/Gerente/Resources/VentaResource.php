@@ -109,6 +109,12 @@ class VentaResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->required(),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable(),
                     Select::make('motivo_venta')
                         ->label('¿Por qué vendiste?')
                         ->options([

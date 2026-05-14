@@ -48,6 +48,7 @@ class CreateContratoBPage extends Page implements HasForms
             'repartidor_id' => $this->origen->repartidor_id,
             'fecha_entrega' => $this->origen->fecha_entrega,
             'horario_entrega' => $this->origen->horario_entrega,
+            'horario_entrega_2' => $this->origen->horario_entrega_2,
             'motivo_venta' => $this->origen->motivo_venta,
             'motivo_horario' => $this->origen->motivo_horario,
             'interes_art' => (bool) $this->origen->interes_art,

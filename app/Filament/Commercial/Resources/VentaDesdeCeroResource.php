@@ -619,6 +619,9 @@ class VentaDesdeCeroResource extends Resource
                 Select::make('horario_entrega')->label('Horario de entrega')
                     ->options(HorarioNotas::options())->default(HorarioNotas::TD->value)
                     ->native(false)->searchable()->required(),
+                Select::make('horario_entrega_2')->label('Horario de entrega 2')
+                    ->options(HorarioNotas::options())
+                    ->native(false)->searchable()->nullable(),
                 Select::make('motivo_venta')->label('¿Por qué vendiste?')->options([
                     'Eliminación de miedos' => 'Eliminación de miedos',
                     'Placer' => 'Placer',
