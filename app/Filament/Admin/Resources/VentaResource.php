@@ -146,6 +146,27 @@ class VentaResource extends Resource
                         // (opcional) si quieres que SOLO se vea y no la puedan cambiar:
                         // ->disabled()
                         ,
+
+                        // Fecha del contrato -B asociado (editable desde el contrato padre)
+                        DatePicker::make('fecha_contrato_b_virtual')
+                            ->label('Fecha Contrato -B')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->dehydrated(false)
+                            ->live()
+                            ->afterStateHydrated(function ($component, ?Venta $record) {
+                                if ($record) {
+                                    $b = $record->contratoB();
+                                    $component->state($b?->fecha_venta?->toDateString());
+                                }
+                            })
+                            ->afterStateUpdated(function (?string $state, ?Venta $record) {
+                                if ($record && $state) {
+                                    $b = $record->contratoB();
+                                    $b?->updateQuietly(['fecha_venta' => $state]);
+                                }
+                            })
+                            ->visible(fn(?Venta $record) => $record !== null && !self::isContratoB($record)),
                     ]),
                 ]),
 
