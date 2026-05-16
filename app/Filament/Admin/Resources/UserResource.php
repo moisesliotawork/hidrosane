@@ -140,7 +140,8 @@ class UserResource extends Resource
                     ->searchable(
                         query: fn(Builder $query, string $search)
                         => $query->orWhere('users.dni', 'like', "%{$search}%")
-                    ),
+                    )
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('name')
                     ->label('NOMBRE')
@@ -154,7 +155,8 @@ class UserResource extends Resource
                     ->searchable(
                         query: fn(Builder $query, string $search)
                         => $query->orWhere('users.email', 'like', "%{$search}%")
-                    ),
+                    )
+                    ->toggleable(),
 
                 TextColumn::make('phone')
                     ->label('Teléfono')
@@ -168,7 +170,8 @@ class UserResource extends Resource
                         '<span style="font-size: 1rem; font-weight: bold;">' .
                         chunk_split(str_replace(' ', '', $state), 3, ' ') .
                         '</span>'
-                    ),
+                    )
+                    ->toggleable(),
 
                 TextColumn::make('role')
                     ->label('Rol')
@@ -196,14 +199,40 @@ class UserResource extends Resource
                 TextColumn::make('alta_empleado')
                     ->label('Fecha de alta')
                     ->date('d/m/Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('baja')
+                    ->label('Fecha de baja')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable()
+                    ->placeholder('—'),
 
             ])
+            ->defaultSort('empleado_id', 'asc')
             ->paginated(false)
             ->filters([
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('editarBaja')
+                    ->label('Baja')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('danger')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('baja')
+                            ->label('Fecha de baja')
+                            ->displayFormat('d/m/Y')
+                            ->format('Y-m-d')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->nullable(),
+                    ])
+                    ->fillForm(fn(User $record) => ['baja' => $record->baja])
+                    ->action(fn(array $data, User $record) => $record->update(['baja' => $data['baja']]))
+                    ->modalWidth('sm')
+                    ->modalHeading('Editar fecha de baja'),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
