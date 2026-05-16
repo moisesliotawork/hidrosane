@@ -362,8 +362,8 @@
                             @php
 
                                 $phones = array_filter([
-                                    $venta->customer->phone,
-                                    $venta->customer->secondary_phone,
+                                    $venta->customer->phone1_commercial ?? null,
+                                    $venta->customer->phone2_commercial ?? null,
                                 ]);
                             @endphp
 
