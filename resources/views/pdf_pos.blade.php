@@ -404,6 +404,15 @@
             $isCopia = ($__pass !== 0);
             // Solo en la tercera pasada (2) agregamos el sufijo -B al nro de contrato
             $contratoFmt = $venta->nro_contr_adm . ($__pass === 2 ? '-B' : '');
+            // Para la copia -B, usar la fecha_venta del contrato -B asociado
+            if ($__pass === 2) {
+                $contraBModel = $venta->contratoB();
+                $fecDisplay = ($contraBModel && $contraBModel->fecha_venta)
+                    ? Carbon::parse($contraBModel->fecha_venta)->format('d-m-Y')
+                    : $fecPromo;
+            } else {
+                $fecDisplay = $fecPromo;
+            }
         @endphp
 
         {{-- ================= PÁGINA 1 – CONTRATO ================= --}}
@@ -415,7 +424,7 @@
                 {{-- Encabezado --}}
                 <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">
                     {{ $contratoFmt }}</div>
-                <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecPromo }}</div>
+                <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecDisplay }}</div>
                 <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
                 <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
                     {{ strtoupper($venta->horario_entrega ?? '') }}</div>
