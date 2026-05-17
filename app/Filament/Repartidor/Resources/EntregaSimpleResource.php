@@ -528,6 +528,12 @@ class EntregaSimpleResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->required(),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable(),
                     TextInput::make('motivo_venta')->label('Motivo de la venta'),
                     TextInput::make('motivo_horario')->label('Motivo del horario'),
                     Toggle::make('interes_art')
