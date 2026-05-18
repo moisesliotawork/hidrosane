@@ -427,7 +427,7 @@
                 <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecDisplay }}</div>
                 <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
                 <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
-                    {{ strtoupper($venta->horario_entrega ?? '') }}</div>
+                    {{ strtoupper(implode(' / ', array_filter([$venta->horario_entrega, $venta->horario_entrega_2]))) }}</div>
                 <div class="field" style="top:{{ $yDelegacion }}mm; left:{{ $xDelegacion }}mm;">{{ $delegacionNombre }}
                 </div>
                 <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">
