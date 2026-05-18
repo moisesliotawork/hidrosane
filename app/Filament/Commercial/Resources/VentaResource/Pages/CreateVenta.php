@@ -4,6 +4,8 @@ namespace App\Filament\Commercial\Resources\VentaResource\Pages;
 
 use App\Filament\Commercial\Resources\VentaResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Forms\Components\Wizard\Step;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, User};
@@ -15,10 +17,61 @@ use App\Events\VentaCreada;
 
 class CreateVenta extends CreateRecord
 {
+    use HasWizard;
+
     protected static string $resource = VentaResource::class;
 
     /** id de la nota recibida en la URL */
     public int $noteId;
+
+    // ─── Session persistence ─────────────────────────────────────────────────
+
+    private function sessionKey(): string
+    {
+        // Include noteId so drafts from different notes don't mix
+        return 'venta_draft_commercial_' . auth()->id() . '_' . ($this->noteId ?? 0);
+    }
+
+    private function fileFields(): array
+    {
+        return [
+            'precontractual', 'foto_sorteo', 'dni_anverso', 'dni_reverso',
+            'documento_titularidad', 'nomina', 'pension', 'otros_documentos',
+        ];
+    }
+
+    public function updated(string $name): void
+    {
+        if (str_starts_with($name, 'data')) {
+            $toSave = $this->data;
+            foreach ($this->fileFields() as $field) {
+                unset($toSave[$field]);
+            }
+            session()->put($this->sessionKey(), $toSave);
+        }
+    }
+
+    protected function afterCreate(): void
+    {
+        session()->forget($this->sessionKey());
+    }
+
+    // ─── Wizard steps ─────────────────────────────────────────────────────────
+
+    protected function getSteps(): array
+    {
+        return [
+            Step::make('Datos del contrato')
+                ->icon('heroicon-o-document-text')
+                ->description('Información del cliente y de la venta')
+                ->schema(VentaResource::step1Schema()),
+
+            Step::make('Documentos y Fotos')
+                ->icon('heroicon-o-camera')
+                ->description('Sube los documentos requeridos')
+                ->schema(VentaResource::step2Schema()),
+        ];
+    }
 
     /* ---------------------------------------------------------------------
      | 1. Cargar la nota y pre-rellenar el formulario
@@ -43,6 +96,16 @@ class CreateVenta extends CreateRecord
         );
 
         $this->form->fill($payload);
+
+        // Restore session draft (user's edits) AFTER pre-filling with note data
+        $key = $this->sessionKey();
+        if (session()->has($key)) {
+            $saved = session($key);
+            foreach ($this->fileFields() as $field) {
+                unset($saved[$field]);
+            }
+            $this->data = array_merge($this->data, $saved);
+        }
     }
 
     protected function handleRecordCreation(array $data): Venta
@@ -229,19 +292,5 @@ class CreateVenta extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return NotasHoy::getUrl();   // genera /commercial/notas-hoy
-    }
-
-    protected function getFormActions(): array
-    {
-        return [
-            // Botón principal (antes llamado “Crear”)
-            $this->getCreateFormAction()
-                ->label('Declarar VENTA'),
-
-            // Botón Cancelar → redirige a la página Notas Hoy
-            $this->getCancelFormAction()
-                ->label('Cancelar')
-                ->url(NotasHoy::getUrl()),
-        ];
     }
 }

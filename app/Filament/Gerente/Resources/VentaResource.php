@@ -50,9 +50,10 @@ class VentaResource extends Resource
     protected static ?int $navigationSort = 1;
 
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-        return $form->schema([
+        return [
 
             Hidden::make('productos_externos')
                 ->default(fn(?Venta $record) => $record->productos_externos ?? [])
@@ -707,6 +708,13 @@ class VentaResource extends Resource
             /* ────────── Datos de la venta ────────── */
 
 
+        ];
+    }
+
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
             Section::make('Gestión Documentos')
                 ->schema([
                     //SOLO FOTOTECA (sin capture, solo accept)
@@ -725,6 +733,14 @@ class VentaResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
         ]);
     }
 
@@ -921,7 +937,7 @@ class VentaResource extends Resource
         return true;
     }
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,

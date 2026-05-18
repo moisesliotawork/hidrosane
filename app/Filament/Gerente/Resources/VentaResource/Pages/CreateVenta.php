@@ -5,45 +5,104 @@ namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 use App\Filament\Gerente\Resources\VentaResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Forms\Components\Wizard\Step;
 use App\Models\Venta;
 use App\Models\Note;
 use App\Models\Reparto;
 
 class CreateVenta extends CreateRecord
 {
+    use HasWizard;
+
     protected static string $resource = VentaResource::class;
 
+    public int $noteId;
 
-    /**
-     * /ventas/create/{note}  ➜  $note llega aquí
-     */
+    // ─── Session persistence ─────────────────────────────────────────────────
+
+    private function sessionKey(): string
+    {
+        return 'venta_draft_gerente_' . auth()->id() . '_' . ($this->noteId ?? 0);
+    }
+
+    private function fileFields(): array
+    {
+        return [
+            'albaran', 'precontractual', 'foto_sorteo', 'dni_anverso', 'dni_reverso',
+            'documento_titularidad', 'nomina', 'pension', 'contrato_firmado', 'otros_documentos',
+        ];
+    }
+
+    public function updated(string $name): void
+    {
+        if (str_starts_with($name, 'data')) {
+            $toSave = $this->data;
+            foreach ($this->fileFields() as $field) {
+                unset($toSave[$field]);
+            }
+            session()->put($this->sessionKey(), $toSave);
+        }
+    }
+
+    protected function afterCreate(): void
+    {
+        session()->forget($this->sessionKey());
+    }
+
+    // ─── Wizard steps ─────────────────────────────────────────────────────────
+
+    protected function getSteps(): array
+    {
+        return [
+            Step::make('Datos del contrato')
+                ->icon('heroicon-o-document-text')
+                ->description('Información del cliente y de la venta')
+                ->schema(VentaResource::step1Schema()),
+
+            Step::make('Documentos y Fotos')
+                ->icon('heroicon-o-camera')
+                ->description('Sube los documentos requeridos')
+                ->schema(VentaResource::step2Schema()),
+        ];
+    }
+
+    // ─── Mount ────────────────────────────────────────────────────────────────
+
     public function mount(): void
     {
         parent::mount();
 
-        /** ID que viene en /ventas/create/{note} */
-        $noteId = request()->route('note');   // string|null
+        $this->noteId = (int) request()->route('note');
+        abort_if(empty($this->noteId), 404, 'Nota no especificada');
 
-        abort_if(empty($noteId), 404, 'Nota no especificada');
+        $note = Note::with('customer')->findOrFail($this->noteId);
+        $customer = $note->customer;
 
-        // 1. Cargar la nota con su cliente
-        $this->note = Note::with('customer')->findOrFail((int) $noteId);
-        $customer = $this->note->customer;
-
-        // 2. Pre-rellenar el formulario
         $this->form->fill(array_merge(
-            ['note_id' => $this->note->id],
+            ['note_id' => $note->id],
             $customer->only($customer->getFillable())
         ));
+
+        // Restore session draft AFTER pre-filling with note data
+        $key = $this->sessionKey();
+        if (session()->has($key)) {
+            $saved = session($key);
+            foreach ($this->fileFields() as $field) {
+                unset($saved[$field]);
+            }
+            $this->data = array_merge($this->data, $saved);
+        }
     }
 
-
+    // ─── Record creation ──────────────────────────────────────────────────────
 
     protected function handleRecordCreation(array $data): Venta
     {
+        $note = Note::with('customer')->findOrFail($this->noteId);
 
         /* 2. Actualizar cliente --------------------------------------------- */
-        $customer = $this->note->customer;
+        $customer = $note->customer;
         $customer->update(array_intersect_key(
             $data,
             array_flip($customer->getFillable())
@@ -51,7 +110,7 @@ class CreateVenta extends CreateRecord
 
         /* 3. Crear venta (pasa el id del CP a la venta si fuera necesario) -- */
         $venta = Venta::create([
-            'note_id' => $this->note->id,
+            'note_id' => $note->id,
             'customer_id' => $customer->id,
             'fecha_venta' => $data['fecha_venta'],
             'importe_total' => $data['importe_total'],

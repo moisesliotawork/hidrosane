@@ -49,10 +49,10 @@ class VentaDesdeCeroResource extends Resource
         return true;
     }
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-        // COPIADO 1:1 de tu versión Comercial
-        return $form->schema([
+        return [
             /* ==================== CLIENTE ==================== */
             Section::make('Información del cliente')->schema([
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
@@ -510,6 +510,13 @@ class VentaDesdeCeroResource extends Resource
                 Textarea::make('observaciones_repartidor')->label('Observaciones adicionales para el repartidor')->rows(3)->columnSpanFull(),
             ])->columns(2),
 
+        ];
+    }
+
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
             Section::make('Gestión Documentos')
                 ->schema([
                     //SOLO FOTOTECA (sin capture, solo accept)
@@ -528,6 +535,14 @@ class VentaDesdeCeroResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
         ]);
     }
 
@@ -544,7 +559,7 @@ class VentaDesdeCeroResource extends Resource
         ];
     }
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,

@@ -45,13 +45,12 @@ class VentaResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-
-        return $form
-            ->schema([
-                /* ---------- Cliente (editable) ---------- */
-                Section::make('Información del cliente')
+        return [
+            /* ---------- Cliente (editable) ---------- */
+            Section::make('Información del cliente')
                     ->schema([
                         Hidden::make('note_id')->required(),
 
@@ -787,23 +786,37 @@ class VentaResource extends Resource
                         ->columnSpanFull(),
                 ])->columns(2),
 
-                Section::make('Gestión Documentos')
-                    ->schema([
-                        //RESTO: CÁMARA
-                        self::docCard('precontractual', 'Precontractual', true, true),
-                        self::docCard('foto_sorteo', 'Foto Sorteo', true, true),
-                        self::docCard('dni_anverso', 'DNI – Anverso', false, true),
-                        self::docCard('dni_reverso', 'DNI – Reverso', false, true),
-                        self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
-                        self::docCard('nomina', 'Nómina', false, true),
-                        self::docCard('pension', 'Pensión', false, true),
-                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
-                        self::docCard('otros_documentos', 'Otros Documentos', false, true),
-                    ])
-                    ->columns(1)
-                    ->columnSpanFull(),
+        ];
+    }
 
-            ]);
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
+            Section::make('Gestión Documentos')
+                ->schema([
+                    //RESTO: CÁMARA
+                    self::docCard('precontractual', 'Precontractual', true, true),
+                    self::docCard('foto_sorteo', 'Foto Sorteo', true, true),
+                    self::docCard('dni_anverso', 'DNI – Anverso', false, true),
+                    self::docCard('dni_reverso', 'DNI – Reverso', false, true),
+                    self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
+                    self::docCard('nomina', 'Nómina', false, true),
+                    self::docCard('pension', 'Pensión', false, true),
+                    //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
+                    self::docCard('otros_documentos', 'Otros Documentos', false, true),
+                ])
+                ->columns(1)
+                ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -851,7 +864,7 @@ class VentaResource extends Resource
     }
 
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,
