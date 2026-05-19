@@ -52,7 +52,7 @@ class CreateVentaDesdeCero extends CreateRecord
             foreach ($this->fileFields() as $field) {
                 unset($saved[$field]);
             }
-            $this->data = array_merge($this->data, $saved);
+            $this->form->fill(array_merge($this->data, $saved));
         }
     }
 
@@ -64,6 +64,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 unset($toSave[$field]);
             }
             session()->put($this->sessionKey(), $toSave);
+            session()->save();
         }
     }
 
