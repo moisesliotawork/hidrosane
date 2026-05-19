@@ -95,16 +95,35 @@ class EditVenta extends EditRecord
             Action::make('preview')
                 ->label('Vista previa')
                 ->icon('heroicon-o-eye')
-                ->url(fn(Venta $record) => route('ventas.preview', $record))
-                ->openUrlInNewTab()               // ⇢ abre la URL en otra pestaña
+                ->action(function (Venta $record) {
+                    $this->persistirFechaContratoB($record);
+
+                    // El PDF siempre se genera desde el contrato padre
+                    if (str_ends_with((string) $record->nro_contr_adm, '-B')) {
+                        $padre = $record->asociadasConmigo()->first();
+                        $previewRecord = $padre ?? $record;
+                    } else {
+                        $previewRecord = $record;
+                    }
+
+                    $url = route('ventas.preview', $previewRecord);
+                    $this->js("window.open('" . $url . "', '_blank')");
+                })
                 ->color('gray'),
 
             Action::make('pdf')
                 ->label('Contrato PDF')
                 ->icon('heroicon-o-document-text')
-                ->action(fn(Venta $record) => $this->downloadPdf($record))
-                ->requiresConfirmation(false)   // dispara directo
-                ->color('warning'),             // conserva estilo Filament
+                ->action(function (Venta $record) {
+                    // Si estamos en el -B, generar el PDF desde el padre
+                    if (str_ends_with((string) $record->nro_contr_adm, '-B')) {
+                        $padre = $record->asociadasConmigo()->first();
+                        return $this->downloadPdf($padre ?? $record);
+                    }
+                    return $this->downloadPdf($record);
+                })
+                ->requiresConfirmation(false)
+                ->color('warning'),
 
             Action::make('crearContratoB')
                 ->label('Crear Contrato -B')
@@ -137,8 +156,23 @@ class EditVenta extends EditRecord
         ];
     }
 
+    protected function persistirFechaContratoB(Venta $venta): void
+    {
+        if (str_ends_with((string) $venta->nro_contr_adm, '-B')) {
+            return;
+        }
+
+        $fechaB = $this->data['fecha_contrato_b_virtual'] ?? null;
+        if ($fechaB) {
+            $b = $venta->contratoB();
+            $b?->updateQuietly(['fecha_venta' => $fechaB]);
+        }
+    }
+
     protected function downloadPdf(Venta $venta)
     {
+        $this->persistirFechaContratoB($venta);
+
         $venta->load([
             'note',
             'repartidor',
