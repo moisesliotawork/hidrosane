@@ -56,16 +56,14 @@ class CreateVentaDesdeCero extends CreateRecord
         }
     }
 
-    public function updated(string $name): void
+    public function dehydrate(): void
     {
-        if (str_starts_with($name, 'data')) {
-            $toSave = $this->data;
-            foreach ($this->fileFields() as $field) {
-                unset($toSave[$field]);
-            }
-            session()->put($this->sessionKey(), $toSave);
-            session()->save();
+        $toSave = $this->data;
+        foreach ($this->fileFields() as $field) {
+            unset($toSave[$field]);
         }
+        session()->put($this->sessionKey(), $toSave);
+        session()->save();
     }
 
     protected function afterCreate(): void
