@@ -1,0 +1,450 @@
+@php
+    use Carbon\Carbon;
+
+    $yRep = 25;
+    $xRep = 159.3;
+
+    $repEmpleado = $venta->repartidor?->empleado_id;
+
+    $debug = request()->boolean('debug');
+
+    $dx = (float) request('dx', 0);
+    $dy = (float) request('dy', 0);
+    $sx = (float) request('sx', 1);
+    $sy = (float) request('sy', 1);
+    $row = (float) request('row', 7.2);
+
+    // La pasada -B es siempre "copia" (sin productos ni importes)
+    $isCopia = true;
+    // El número de contrato viene directo del modelo -B (ya tiene el sufijo -B)
+    $contratoFmt = $venta->nro_contr_adm;
+
+    // Fecha: usar fecha_venta del propio contrato -B
+    $fecPromo = optional(Carbon::parse($venta->created_at))->format('d-m-Y');
+    $fecDisplay = $venta->fecha_venta
+        ? Carbon::parse($venta->fecha_venta)->format('d-m-Y')
+        : $fecPromo;
+
+    $fecEntr = $venta->fecha_entrega ? Carbon::parse($venta->fecha_entrega)->format('d-m-Y') : '';
+
+    $rawLines = $venta->ventaOfertas->flatMap(fn($o) => $o->productos);
+    $items = $rawLines->flatMap(function ($line) {
+        $qty = max((int) ($line->cantidad ?? 1), 1);
+        return collect(array_fill(0, $qty, $line));
+    })->values()->take(10);
+
+    $columns = $items->chunk(5)->map->values();
+    $colA = $columns->get(0, collect());
+    $colB = $columns->get(1, collect());
+
+    $descFont = function (string $text): float {
+        $len = mb_strlen(trim($text), 'UTF-8');
+        if ($len <= 30) return 11;
+        if ($len <= 36) return 10;
+        if ($len <= 42) return 9;
+        if ($len <= 50) return 8.5;
+        return 8;
+    };
+
+    // Coordenadas (idénticas a pdf_pos)
+    $yCodContrato = 12.5;
+    $xCodContrato = 134.5;
+    $yFecPromo = 12.3;
+    $xFecPromo = 171.4;
+    $yFecEntr = 16.5;
+    $xFecEntr = 166.5;
+    $yHoraEntr = 20.8;
+    $xHoraEntr = 168.3;
+    $yCodCliente = 16.5;
+    $xCodCliente = 131.5;
+    $yComercial = 25;
+    $xComercial = 121.0;
+
+    $yA_Nombre = 47.7;
+    $xA_Nombre = 45;
+    $yA_Dni = 51.7;
+    $xA_Dni = 25.5;
+    $yA_Nac = 56.3;
+    $xA_Nac = 42.5;
+
+    $yA_Dir = 47.7;
+    $xA_Dir = 129.5;
+
+    $yA_DirL1 = $yA_Dir;
+    $xA_DirL1 = 129.5;
+    $yA_DirL2 = $yA_Dir + 4.2;
+    $xA_DirL2 = 111.5;
+
+    $wDirL1 = 75.0;
+    $wDirL2 = 90.0;
+
+    $yA_EstadoCivil = 60.3;
+    $xA_EstadoCivil = 31.5;
+    $yA_SitLab = 64.7;
+    $xA_SitLab = 40.1;
+    $yA_Telefonos = 56.2;
+    $xA_Telefonos = 129.5;
+    $yA_Vivienda = 60.3;
+    $xA_Vivienda = 128.1;
+    $yA_Ingresos = 64.6;
+    $xA_Ingresos = 128.5;
+    $yA_Email = 68.9;
+    $xA_Email = 112.0;
+
+    $yBase = 94.1;
+    $xPosA = 15.0;
+    $xDesA = 32.0;
+    $xPosB = 111.0;
+    $xDesB = 130.0;
+    $wDesA = 72.0;
+    $wDesB = 72.0;
+
+    $yPagoFila = 151.5;
+    $xEntrada = 16.8;
+    $wEntrada = 30.0;
+    $xNumCuotas = 53.4;
+    $wNumCuotas = 30;
+    $xCuota = 91.8;
+    $wCuota = 28.0;
+    $xMes1 = 130.2;
+    $wMes1 = 28.0;
+    $xImporte = 168.6;
+    $wImporte = 25.0;
+
+    $yIban = 159.4;
+    $xIban = 88.8;
+    $wIban = 110.0;
+
+    $yFirmas = 267;
+    $xFirmaCli = 11.0;
+    $xFirmaEmp = 131.0;
+    $wFirma = 70.0;
+
+    $yP2_Dni = 245;
+    $xP2_Dni = 45;
+
+    $dirOneLine = '';
+    $yB2_Nombre = 113.3;
+    $xB2_Nombre = 53.0;
+    $yB2_DNI_1 = 117.5;
+    $xB2_DNI_1 = 36.0;
+    $yB2_Telf = 143;
+    $xB2_Telf = 38.0;
+    $yB2_Dir = 121.7;
+    $xB2_Dir = 38.0;
+    $wB2_Dir = 165.0;
+    $yB2_DNI_2 = 210.3;
+    $xB2_DNI_2 = 44.8;
+    $yB2_Contrato = (float) request('yb2_contrato', 84.5);
+    $xB2_Contrato = (float) request('xb2_contrato', 150.3);
+
+    $yAp_Contrato = 59.9;
+    $yAp_Nombre = 64.1;
+    $yAp_Dni1 = 68.3;
+    $yAp_Dir = 72.5;
+    $yAp_Tel = 80.9;
+    $yAp_Dni2 = 227.1;
+    $xApContrato = (float) request('xap_contrato', 47.0);
+    $xApNombre = (float) request('xap_nombre', 43.0);
+    $xApDni1 = (float) request('xap_dni1', 25.4);
+    $xApDir = (float) request('xap_dir', 28.7);
+    $xApTel = (float) request('xap_tel', 27.0);
+    $xApDni2 = (float) request('xap_dni2', 120.0);
+    $wApDir = (float) request('wap_dir', 160.0);
+
+    $fechaVenta = $venta->fecha_venta
+        ? Carbon::parse($venta->fecha_venta)
+        : Carbon::parse($venta->created_at);
+
+    $anioContrato  = $fechaVenta->format('Y');
+    $anioContrato2 = $fechaVenta->format('Y');
+    $anioContrato3 = $fechaVenta->format('Y');
+
+    $yYear  = (float) request('yyear', 283.0);
+    $xYear  = (float) request('xyear', 122.0);
+    $wYear  = (float) request('wyear', 60.0);
+    $yYear2 = (float) request('yyear', 283.0);
+    $xYear2 = (float) request('xyear', 99.0);
+    $wYear2 = (float) request('wyear', 60.0);
+    $yYear3 = (float) request('yyear', 265.0);
+    $xYear3 = (float) request('xyear', 143.0);
+    $wYear3 = (float) request('wyear', 60.0);
+
+    // Valores calculados
+    $estadoCivil = (function ($v) {
+        $e = \App\Enums\EstadoCivil::tryFrom($v ?? '');
+        return $e ? $e->label() : '';
+    })($venta->customer->estado_civil ?? null);
+
+    $mostrarSitLab = (bool) ($venta->mostrar_situacion_lab ?? true);
+    $sitLab = $mostrarSitLab
+        ? (function ($v) {
+            $e = \App\Enums\SituacionLaboral::tryFrom($v ?? '');
+            return $e ? $e->label() : '';
+        })($venta->customer->situacion_laboral ?? null)
+        : '';
+
+    $mostrarVivienda = (bool) ($venta->mostrar_tipo_vivienda ?? true);
+    $vivienda = $mostrarVivienda
+        ? (function ($v) {
+            $e = \App\Enums\TipoVivienda::tryFrom($v ?? '');
+            return $e ? $e->label() : '';
+        })($venta->customer->tipo_vivienda ?? null)
+        : '';
+
+    $phone1Commercial = $venta->customer->phone1_commercial ?? null;
+    $phone2Commercial = $venta->customer->phone2_commercial ?? null;
+    $telefonos = collect([$phone1Commercial, $phone2Commercial])->filter()->implode(' / ');
+
+    $mostrarIngresos = (bool) ($venta->mostrar_ingresos ?? true);
+    $ingresos = $mostrarIngresos ? mb_strtoupper($venta->customer->ingresos_rango ?? '', 'UTF-8') : '';
+    $emailCliente = $venta->customer->email ?? '';
+
+    $primary    = trim((string) ($venta->customer->primary_address ?? ''));
+    $nroPiso    = trim((string) ($venta->customer->nro_piso ?? ''));
+    $postalCode = trim((string) ($venta->customer->postal_code ?? ''));
+    $city       = trim((string) ($venta->customer->ciudad ?? ''));
+    $province   = trim((string) ($venta->customer->provincia ?? ''));
+    $ayto       = trim((string) ($venta->customer->ayuntamiento ?? ''));
+    $cpCity     = trim(implode(' ', array_filter([$postalCode, $city])));
+    $cpCity     = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
+    $provinceFormatted = $province ? "($province)" : null;
+
+    $dirL1Parts = [];
+    if ($primary !== '') $dirL1Parts[] = $primary;
+    if ($nroPiso !== '') $dirL1Parts[] = $nroPiso;
+    $dirL1 = implode(' ', $dirL1Parts);
+
+    $dirL2Parts = [];
+    if ($cpCity !== '') $dirL2Parts[] = $cpCity;
+    if ($ayto !== '') $dirL2Parts[] = $ayto;
+    $dirL2 = implode(' - ', $dirL2Parts);
+    if ($provinceFormatted) $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
+
+    $toTitleCase = function (?string $text): string {
+        $t = trim((string) $text);
+        if ($t === '') return '';
+        $t = mb_strtolower($t, 'UTF-8');
+        return mb_convert_case($t, MB_CASE_TITLE, 'UTF-8');
+    };
+    $dirL1 = $toTitleCase($dirL1);
+    $dirL2 = $toTitleCase($dirL2);
+
+    $yDelegacion = 20.9;
+    $xDelegacion = 121.8;
+    $delegacionNombre = 'VIGO';
+
+    $dirOneLine = trim(preg_replace('/\s+/', ' ', trim($dirL1 . ($dirL2 ? ' - ' . $dirL2 : ''))), ' -');
+
+    $yAlbContrato = 117.0;
+    $xAlbContrato = 156.3;
+    $yAlbNombre = 78;
+    $xAlbNombre = 53.0;
+    $yAlbDni = 82.2;
+    $xAlbDni = 36.0;
+    $yAlbTelf = 103.4;
+    $xAlbTelf = 38.0;
+    $yAlbDir = 86.4;
+    $xAlbDir = 38.0;
+    $wAlbDir = 165.0;
+
+    $yAlbBase = 124.0;
+    $xAlbPos = 23.0;
+    $xAlbDesc = 40.0;
+    $wAlbDesc = 150.0;
+    $rowAlb = 8;
+    $maxAlbRows = 14;
+    $itemsAlb = $rawLines->flatMap(function ($line) {
+        $qty = max((int) ($line->cantidad ?? 1), 1);
+        return collect(array_fill(0, $qty, $line));
+    })->values()->take($maxAlbRows);
+@endphp
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Contrato OHANA -B</title>
+    <style>
+        @page {
+            size: 210mm 297mm;
+            margin: 0;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            position: relative;
+            width: 210mm;
+            height: 297mm;
+            overflow: hidden;
+        }
+
+        .bg {
+            position: absolute;
+            inset: 0;
+            width: 210mm;
+            height: 297mm;
+            z-index: 0;
+        }
+
+        .surface {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+        }
+
+        .field {
+            position: absolute;
+            z-index: 1;
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .field--sm {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 8pt;
+        }
+
+        .sig {
+            position: absolute;
+            z-index: 1;
+        }
+
+        @if($debug)
+            .field {
+                outline: .25mm dashed red;
+                background: rgba(255, 0, 0, .06);
+            }
+        @endif
+    </style>
+</head>
+
+<body>
+
+    {{-- ================= PÁGINA 1 – CONTRATO -B ================= --}}
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/contrato-ohana-vacio-1.png')) }}" alt="Fondo P1">
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+
+            <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">{{ $contratoFmt }}</div>
+            <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecDisplay }}</div>
+            <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
+            <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
+                {{ strtoupper(implode(' / ', array_filter([$venta->horario_entrega, $venta->horario_entrega_2]))) }}</div>
+            <div class="field" style="top:{{ $yDelegacion }}mm; left:{{ $xDelegacion }}mm;">{{ $delegacionNombre }}</div>
+            <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">{{ $venta->nro_cliente_adm }}</div>
+            <div class="field" style="top:{{ $yComercial }}mm; left:{{ $xComercial }}mm;">
+                @php
+                    $codCom  = $venta->comercial->empleado_id ?? '';
+                    $codComp = $venta->companion_id ? (optional($venta->companion)->empleado_id ?? $venta->companion_id) : null;
+                @endphp
+                {{ $codComp ? ($codCom . ' - ' . $codComp) : $codCom }}
+            </div>
+
+            <div class="field" style="top:{{ $yA_Nombre }}mm; left:{{ $xA_Nombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+            <div class="field" style="top:{{ $yA_Dni }}mm; left:{{ $xA_Dni }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+            <div class="field" style="top:{{ $yA_Nac }}mm; left:{{ $xA_Nac }}mm;">
+                {{ $venta->customer->fecha_nac ? Carbon::parse($venta->customer->fecha_nac)->format('d-m-Y') : '' }}
+            </div>
+
+            <div class="field" style="top:{{ $yA_EstadoCivil }}mm; left:{{ $xA_EstadoCivil }}mm;">{{ $estadoCivil }}</div>
+            <div class="field" style="top:{{ $yA_SitLab }}mm; left:{{ $xA_SitLab }}mm;">{{ $sitLab }}</div>
+
+            @if($dirL1 !== '')
+                <div class="field" style="top:{{ $yA_DirL1 }}mm; left:{{ $xA_DirL1 }}mm; width:{{ $wDirL1 }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">{{ $dirL1 }}</div>
+            @endif
+            @if($dirL2 !== '')
+                <div class="field" style="top:{{ $yA_DirL2 }}mm; left:{{ $xA_DirL2 }}mm; width:{{ $wDirL2 }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.05;">{{ $dirL2 }}</div>
+            @endif
+
+            <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
+            <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
+            <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
+            <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Email {{ $emailCliente }}</div>
+            <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">{{ $repEmpleado }}</div>
+
+            {{-- Productos e importes ocultos (es copia -B) --}}
+
+            @php
+                $iban = preg_replace('/\s+/', '', (string) ($venta->customer->iban ?? ''));
+                $iban = $iban ? trim(chunk_split($iban, 4, ' ')) : '';
+            @endphp
+            <div class="field" style="top:{{ $yIban }}mm; left:{{ $xIban }}mm; width:{{ $wIban }}mm;">{{ $iban }}</div>
+
+            <div class="field" style="top:{{ $yFirmas }}mm; left:{{ $xFirmaCli }}mm; width:{{ $wFirma }}mm; text-align:center;"></div>
+            <div class="field" style="top:{{ $yFirmas }}mm; left:{{ $xFirmaEmp }}mm; width:{{ $wFirma }}mm; text-align:center;"></div>
+        </div>
+
+        <div class="field" style="top:{{ $yYear }}mm; left:{{ $xYear }}mm; width:{{ $wYear }}mm; text-align:center; transform:translateX(-50%);">{{ $anioContrato }}</div>
+
+        <img class="sig" src="{{ str_replace('\\', '/', public_path('images/FirmaEmpresa.png')) }}" alt="Firma Empresa"
+            style="top: {{ $yFirmas - 18 }}mm; left: {{ $xFirmaEmp + 5 }}mm; width: 35mm; height: auto;" />
+    </div>
+
+    {{-- ================= PÁGINA 2 ================= --}}
+    <div class="page">
+        <img class="bg" src="{{ public_path('templates/contrato-ohana-vacio-2.png') }}" alt="Fondo P2">
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+            <div class="field" style="top:{{ $yP2_Dni }}mm; left:{{ $xP2_Dni }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+        </div>
+        <div class="field field--sm" style="top:{{ $yYear2 }}mm; left:{{ $xYear2 }}mm; width:{{ $wYear2 }}mm; text-align:center; transform:translateX(-50%);">{{ $anioContrato2 }}</div>
+    </div>
+
+    {{-- ================= PÁGINA 3 – ALBARÁN PAG-1 ================= --}}
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-1.jpg')) }}" alt="Fondo P3">
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+            <div class="field" style="top:{{ $yAlbContrato }}mm; left:{{ $xAlbContrato }}mm;">{{ $contratoFmt }}</div>
+            <div class="field" style="top:{{ $yAlbNombre }}mm; left:{{ $xAlbNombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+            <div class="field" style="top:{{ $yAlbDni }}mm; left:{{ $xAlbDni }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+            <div class="field" style="top:{{ $yAlbTelf }}mm; left:{{ $xAlbTelf }}mm;">{{ $telefonos }}</div>
+            <div class="field" style="top:{{ $yAlbDir }}mm; left:{{ $xAlbDir }}mm; width:{{ $wAlbDir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $dirOneLine }}</div>
+            {{-- Lista de productos oculta en copia -B --}}
+        </div>
+    </div>
+
+    {{-- ================= PÁGINA 4 – ALBARÁN PAG-2 ================= --}}
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/ALBARAN-PAG-2.jpg')) }}" alt="Fondo P4">
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+            <div class="field" style="top:{{ $yB2_Contrato }}mm; left:{{ $xB2_Contrato }}mm;">{{ $contratoFmt }}</div>
+            <div class="field" style="top:{{ $yB2_Nombre }}mm; left:{{ $xB2_Nombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+            <div class="field" style="top:{{ $yB2_DNI_1 }}mm; left:{{ $xB2_DNI_1 }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+            <div class="field" style="top:{{ $yB2_Telf }}mm; left:{{ $xB2_Telf }}mm;">{{ $telefonos }}</div>
+            <div class="field" style="top:{{ $yB2_Dir }}mm; left:{{ $xB2_Dir }}mm; width:{{ $wB2_Dir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $dirOneLine }}</div>
+            <div class="field" style="top:{{ $yB2_DNI_2 }}mm; left:{{ $xB2_DNI_2 }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+        </div>
+    </div>
+
+    {{-- ================= PÁGINA 5 – APERTURA / DESEMBALAJE ================= --}}
+    <div class="page">
+        <img class="bg" src="{{ str_replace('\\', '/', public_path('templates/Apertura_de_productos.jpg')) }}" alt="Fondo Apertura">
+        <div class="surface" style="transform: translate({{ $dx }}mm, {{ $dy }}mm) scale({{ $sx }}, {{ $sy }});">
+            <div class="field" style="top:{{ $yAp_Contrato }}mm; left:{{ $xApContrato }}mm;">{{ $contratoFmt }}</div>
+            <div class="field" style="top:{{ $yAp_Nombre }}mm; left:{{ $xApNombre }}mm;">
+                {{ ucwords(trim(($venta->customer->first_names ?? '') . ' ' . ($venta->customer->last_names ?? ''))) }}
+            </div>
+            <div class="field" style="top:{{ $yAp_Dni1 }}mm; left:{{ $xApDni1 }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+            <div class="field" style="top:{{ $yAp_Dir }}mm; left:{{ $xApDir }}mm; width:{{ $wApDir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $dirOneLine }}</div>
+            <div class="field" style="top:{{ $yAp_Tel }}mm; left:{{ $xApTel }}mm;">{{ $telefonos }}</div>
+            <div class="field" style="top:{{ $yAp_Dni2 }}mm; left:{{ $xApDni2 }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
+            <div class="field field--sm" style="top:{{ $yYear3 }}mm; left:{{ $xYear3 }}mm; width:{{ $wYear3 }}mm; text-align:center; transform:translateX(-50%);">{{ $anioContrato3 }}</div>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ContratoPreviewController;
+use App\Http\Controllers\ContratoPreviewBController;
 use App\Http\Controllers\NotasSalaPdfController;
 use App\Models\PickingDiario;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -35,6 +36,8 @@ Route::middleware(['auth', 'verified'])          // los mismos middlewares de tu
     ->group(function () {
         Route::get('{venta}/preview', ContratoPreviewController::class)
             ->name('preview');                // ☑ ventas.preview
+        Route::get('{venta}/preview-b', ContratoPreviewBController::class)
+            ->name('preview-b');              // ☑ ventas.preview-b (sólo las 5 hojas -B)
     });
 
 

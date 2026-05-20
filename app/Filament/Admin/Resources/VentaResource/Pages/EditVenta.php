@@ -98,27 +98,25 @@ class EditVenta extends EditRecord
                 ->action(function (Venta $record) {
                     $this->persistirFechaContratoB($record);
 
-                    // El PDF siempre se genera desde el contrato padre
+                    // Contrato -B: mostrar sólo las 5 hojas del -B
                     if (str_ends_with((string) $record->nro_contr_adm, '-B')) {
-                        $padre = $record->asociadasConmigo()->first();
-                        $previewRecord = $padre ?? $record;
+                        $url = route('ventas.preview-b', $record);
                     } else {
-                        $previewRecord = $record;
+                        $url = route('ventas.preview', $record);
                     }
 
-                    $url = route('ventas.preview', $previewRecord);
                     $this->js("window.open('" . $url . "', '_blank')");
                 })
                 ->color('gray'),
 
             Action::make('pdf')
-                ->label('Contrato PDF')
+                ->label(fn() => str_ends_with((string) $this->record->nro_contr_adm, '-B')
+                    ? 'Descargar Contr-B'
+                    : 'Contrato PDF')
                 ->icon('heroicon-o-document-text')
                 ->action(function (Venta $record) {
-                    // Si estamos en el -B, generar el PDF desde el padre
                     if (str_ends_with((string) $record->nro_contr_adm, '-B')) {
-                        $padre = $record->asociadasConmigo()->first();
-                        return $this->downloadPdf($padre ?? $record);
+                        return $this->downloadPdfB($record);
                     }
                     return $this->downloadPdf($record);
                 })
@@ -145,6 +143,7 @@ class EditVenta extends EditRecord
                 }),
 
             DeleteAction::make()
+                ->label('Borrar')
                 ->visible(
                     fn(Venta $record): bool =>
                     filled($record?->nro_contr_adm) && str_ends_with($record->nro_contr_adm, '-B')
@@ -196,6 +195,30 @@ class EditVenta extends EditRecord
         return response()->streamDownload(
             fn() => print ($pdf->output()),
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
+        );
+    }
+
+    protected function downloadPdfB(Venta $venta)
+    {
+        $venta->load([
+            'note',
+            'repartidor',
+            'comercial',
+            'ventaOfertas.productos.producto',
+        ]);
+
+        $pdf = Pdf::setOptions([
+            'isRemoteEnabled' => true,
+            'dpi' => 96,
+            'defaultFont' => 'Helvetica',
+            'chroot' => public_path(),
+        ])
+            ->loadView('pdf_pos_b', compact('venta'))
+            ->setPaper('a4', 'portrait');
+
+        return response()->streamDownload(
+            fn() => print ($pdf->output()),
+            'contrato-' . $venta->nro_contr_adm . '.pdf'
         );
     }
 
