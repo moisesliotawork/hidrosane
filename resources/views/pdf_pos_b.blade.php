@@ -14,8 +14,8 @@
     $sy = (float) request('sy', 1);
     $row = (float) request('row', 7.2);
 
-    // La pasada -B es siempre "copia" (sin productos ni importes)
-    $isCopia = true;
+    // La pasada -B muestra productos e importes propios del contrato -B
+    $isCopia = false;
     // El número de contrato viene directo del modelo -B (ya tiene el sufijo -B)
     $contratoFmt = $venta->nro_contr_adm;
 
@@ -372,7 +372,57 @@
             <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Email {{ $emailCliente }}</div>
             <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">{{ $repEmpleado }}</div>
 
-            {{-- Productos e importes ocultos (es copia -B) --}}
+            {{-- B. Artículos --}}
+            @unless($isCopia)
+                @for ($i = 0; $i < 5; $i++)
+                    @php
+                        $y = $yBase + $i * $row;
+                        $textA = isset($colA[$i]) ? mb_strtoupper($colA[$i]->producto->nombre, 'UTF-8') : '';
+                        $fsA = $descFont($textA);
+                        $textB = isset($colB[$i]) ? mb_strtoupper($colB[$i]->producto->nombre, 'UTF-8') : '';
+                        $fsB = $descFont($textB);
+                    @endphp
+                    <div class="field" style="top:{{$y}}mm; left:{{$xPosA}}mm; width:10mm; text-align:center;">
+                        {{ isset($colA[$i]) ? $i + 1 : '' }}</div>
+                    <div class="field"
+                        style="top:{{$y}}mm; left:{{$xDesA}}mm; width:{{$wDesA}}mm; overflow:hidden; font-size:{{$fsA}}pt;">{{ $textA }}</div>
+                    <div class="field" style="top:{{$y}}mm; left:{{$xPosB}}mm; width:10mm; text-align:center;">
+                        {{ isset($colB[$i]) ? $i + 6 : '' }}</div>
+                    <div class="field"
+                        style="top:{{$y}}mm; left:{{$xDesB}}mm; width:{{$wDesA}}mm; overflow:hidden; font-size:{{$fsB}}pt;">{{ $textB }}</div>
+                @endfor
+            @endunless
+
+            {{-- C. Pagos --}}
+            @unless($isCopia)
+                <div class="field"
+                    style="top:{{ $yPagoFila }}mm; left:{{ $xEntrada }}mm; width:{{ $wEntrada }}mm; text-align:center;">
+                    {{ number_format((float) ($venta->entrada ?? 0), 2, ',', '.') }} €
+                </div>
+                <div class="field"
+                    style="top:{{ $yPagoFila }}mm; left:{{ $xNumCuotas }}mm; width:{{ $wNumCuotas }}mm; text-align:center;">
+                    {{ $venta->num_cuotas }}
+                </div>
+                @php
+                    $numCuotas = (int) ($venta->num_cuotas ?? 0);
+                    $totalFinal = $venta->total_final;
+                    $cuotaMostrada = $numCuotas === 1
+                        ? $totalFinal
+                        : (float) ($venta->cuota_final ?? 0);
+                @endphp
+                <div class="field"
+                    style="top:{{ $yPagoFila }}mm; left:{{ $xCuota }}mm; width:{{ $wCuota }}mm; text-align:center;">
+                    {{ number_format($cuotaMostrada, 2, ',', '.') }} €
+                </div>
+                <div class="field"
+                    style="top:{{ $yPagoFila }}mm; left:{{ $xMes1 }}mm; width:{{ $wMes1 }}mm; text-align:center;">
+                    {{ $venta->mes_contr?->label() }}
+                </div>
+                <div class="field"
+                    style="top:{{ $yPagoFila }}mm; left:{{ $xImporte }}mm; width:{{ $wImporte }}mm; text-align:center;">
+                    {{ number_format($venta->importe_total + $venta->monto_extra, 2, ',', '.') }} €
+                </div>
+            @endunless
 
             @php
                 $iban = preg_replace('/\s+/', '', (string) ($venta->customer->iban ?? ''));
@@ -410,7 +460,22 @@
             <div class="field" style="top:{{ $yAlbDni }}mm; left:{{ $xAlbDni }}mm;">{{ strtoupper($venta->customer->dni ?? '') }}</div>
             <div class="field" style="top:{{ $yAlbTelf }}mm; left:{{ $xAlbTelf }}mm;">{{ $telefonos }}</div>
             <div class="field" style="top:{{ $yAlbDir }}mm; left:{{ $xAlbDir }}mm; width:{{ $wAlbDir }}mm; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ $dirOneLine }}</div>
-            {{-- Lista de productos oculta en copia -B --}}
+            {{-- Lista de productos --}}
+            @unless($isCopia)
+                @for ($i = 0; $i < $itemsAlb->count(); $i++)
+                    @php
+                        $y = $yAlbBase + $i * $rowAlb;
+                        $txt = mb_strtoupper($itemsAlb[$i]->producto->nombre ?? '', 'UTF-8');
+                        $fs = $descFont($txt);
+                    @endphp
+                    <div class="field" style="top:{{ $y }}mm; left:{{ $xAlbPos }}mm; width:10mm; text-align:center;">
+                        {{ $i + 1 }}</div>
+                    <div class="field"
+                        style="top:{{ $y }}mm; left:{{ $xAlbDesc }}mm; width:{{ $wAlbDesc }}mm; overflow:hidden; font-size:{{ $fs }}pt;">
+                        {{ $txt }}
+                    </div>
+                @endfor
+            @endunless
         </div>
     </div>
 
