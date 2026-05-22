@@ -272,6 +272,7 @@
                             ];
                         })
                         ->filter(fn($entry) => $entry['activities']->isNotEmpty())
+                        ->sortBy(fn($entry) => $entry['activities']->first()['created_at'])
                         ->values();
 
                     $activeNotesCount = $notes->filter(function ($entry) {
