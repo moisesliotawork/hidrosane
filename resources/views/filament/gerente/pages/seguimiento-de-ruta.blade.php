@@ -155,6 +155,20 @@
             animation: blink-venta 1s step-start infinite;
         }
 
+        .active-notes-declared--venta {
+            display: inline-block;
+            margin-top: 3px;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: #dc2626;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-transform: uppercase;
+            animation: blink-venta 1s step-start infinite;
+        }
+
         @keyframes blink-venta {
             0%, 100% { opacity: 1; }
             50%       { opacity: 0; }
@@ -336,10 +350,16 @@
 
                             <div class="active-notes-note">
                                 @if($note->fecha_declaracion?->isToday())
-                                    <div class="active-notes-declared">
-                                        Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
-                                        a las {{ $note->fecha_declaracion->format('H:i') }}
-                                    </div>
+                                    @if($note->venta)
+                                        <div class="active-notes-declared--venta">
+                                            VENTA DECLARADA HOY A LAS: {{ $note->fecha_declaracion->format('H:i') }}
+                                        </div>
+                                    @else
+                                        <div class="active-notes-declared">
+                                            Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
+                                            a las {{ $note->fecha_declaracion->format('H:i') }}
+                                        </div>
+                                    @endif
                                 @endif
 
                                 @php
