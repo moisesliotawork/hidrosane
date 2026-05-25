@@ -76,24 +76,7 @@ class Customer extends Model
                 $model->age = null;
             }
 
-            // Los teléfonos comerciales no pueden coincidir con Tlf 1, 2 o 3
-            $regularPhones = array_filter([
-                $model->phone,
-                $model->secondary_phone,
-                $model->third_phone,
-            ]);
 
-            if ($model->phone1_commercial && in_array($model->phone1_commercial, $regularPhones, true)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'phone1_commercial' => 'El Tlf Comercial 1 no puede ser igual a Tlf 1, 2 o 3.',
-                ]);
-            }
-
-            if ($model->phone2_commercial && in_array($model->phone2_commercial, $regularPhones, true)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'phone2_commercial' => 'El Tlf Comercial 2 no puede ser igual a Tlf 1, 2 o 3.',
-                ]);
-            }
         });
 
         static::saved(function (Customer $model) {
