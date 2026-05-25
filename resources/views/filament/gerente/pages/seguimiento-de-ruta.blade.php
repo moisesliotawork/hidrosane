@@ -150,8 +150,14 @@
         }
 
         .active-notes-badge-topic.is-venta {
-            background: #fbbf24;
-            color: #78350f;
+            background: #dc2626;
+            color: #ffffff;
+            animation: blink-venta 1s step-start infinite;
+        }
+
+        @keyframes blink-venta {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
         }
 
         .active-notes-body {
