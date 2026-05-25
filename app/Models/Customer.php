@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class Customer extends Model
 {
@@ -72,6 +73,25 @@ class Customer extends Model
                 }
             } else {
                 $model->age = null;
+            }
+        });
+
+        static::saved(function (Customer $model) {
+            $userId = Auth::id();
+            if (!$userId) {
+                return;
+            }
+
+            $phone1Changed = $model->wasChanged('phone1_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone1_commercial));
+            $phone2Changed = $model->wasChanged('phone2_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone2_commercial));
+
+            if ($phone1Changed || $phone2Changed) {
+                CommercialPhoneLog::create([
+                    'user_id'          => $userId,
+                    'customer_id'      => $model->id,
+                    'phone1_commercial' => $model->phone1_commercial,
+                    'phone2_commercial' => $model->phone2_commercial,
+                ]);
             }
         });
     }

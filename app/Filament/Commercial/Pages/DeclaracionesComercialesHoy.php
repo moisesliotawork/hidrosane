@@ -31,10 +31,7 @@ class DeclaracionesComercialesHoy extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return Auth::user()?->hasAnyRole([
-            'team_leader',
-            'sales_manager',
-        ]) ?? false;
+        return Auth::user()?->hasRole('sales_manager') ?? false;
     }
 
     public function getHeaderActions(): array
