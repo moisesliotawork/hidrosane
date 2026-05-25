@@ -145,14 +145,13 @@
         }
 
         .active-notes-badge-topic.is-observation {
-            background: #dcfce7;
-            color: #166534;
+            background: #dbeafe;
+            color: #1d4ed8;
         }
 
         .active-notes-badge-topic.is-venta {
-            background: #dc2626;
+            background: #16a34a;
             color: #ffffff;
-            animation: blink-venta 1s step-start infinite;
         }
 
         .active-notes-declared--venta {
@@ -160,18 +159,12 @@
             margin-top: 3px;
             padding: 1px 5px;
             border-radius: 2px;
-            background: #dc2626;
+            background: #16a34a;
             color: #ffffff;
             font-size: 12px;
             font-weight: 800;
             line-height: 1.3;
             text-transform: uppercase;
-            animation: blink-venta 1s step-start infinite;
-        }
-
-        @keyframes blink-venta {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0; }
         }
 
         .active-notes-body {
