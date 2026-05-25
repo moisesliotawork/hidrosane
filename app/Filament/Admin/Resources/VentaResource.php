@@ -341,6 +341,20 @@ class VentaResource extends Resource
                             ->label('Teléfono comercial 1')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
+                            ])
+                            ->rules([
+                                fn(Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $digits = preg_replace('/\D/', '', (string) $value);
+                                    if (!$digits) return;
+                                    $regular = array_filter([
+                                        preg_replace('/\D/', '', (string) $get('phone')),
+                                        preg_replace('/\D/', '', (string) $get('secondary_phone')),
+                                        preg_replace('/\D/', '', (string) $get('third_phone')),
+                                    ]);
+                                    if (in_array($digits, $regular, true)) {
+                                        $fail('El Tlf Comercial 1 no puede ser igual a Tlf 1, 2 o 3.');
+                                    }
+                                },
                             ]),
 
                         TextInput::make('phone2_commercial')
@@ -351,6 +365,20 @@ class VentaResource extends Resource
                             ->label('Teléfono comercial 2')
                             ->validationMessages([
                                 'min' => 'Debe tener exactamente 9 cifras',
+                            ])
+                            ->rules([
+                                fn(Get $get) => function (string $attribute, $value, \Closure $fail) use ($get) {
+                                    $digits = preg_replace('/\D/', '', (string) $value);
+                                    if (!$digits) return;
+                                    $regular = array_filter([
+                                        preg_replace('/\D/', '', (string) $get('phone')),
+                                        preg_replace('/\D/', '', (string) $get('secondary_phone')),
+                                        preg_replace('/\D/', '', (string) $get('third_phone')),
+                                    ]);
+                                    if (in_array($digits, $regular, true)) {
+                                        $fail('El Tlf Comercial 2 no puede ser igual a Tlf 1, 2 o 3.');
+                                    }
+                                },
                             ]),
 
                         TextInput::make('email')->label('Correo electrónico')

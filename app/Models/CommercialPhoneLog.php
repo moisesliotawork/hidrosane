@@ -10,6 +10,8 @@ class CommercialPhoneLog extends Model
     protected $fillable = [
         'user_id',
         'customer_id',
+        'phone_slot',
+        'phone_value',
         'phone1_commercial',
         'phone2_commercial',
     ];

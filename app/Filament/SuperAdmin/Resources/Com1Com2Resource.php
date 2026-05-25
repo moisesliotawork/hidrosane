@@ -61,19 +61,54 @@ class Com1Com2Resource extends Resource
                         return $enum ? $enum->label() : $roleName;
                     }),
 
-                Tables\Columns\TextColumn::make('phone1_commercial')
-                    ->label('TlfCom1')
+                Tables\Columns\TextColumn::make('nro_contrato')
+                    ->label('No. Contrato')
                     ->badge()
-                    ->color(Color::Green)
+                    ->color(Color::Indigo)
+                    ->getStateUsing(fn(CommercialPhoneLog $record) => $record->customer?->latestVenta?->nro_contr_adm ?? '—'),
+
+                Tables\Columns\TextColumn::make('cliente')
+                    ->label('Cliente')
+                    ->getStateUsing(fn(CommercialPhoneLog $record) => $record->customer?->name ?? '—')
+                    ->searchable(query: function ($query, string $search) {
+                        $query->whereHas('customer', function ($q) use ($search) {
+                            $q->where('first_names', 'like', "%{$search}%")
+                                ->orWhere('last_names', 'like', "%{$search}%");
+                        });
+                    }),
+
+                Tables\Columns\TextColumn::make('phone_slot')
+                    ->label('Tipo')
+                    ->badge()
+                    ->color(fn($state) => $state === 1 ? Color::Green : Color::Teal)
+                    ->formatStateUsing(fn($state) => $state === 1 ? 'COM1' : ($state === 2 ? 'COM2' : '—')),
+
+                Tables\Columns\TextColumn::make('phone_value')
+                    ->label('Teléfono')
                     ->placeholder('—')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('phone2_commercial')
-                    ->label('TlfCom2')
+                Tables\Columns\TextColumn::make('fecha_contrato')
+                    ->label('Fecha del Contrato')
+                    ->getStateUsing(function (CommercialPhoneLog $record) {
+                        $fecha = $record->customer?->latestVenta?->fecha_venta;
+                        if (!$fecha) return '—';
+                        return \Carbon\Carbon::parse($fecha)->format('d/m/Y');
+                    }),
+
+                Tables\Columns\TextColumn::make('fuente')
+                    ->label('Fuente')
                     ->badge()
-                    ->color(Color::Teal)
-                    ->placeholder('—')
-                    ->searchable(),
+                    ->color(Color::Orange)
+                    ->getStateUsing(function (CommercialPhoneLog $record) {
+                        $origen = $record->customer?->latestVenta?->origen_venta;
+                        if (!$origen) return '—';
+                        if ($origen instanceof \App\Enums\OrigenVenta) {
+                            return $origen->label();
+                        }
+                        $enum = \App\Enums\OrigenVenta::tryFrom((string) $origen);
+                        return $enum ? $enum->label() : $origen;
+                    }),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha y Hora')
@@ -88,7 +123,12 @@ class Com1Com2Resource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user:id,name,last_name', 'user.roles:id,name']);
+            ->with([
+                'user:id,name,last_name',
+                'user.roles:id,name',
+                'customer:id,first_names,last_names',
+                'customer.latestVenta:id,customer_id,nro_contr_adm,fecha_venta,origen_venta',
+            ]);
     }
 
     public static function getPages(): array

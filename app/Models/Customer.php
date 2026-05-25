@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -74,6 +75,25 @@ class Customer extends Model
             } else {
                 $model->age = null;
             }
+
+            // Los teléfonos comerciales no pueden coincidir con Tlf 1, 2 o 3
+            $regularPhones = array_filter([
+                $model->phone,
+                $model->secondary_phone,
+                $model->third_phone,
+            ]);
+
+            if ($model->phone1_commercial && in_array($model->phone1_commercial, $regularPhones, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'phone1_commercial' => 'El Tlf Comercial 1 no puede ser igual a Tlf 1, 2 o 3.',
+                ]);
+            }
+
+            if ($model->phone2_commercial && in_array($model->phone2_commercial, $regularPhones, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'phone2_commercial' => 'El Tlf Comercial 2 no puede ser igual a Tlf 1, 2 o 3.',
+                ]);
+            }
         });
 
         static::saved(function (Customer $model) {
@@ -85,12 +105,21 @@ class Customer extends Model
             $phone1Changed = $model->wasChanged('phone1_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone1_commercial));
             $phone2Changed = $model->wasChanged('phone2_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone2_commercial));
 
-            if ($phone1Changed || $phone2Changed) {
+            if ($phone1Changed && !is_null($model->phone1_commercial)) {
                 CommercialPhoneLog::create([
-                    'user_id'          => $userId,
-                    'customer_id'      => $model->id,
-                    'phone1_commercial' => $model->phone1_commercial,
-                    'phone2_commercial' => $model->phone2_commercial,
+                    'user_id'      => $userId,
+                    'customer_id'  => $model->id,
+                    'phone_slot'   => 1,
+                    'phone_value'  => $model->phone1_commercial,
+                ]);
+            }
+
+            if ($phone2Changed && !is_null($model->phone2_commercial)) {
+                CommercialPhoneLog::create([
+                    'user_id'      => $userId,
+                    'customer_id'  => $model->id,
+                    'phone_slot'   => 2,
+                    'phone_value'  => $model->phone2_commercial,
                 ]);
             }
         });
@@ -113,6 +142,12 @@ class Customer extends Model
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class, 'customer_id');
+    }
+
+    /** Relación: última venta del cliente (para eager loading eficiente) */
+    public function latestVenta(): HasOne
+    {
+        return $this->hasOne(Venta::class, 'customer_id')->latestOfMany();
     }
 
     /** Retorna nro_cliente_admin de la primera venta o "-" */
