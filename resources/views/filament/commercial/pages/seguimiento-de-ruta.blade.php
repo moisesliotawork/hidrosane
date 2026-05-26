@@ -149,6 +149,11 @@
             color: #166534;
         }
 
+        .active-notes-badge-topic.is-venta {
+            background: #16a34a;
+            color: #ffffff;
+        }
+
         .active-notes-body {
             min-width: 0;
             color: #111827;
@@ -366,7 +371,7 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'observacion' ? 'is-observation' : 'is-annotation' }}">
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')) }}">
                                             {{ $activity['topic'] }}
                                         </span>
                                         <span class="active-notes-body">{{ $activity['body'] }}</span>

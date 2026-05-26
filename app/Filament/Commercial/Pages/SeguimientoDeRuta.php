@@ -113,6 +113,11 @@ class SeguimientoDeRuta extends Page
                     ->orWhere(function ($q) use ($from, $to) {
                         $q->whereDate('fecha_declaracion', '>=', $from->toDateString())
                             ->whereDate('fecha_declaracion', '<=', $to->toDateString());
+                    })
+                    // Caso 3: nota con venta registrada en el rango
+                    ->orWhereHas('venta', function ($q) use ($from, $to) {
+                        $q->whereDate('fecha_venta', '>=', $from->toDateString())
+                            ->whereDate('fecha_venta', '<=', $to->toDateString());
                     });
             })
             ->orderBy('assignment_date')
@@ -160,9 +165,31 @@ class SeguimientoDeRuta extends Page
                 'meta_label' => 'Confirmada',
             ]);
 
+        $ventas = collect();
+        if ($note->venta && $note->venta->fecha_venta?->isSameDay($date)) {
+            $venta = $note->venta;
+            $ventaBody = 'Contrato: ' . ($venta->nro_contr_adm ?: 'S/N');
+            if ($venta->origen_venta) {
+                $ventaBody .= ' | Origen: ' . (
+                    $venta->origen_venta instanceof \App\Enums\OrigenVenta
+                        ? $venta->origen_venta->label()
+                        : $venta->origen_venta
+                );
+            }
+            $ventas = collect([[
+                'type'       => 'venta',
+                'created_at' => $venta->fecha_venta,
+                'topic'      => 'VENTA',
+                'body'       => $ventaBody,
+                'author'     => '—',
+                'meta_label' => 'Vendido',
+            ]]);
+        }
+
         return $anotaciones
             ->concat($observaciones)
             ->concat($confirmaciones)
+            ->concat($ventas)
             ->sortBy('created_at')
             ->values();
     }
