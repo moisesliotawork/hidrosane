@@ -56,7 +56,7 @@ class VentaDesdeCeroResource extends Resource
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
-                    TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                    TextInput::make('dni')->label('DNI')->maxLength(10)->columnSpanFull()->extraInputAttributes(['style' => 'font-weight: 800']),
                     DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone1_commercial')
@@ -105,7 +105,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->maxLength(20)
+                        ->maxLength(5)
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001'),

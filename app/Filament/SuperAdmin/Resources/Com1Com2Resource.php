@@ -127,7 +127,7 @@ class Com1Com2Resource extends Resource
                 'user:id,name,last_name',
                 'user.roles:id,name',
                 'customer:id,first_names,last_names',
-                'customer.latestVenta:id,customer_id,nro_contr_adm,fecha_venta,origen_venta',
+                'customer.latestVenta',
             ]);
     }
 

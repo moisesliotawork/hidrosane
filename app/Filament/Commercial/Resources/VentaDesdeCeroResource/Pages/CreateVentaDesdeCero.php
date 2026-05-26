@@ -26,6 +26,16 @@ class CreateVentaDesdeCero extends CreateRecord
         return 'Puerta Fria';
     }
 
+    protected function getCreateFormAction(): \Filament\Actions\Action
+    {
+        return parent::getCreateFormAction()->label('DECLARAR VENTA');
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'VENTA DECLARADA CON ÉXITO';
+    }
+
     // ─── Session persistence ─────────────────────────────────────────────────
 
     private function sessionKey(): string

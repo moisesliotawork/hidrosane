@@ -67,7 +67,7 @@ class VentaDesdeCeroResource extends Resource
                                 };
                             },
                         ]),
-                    TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                    TextInput::make('dni')->label('DNI')->maxLength(10)->columnSpanFull()->extraInputAttributes(['style' => 'font-weight: 800']),
                     DatePicker::make('fecha_nac')
                         ->label('Fec. nac.')
                         ->timezone('Europe/Madrid')
