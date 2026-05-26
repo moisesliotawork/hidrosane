@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class Customer extends Model
 {
@@ -74,6 +76,34 @@ class Customer extends Model
                 $model->age = null;
             }
         });
+
+        static::saved(function (Customer $model) {
+            $userId = Auth::id();
+            if (!$userId) {
+                return;
+            }
+
+            $phone1Changed = $model->wasChanged('phone1_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone1_commercial));
+            $phone2Changed = $model->wasChanged('phone2_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone2_commercial));
+
+            if ($phone1Changed && !is_null($model->phone1_commercial)) {
+                CommercialPhoneLog::create([
+                    'user_id'     => $userId,
+                    'customer_id' => $model->id,
+                    'phone_slot'  => 1,
+                    'phone_value' => $model->phone1_commercial,
+                ]);
+            }
+
+            if ($phone2Changed && !is_null($model->phone2_commercial)) {
+                CommercialPhoneLog::create([
+                    'user_id'     => $userId,
+                    'customer_id' => $model->id,
+                    'phone_slot'  => 2,
+                    'phone_value' => $model->phone2_commercial,
+                ]);
+            }
+        });
     }
 
     public function name(): Attribute
@@ -93,6 +123,12 @@ class Customer extends Model
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class, 'customer_id');
+    }
+
+    /** Relación: última venta del cliente (para eager loading eficiente) */
+    public function latestVenta(): HasOne
+    {
+        return $this->hasOne(Venta::class, 'customer_id')->latestOfMany();
     }
 
     /** Retorna nro_cliente_admin de la primera venta o "-" */
