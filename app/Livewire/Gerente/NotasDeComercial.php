@@ -79,18 +79,15 @@ class NotasDeComercial extends Component
 
         $updateData = [
             'comercial_id' => $this->newComercialId,
-            'assignment_date' => now()->startOfDay(), // o now() si quieres guardar hora exacta
+            'assignment_date' => now()->startOfDay(),
+            'reten' => false,
         ];
-
-        if ($this->esReten) {
-            $updateData['reten'] = false;
-        }
 
         $note->update($updateData);
 
 
         $extra = $this->esReten
-            ? ' Se reasignó, se actualizó la fecha y salió de Retén (reten=false).'
+            ? ' Se reasignó, se actualizó la fecha y salió de Retén.'
             : ' Se reasignó y se actualizó la fecha.';
 
         AnotacionVisita::create([
