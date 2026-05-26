@@ -712,7 +712,8 @@ class NoteResource extends Resource
 
                             Forms\Components\DatePicker::make('assignment_date')
                                 ->label('Fecha de asignación')
-                                ->hint('Si se deja vacío, se usará la fecha actual')
+                                ->default(today())
+                                ->native(false)
                                 ->required(false),
                         ];
                     })
