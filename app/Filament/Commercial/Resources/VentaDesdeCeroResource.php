@@ -73,9 +73,10 @@ class VentaDesdeCeroResource extends Resource
                         ]),
 
                     TextInput::make('dni')
+
                         ->label('DNI')
-                        ->maxLength(10)
-                        ->extraInputAttributes(['style' => 'font-weight: 800']),
+                        ->maxLength(10),
+                    //->columnSpanFull(),
 
                     DatePicker::make('fecha_nac')
                         ->label('Fec. nac.')
@@ -184,7 +185,7 @@ class VentaDesdeCeroResource extends Resource
                     Forms\Components\TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
-                        ->maxLength(5)
+                        ->maxLength(20)
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001'),

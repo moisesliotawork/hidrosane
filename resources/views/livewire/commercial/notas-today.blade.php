@@ -1,4 +1,4 @@
-<div wire:poll.30s>
+<div>
     <style>
         /* Estilos para la información del cliente en TODOS los tamaños */
         .customer-name {

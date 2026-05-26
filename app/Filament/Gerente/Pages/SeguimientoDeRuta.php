@@ -75,7 +75,6 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas' => fn($query) => $this->activeNotesQuery($query, $yesterday, $today),
                 'notasDeclaradas.customer',
                 'notasDeclaradas.venta',
-                'notasDeclaradas.venta.comercial',
                 'notasDeclaradas.anotacionesVisitas.autor',
                 'notasDeclaradas.observations.author',
                 'notasDeclaradas.confirmations.companion',
@@ -109,13 +108,6 @@ class SeguimientoDeRuta extends Page
                     ->orWhere(function ($q) use ($from, $to) {
                         $q->whereDate('fecha_declaracion', '>=', $from->toDateString())
                             ->whereDate('fecha_declaracion', '<=', $to->toDateString());
-                    })
-                    // Caso 3: nota con venta declarada hoy o ayer
-                    ->orWhere(function ($q) use ($from, $to) {
-                        $q->whereHas('venta', function ($q2) use ($from, $to) {
-                            $q2->whereDate('created_at', '>=', $from->toDateString())
-                                ->whereDate('created_at', '<=', $to->toDateString());
-                        });
                     });
             })
             ->orderBy('assignment_date')
@@ -163,27 +155,9 @@ class SeguimientoDeRuta extends Page
                 'meta_label' => 'Confirmada',
             ]);
 
-        $venta = $note->relationLoaded('venta') ? $note->getRelation('venta') : $note->venta;
-        $ventas = ($venta && $venta->created_at?->isSameDay($date))
-            ? collect([[
-                'type'       => 'venta',
-                'created_at' => $venta->created_at,
-                'topic'      => 'VENTA',
-                'body'       => 'Contrato: ' . ($venta->nro_contr_adm ?? '—')
-                    . ($venta->origen_venta instanceof \App\Enums\OrigenVenta
-                        ? ' · ' . $venta->origen_venta->label()
-                        : ''),
-                'author'     => $venta->comercial?->full_name
-                    ?? $venta->comercial?->display_name
-                    ?? '—',
-                'meta_label' => 'Declarada Venta',
-            ]])
-            : collect();
-
         return $anotaciones
             ->concat($observaciones)
             ->concat($confirmaciones)
-            ->concat($ventas)
             ->sortBy('created_at')
             ->values();
     }

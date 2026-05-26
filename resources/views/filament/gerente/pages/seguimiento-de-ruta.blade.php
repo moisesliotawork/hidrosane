@@ -145,26 +145,8 @@
         }
 
         .active-notes-badge-topic.is-observation {
-            background: #dbeafe;
-            color: #1d4ed8;
-        }
-
-        .active-notes-badge-topic.is-venta {
-            background: #16a34a;
-            color: #ffffff;
-        }
-
-        .active-notes-declared--venta {
-            display: inline-block;
-            margin-top: 3px;
-            padding: 1px 5px;
-            border-radius: 2px;
-            background: #16a34a;
-            color: #ffffff;
-            font-size: 12px;
-            font-weight: 800;
-            line-height: 1.3;
-            text-transform: uppercase;
+            background: #dcfce7;
+            color: #166534;
         }
 
         .active-notes-body {
@@ -343,16 +325,10 @@
 
                             <div class="active-notes-note">
                                 @if($note->fecha_declaracion?->isToday())
-                                    @if($note->venta)
-                                        <div class="active-notes-declared--venta">
-                                            VENTA DECLARADA HOY A LAS: {{ $note->fecha_declaracion->format('H:i') }}
-                                        </div>
-                                    @else
-                                        <div class="active-notes-declared">
-                                            Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
-                                            a las {{ $note->fecha_declaracion->format('H:i') }}
-                                        </div>
-                                    @endif
+                                    <div class="active-notes-declared">
+                                        Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
+                                        a las {{ $note->fecha_declaracion->format('H:i') }}
+                                    </div>
                                 @endif
 
                                 @php
@@ -394,7 +370,7 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ match($activity['type']) { 'observacion' => 'is-observation', 'venta' => 'is-venta', default => 'is-annotation' } }}">
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'observacion' ? 'is-observation' : 'is-annotation' }}">
                                             {{ $activity['topic'] }}
                                         </span>
                                         <span class="active-notes-body">{{ $activity['body'] }}</span>
