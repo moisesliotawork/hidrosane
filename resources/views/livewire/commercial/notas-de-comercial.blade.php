@@ -208,6 +208,24 @@
             }
         }
 
+        @keyframes parpadeo-com {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        .notas-counter-com {
+            font-weight: 700;
+            font-size: .85rem;
+            margin: .25rem 0 .75rem 0;
+            color: #ffffff;
+        }
+
+        .notas-counter-com .num {
+            animation: parpadeo-com 1s step-start infinite;
+            color: #dc2626;
+            font-size: 1.25rem;
+        }
+
         /* Ajustes para ≤375px */
         @media (max-width: 375px) {
             .mobile-optimized {
@@ -324,6 +342,11 @@
                 </button>
             </div>
         </div>
+
+        <p class="notas-counter-com">
+            Este comercial tiene &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; para hoy.
+            Notas anteriores &nbsp;&nbsp;<span class="num">{{ count($this->notesAll) }}</span>
+        </p>
 
         {{-- ======= Sección: Notas de HOY ======= --}}
         <x-filament::section heading="Notas de hoy">
