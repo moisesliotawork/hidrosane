@@ -215,6 +215,24 @@
             box-shadow: 0 0 0 3px rgba(0, 36, 140, .15);
         }
 
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        .notas-counter {
+            font-weight: 700;
+            font-size: .85rem;
+            margin: 0 .75rem .5rem .75rem;
+            color: #ffffff;
+        }
+
+        .notas-counter .num {
+            animation: parpadeo 1s step-start infinite;
+            color: #dc2626;
+            font-size: 1.25rem;
+        }
+
         @media (max-width: 520px) {
             .bulk-bar {
                 flex-wrap: nowrap;
@@ -615,6 +633,8 @@
             </div>
         </div>
     </div>
+
+    <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notes) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
 
     <div class="overflow-x-auto">
 
