@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\DB;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Enums\FiltersLayout;
 use App\Models\User;
+use App\Models\NoteReassignmentBatch;
+use App\Models\NoteReassignmentLog;
 use Illuminate\Validation\Rule;
 use App\Models\Customer;
 use App\Models\Venta;
@@ -1167,6 +1169,9 @@ class NoteResource extends Resource
                                 ? ($data['assignment_date'] ?? now())
                                 : null;
 
+                            // Capturar from_comercial_id ANTES del update (records ya cargados)
+                            $fromComercials = collect($records)->pluck('comercial_id', 'id');
+
                             $recordIds = collect($records)->pluck('id')->all();
 
                             // 1) ✅ misma lógica que assignCommercialBulk + reten=true
@@ -1186,6 +1191,21 @@ class NoteResource extends Resource
                                 Note::whereIn('id', $toResetIds)->update([
                                     'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
                                     'sent_to_sala_at' => null,
+                                ]);
+                            }
+
+                            // Log de reasignación para REASIGNADO OK
+                            $batch = NoteReassignmentBatch::create([
+                                'author_id'       => auth()->id(),
+                                'to_comercial_id' => !empty($comercialId) ? $comercialId : null,
+                                'to_reten'        => true,
+                                'reassigned_at'   => now(),
+                            ]);
+                            foreach ($recordIds as $noteId) {
+                                NoteReassignmentLog::create([
+                                    'batch_id'          => $batch->id,
+                                    'note_id'           => $noteId,
+                                    'from_comercial_id' => $fromComercials[$noteId] ?? null,
                                 ]);
                             }
 
