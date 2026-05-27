@@ -6,6 +6,8 @@ use Livewire\Component;
 use App\Models\Note;
 use App\Models\User;
 use App\Models\AnotacionVisita;
+use App\Models\NoteReassignmentBatch;
+use App\Models\NoteReassignmentLog;
 use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Models\NoteSalaEvent;
@@ -77,6 +79,8 @@ class NotasDeComercial extends Component
         $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
         $empleado = $nuevo->empleado_id ?? 'SIN-ID';
 
+        $fromComercialId = $note->comercial_id;
+
         $updateData = [
             'comercial_id' => $this->newComercialId,
             'assignment_date' => now()->startOfDay(),
@@ -85,6 +89,18 @@ class NotasDeComercial extends Component
 
         $note->update($updateData);
 
+        // Log de reasignación
+        $batch = NoteReassignmentBatch::create([
+            'author_id'       => auth()->id(),
+            'to_comercial_id' => $this->newComercialId,
+            'to_reten'        => false,
+            'reassigned_at'   => now(),
+        ]);
+        NoteReassignmentLog::create([
+            'batch_id'          => $batch->id,
+            'note_id'           => $note->id,
+            'from_comercial_id' => $fromComercialId,
+        ]);
 
         $extra = $this->esReten
             ? ' Se reasignó, se actualizó la fecha y salió de Retén.'
@@ -155,7 +171,18 @@ class NotasDeComercial extends Component
         $notes = Note::whereIn('id', $this->selectedNotes)->get();
         $count = 0;
 
+        // Capturamos from_comercial_id antes de actualizar
+        $fromComercials = $notes->pluck('comercial_id', 'id');
+
         if ($this->bulkNewComercialId === 'reten') {
+            // Batch de logging
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => null,
+                'to_reten'        => true,
+                'reassigned_at'   => now(),
+            ]);
+
             foreach ($notes as $note) {
                 $note->update([
                     'reten' => true,
@@ -167,6 +194,11 @@ class NotasDeComercial extends Component
                     'asunto' => 'REASIGNACIÓN MASIVA',
                     'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva.",
                 ]);
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $note->id,
+                    'from_comercial_id' => $fromComercials[$note->id] ?? null,
+                ]);
                 $count++;
             }
             $destino = 'Retén';
@@ -174,6 +206,14 @@ class NotasDeComercial extends Component
             $nuevo = User::find((int) $this->bulkNewComercialId);
             $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
             $empleado = $nuevo->empleado_id ?? 'SIN-ID';
+
+            // Batch de logging
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => (int) $this->bulkNewComercialId,
+                'to_reten'        => false,
+                'reassigned_at'   => now(),
+            ]);
 
             foreach ($notes as $note) {
                 $note->update([
@@ -186,6 +226,11 @@ class NotasDeComercial extends Component
                     'author_id' => auth()->id(),
                     'asunto' => 'REASIGNACIÓN MASIVA',
                     'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado}.",
+                ]);
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $note->id,
+                    'from_comercial_id' => $fromComercials[$note->id] ?? null,
                 ]);
                 $count++;
             }
@@ -313,15 +358,37 @@ class NotasDeComercial extends Component
             return;
         }
 
+        // Capturar comerciales antes de actualizar (solo las que tienen comercial asignado)
+        $notesParaReten = Note::query()
+            ->whereIn('id', $ids)
+            ->whereNotNull('comercial_id')
+            ->get(['id', 'comercial_id']);
+
         // Solo mover a retén las que tengan comercial asignado
         $updated = Note::query()
             ->whereIn('id', $ids)
             ->whereNotNull('comercial_id')
             ->update([
                 'reten' => true,
-                // Si al enviar a retén quieres refrescar la fecha de asignación:
                 'assignment_date' => now()->startOfDay(),
             ]);
+
+        // Log de reasignación a retén
+        if ($updated > 0) {
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => null,
+                'to_reten'        => true,
+                'reassigned_at'   => now(),
+            ]);
+            foreach ($notesParaReten as $noteData) {
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $noteData->id,
+                    'from_comercial_id' => $noteData->comercial_id,
+                ]);
+            }
+        }
 
         Notification::make()
             ->title('Enviadas a Retén')
