@@ -19,11 +19,16 @@ class ListReasignadoOk extends ListRecords
     public function getTabs(): array
     {
         return [
+            'todos' => Tab::make('TODOS'),
+
             'hoy' => Tab::make('HOY')
                 ->modifyQueryUsing(fn(Builder $query) => $query->whereDate('reassigned_at', today())),
 
             'ayer' => Tab::make('AYER')
                 ->modifyQueryUsing(fn(Builder $query) => $query->whereDate('reassigned_at', today()->subDay())),
+
+            'anteriores' => Tab::make('ANTERIORES')
+                ->modifyQueryUsing(fn(Builder $query) => $query->whereDate('reassigned_at', '<', today()->subDay())),
         ];
     }
 }
