@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>@yield('title', 'Hidrosane')</title>
+    <meta name="robots" content="noindex, nofollow">
 
     {{-- Tailwind via CDN solo para estas páginas sueltas --}}
     <script src="https://cdn.tailwindcss.com"></script>

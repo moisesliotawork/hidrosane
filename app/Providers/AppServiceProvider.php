@@ -8,6 +8,9 @@ use Filament\Support\Facades\FilamentColor;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use App\Observers\VentaOfertaObserver;
+use Filament\View\PanelsRenderHook;
+use Filament\Support\Facades\FilamentView;
+use Illuminate\Support\Facades\Blade;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -28,6 +31,12 @@ class AppServiceProvider extends ServiceProvider
 
 
 
+
+        // Evitar indexación en buscadores
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::HEAD_END,
+            fn(): string => Blade::render('<meta name="robots" content="noindex, nofollow">'),
+        );
 
         \App\Models\Venta::observe(\App\Observers\VentaObserver::class);
         // \App\Models\VentaOferta::observe(VentaOfertaObserver::class);
