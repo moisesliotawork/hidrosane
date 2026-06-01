@@ -193,6 +193,14 @@ class VentaResource extends Resource
                         ->nullable()
                         ->preload()
                         ->columnSpan(1),
+                    DatePicker::make('fecha_venta')
+                        ->label('Fecha de la venta')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
+                        ->nullable()
+                        ->columnSpan(1)
+                        ->visible(fn(?Venta $record) => !self::isContratoB($record)),
+
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
                         ->required()

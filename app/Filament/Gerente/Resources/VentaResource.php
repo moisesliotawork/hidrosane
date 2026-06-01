@@ -99,6 +99,11 @@ class VentaResource extends Resource
                         ->nullable()
                         ->preload()
                         ->columnSpanFull(),
+                    DatePicker::make('fecha_venta')
+                        ->label('Fecha de la venta')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
+                        ->nullable(),
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
                         ->required()

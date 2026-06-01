@@ -17,7 +17,7 @@
     $row = (float) request('row', 7.2); // alto/step de fila
 
     // ===== Helpers =====
-    $fecPromo = optional(Carbon::parse($venta->created_at))->format('d-m-Y');
+    $fecPromo = ($venta->fecha_venta ? Carbon::parse($venta->fecha_venta) : Carbon::parse($venta->created_at))->format('d-m-Y');
     $fecEntr = $venta->fecha_entrega ? Carbon::parse($venta->fecha_entrega)->format('d-m-Y') : '';
 
     // Items: EXPLOTAR por cantidad y tomar 10
