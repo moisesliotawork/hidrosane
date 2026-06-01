@@ -37,10 +37,6 @@ class TlfChangeResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $fmt = fn(?string $p): string => $p
-            ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3))
-            : '';
-
         return $table
             ->defaultSort('created_at', 'desc')
             ->paginated([25, 50, 100, 'all'])
@@ -73,7 +69,7 @@ class TlfChangeResource extends Resource
                     ->updateStateUsing(fn(Venta $record, ?string $state) =>
                         $record->customer?->update(['phone' => $state])
                     )
-                    ->formatStateUsing($fmt)
+
                     ->extraAttributes(['class' => 'font-bold']),
 
                 TextInputColumn::make('tel_2')
@@ -82,7 +78,7 @@ class TlfChangeResource extends Resource
                     ->updateStateUsing(fn(Venta $record, ?string $state) =>
                         $record->customer?->update(['secondary_phone' => $state])
                     )
-                    ->formatStateUsing($fmt)
+
                     ->extraAttributes(['class' => 'font-bold']),
 
                 TextInputColumn::make('tel_3')
@@ -91,7 +87,7 @@ class TlfChangeResource extends Resource
                     ->updateStateUsing(fn(Venta $record, ?string $state) =>
                         $record->customer?->update(['third_phone' => $state])
                     )
-                    ->formatStateUsing($fmt)
+
                     ->extraAttributes(['class' => 'font-bold']),
 
                 TextInputColumn::make('com_1')
@@ -100,7 +96,7 @@ class TlfChangeResource extends Resource
                     ->updateStateUsing(fn(Venta $record, ?string $state) =>
                         $record->customer?->update(['phone1_commercial' => $state])
                     )
-                    ->formatStateUsing($fmt)
+
                     ->extraAttributes(['class' => 'font-bold']),
 
                 TextInputColumn::make('com_2')
@@ -109,7 +105,7 @@ class TlfChangeResource extends Resource
                     ->updateStateUsing(fn(Venta $record, ?string $state) =>
                         $record->customer?->update(['phone2_commercial' => $state])
                     )
-                    ->formatStateUsing($fmt)
+
                     ->extraAttributes(['class' => 'font-bold']),
 
             ])
