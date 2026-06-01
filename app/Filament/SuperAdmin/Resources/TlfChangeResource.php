@@ -3,7 +3,7 @@
 namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\TlfChangeResource\Pages;
-use App\Models\Venta;
+use App\Models\Customer;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TlfChangeResource extends Resource
 {
-    protected static ?string $model = Venta::class;
+    protected static ?string $model = Customer::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-phone-arrow-up-right';
     protected static ?string $navigationLabel = 'TLF CHANGE';
@@ -32,7 +32,7 @@ class TlfChangeResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['note', 'customer']);
+        return parent::getEloquentQuery()->with(['latestVenta.note']);
     }
 
     public static function table(Table $table): Table
@@ -42,70 +42,40 @@ class TlfChangeResource extends Resource
             ->paginated([25, 50, 100, 'all'])
             ->columns([
 
-                TextColumn::make('note.nro_nota')
+                TextColumn::make('latestVenta.note.nro_nota')
                     ->label('Nº Nota')
                     ->badge()
                     ->color(Color::Pink)
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('customer.full_name')
+                TextColumn::make('full_name')
                     ->label('Cliente')
-                    ->getStateUsing(fn(Venta $record) => mb_strtoupper(
-                        trim(($record->customer->first_names ?? '') . ' ' . ($record->customer->last_names ?? ''))
+                    ->getStateUsing(fn(Customer $record) => mb_strtoupper(
+                        trim($record->first_names . ' ' . $record->last_names)
                     ))
                     ->weight(FontWeight::Bold)
                     ->color(Color::Amber)
-                    ->searchable(query: fn(Builder $query, string $search) =>
-                        $query->whereHas('customer', fn($q) =>
-                            $q->where('first_names', 'like', "%{$search}%")
-                              ->orWhere('last_names', 'like', "%{$search}%")
-                        )
-                    ),
+                    ->searchable(['first_names', 'last_names']),
 
-                TextInputColumn::make('tel_1')
+                TextInputColumn::make('phone')
                     ->label('TEL 1')
-                    ->getStateUsing(fn(Venta $record) => $record->customer?->phone)
-                    ->updateStateUsing(fn(Venta $record, ?string $state) =>
-                        $record->customer?->update(['phone' => $state])
-                    )
-
                     ->extraAttributes(['class' => 'font-bold']),
 
-                TextInputColumn::make('tel_2')
+                TextInputColumn::make('secondary_phone')
                     ->label('TEL 2')
-                    ->getStateUsing(fn(Venta $record) => $record->customer?->secondary_phone)
-                    ->updateStateUsing(fn(Venta $record, ?string $state) =>
-                        $record->customer?->update(['secondary_phone' => $state])
-                    )
-
                     ->extraAttributes(['class' => 'font-bold']),
 
-                TextInputColumn::make('tel_3')
+                TextInputColumn::make('third_phone')
                     ->label('TEL 3')
-                    ->getStateUsing(fn(Venta $record) => $record->customer?->third_phone)
-                    ->updateStateUsing(fn(Venta $record, ?string $state) =>
-                        $record->customer?->update(['third_phone' => $state])
-                    )
-
                     ->extraAttributes(['class' => 'font-bold']),
 
-                TextInputColumn::make('com_1')
+                TextInputColumn::make('phone1_commercial')
                     ->label('COM 1')
-                    ->getStateUsing(fn(Venta $record) => $record->customer?->phone1_commercial)
-                    ->updateStateUsing(fn(Venta $record, ?string $state) =>
-                        $record->customer?->update(['phone1_commercial' => $state])
-                    )
-
                     ->extraAttributes(['class' => 'font-bold']),
 
-                TextInputColumn::make('com_2')
+                TextInputColumn::make('phone2_commercial')
                     ->label('COM 2')
-                    ->getStateUsing(fn(Venta $record) => $record->customer?->phone2_commercial)
-                    ->updateStateUsing(fn(Venta $record, ?string $state) =>
-                        $record->customer?->update(['phone2_commercial' => $state])
-                    )
-
                     ->extraAttributes(['class' => 'font-bold']),
 
             ])
