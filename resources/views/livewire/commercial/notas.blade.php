@@ -132,6 +132,11 @@
             padding: .25rem .5rem;
             border-radius: 999px;
             background: rgba(107, 114, 128, .15);
+            color: #166534;
+        }
+
+        .dark .bulk-count {
+            color: #ffffff;
         }
 
         .bulk-left {
@@ -224,6 +229,10 @@
             font-weight: 700;
             font-size: .85rem;
             margin: 0 .75rem .5rem .75rem;
+            color: #166534;
+        }
+
+        .dark .notas-counter {
             color: #ffffff;
         }
 
