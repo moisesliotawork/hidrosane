@@ -225,6 +225,10 @@
             font-weight: 700;
             font-size: .85rem;
             margin: .25rem 0 .75rem 0;
+            color: #166534;
+        }
+
+        .dark .notas-counter-ger {
             color: #ffffff;
         }
 
@@ -300,12 +304,12 @@
 
     <div class="overflow-x-auto mobile-optimized space-y-6">
         <div class="flex flex-wrap items-center gap-2">
-            <div class="text-xs text-gray-500 dark:text-gray-400 mr-2">
+            <div class="text-xs text-green-800 dark:text-gray-400 mr-2">
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 
             <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400">Origen:</span>
+                <span class="text-xs text-green-800 dark:text-gray-400">Origen:</span>
                 <select wire:model.live="origenVentaFilter"
                     class="text-xs border rounded px-2 py-1 bg-white dark:bg-gray-900 dark:text-white dark:border-gray-700">
                     <option value="sin_procedencia">SIN PROCEDENCIA</option>
