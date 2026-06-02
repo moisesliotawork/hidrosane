@@ -217,6 +217,10 @@
             font-weight: 700;
             font-size: .85rem;
             margin: .25rem 0 .75rem 0;
+            color: #166534;
+        }
+
+        .dark .notas-counter-com {
             color: #ffffff;
         }
 
@@ -296,7 +300,7 @@
         @endphp
 
         <div class="flex flex-wrap items-center gap-2">
-            <div class="text-xs text-gray-500 dark:text-gray-400 mr-2">
+            <div class="text-xs text-green-800 dark:text-gray-400 mr-2">
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 

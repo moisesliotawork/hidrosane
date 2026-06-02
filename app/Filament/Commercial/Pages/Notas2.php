@@ -43,15 +43,19 @@ class Notas2 extends Page
             return null;
         }
 
+        $desde = now()->subDays(5)->toDateString();
+        $hasta = now()->toDateString();
+
         $count = Note::query()
             ->whereIn('comercial_id', $ids->values()->all())
-            ->whereDate('assignment_date', today())
+            ->whereBetween(\Illuminate\Support\Facades\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
             ->where('reten', false)
             ->whereDoesntHave('venta')
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
-                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'")
+                    ->orWhere('estado_terminal', \App\Enums\EstadoTerminal::SALA->value);
             })
             ->count();
 
