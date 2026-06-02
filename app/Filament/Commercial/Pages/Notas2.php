@@ -3,10 +3,6 @@
 namespace App\Filament\Commercial\Pages;
 
 use Filament\Pages\Page;
-use App\Models\Note;
-use App\Models\Team;
-use App\Enums\EstadoTerminal;
-use Illuminate\Support\Facades\DB;
 
 class Notas2 extends Page
 {
@@ -26,46 +22,4 @@ class Notas2 extends Page
         return 'Notas';
     }
 
-    public static function getNavigationBadge(): ?string
-    {
-        $user = auth()->user();
-
-        if (!$user) {
-            return null;
-        }
-
-        $ids = collect([$user->id]);
-
-        if ($user->hasRole('team_leader')) {
-            $team = Team::where('team_leader_id', $user->id)->first();
-            if ($team) {
-                $ids = $ids->merge($team->members()->pluck('users.id'))->unique();
-            }
-        } elseif ($user->hasRole('sales_manager')) {
-            return null;
-        }
-
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-
-        $count = Note::query()
-            ->whereIn('comercial_id', $ids->values()->all())
-            ->whereBetween(DB::raw('DATE(assignment_date)'), [$desde, $hasta])
-            ->where('reten', false)
-            ->whereDoesntHave('venta')
-            ->where(function ($q) {
-                $q->whereNull('estado_terminal')
-                    ->orWhere('estado_terminal', '')
-                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'")
-                    ->orWhere('estado_terminal', EstadoTerminal::SALA->value);
-            })
-            ->count();
-
-        return $count > 0 ? (string) $count : null;
-    }
-
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'success';
-    }
 }
