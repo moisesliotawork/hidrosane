@@ -5,6 +5,8 @@ namespace App\Filament\Commercial\Pages;
 use Filament\Pages\Page;
 use App\Models\Note;
 use App\Models\Team;
+use App\Enums\EstadoTerminal;
+use Illuminate\Support\Facades\DB;
 
 class Notas2 extends Page
 {
@@ -48,14 +50,14 @@ class Notas2 extends Page
 
         $count = Note::query()
             ->whereIn('comercial_id', $ids->values()->all())
-            ->whereBetween(\Illuminate\Support\Facades\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+            ->whereBetween(DB::raw('DATE(assignment_date)'), [$desde, $hasta])
             ->where('reten', false)
             ->whereDoesntHave('venta')
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'")
-                    ->orWhere('estado_terminal', \App\Enums\EstadoTerminal::SALA->value);
+                    ->orWhere('estado_terminal', EstadoTerminal::SALA->value);
             })
             ->count();
 
