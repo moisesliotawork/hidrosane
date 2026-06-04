@@ -27,12 +27,22 @@ use App\Models\CreamTransfer;
 use App\Notifications\CreamTransferRequested;
 use App\Models\NoteSalaEvent;
 use App\Models\User;
+use Livewire\Attributes\On;
 
 
 
 class EditNote extends EditRecord
 {
     protected static string $resource = NoteResource::class;
+
+    #[On('gpsCapturadoParaAccionNota')]
+    public function setGpsParaAccion(string $lat, string $lng): void
+    {
+        if (isset($this->mountedActionsData[0])) {
+            $this->mountedActionsData[0]['gps_lat'] = $lat;
+            $this->mountedActionsData[0]['gps_lng'] = $lng;
+        }
+    }
 
     public function getTitle(): string
     {
@@ -142,6 +152,10 @@ class EditNote extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
+
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
@@ -163,9 +177,11 @@ class EditNote extends EditRecord
                             'reason' => $data['reason'],
                         ]);
 
-                        // 2) Cambiar estado
+                        // 2) Cambiar estado + GPS
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
+                        $this->record->lat = $data['gps_lat'] ?? null;
+                        $this->record->lng = $data['gps_lng'] ?? null;
                         $this->record->save();
 
                         DB::afterCommit(function () use ($nullReason) {
@@ -239,6 +255,10 @@ class EditNote extends EditRecord
                         ->placeholder('Escribe una observación (opcional)…')
                         ->rows(3)
                         ->maxLength(2000),
+
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar nota')
@@ -309,6 +329,8 @@ class EditNote extends EditRecord
                         ]);
 
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
+                        $this->record->lat_dentro = $data['gps_lat'] ?? null;
+                        $this->record->lng_dentro = $data['gps_lng'] ?? null;
                         $this->record->save();
 
                         // Si SÍ entregó crema, restamos una de su control diario
@@ -357,7 +379,19 @@ class EditNote extends EditRecord
                 ->modalHeading('Confirmar acción')
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
-                ->action(function () {
+                ->form([
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                ])
+                ->action(function (array $data) {
+
+                    // Guardar GPS de la venta en la nota (CreateVenta lo copiará al venta)
+                    if (!empty($data['gps_lat']) && !empty($data['gps_lng'])) {
+                        $this->record->lat = $data['gps_lat'];
+                        $this->record->lng = $data['gps_lng'];
+                        $this->record->save();
+                    }
 
                     Notification::make()
                         ->title('Nota marcada como VENTA')

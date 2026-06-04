@@ -130,6 +130,8 @@ class SeguimientoDeRuta extends Page
                 'body' => $anotacion->cuerpo ?: 'Sin contenido',
                 'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
                 'meta_label' => 'Anotado',
+                'gps_lat' => null,
+                'gps_lng' => null,
             ]);
 
         $observaciones = ($note->relationLoaded('observations')
@@ -143,6 +145,8 @@ class SeguimientoDeRuta extends Page
                 'body' => $observacion->observation ?: 'Sin contenido',
                 'author' => $observacion->author?->full_name ?? $observacion->author?->display_name ?? 'SIN AUTOR',
                 'meta_label' => 'Observado',
+                'gps_lat' => null,
+                'gps_lng' => null,
             ]);
 
         $confirmaciones = ($note->relationLoaded('confirmations')
@@ -158,6 +162,8 @@ class SeguimientoDeRuta extends Page
                     . (!empty($conf->observation) ? ' | ' . $conf->observation : ''),
                 'author' => $conf->companion?->display_name ?? '—',
                 'meta_label' => 'Confirmada',
+                'gps_lat' => $note->lat_dentro,
+                'gps_lng' => $note->lng_dentro,
             ]);
 
         $ventas = collect();
@@ -178,6 +184,8 @@ class SeguimientoDeRuta extends Page
                 'body'       => $ventaBody,
                 'author'     => '—',
                 'meta_label' => 'Vendido',
+                'gps_lat'    => $venta->lat,
+                'gps_lng'    => $venta->lng,
             ]]);
         }
 

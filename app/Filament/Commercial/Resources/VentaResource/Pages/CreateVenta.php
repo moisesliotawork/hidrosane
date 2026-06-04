@@ -189,6 +189,8 @@ class CreateVenta extends CreateRecord
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
                 'comercial_id' => auth()->id(),
+                'lat' => $note->lat,
+                'lng' => $note->lng,
                 'companion_id' => $data['companion_id'],
                 'fecha_venta' => now(),
                 'importe_total' => $data['importe_total'],
