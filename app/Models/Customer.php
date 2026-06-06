@@ -139,6 +139,12 @@ class Customer extends Model
         return $this->hasMany(Note::class, 'customer_id');
     }
 
+    /** Relación: última nota del cliente (para eager loading eficiente) */
+    public function latestNote(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')->latestOfMany();
+    }
+
     /** Relación: un cliente puede tener muchas observaciones */
     public function customerObservations(): HasMany
     {
