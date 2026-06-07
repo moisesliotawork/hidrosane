@@ -41,11 +41,11 @@ class DuplicadosResource extends Resource
                 'latestNote.user:id,name,last_name,empleado_id',
             ])
             ->withCount('ventas')
-            ->whereNull('merged_into_id')
             ->whereIn('id', function ($sub) use ($phoneFields) {
                 $sub->select('c1.id')
                     ->from('customers as c1')
                     ->join('customers as c2', 'c1.id', '!=', 'c2.id')
+                    ->whereNull('c1.merged_into_id')
                     ->whereNull('c2.merged_into_id')
                     ->whereRaw(
                         "TRIM(CONCAT(COALESCE(c1.first_names,''),' ',COALESCE(c1.last_names,''))) "

@@ -6,6 +6,7 @@ use App\Models\CommercialPhoneLog;
 use App\Models\Customer;
 use App\Models\CustomerObservation;
 use App\Models\Note;
+use App\Models\Scopes\NotMergedScope;
 use App\Models\Venta;
 use Illuminate\Support\Facades\DB;
 
@@ -121,7 +122,9 @@ class CustomerMergeService
             CommercialPhoneLog::where('customer_id', $toDeleteId)->update(['customer_id' => $keeperId]);
 
             // Si algún customer apuntaba al toDelete como merged_into, apuntar al keeper
-            Customer::where('merged_into_id', $toDeleteId)->update(['merged_into_id' => $keeperId]);
+            Customer::withoutGlobalScope(NotMergedScope::class)
+                ->where('merged_into_id', $toDeleteId)
+                ->update(['merged_into_id' => $keeperId]);
 
             // Completar campos vacíos del keeper con los del toDelete
             $fields = [
@@ -140,8 +143,12 @@ class CustomerMergeService
             }
             $keeper->save();
 
-            // Eliminar definitivamente el duplicado
-            $toDelete->delete();
+            // Marcar el duplicado como fusionado (soft-merge: queda en BD para auditoría)
+            $toDelete->update([
+                'merged_into_id'    => $keeperId,
+                'merged_at'         => now(),
+                'merged_by_user_id' => $mergedByUserId,
+            ]);
 
             return [
                 'keeper_id'      => $keeperId,

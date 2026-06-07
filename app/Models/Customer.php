@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -64,6 +65,8 @@ class Customer extends Model
 
     protected static function booted()
     {
+        static::addGlobalScope(new NotMergedScope());
+
         static::saving(function (Customer $model) {
             if ($model->fecha_nac) {
                 try {
@@ -269,7 +272,8 @@ class Customer extends Model
 
     public function mergedChildren(): HasMany
     {
-        return $this->hasMany(Customer::class, 'merged_into_id');
+        return $this->hasMany(Customer::class, 'merged_into_id')
+            ->withoutGlobalScope(NotMergedScope::class);
     }
 
     public function mergedBy(): BelongsTo
