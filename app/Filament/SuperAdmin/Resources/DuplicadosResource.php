@@ -4,7 +4,9 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Pages;
 use App\Models\Customer;
+use App\Services\CustomerMergeService;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -12,6 +14,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\FontWeight;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\HtmlString;
 
 class DuplicadosResource extends Resource
 {
@@ -37,10 +41,12 @@ class DuplicadosResource extends Resource
                 'latestNote.user:id,name,last_name,empleado_id',
             ])
             ->withCount('ventas')
+            ->whereNull('merged_into_id')
             ->whereIn('id', function ($sub) use ($phoneFields) {
                 $sub->select('c1.id')
                     ->from('customers as c1')
                     ->join('customers as c2', 'c1.id', '!=', 'c2.id')
+                    ->whereNull('c2.merged_into_id')
                     ->whereRaw(
                         "TRIM(CONCAT(COALESCE(c1.first_names,''),' ',COALESCE(c1.last_names,''))) "
                         . "= TRIM(CONCAT(COALESCE(c2.first_names,''),' ',COALESCE(c2.last_names,'')))"
@@ -193,7 +199,107 @@ class DuplicadosResource extends Resource
             ->paginated([25, 50, 100, 'all'])
             ->filters([])
             ->actions([])
-            ->bulkActions([]);
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('fusionar')
+                    ->label('Fusionar seleccionados')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Fusionar clientes duplicados')
+                    ->modalDescription(function (Collection $records): HtmlString {
+                        if ($records->count() !== 2) {
+                            return new HtmlString(
+                                '<p class="text-danger-600 font-bold">Debes seleccionar exactamente 2 clientes para fusionar.</p>'
+                            );
+                        }
+
+                        $sorted  = $records->sortBy([
+                            [fn(Customer $c) => optional($c->created_at)->timestamp ?? PHP_INT_MAX, 'asc'],
+                            [fn(Customer $c) => $c->id, 'asc'],
+                        ])->values();
+
+                        /** @var Customer $keeper */
+                        $keeper   = $sorted->first();
+                        /** @var Customer $toDelete */
+                        $toDelete = $sorted->last();
+
+                        $keeperNotes  = $keeper->notes()->count();
+                        $keeperVentas = $keeper->ventas()->count();
+                        $deleteNotes  = $toDelete->notes()->count();
+                        $deleteVentas = $toDelete->ventas()->count();
+
+                        $keeperName  = mb_strtoupper(trim($keeper->first_names . ' ' . $keeper->last_names));
+                        $deleteName  = mb_strtoupper(trim($toDelete->first_names . ' ' . $toDelete->last_names));
+
+                        return new HtmlString(
+                            '<div style="font-size:14px;line-height:1.6;">'
+                            . '<p style="margin-bottom:12px;">Se fusionarán los 2 clientes en <strong>1 solo registro</strong>. '
+                            . 'El cliente más antiguo será conservado y el más reciente será <strong>eliminado definitivamente</strong>.</p>'
+                            . '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">'
+
+                            // Keeper
+                            . '<div style="background:#166534;border-radius:8px;padding:12px;">'
+                            . '<div style="color:#bbf7d0;font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:6px;">✅ SE CONSERVA (más antiguo)</div>'
+                            . '<div style="color:#fff;font-weight:700;">' . e($keeperName) . '</div>'
+                            . '<div style="color:#d1fae5;">ID: ' . $keeper->id . ' &nbsp;|&nbsp; DNI: ' . e($keeper->dni ?? '—') . '</div>'
+                            . '<div style="color:#d1fae5;">Notas: ' . $keeperNotes . ' &nbsp;|&nbsp; Ventas: ' . $keeperVentas . '</div>'
+                            . '<div style="color:#d1fae5;">Creado: ' . optional($keeper->created_at)->format('d/m/Y H:i') . '</div>'
+                            . '</div>'
+
+                            // ToDelete
+                            . '<div style="background:#7f1d1d;border-radius:8px;padding:12px;">'
+                            . '<div style="color:#fca5a5;font-size:11px;font-weight:700;text-transform:uppercase;margin-bottom:6px;">🗑️ SE ELIMINA (más reciente)</div>'
+                            . '<div style="color:#fff;font-weight:700;">' . e($deleteName) . '</div>'
+                            . '<div style="color:#fecaca;">ID: ' . $toDelete->id . ' &nbsp;|&nbsp; DNI: ' . e($toDelete->dni ?? '—') . '</div>'
+                            . '<div style="color:#fecaca;">Notas: ' . $deleteNotes . ' &nbsp;|&nbsp; Ventas: ' . $deleteVentas . '</div>'
+                            . '<div style="color:#fecaca;">Creado: ' . optional($toDelete->created_at)->format('d/m/Y H:i') . '</div>'
+                            . '</div>'
+
+                            . '</div>'
+                            . '<p style="color:#fbbf24;font-weight:600;">⚠️ Todas las notas, ventas y datos del cliente eliminado pasarán al conservado. Esta acción no se puede deshacer.</p>'
+                            . '</div>'
+                        );
+                    })
+                    ->modalSubmitActionLabel('Sí, fusionar y eliminar')
+                    ->action(function (Collection $records, CustomerMergeService $mergeService) {
+                        if ($records->count() !== 2) {
+                            Notification::make()
+                                ->title('Selecciona exactamente 2 clientes')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $sorted = $records->sortBy([
+                            [fn(Customer $c) => optional($c->created_at)->timestamp ?? PHP_INT_MAX, 'asc'],
+                            [fn(Customer $c) => $c->id, 'asc'],
+                        ])->values();
+
+                        $keeper   = $sorted->first();
+                        $toDelete = $sorted->last();
+
+                        try {
+                            $result = $mergeService->mergeByIds($keeper->id, $toDelete->id, auth()->id());
+
+                            Notification::make()
+                                ->title('Fusión completada')
+                                ->body(
+                                    "Cliente conservado: #{$result['keeper_id']} | "
+                                    . "Notas movidas: {$result['notes_updated']} | "
+                                    . "Ventas movidas: {$result['ventas_updated']}"
+                                )
+                                ->success()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al fusionar')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    })
+                    ->deselectRecordsAfterCompletion(),
+            ]);
     }
 
     public static function getRelations(): array

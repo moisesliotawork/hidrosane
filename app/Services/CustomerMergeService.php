@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\CommercialPhoneLog;
 use App\Models\Customer;
+use App\Models\CustomerObservation;
 use App\Models\Note;
 use App\Models\Venta;
 use Illuminate\Support\Facades\DB;
@@ -95,6 +97,56 @@ class CustomerMergeService
                 'source_data_id' => $sourceData->id,
                 'merged_ids' => $duplicateIds,
                 'notes_updated' => $notesUpdated,
+                'ventas_updated' => $ventasUpdated,
+            ];
+        });
+    }
+
+    /**
+     * Fusiona dos customers por ID.
+     * - keeper: se preserva y recibe todos los datos y registros del toDelete
+     * - toDelete: se borra definitivamente tras mover sus datos
+     * - Los campos vacíos del keeper se rellenan con los del toDelete
+     */
+    public function mergeByIds(int $keeperId, int $toDeleteId, ?int $mergedByUserId = null): array
+    {
+        return DB::transaction(function () use ($keeperId, $toDeleteId, $mergedByUserId) {
+            $keeper   = Customer::lockForUpdate()->findOrFail($keeperId);
+            $toDelete = Customer::lockForUpdate()->findOrFail($toDeleteId);
+
+            // Reasignar registros relacionados al keeper
+            $notesUpdated  = Note::where('customer_id', $toDeleteId)->update(['customer_id' => $keeperId]);
+            $ventasUpdated = Venta::where('customer_id', $toDeleteId)->update(['customer_id' => $keeperId]);
+            CustomerObservation::where('customer_id', $toDeleteId)->update(['customer_id' => $keeperId]);
+            CommercialPhoneLog::where('customer_id', $toDeleteId)->update(['customer_id' => $keeperId]);
+
+            // Si algún customer apuntaba al toDelete como merged_into, apuntar al keeper
+            Customer::where('merged_into_id', $toDeleteId)->update(['merged_into_id' => $keeperId]);
+
+            // Completar campos vacíos del keeper con los del toDelete
+            $fields = [
+                'first_names', 'last_names', 'phone', 'secondary_phone', 'third_phone',
+                'phone1_commercial', 'phone2_commercial', 'email', 'nro_piso',
+                'postal_code_id', 'primary_address', 'secondary_address', 'parish', 'dni',
+                'fecha_nac', 'iban', 'tipo_vivienda', 'estado_civil', 'situacion_laboral',
+                'ingresos_rango', 'num_hab_casa', 'ayuntamiento', 'edadTelOp',
+                'postal_code', 'ciudad', 'provincia', 'antiguedad', 'nombre_empresa', 'oficio',
+            ];
+
+            foreach ($fields as $field) {
+                if (blank($keeper->$field) && filled($toDelete->$field)) {
+                    $keeper->$field = $toDelete->$field;
+                }
+            }
+            $keeper->save();
+
+            // Eliminar definitivamente el duplicado
+            $toDelete->delete();
+
+            return [
+                'keeper_id'      => $keeperId,
+                'deleted_id'     => $toDeleteId,
+                'notes_updated'  => $notesUpdated,
                 'ventas_updated' => $ventasUpdated,
             ];
         });
