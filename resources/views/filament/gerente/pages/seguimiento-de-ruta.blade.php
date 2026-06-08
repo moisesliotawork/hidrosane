@@ -100,7 +100,7 @@
 
         .active-notes-row {
             display: grid;
-            grid-template-columns: auto minmax(120px, auto) auto minmax(0, 1fr) auto auto;
+            grid-template-columns: auto minmax(120px, auto) auto minmax(0, 1fr) auto auto auto;
             align-items: start;
             gap: 4px;
             margin-top: 2px;
@@ -173,8 +173,6 @@
 
         .active-notes-elapsed {
             display: inline-block;
-            grid-column: -2 / -1;
-            justify-self: end;
             padding: 1px 5px;
             border-radius: 2px;
             background: #e5e7eb;
@@ -184,6 +182,33 @@
             line-height: 1.3;
             text-align: right;
             white-space: nowrap;
+        }
+
+        .active-notes-ir-btn {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 3px;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-decoration: none;
+            white-space: nowrap;
+            justify-self: start;
+        }
+
+        .active-notes-ir-btn:hover,
+        .active-notes-ir-btn:focus-visible {
+            background: #15803d;
+            outline: none;
+        }
+
+        .active-notes-declared-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 3px;
         }
 
         .active-notes-empty-note {
@@ -224,6 +249,10 @@
             .active-notes-elapsed {
                 grid-column: 1 / -1;
                 text-align: left;
+            }
+
+            .active-notes-ir-btn {
+                grid-column: 1 / -1;
             }
         }
     </style>
@@ -330,9 +359,30 @@
 
                             <div class="active-notes-note">
                                 @if($note->fecha_declaracion?->isToday())
-                                    <div class="active-notes-declared">
-                                        Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
-                                        a las {{ $note->fecha_declaracion->format('H:i') }}
+                                    @php
+                                        $estadoVal = $note->getRawOriginal('estado_terminal');
+                                        $declaredGpsLat = null;
+                                        $declaredGpsLng = null;
+                                        if ($estadoVal === 'nulo' && $note->lat && $note->lng) {
+                                            $declaredGpsLat = $note->lat;
+                                            $declaredGpsLng = $note->lng;
+                                        } elseif ($estadoVal === 'confirmado' && $note->lat_dentro && $note->lng_dentro) {
+                                            $declaredGpsLat = $note->lat_dentro;
+                                            $declaredGpsLng = $note->lng_dentro;
+                                        }
+                                    @endphp
+                                    <div class="active-notes-declared-row">
+                                        <div class="active-notes-declared">
+                                            Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
+                                            a las {{ $note->fecha_declaracion->format('H:i') }}
+                                        </div>
+                                        @if($declaredGpsLat && $declaredGpsLng)
+                                            <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="active-notes-ir-btn"
+                                            >IR</a>
+                                        @endif
                                     </div>
                                 @endif
 
@@ -383,6 +433,15 @@
                                             {{ $activity['author'] }}
                                         </span>
                                         <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
+                                        @if(!empty($activity['gps_lat']) && !empty($activity['gps_lng']))
+                                            <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="active-notes-ir-btn"
+                                            >IR</a>
+                                        @else
+                                            <span></span>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>
