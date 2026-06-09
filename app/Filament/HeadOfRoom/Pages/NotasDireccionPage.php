@@ -101,60 +101,29 @@ class NotasDireccionPage extends Page implements HasTable
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->label('Nombre Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
-                            });
-                        });
-                    }),
+                    ->label('Nombre Cliente'),
 
                 Tables\Columns\TextColumn::make('customer.primary_address')
                     ->label('Dirección')
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('primary_address', 'like', "%{$search}%");
+                        $term = '%' . mb_strtolower($search) . '%';
+                        return $query->whereHas('customer', function (Builder $q) use ($term) {
+                            $q->whereRaw('LOWER(primary_address) LIKE ?', [$term]);
                         });
                     })
                     ->wrap(),
 
                 Tables\Columns\TextColumn::make('customer.postal_code')
-                    ->label('CP')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('postal_code', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('CP'),
 
                 Tables\Columns\TextColumn::make('customer.provincia')
-                    ->label('Provincia')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('provincia', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Provincia'),
 
                 Tables\Columns\TextColumn::make('customer.ciudad')
-                    ->label('Ciudad')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('ciudad', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Ciudad'),
 
                 Tables\Columns\TextColumn::make('customer.nro_piso')
-                    ->label('Nro Piso')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('nro_piso', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Nro Piso'),
             ])
             ->filters([
                 Tables\Filters\Filter::make('primary_address')
@@ -167,8 +136,9 @@ class NotasDireccionPage extends Page implements HasTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         if (filled($data['value'] ?? null)) {
-                            $query->whereHas('customer', function (Builder $q) use ($data) {
-                                $q->where('primary_address', 'like', '%' . $data['value'] . '%');
+                            $term = '%' . mb_strtolower($data['value']) . '%';
+                            $query->whereHas('customer', function (Builder $q) use ($term) {
+                                $q->whereRaw('LOWER(primary_address) LIKE ?', [$term]);
                             });
                         }
                         return $query;
