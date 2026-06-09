@@ -425,6 +425,7 @@ class Note extends Model
 
     /**
      * Ventana visible en Notas (Comercial): hoy-5 … hoy, sin fechas futuras.
+     * Usa visit_date si existe; si no, assignment_date (fecha que ve el comercial).
      */
     public function scopeVisibleInCommercialNotas($query)
     {
@@ -432,9 +433,17 @@ class Note extends Model
         $desde = now()->subDays(5)->toDateString();
 
         return $query
-            ->whereNotNull('assignment_date')
-            ->whereDate('assignment_date', '>=', $desde)
-            ->whereDate('assignment_date', '<=', $hoy);
+            ->where(function ($q) {
+                $q->whereNotNull('visit_date')
+                    ->orWhereNotNull('assignment_date');
+            })
+            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) >= ?', [$desde])
+            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) <= ?', [$hoy]);
+    }
+
+    public function commercialVisibleDate(): ?Carbon
+    {
+        return $this->visit_date ?? $this->assignment_date;
     }
 
     public function salaEvents()

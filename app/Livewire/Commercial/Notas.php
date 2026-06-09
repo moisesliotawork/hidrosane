@@ -173,7 +173,7 @@ class Notas extends Component
     {
         $user = auth()->user();
 
-        if ($note->assignment_date && $note->assignment_date->toDateString() > now()->toDateString()) {
+        if ($note->commercialVisibleDate()?->toDateString() > now()->toDateString()) {
             return false;
         }
 
@@ -650,7 +650,9 @@ class Notas extends Component
                     'primary_address' => $customer->primary_address ?? 'Sin dirección',
                     'address_info' => $addressInfo,
                     'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
-                    'visit_date' => $note->visit_date ? \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y') : '--/--/----',
+                    'visit_date' => $note->commercialVisibleDate()
+                        ? $note->commercialVisibleDate()->format('d/m/Y')
+                        : '--/--/----',
                     'visit_schedule' => $note->visit_schedule ?? '--:--',
                     'observations' => $note->observations,
                     'fuente' => $note->fuente->value,
