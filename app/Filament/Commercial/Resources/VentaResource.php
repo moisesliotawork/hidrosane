@@ -80,7 +80,8 @@ class VentaResource extends Resource
 
                                     TextInput::make('dni')
                                         ->label('DNI')
-                                        ->columnSpanFull(),          // ocupa el ancho completo
+                                        ->columnSpanFull()
+                                        ->required(),
 
                                     TextInput::make('customer.edadTelOp')
                                         ->label('Edad (Tel. Op.)')
@@ -92,6 +93,7 @@ class VentaResource extends Resource
                                         ->timezone('Europe/Madrid')
                                         ->native(false)
                                         ->maxDate(now())              // no permitir fechas futuras
+                                        ->required()
                                         ->reactive()
                                         ->afterStateHydrated(function ($state, Set $set) {
                                             $set('age', $state ?
@@ -272,30 +274,7 @@ class VentaResource extends Resource
                                         ->required()
                                         ->reactive(),
 
-                                    // ➌ Bancarios
-                                    TextInput::make('iban')
-                                        ->label('IBAN')
-                                        ->columnSpanFull()
 
-                                        // ─── Presentación → “ES12 3456 7890 …” ───────────────
-                                        ->formatStateUsing(fn(?string $state) => $state
-                                            ? implode(' ', str_split(strtoupper($state), 4))
-                                            : null)
-
-                                        // ─── Guardado → “ES1234567890…” ──────────────────────
-                                        ->dehydrateStateUsing(fn(?string $state) => $state
-                                            ? str_replace(' ', '', strtoupper($state))
-                                            : null)
-
-                                        // ─── Mientras escribe / pega ─────────────────────────
-                                        ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
-                                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
-                                            $formatted = implode(' ', str_split($plain, 4));
-
-                                            if ($formatted !== $state) {
-                                                $set('iban', $formatted); // ✅
-                                            }
-                                        }),
                                 ]),
                     ]),
 
@@ -723,6 +702,32 @@ class VentaResource extends Resource
                     Toggle::make('crema')
                         ->label('¿Incluye crema?')
                         ->default(false),
+
+                    // ─── IBAN ───────────────────────────────────────────
+                    TextInput::make('iban')
+                        ->label('IBAN')
+                        ->columnSpanFull()
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+
+                        // ─── Presentación → "ES12 3456 7890 …" ───────────────
+                        ->formatStateUsing(fn(?string $state) => $state
+                            ? implode(' ', str_split(strtoupper($state), 4))
+                            : null)
+
+                        // ─── Guardado → "ES1234567890…" ──────────────────────
+                        ->dehydrateStateUsing(fn(?string $state) => $state
+                            ? str_replace(' ', '', strtoupper($state))
+                            : null)
+
+                        // ─── Mientras escribe / pega ─────────────────────────
+                        ->afterStateUpdated(function (Set $set, Get $get, ?string $state) {
+                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                            $formatted = implode(' ', str_split($plain, 4));
+
+                            if ($formatted !== $state) {
+                                $set('iban', $formatted);
+                            }
+                        }),
 
 
                 ])->columns(2),

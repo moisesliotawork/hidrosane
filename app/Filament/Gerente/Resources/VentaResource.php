@@ -176,13 +176,14 @@ class VentaResource extends Resource
                                     };
                                 },
                             ]),
-                        TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                        TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
 
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')
                             ->timezone('Europe/Madrid')
                             ->native(false)
                             ->maxDate(now())          // no permitir fechas futuras
+                            ->required()
                             ->reactive()
                             ->afterStateHydrated(function ($state, Set $set) {
                                 $set('age', $state ? Carbon::parse($state)->age : null);
@@ -290,26 +291,7 @@ class VentaResource extends Resource
                             ->required()
                             ->reactive(),
 
-                        /* ---------- IBAN con formato ---------- */
-                        TextInput::make('iban')
-                            ->label('IBAN')
-                            ->columnSpanFull()
-                            ->formatStateUsing(
-                                fn($state) =>
-                                $state
-                                ? implode(' ', str_split(strtoupper($state), 4))
-                                : null
-                            )
-                            ->dehydrateStateUsing(
-                                fn($state) =>
-                                $state
-                                ? str_replace(' ', '', strtoupper($state))
-                                : null
-                            )
-                            ->afterStateUpdated(function (Set $set, ?string $state) {
-                                $clean = str_replace(' ', '', strtoupper($state ?? ''));
-                                $set(implode(' ', str_split($clean, 4)));
-                            }),
+
                     ]),
                 ]),
 
@@ -470,6 +452,30 @@ class VentaResource extends Resource
                     Toggle::make('crema')
                         ->label('¿Incluye crema?')
                         ->default(false),
+
+                    /* ---------- IBAN con formato ---------- */
+                    TextInput::make('iban')
+                        ->label('IBAN')
+                        ->columnSpanFull()
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                        ->formatStateUsing(
+                            fn($state) =>
+                            $state
+                            ? implode(' ', str_split(strtoupper($state), 4))
+                            : null
+                        )
+                        ->dehydrateStateUsing(
+                            fn($state) =>
+                            $state
+                            ? str_replace(' ', '', strtoupper($state))
+                            : null
+                        )
+                        ->afterStateUpdated(function (Set $set, ?string $state) {
+                            $clean = str_replace(' ', '', strtoupper($state ?? ''));
+                            $formatted = implode(' ', str_split($clean, 4));
+                            if ($formatted !== $state)
+                                $set('iban', $formatted);
+                        }),
                 ])
                 ->columns(2),
 

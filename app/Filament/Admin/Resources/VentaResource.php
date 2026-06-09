@@ -278,7 +278,7 @@ class VentaResource extends Resource
                         'xl' => 5])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI')
+                        TextInput::make('dni')->label('DNI')->required()
                         ->columnSpan([
                     'default' => 1,
                     'xl' => 5   // Solo ocupa todo el ancho en pantallas grandes
@@ -293,6 +293,7 @@ class VentaResource extends Resource
                             ->timezone('Europe/Madrid')
                             ->native(false)
                             ->maxDate(now())          // no permitir fechas futuras
+                            ->required()
                             ->reactive()
                             ->afterStateHydrated(function ($state, Set $set) {
                                 $set('age', $state ? Carbon::parse($state)->age : null);
@@ -451,47 +452,6 @@ class VentaResource extends Resource
                             ->default(1)
                             ->required()
                             ->reactive(),
-
-                        /* ---------- IBAN con formato ---------- */
-                        TextInput::make('iban')
-                            ->columnSpanFull()
-                            ->label('IBAN')
-                            // Visual: mayúsculas
-                            ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
-                            // Mostrar con espacios al cargar
-                            ->formatStateUsing(
-                                fn($state) => $state
-                                ? trim(chunk_split(strtoupper(preg_replace('/\s+/', '', $state)), 4, ' '))
-                                : null
-                            )
-                            // Guardar sin espacios y en mayúsculas
-                            ->dehydrateStateUsing(
-                                fn($state) => $state
-                                ? strtoupper(preg_replace('/\s+/', '', $state))
-                                : null
-                            )
-                            // 24 reales + 5 espacios = 29 visibles
-                            ->maxLength(29)
-                            // No reescribir mientras tecleas; solo al salir
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (\Filament\Forms\Set $set, ?string $state) {
-                                $raw = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
-                                $raw = substr($raw, 0, 24);                       // fuerza máximo 24 (sin espacios)
-                                $set('iban', implode(' ', str_split($raw, 4)));   // agrupa 4 en 4
-                            })
-                            // Validación: exactamente 24 alfanuméricos (sin espacios)
-                            ->rule(function () {
-                                return function (string $attribute, $value, $fail) {
-                                    $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
-                                    if (strlen($raw) !== 24) {
-                                        $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
-                                    }
-                                    if (!preg_match('/^[A-Z0-9]{24}$/', $raw)) {
-                                        $fail('El IBAN solo puede contener letras y números.');
-                                    }
-                                };
-                            })
-                            ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
 
 
                         Select::make('ingresos_rango')
@@ -759,6 +719,48 @@ class VentaResource extends Resource
                     Toggle::make('crema')
                         ->label('¿Incluye crema?')
                         ->default(false),
+
+                    /* ---------- IBAN con formato ---------- */
+                    TextInput::make('iban')
+                        ->columnSpanFull()
+                        ->label('IBAN')
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                        // Visual: mayúsculas
+                        ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
+                        // Mostrar con espacios al cargar
+                        ->formatStateUsing(
+                            fn($state) => $state
+                            ? trim(chunk_split(strtoupper(preg_replace('/\s+/', '', $state)), 4, ' '))
+                            : null
+                        )
+                        // Guardar sin espacios y en mayúsculas
+                        ->dehydrateStateUsing(
+                            fn($state) => $state
+                            ? strtoupper(preg_replace('/\s+/', '', $state))
+                            : null
+                        )
+                        // 24 reales + 5 espacios = 29 visibles
+                        ->maxLength(29)
+                        // No reescribir mientras tecleas; solo al salir
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (\Filament\Forms\Set $set, ?string $state) {
+                            $raw = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+                            $raw = substr($raw, 0, 24);
+                            $set('iban', implode(' ', str_split($raw, 4)));
+                        })
+                        // Validación: exactamente 24 alfanuméricos (sin espacios)
+                        ->rule(function () {
+                            return function (string $attribute, $value, $fail) {
+                                $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
+                                if (strlen($raw) !== 24) {
+                                    $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
+                                }
+                                if (!preg_match('/^[A-Z0-9]{24}$/', $raw)) {
+                                    $fail('El IBAN solo puede contener letras y números.');
+                                }
+                            };
+                        })
+                        ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
                 ])
                 ->columns(5),
 
