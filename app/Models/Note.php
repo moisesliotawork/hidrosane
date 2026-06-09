@@ -423,6 +423,20 @@ class Note extends Model
         return $q->where('printed', false);
     }
 
+    /**
+     * Ventana visible en Notas (Comercial): hoy-5 … hoy, sin fechas futuras.
+     */
+    public function scopeVisibleInCommercialNotas($query)
+    {
+        $hoy = now()->toDateString();
+        $desde = now()->subDays(5)->toDateString();
+
+        return $query
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', '>=', $desde)
+            ->whereDate('assignment_date', '<=', $hoy);
+    }
+
     public function salaEvents()
     {
         return $this->hasMany(NoteSalaEvent::class, 'note_id');

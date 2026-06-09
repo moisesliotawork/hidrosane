@@ -40,10 +40,6 @@ class ListNotes extends ListRecords
     {
         $user = auth()->user();
 
-        // RANGO: desde hoy-5 hasta hoy (INCLUSIVO)
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-
         // Filtro de estado_terminal
         $estadoFiltro = function ($q) {
             $q->whereNull('estado_terminal')
@@ -69,16 +65,14 @@ class ListNotes extends ListRecords
                         ->whereIn('comercial_id', $visibleIds)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro, $desde, $hasta) {
+                ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro) {
                     $query->whereIn('comercial_id', $visibleIds)
                         ->where($estadoFiltro)
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false);
                 }),
         ];
@@ -113,16 +107,14 @@ class ListNotes extends ListRecords
                         ->where('comercial_id', $c->id)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro, $desde, $hasta) {
+                ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro) {
                     $query->where('comercial_id', $c->id)
                         ->where($estadoFiltro)
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false);
                 });
         }

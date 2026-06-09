@@ -731,9 +731,7 @@ class NoteResource extends Resource
         })
             ->whereDoesntHave('venta');
 
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+        $query->visibleInCommercialNotas();
 
         $query->where('reten', false);
 

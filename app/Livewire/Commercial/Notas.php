@@ -50,10 +50,6 @@ class Notas extends Component
             return [];
         }
 
-        // rango hoy-5 a hoy
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-
         // tab activo
         $active = request()->query('activeTab', 'todas');
 
@@ -78,11 +74,10 @@ class Notas extends Component
         };
 
         // helper para contar
-        $countFor = function ($idsOrId) use ($desde, $hasta, $estadoFiltro) {
+        $countFor = function ($idsOrId) use ($estadoFiltro) {
             $q = Note::query()
                 ->whereDoesntHave('venta')
-                ->whereNotNull('assignment_date')
-                ->whereBetween(DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                ->visibleInCommercialNotas()
                 ->where('reten', false)
                 ->where($estadoFiltro);
 
@@ -177,6 +172,10 @@ class Notas extends Component
     protected function canAccessNote(Note $note): bool
     {
         $user = auth()->user();
+
+        if ($note->assignment_date && $note->assignment_date->toDateString() > now()->toDateString()) {
+            return false;
+        }
 
         if ($user->hasRole('sales_manager')) {
             return true;
@@ -535,10 +534,8 @@ class Notas extends Component
                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
         })->whereDoesntHave('venta');
 
-        // 3) Rango de fecha: hoy-5 hasta hoy (INCLUSIVO)
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+        // 3) Rango de fecha: hoy-5 hasta hoy (sin fechas futuras)
+        $query->visibleInCommercialNotas();
 
         // 4) Sin reten
         $query->where('reten', false);
