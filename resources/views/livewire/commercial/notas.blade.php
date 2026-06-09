@@ -242,6 +242,14 @@
             font-size: 1.25rem;
         }
 
+        .notas-sections {
+            margin: 0 .75rem;
+        }
+
+        .notas-sections .space-y-4 > * + * {
+            margin-top: 1rem;
+        }
+
         @media (max-width: 520px) {
             .bulk-bar {
                 flex-wrap: nowrap;
@@ -643,14 +651,17 @@
         </div>
     </div>
 
-    <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notes) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
+    <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
 
-    <div class="overflow-x-auto">
-
-        <div class="mobile-optimized">
-            <div class="space-y-4">
-
-                @forelse($this->notes as $note)
+    <div class="overflow-x-auto notas-sections">
+        <div class="mobile-optimized space-y-6">
+            @foreach([
+                ['heading' => 'Notas de hoy', 'notes' => $this->notesToday, 'empty' => 'No hay notas de hoy.'],
+                ['heading' => 'Notas anteriores', 'notes' => $this->notesPrevious, 'empty' => 'No hay notas anteriores.'],
+            ] as $section)
+                <x-filament::section :heading="$section['heading']">
+                    <div class="space-y-4">
+                        @forelse($section['notes'] as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                         <div
                             class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
@@ -758,12 +769,14 @@
                             </button>
                         </div>
                     </div>
-                @empty
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                        <p class="text-gray-500 dark:text-gray-400">No hay notas registradas</p>
+                        @empty
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+                                <p class="text-gray-500 dark:text-gray-400">{{ $section['empty'] }}</p>
+                            </div>
+                        @endforelse
                     </div>
-                @endforelse
-            </div>
+                </x-filament::section>
+            @endforeach
         </div>
     </div>
     <script>

@@ -446,6 +446,32 @@ class Note extends Model
         return $this->visit_date ?? $this->assignment_date;
     }
 
+    public function scopeCommercialVisibleDateToday($query)
+    {
+        $hoy = now()->toDateString();
+
+        return $query
+            ->where(function ($q) {
+                $q->whereNotNull('visit_date')
+                    ->orWhereNotNull('assignment_date');
+            })
+            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) = ?', [$hoy]);
+    }
+
+    public function scopeCommercialVisibleDatePrevious($query)
+    {
+        $hoy = now()->toDateString();
+        $desde = now()->subDays(5)->toDateString();
+
+        return $query
+            ->where(function ($q) {
+                $q->whereNotNull('visit_date')
+                    ->orWhereNotNull('assignment_date');
+            })
+            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) >= ?', [$desde])
+            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) < ?', [$hoy]);
+    }
+
     public function salaEvents()
     {
         return $this->hasMany(NoteSalaEvent::class, 'note_id');
