@@ -86,8 +86,15 @@ class NotasDireccionPage extends Page implements HasTable
 
                     // (B) Futuro: mañana en adelante, sin importar estado_terminal
                     ->orWhere(function (Builder $f) use ($tomorrow) {
-                    $f->where('visit_date', '>=', $tomorrow);
-                });
+                        $f->where('visit_date', '>=', $tomorrow);
+                    })
+
+                    // (C) Sin visit_date pero con assignment_date en los últimos 4 meses
+                    ->orWhere(function (Builder $c) use ($from, $todayEnd) {
+                        $c->whereNull('visit_date')
+                            ->where('assignment_date', '>=', $from)
+                            ->where('assignment_date', '<=', $todayEnd);
+                    });
             });
     }
 
