@@ -66,35 +66,29 @@ class NotasDireccionPage extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        $from = now()->startOfMonth()->subMonthsNoOverflow(4);
-        $todayEnd = now()->endOfDay();            // incluye hoy completo
-        $tomorrow = now()->addDay()->startOfDay(); // futuro desde mañana
+        $from     = now()->startOfMonth()->subMonthsNoOverflow(4);
+        $todayEnd = now()->endOfDay();
+        $tomorrow = now()->addDay()->startOfDay();
 
         return Note::query()
             ->with(['customer'])
             ->where(function (Builder $q) use ($from, $todayEnd, $tomorrow) {
-                // (A) Histórico: 4 meses -> hoy, con filtro de estados
-                $q->where(function (Builder $h) use ($from, $todayEnd) {
-                    $h->where('visit_date', '>=', $from)
-                        ->where('visit_date', '<=', $todayEnd)
-                        ->whereIn('estado_terminal', [
-                            EstadoTerminal::NUL->value,
-                            EstadoTerminal::VENTA->value,
-                            EstadoTerminal::CONFIRMADO->value,
-                        ]);
+                // (A) visit_date futura (cualquier estado)
+                $q->where('visit_date', '>=', $tomorrow)
+
+                // (B) visit_date en los últimos 4 meses (cualquier estado)
+                ->orWhere(function (Builder $h) use ($from, $todayEnd) {
+                    $h->whereNotNull('visit_date')
+                        ->where('visit_date', '>=', $from)
+                        ->where('visit_date', '<=', $todayEnd);
                 })
 
-                    // (B) Futuro: mañana en adelante, sin importar estado_terminal
-                    ->orWhere(function (Builder $f) use ($tomorrow) {
-                        $f->where('visit_date', '>=', $tomorrow);
-                    })
-
-                    // (C) Sin visit_date pero con assignment_date en los últimos 4 meses
-                    ->orWhere(function (Builder $c) use ($from, $todayEnd) {
-                        $c->whereNull('visit_date')
-                            ->where('assignment_date', '>=', $from)
-                            ->where('assignment_date', '<=', $todayEnd);
-                    });
+                // (C) assignment_date en los últimos 4 meses (sin importar visit_date ni estado)
+                ->orWhere(function (Builder $c) use ($from, $todayEnd) {
+                    $c->whereNotNull('assignment_date')
+                        ->where('assignment_date', '>=', $from)
+                        ->where('assignment_date', '<=', $todayEnd);
+                });
             });
     }
 
