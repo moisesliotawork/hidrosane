@@ -75,7 +75,8 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('dni')
 
                         ->label('DNI')
-                        ->maxLength(10),
+                        ->maxLength(10)
+                        ->required(),
                     //->columnSpanFull(),
 
                     DatePicker::make('fecha_nac')
@@ -83,6 +84,7 @@ class VentaDesdeCeroResource extends Resource
                         ->timezone('Europe/Madrid')
                         ->native(false)
                         ->maxDate(now())            // evita fechas futuras
+                        ->required()
                         ->reactive()
                         ->afterStateHydrated(function ($state, Set $set) {
                             $set('age', $state ? Carbon::parse($state)->age : null);
@@ -252,59 +254,6 @@ class VentaDesdeCeroResource extends Resource
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
 
-                    TextInput::make('iban')
-                        ->label('IBAN')
-                        ->columnSpanFull()
-
-                        // Máx visible incluyendo espacios: 29 (XXXX XXXX XXXX XXXX XXXX XXXX)
-                        ->maxLength(29)
-
-                        // Formato 4 en 4 al cargar / editar
-                        ->formatStateUsing(
-                            fn(?string $state) => $state
-                            ? implode(' ', str_split(strtoupper(str_replace(' ', '', $state)), 4))
-                            : null
-                        )
-
-                        // Guardar SIN espacios y en mayúsculas
-                        ->dehydrateStateUsing(
-                            fn(?string $state) => $state
-                            ? str_replace(' ', '', strtoupper($state))
-                            : null
-                        )
-
-                        // Autoformateo + recorte a 24 chars reales
-                        ->afterStateUpdated(function (?string $state, Set $set) {
-                            $plain = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
-
-                            // ⛔ límite duro: 24 caracteres sin espacios
-                            if (strlen($plain) > 24) {
-                                $plain = substr($plain, 0, 24);
-                            }
-
-                            $formatted = implode(' ', str_split($plain, 4));
-
-                            if ($formatted !== ($state ?? '')) {
-                                $set('iban', $formatted);
-                            }
-                        })
-
-                        // Validación: máximo 24 sin espacios + solo A-Z y 0-9
-                        ->rules([
-                            function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $plain = strtoupper(preg_replace('/\s+/', '', (string) $value));
-
-                                    if (strlen($plain) > 24) {
-                                        $fail('El IBAN debe tener máximo 24 caracteres (sin contar espacios).');
-                                    }
-
-                                    if ($plain !== '' && !preg_match('/^[A-Z0-9]+$/', $plain)) {
-                                        $fail('El IBAN solo puede contener letras y números.');
-                                    }
-                                };
-                            },
-                        ]),
 
                 ]),
             ]),
@@ -612,6 +561,61 @@ class VentaDesdeCeroResource extends Resource
                 Toggle::make('crema')
                     ->label('¿Incluye crema?')
                     ->default(false),
+
+                TextInput::make('iban')
+                    ->label('IBAN')
+                    ->columnSpanFull()
+                    ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+
+                    // Máx visible incluyendo espacios: 29 (XXXX XXXX XXXX XXXX XXXX XXXX)
+                    ->maxLength(29)
+
+                    // Formato 4 en 4 al cargar / editar
+                    ->formatStateUsing(
+                        fn(?string $state) => $state
+                        ? implode(' ', str_split(strtoupper(str_replace(' ', '', $state)), 4))
+                        : null
+                    )
+
+                    // Guardar SIN espacios y en mayúsculas
+                    ->dehydrateStateUsing(
+                        fn(?string $state) => $state
+                        ? str_replace(' ', '', strtoupper($state))
+                        : null
+                    )
+
+                    // Autoformateo + recorte a 24 chars reales
+                    ->afterStateUpdated(function (?string $state, Set $set) {
+                        $plain = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+
+                        // ⛔ límite duro: 24 caracteres sin espacios
+                        if (strlen($plain) > 24) {
+                            $plain = substr($plain, 0, 24);
+                        }
+
+                        $formatted = implode(' ', str_split($plain, 4));
+
+                        if ($formatted !== ($state ?? '')) {
+                            $set('iban', $formatted);
+                        }
+                    })
+
+                    // Validación: máximo 24 sin espacios + solo A-Z y 0-9
+                    ->rules([
+                        function () {
+                            return function (string $attribute, $value, \Closure $fail) {
+                                $plain = strtoupper(preg_replace('/\s+/', '', (string) $value));
+
+                                if (strlen($plain) > 24) {
+                                    $fail('El IBAN debe tener máximo 24 caracteres (sin contar espacios).');
+                                }
+
+                                if ($plain !== '' && !preg_match('/^[A-Z0-9]+$/', $plain)) {
+                                    $fail('El IBAN solo puede contener letras y números.');
+                                }
+                            };
+                        },
+                    ]),
             ])->columns(2),
 
             Section::make('Informe al REPARTIDOR')->schema([

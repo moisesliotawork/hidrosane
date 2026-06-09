@@ -56,8 +56,8 @@ class VentaDesdeCeroResource extends Resource
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
-                    TextInput::make('dni')->label('DNI')->columnSpanFull(),
-                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
+                    TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
+                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false)->required(),
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
@@ -171,15 +171,7 @@ class VentaDesdeCeroResource extends Resource
                             fn() => collect(range(1, 10))->mapWithKeys(fn($n) => [$n => (string) $n])->toArray()
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
-                    TextInput::make('iban')->label('IBAN')->columnSpanFull()
-                        ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
-                        ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
-                        ->afterStateUpdated(function (string $state, \Filament\Forms\Set $set) {
-                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
-                            $formatted = implode(' ', str_split($plain, 4));
-                            if ($formatted !== $state)
-                                $set('iban', $formatted);
-                        }),
+
                 ]),
             ]),
 
@@ -443,6 +435,17 @@ class VentaDesdeCeroResource extends Resource
                 Toggle::make('crema')
                     ->label('¿Incluye crema?')
                     ->default(false),
+
+                TextInput::make('iban')->label('IBAN')->columnSpanFull()
+                    ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                    ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
+                    ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
+                    ->afterStateUpdated(function (string $state, \Filament\Forms\Set $set) {
+                        $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                        $formatted = implode(' ', str_split($plain, 4));
+                        if ($formatted !== $state)
+                            $set('iban', $formatted);
+                    }),
             ])->columns(2),
 
             Section::make('Informe al REPARTIDOR')->schema([
