@@ -423,53 +423,86 @@ class Note extends Model
         return $q->where('printed', false);
     }
 
+    public const BUSINESS_TIMEZONE = 'Europe/Madrid';
+
+    public static function businessTimezone(): string
+    {
+        return self::BUSINESS_TIMEZONE;
+    }
+
+    public static function businessToday(): Carbon
+    {
+        return now(self::businessTimezone())->startOfDay();
+    }
+
+    public static function normalizeCommercialAssignmentDate(mixed $date = null): Carbon
+    {
+        if (filled($date)) {
+            return Carbon::parse($date, self::businessTimezone())->startOfDay();
+        }
+
+        return self::businessToday();
+    }
+
+    /** Notas con comercial asignado (Asign.Comercial). */
+    public function scopeAssignedToCommercial($query)
+    {
+        return $query->whereNotNull('comercial_id');
+    }
+
+    /** Fecha efectiva en Asign.Comercial: asignación o visita si aún no hay asignación. */
+    public function effectiveAssignmentDate(): ?Carbon
+    {
+        return $this->assignment_date ?? $this->visit_date;
+    }
+
+    public function scopeWhereEffectiveAssignmentDate($query, Carbon|string $date)
+    {
+        $dateString = $date instanceof Carbon
+            ? $date->toDateString()
+            : Carbon::parse($date, self::businessTimezone())->toDateString();
+
+        return $query->where(function ($q) use ($dateString) {
+            $q->whereDate('assignment_date', $dateString)
+                ->orWhere(function ($q2) use ($dateString) {
+                    $q2->whereNull('assignment_date')
+                        ->whereNotNull('visit_date')
+                        ->whereDate('visit_date', $dateString);
+                });
+        });
+    }
+
     /**
-     * Ventana visible en Notas (Comercial): hoy-5 … hoy, sin fechas futuras.
-     * Usa visit_date si existe; si no, assignment_date (fecha que ve el comercial).
+     * Ventana visible en Notas (Comercial): hoy-5 … hoy según assignment_date.
+     * La fecha de visita programada (visit_date) no determina visibilidad.
      */
     public function scopeVisibleInCommercialNotas($query)
     {
-        $hoy = now()->toDateString();
-        $desde = now()->subDays(5)->toDateString();
-
         return $query
-            ->where(function ($q) {
-                $q->whereNotNull('visit_date')
-                    ->orWhereNotNull('assignment_date');
-            })
-            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) >= ?', [$desde])
-            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) <= ?', [$hoy]);
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->whereDate('assignment_date', '<=', today());
     }
 
+    /** Fecha que ve el comercial en NOTAS: asignación, no visita futura. */
     public function commercialVisibleDate(): ?Carbon
     {
-        return $this->visit_date ?? $this->assignment_date;
+        return $this->assignment_date ?? $this->visit_date;
     }
 
     public function scopeCommercialVisibleDateToday($query)
     {
-        $hoy = now()->toDateString();
-
         return $query
-            ->where(function ($q) {
-                $q->whereNotNull('visit_date')
-                    ->orWhereNotNull('assignment_date');
-            })
-            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) = ?', [$hoy]);
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', today());
     }
 
     public function scopeCommercialVisibleDatePrevious($query)
     {
-        $hoy = now()->toDateString();
-        $desde = now()->subDays(5)->toDateString();
-
         return $query
-            ->where(function ($q) {
-                $q->whereNotNull('visit_date')
-                    ->orWhereNotNull('assignment_date');
-            })
-            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) >= ?', [$desde])
-            ->whereRaw('DATE(COALESCE(visit_date, assignment_date)) < ?', [$hoy]);
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', '<', today())
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay());
     }
 
     public function salaEvents()

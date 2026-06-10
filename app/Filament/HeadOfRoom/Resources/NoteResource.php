@@ -875,7 +875,7 @@ class NoteResource extends Resource
                             }
 
                             $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
                                 : null;
 
                             $updates = [
@@ -883,6 +883,10 @@ class NoteResource extends Resource
                                 'assignment_date' => $assignmentDate,
                                 'reten' => false,
                             ];
+
+                            if (!empty($comercialId) && $assignmentDate) {
+                                $updates['visit_date'] = $assignmentDate;
+                            }
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
                                 $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
@@ -1168,7 +1172,7 @@ class NoteResource extends Resource
                             }
 
                             $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
                                 : null;
 
                             $allRecords  = collect($records);
@@ -1254,11 +1258,17 @@ class NoteResource extends Resource
 
                             // 1) Asignar las notas limpias
                             if (!empty($cleanIds)) {
-                                Note::whereIn('id', $cleanIds)->update([
+                                $bulkUpdates = [
                                     'comercial_id'    => (!empty($comercialId) ? $comercialId : null),
                                     'assignment_date' => $assignmentDate,
                                     'reten'           => false,
-                                ]);
+                                ];
+
+                                if (!empty($comercialId) && $assignmentDate) {
+                                    $bulkUpdates['visit_date'] = $assignmentDate;
+                                }
+
+                                Note::whereIn('id', $cleanIds)->update($bulkUpdates);
 
                                 // 2) Resetear TN a S/E para las que estén en SALA
                                 $toResetIds = Note::whereIn('id', $cleanIds)
@@ -1493,7 +1503,7 @@ class NoteResource extends Resource
                             }
 
                             $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
                                 : null;
 
                             // Capturar from_comercial_id ANTES del update
@@ -1580,11 +1590,17 @@ class NoteResource extends Resource
 
                             // 1) Asignar + reten en notas limpias
                             if (!empty($cleanIds)) {
-                                Note::whereIn('id', $cleanIds)->update([
+                                $retenUpdates = [
                                     'comercial_id'    => (!empty($comercialId) ? $comercialId : null),
                                     'assignment_date' => $assignmentDate,
                                     'reten'           => true,
-                                ]);
+                                ];
+
+                                if (!empty($comercialId) && $assignmentDate) {
+                                    $retenUpdates['visit_date'] = $assignmentDate;
+                                }
+
+                                Note::whereIn('id', $cleanIds)->update($retenUpdates);
 
                                 // 2) Resetear TN a S/E para las que estén en SALA
                                 $toResetIds = Note::whereIn('id', $cleanIds)

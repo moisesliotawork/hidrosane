@@ -5,6 +5,8 @@ namespace App\Filament\HeadOfRoom\Resources;
 use App\Filament\HeadOfRoom\Resources\NoteAssignmentResource\Pages;
 use App\Models\Note;
 use Filament\Resources\Resource;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\ActionGroup;
@@ -22,6 +24,14 @@ class NoteAssignmentResource extends Resource
     protected static ?string $model = Note::class;
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Asign.Comercial';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->assignedToCommercial()
+            ->with(['comercial', 'customer']);
+    }
 
     public static function table(Table $table): Table
     {
@@ -65,7 +75,16 @@ class NoteAssignmentResource extends Resource
                     ->weight('bold')
                     ->badge()
                     ->color('danger')
-                    ->dateTime('d/m/Y  H:i'),
+                    ->formatStateUsing(
+                        fn (Note $record): string => $record->effectiveAssignmentDate()
+                            ? $record->effectiveAssignmentDate()->format('d/m/Y H:i')
+                            : '—'
+                    )
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderByRaw(
+                            'COALESCE(assignment_date, visit_date) ' . ($direction === 'desc' ? 'desc' : 'asc')
+                        );
+                    }),
 
 
 
@@ -120,7 +139,7 @@ class NoteAssignmentResource extends Resource
                    ->query(function ($query, array $data) {
                        return $query->when(
                            $data['date'],
-                           fn ($query, $date) => $query->whereDate('assignment_date', $date),
+                           fn ($query, $date) => $query->whereEffectiveAssignmentDate($date),
                        );
                    })
                    ->indicator(fn (array $data): ?string => $data['date'] ? 'Fecha: ' . \Carbon\Carbon::parse($data['date'])->format('d/m/Y') : null),

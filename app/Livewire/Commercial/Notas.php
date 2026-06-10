@@ -173,7 +173,7 @@ class Notas extends Component
     {
         $user = auth()->user();
 
-        if ($note->commercialVisibleDate()?->toDateString() > now()->toDateString()) {
+        if ($note->assignment_date?->toDateString() > now()->toDateString()) {
             return false;
         }
 
