@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VentaResource\Pages;
 
 use App\Filament\Admin\Resources\VentaResource;
+use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Filament\Actions\Action;
@@ -14,6 +15,8 @@ use Filament\Actions\DeleteAction;
 
 class EditVenta extends EditRecord
 {
+    use SyncsCustomerIbanOnVentaForm;
+
     protected static string $resource = VentaResource::class;
 
     protected function getRedirectUrl(): string
@@ -36,8 +39,15 @@ class EditVenta extends EditRecord
 
 
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return $this->hydrateCustomerIban($data);
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $this->persistCustomerIban($data);
+
         /* 1. Nunca tocar el Nº de nota */
         Arr::forget($data, 'note.nro_nota');
 

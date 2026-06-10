@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VentaResource\Pages;
 
 use App\Filament\Admin\Resources\VentaResource;
+use App\Filament\Support\CustomerIbanForm;
 use App\Models\Venta;
 use App\Models\TransactionVenta;
 use Filament\Forms\Form;
@@ -84,6 +85,8 @@ class CreateContratoBPage extends Page implements HasForms
         // ✅ No precargar ventaOfertas ni totales
         $state['ventaOfertas'] = [];
 
+        $state['iban'] = $this->origen->customer?->iban;
+
         // ✅ (opcional) deja “datos de la venta” totalmente limpios si algo los setea
         $state['importe_total'] = 0;
         $state['monto_extra'] = 0;
@@ -107,7 +110,8 @@ class CreateContratoBPage extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        unset($data['customer']); // NO borres ventaOfertas
+        CustomerIbanForm::persist($this->origen->customer, $data['iban'] ?? null);
+        unset($data['iban'], $data['customer']); // NO borres ventaOfertas
 
         $data['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
         $data['nro_cliente_adm'] = $this->origen->nro_cliente_adm;

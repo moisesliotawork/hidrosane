@@ -3,6 +3,7 @@
 namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 
 use App\Filament\Gerente\Resources\VentaResource;
+use App\Filament\Support\CustomerIbanForm;
 use App\Models\Venta;
 use App\Models\TransactionVenta;
 use Filament\Forms\Form;
@@ -79,6 +80,7 @@ class CreateContratoBPage extends Page implements HasForms
         ]);
 
         $state['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
+        $state['iban'] = $this->origen->customer?->iban;
 
         $this->form->fill($state ?? []);
     }
@@ -95,7 +97,8 @@ class CreateContratoBPage extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        unset($data['customer'], $data['ventaOfertas']);
+        CustomerIbanForm::persist($this->origen->customer, $data['iban'] ?? null);
+        unset($data['iban'], $data['customer'], $data['ventaOfertas']);
 
         $data['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
         $data['nro_cliente_adm'] = $this->origen->nro_cliente_adm;
