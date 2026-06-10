@@ -677,6 +677,7 @@ class NoteResource extends Resource
                                         ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                                         ->with(['roles:id,name'])
                                         ->role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereNull('baja')
                                         ->orderBy('empleado_id')
                                         ->get()
                                         ->unique('id');
@@ -710,7 +711,31 @@ class NoteResource extends Resource
                                     return $baseOptions;
                                 })
                                 ->searchable()
-                                ->native(false),
+                                ->native(false)
+                                ->placeholder('Sin asignar')
+                                ->rules([
+                                    'nullable',
+                                    function () {
+                                        return function (string $attribute, $value, \Closure $fail) {
+                                            if (blank($value) || $value === '__RETEN__') {
+                                                return;
+                                            }
+
+                                            $isValid = User::query()
+                                                ->where('id', $value)
+                                                ->whereNull('baja')
+                                                ->whereHas(
+                                                    'roles',
+                                                    fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager'])
+                                                )
+                                                ->exists();
+
+                                            if (!$isValid) {
+                                                $fail('El comercial seleccionado no está activo o no tiene un rol válido.');
+                                            }
+                                        };
+                                    },
+                                ]),
 
                             Forms\Components\DatePicker::make('assignment_date')
                                 ->label('Fecha de asignación')
@@ -718,6 +743,31 @@ class NoteResource extends Resource
                                 ->required(false),
                         ];
                     })
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar asignación')
+                    ->modalDescription(function (Note $record, array $data): string {
+                        $comercialId = $data['comercial_id'] ?? null;
+
+                        if ($comercialId === '__RETEN__') {
+                            return "¿Confirmas enviar la nota #{$record->nro_nota} a COMERCIAL RETEN?";
+                        }
+
+                        if (blank($comercialId)) {
+                            return "¿Confirmas quitar el comercial asignado de la nota #{$record->nro_nota}?";
+                        }
+
+                        $user = User::find($comercialId);
+                        $label = $user
+                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
+                            : 'el comercial seleccionado';
+
+                        $fecha = filled($data['assignment_date'] ?? null)
+                            ? Carbon::parse($data['assignment_date'])->format('d/m/Y')
+                            : now()->format('d/m/Y');
+
+                        return "¿Confirmas asignar la nota #{$record->nro_nota} al comercial {$label} con fecha {$fecha}?";
+                    })
+                    ->modalSubmitActionLabel('Sí, confirmar')
 
                     ->action(function (Note $record, array $data): void {
                         try {
@@ -807,17 +857,43 @@ class NoteResource extends Resource
                             }
                             // ── Fin verificación ──────────────────────────────────────────
 
-                            $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
-                                    ? ($data['assignment_date'] ?? now())
-                                    : null,
-                                'reten' => false,
-                            ]);
+                            $comercialId = $data['comercial_id'] ?? null;
 
-                            $message = is_null($data['comercial_id'] ?? null)
+                            if (!empty($comercialId)) {
+                                $isValid = User::query()
+                                    ->where('id', $comercialId)
+                                    ->whereNull('baja')
+                                    ->whereHas(
+                                        'roles',
+                                        fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager'])
+                                    )
+                                    ->exists();
+
+                                if (!$isValid) {
+                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
+                                }
+                            }
+
+                            $assignmentDate = !empty($comercialId)
+                                ? ($data['assignment_date'] ?? now())
+                                : null;
+
+                            $updates = [
+                                'comercial_id' => $comercialId ?: null,
+                                'assignment_date' => $assignmentDate,
+                                'reten' => false,
+                            ];
+
+                            if ($record->estado_terminal === EstadoTerminal::SALA) {
+                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
+                                $updates['sent_to_sala_at'] = null;
+                            }
+
+                            $record->update($updates);
+
+                            $message = is_null($comercialId)
                                 ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . User::find($data['comercial_id'])->name;
+                                : 'Comercial asignado correctamente: ' . User::find($comercialId)?->name;
 
                             Notification::make()
                                 ->title($message)
@@ -1018,6 +1094,25 @@ class NoteResource extends Resource
                 Tables\Actions\BulkAction::make('assignCommercialBulk')
                     ->label('Asig. Com.')
                     ->icon('heroicon-s-user-plus')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar asignación masiva')
+                    ->modalDescription(function (array $data): string {
+                        if (blank($data['comercial_id'] ?? null)) {
+                            return '¿Confirmas quitar el comercial de las notas seleccionadas?';
+                        }
+
+                        $user = User::find($data['comercial_id']);
+                        $label = $user
+                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
+                            : 'el comercial seleccionado';
+
+                        $fecha = filled($data['assignment_date'] ?? null)
+                            ? Carbon::parse($data['assignment_date'])->format('d/m/Y')
+                            : now()->format('d/m/Y');
+
+                        return "¿Confirmas asignar las notas seleccionadas al comercial {$label} con fecha {$fecha}?";
+                    })
+                    ->modalSubmitActionLabel('Sí, confirmar')
                     ->form([
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
@@ -1162,6 +1257,7 @@ class NoteResource extends Resource
                                 Note::whereIn('id', $cleanIds)->update([
                                     'comercial_id'    => (!empty($comercialId) ? $comercialId : null),
                                     'assignment_date' => $assignmentDate,
+                                    'reten'           => false,
                                 ]);
 
                                 // 2) Resetear TN a S/E para las que estén en SALA
@@ -1325,6 +1421,21 @@ class NoteResource extends Resource
                     ->label('Asig. Come. + Enviar a RETEN')
                     ->icon('heroicon-s-user-plus')
                     ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar asignación y envío a RETEN')
+                    ->modalDescription(function (array $data): string {
+                        if (blank($data['comercial_id'] ?? null)) {
+                            return '¿Confirmas enviar las notas seleccionadas a RETEN sin asignar comercial?';
+                        }
+
+                        $user = User::find($data['comercial_id']);
+                        $label = $user
+                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
+                            : 'el comercial seleccionado';
+
+                        return "¿Confirmas asignar las notas seleccionadas al comercial {$label} y enviarlas a RETEN?";
+                    })
+                    ->modalSubmitActionLabel('Sí, confirmar')
                     ->form([
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
