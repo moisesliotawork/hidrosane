@@ -4,10 +4,8 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Models\Note;
 use App\Enums\FuenteNotas;
-use App\Enums\EstadoTerminal;
 use App\Filament\SuperAdmin\Resources\NoteHorResource\Pages;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
@@ -52,59 +50,7 @@ class NoteHorResource extends Resource
                     })
             );
 
-        $tnColumn = TextColumn::make('estado_terminal')
-            ->label('TN')
-            ->badge()
-            ->formatStateUsing(function (Note $record): string {
-                $et = $record->estado_terminal;
-                return $et instanceof EstadoTerminal ? $et->label() : 'S/E';
-            })
-            ->color(function (Note $record): string {
-                return match ($record->estado_terminal) {
-                    EstadoTerminal::NUL       => 'danger',
-                    EstadoTerminal::VENTA      => 'success',
-                    EstadoTerminal::CONFIRMADO => 'warning',
-                    EstadoTerminal::SALA       => 'pink',
-                    EstadoTerminal::AUSENTE    => 'info',
-                    default                    => 'gray',
-                };
-            })
-            ->action(
-                Action::make('cycleTN')
-                    ->action(function (Note $record): void {
-                        $cycle = [
-                            ''           => EstadoTerminal::NUL->value,
-                            'nulo'       => EstadoTerminal::VENTA->value,
-                            'venta'      => EstadoTerminal::CONFIRMADO->value,
-                            'confirmado' => EstadoTerminal::SALA->value,
-                            'sala'       => EstadoTerminal::AUSENTE->value,
-                            'ausente'    => EstadoTerminal::SIN_ESTADO->value,
-                        ];
-
-                        $current = $record->getRawOriginal('estado_terminal') ?? '';
-                        $next    = $cycle[$current] ?? EstadoTerminal::SIN_ESTADO->value;
-
-                        $record->update([
-                            'estado_terminal'   => $next,
-                            'fecha_declaracion' => $next === EstadoTerminal::SIN_ESTADO->value ? null : now(),
-                        ]);
-
-                        $nextLabel = EstadoTerminal::tryFrom($next)?->label() ?? 'S/E';
-
-                        Notification::make()
-                            ->title("TN → {$nextLabel}")
-                            ->success()
-                            ->send();
-                    })
-            );
-
         $existingColumns = array_values($table->getColumns());
-
-        // Reemplazar la columna estado_terminal heredada por la versión ciclable
-        $existingColumns = array_map(
-            fn($col) => $col->getName() === 'estado_terminal' ? $tnColumn : $col,
-            $existingColumns
-        );
 
         array_splice($existingColumns, 1, 0, [$fuenteColumn]);
 
