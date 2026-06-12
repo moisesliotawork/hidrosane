@@ -386,15 +386,29 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->searchable()
-                    ->label('# Nota')
+                    ->label('Nº Nota')
+                    ->badge()
+                    ->color('warning')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->formatStateUsing(function (string $state) {
-                        // Asegurarse que tiene exactamente 5 caracteres
-                        if (strlen($state) === 5) {
-                            return substr($state, 0, 3) . ' ' . substr($state, 3, 2);
-                        }
-                        return $state; // Si no tiene 5 caracteres, devolver el valor original
+                    ->alignCenter(),
+
+                Tables\Columns\TextColumn::make('estado_terminal')
+                    ->label('En nota')
+                    ->badge()
+                    ->formatStateUsing(fn (Note $record): string => $record->estado_terminal->enNotaLabel())
+                    ->color(fn (Note $record): string => $record->estado_terminal->enNotaColor())
+                    ->tooltip('Clic para cambiar el estado')
+                    ->alignCenter()
+                    ->action(function (Note $record): void {
+                        $next = EstadoTerminal::nextFromRaw($record->getRawOriginal('estado_terminal'));
+
+                        $record->update(['estado_terminal' => $next->value]);
+
+                        Notification::make()
+                            ->title('Estado actualizado')
+                            ->body("En nota: {$next->enNotaLabel()}")
+                            ->success()
+                            ->send();
                     }),
 
                 // Tables\Columns\TextColumn::make('fuente')
@@ -468,20 +482,6 @@ class NoteResource extends Resource
                     ->badge()
                     ->color(Color::Gray)
                     ->label('Horario')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                Tables\Columns\TextColumn::make('estado_terminal')
-                    ->badge()
-                    ->formatStateUsing(fn(Note $record): string => $record->estado_terminal->label())
-                    ->color(fn(Note $record): string => match ($record->estado_terminal) {
-                        EstadoTerminal::NUL => 'danger',
-                        EstadoTerminal::VENTA => 'success',
-                        EstadoTerminal::CONFIRMADO => 'orange',
-                        EstadoTerminal::SALA => 'pink',
-                        EstadoTerminal::SIN_ESTADO => 'gray'
-                    })
-                    ->label('TN')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
