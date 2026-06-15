@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\NoteNullReason;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\NoteSalaObservation;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property int $id
@@ -423,6 +424,7 @@ class Note extends Model
         return $q->where('printed', false);
     }
 
+<<<<<<< HEAD
     public const BUSINESS_TIMEZONE = 'Europe/Madrid';
 
     public static function businessTimezone(): string
@@ -480,10 +482,32 @@ class Note extends Model
     {
         return $query
             ->whereNotNull('assignment_date')
+=======
+    /** Notas visibles en Reasignar Visitas (misma lógica que NotasDeComercial). */
+    public function scopeForReasignarVisitas(Builder $query): Builder
+    {
+        return $query
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('reten')->orWhere('reten', false);
+            });
+    }
+
+    public function scopeReasignarVisitasEnVentana(Builder $query): Builder
+    {
+        return $query
+            ->forReasignarVisitas()
+>>>>>>> develop
             ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay())
             ->whereDate('assignment_date', '<=', today());
     }
 
+<<<<<<< HEAD
     /** Fecha que ve el comercial en NOTAS: asignación, no visita futura. */
     public function commercialVisibleDate(): ?Carbon
     {
@@ -505,6 +529,8 @@ class Note extends Model
             ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay());
     }
 
+=======
+>>>>>>> develop
     public function salaEvents()
     {
         return $this->hasMany(NoteSalaEvent::class, 'note_id');

@@ -26,7 +26,7 @@ class ListNotes extends ListRecords
             return 'NOTAS JE';
         }
 
-        return 'Notas';
+        return 'Notas (listado)';
     }
 
     protected function getHeaderActions(): array

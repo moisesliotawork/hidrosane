@@ -32,11 +32,23 @@ class NoteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Notas';
+    protected static ?string $navigationLabel = 'Notas (listado)';
+
+    protected static ?int $navigationSort = 0;
 
     protected static ?string $modelLabel = 'Nota';
 
-    protected static ?string $pluralModelLabel = 'Notas';
+    protected static ?string $pluralModelLabel = 'Notas (listado)';
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Notas (listado)';
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {

@@ -27,6 +27,7 @@ use App\Models\CreamTransfer;
 use App\Notifications\CreamTransferRequested;
 use App\Models\NoteSalaEvent;
 use App\Models\User;
+use App\Support\ActionGps;
 use Livewire\Attributes\On;
 
 
@@ -62,32 +63,24 @@ class EditNote extends EditRecord
                         ->placeholder('Escribe una observación si lo consideras necesario…')
                         ->rows(3)
                         ->maxLength(2000),
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como AUSENTE')
                 ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
-                    // 1) Cambiar estado
+                    ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
+
+                    // 2) Cambiar estado y guardar coords en la nota (como Confirmada → lat_dentro)
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->reten = false;
+                    $this->record->fecha_declaracion = now();
+                    $this->record->lat_dentro = $lat;
+                    $this->record->lng_dentro = $lng;
                     $this->record->save();
-
-                    // 2) Resolver ubicación
-                    if (App::environment('local')) {
-                        $lat = '42.2405';
-                        $lng = '-8.7200';
-                    } else {
-                        $lat = request()->input('latitud');
-                        $lng = request()->input('longitud');
-
-                        if (empty($lat) && property_exists($this->record, 'dentro_latitude')) {
-                            $lat = $this->record->dentro_latitude;
-                        }
-                        if (empty($lng) && property_exists($this->record, 'dentro_longitude')) {
-                            $lng = $this->record->dentro_longitude;
-                        }
-                    }
 
                     // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
@@ -168,20 +161,21 @@ class EditNote extends EditRecord
                     $companionId = $rawCompanionId === '__NONE__' ? null : $rawCompanionId;
 
                     DB::transaction(function () use ($data, $companionId) {
+                        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
                         // 1) Guardar motivo + compañero
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
-                            'companion_id' => $companionId,   // ✅ NUEVO
+                            'companion_id' => $companionId,
                             'reason' => $data['reason'],
                         ]);
 
                         // 2) Cambiar estado + GPS
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
-                        $this->record->lat = $data['gps_lat'] ?? null;
-                        $this->record->lng = $data['gps_lng'] ?? null;
+                        $this->record->lat = $lat;
+                        $this->record->lng = $lng;
                         $this->record->save();
 
                         DB::afterCommit(function () use ($nullReason) {
@@ -329,8 +323,9 @@ class EditNote extends EditRecord
                         ]);
 
                         $this->record->estado_terminal = EstadoTerminal::CONFIRMADO;
-                        $this->record->lat_dentro = $data['gps_lat'] ?? null;
-                        $this->record->lng_dentro = $data['gps_lng'] ?? null;
+                        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
+                        $this->record->lat_dentro = $lat;
+                        $this->record->lng_dentro = $lng;
                         $this->record->save();
 
                         // Si SÍ entregó crema, restamos una de su control diario

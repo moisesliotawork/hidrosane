@@ -40,6 +40,7 @@ class VentaDesdeCeroResource extends Resource
 
     // 👇 nombre en el menú lateral
     protected static ?string $navigationLabel = 'Puerta Fría';
+    protected static ?int $navigationSort = 5;
 
     /** Ir directo al Create al hacer clic en el menú */
     public static function getNavigationUrl(): string

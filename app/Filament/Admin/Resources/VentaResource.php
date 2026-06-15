@@ -1436,6 +1436,42 @@ class VentaResource extends Resource
             ])
             ->filters([
 
+                Filter::make('filtro_producto')
+                    ->form([
+                        Select::make('producto_id')
+                            ->label('Filtro por producto')
+                            ->placeholder('Buscar un producto')
+                            ->searchable()
+                            ->native(false)
+                            ->options(fn (): array => self::productoFilterOptions()),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $productoId = $data['producto_id'] ?? null;
+
+                        if (blank($productoId)) {
+                            return $query;
+                        }
+
+                        return $query
+                            ->whereHas(
+                                'ventaOfertas.productos',
+                                fn (Builder $q) => $q->where('producto_id', $productoId)
+                            )
+                            ->reorder()
+                            ->orderBy('created_at', 'asc');
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (blank($data['producto_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $nombre = Producto::query()
+                            ->whereKey($data['producto_id'])
+                            ->value('nombre');
+
+                        return $nombre ? "Producto: {$nombre}" : null;
+                    }),
+
                 Filter::make('cp_contrato')
                     ->form([
                         TextInput::make('cp')
@@ -1651,6 +1687,112 @@ class VentaResource extends Resource
     protected static function isContratoB(?Venta $record): bool
     {
         return filled($record?->nro_contr_adm) && str_contains($record->nro_contr_adm, '-B');
+    }
+
+    /** Resuelve los 3 productos prioritarios en orden fijo. */
+    protected static function resolvePriorityProductoFilterOptions(): array
+    {
+        $slots = [
+            [
+                'label' => 'DEPURADOR VITA ABANTERA',
+                'patterns' => [
+                    'depurador vita abantera',
+                    '%depurador%vita%abantera%',
+                ],
+                'must_not_contain' => ['mesa'],
+            ],
+            [
+                'label' => 'DEPURADORA DE MESA ABANTERA',
+                'patterns' => [
+                    'depuradora de mesa abantera',
+                    'depurador de mesa abantera',
+                    '%depuradora%mesa%abantera%',
+                    '%depurador%mesa%abantera%',
+                ],
+            ],
+            [
+                'label' => 'FILTROS DEPURADORA OSMOSIS',
+                'patterns' => [
+                    'filtros depuradora osmosis',
+                    '%filtros%depuradora%osmosis%',
+                ],
+            ],
+        ];
+
+        $options = [];
+        $usedIds = [];
+
+        foreach ($slots as $slot) {
+            $product = self::findProductoForFilterSlot($slot, $usedIds);
+
+            if ($product) {
+                $options[$product->id] = $slot['label'];
+                $usedIds[] = $product->id;
+            }
+        }
+
+        return $options;
+    }
+
+    protected static function findProductoForFilterSlot(array $slot, array $excludeIds): ?Producto
+    {
+        foreach ($slot['patterns'] as $pattern) {
+            $query = Producto::query()
+                ->when(!empty($excludeIds), fn (Builder $q) => $q->whereNotIn('id', $excludeIds));
+
+            if (str_contains($pattern, '%')) {
+                $query->whereRaw('LOWER(nombre) LIKE ?', [mb_strtolower($pattern)]);
+            } else {
+                $query->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($pattern)]);
+            }
+
+            $product = $query->first();
+
+            if (!$product) {
+                continue;
+            }
+
+            foreach ($slot['must_not_contain'] ?? [] as $forbidden) {
+                if (str_contains(mb_strtolower($product->nombre), mb_strtolower($forbidden))) {
+                    $product = null;
+                    break;
+                }
+            }
+
+            if ($product) {
+                return $product;
+            }
+        }
+
+        return null;
+    }
+
+    /** Opciones del selector Filtro por producto: 2 depuradores, filtros osmosis, resto A→Z. */
+    protected static function productoFilterOptions(): array
+    {
+        $priorities = self::resolvePriorityProductoFilterOptions();
+        $usedIds = array_keys($priorities);
+
+        $rest = Producto::query()
+            ->activos()
+            ->when(!empty($usedIds), fn (Builder $q) => $q->whereNotIn('id', $usedIds))
+            ->orderBy('nombre')
+            ->pluck('nombre', 'id')
+            ->all();
+
+        if (empty($priorities)) {
+            return $rest;
+        }
+
+        if (empty($rest)) {
+            return $priorities;
+        }
+
+        // Grupo fijo arriba (orden: depuradores → filtros) + resto alfabético
+        return [
+            'Principales' => $priorities,
+            'Resto' => $rest,
+        ];
     }
 
 

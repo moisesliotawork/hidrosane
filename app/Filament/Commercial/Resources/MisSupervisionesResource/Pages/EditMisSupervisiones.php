@@ -24,11 +24,21 @@ use Filament\Forms\Components\Select;
 use App\Models\CreamDailyControl;
 use App\Models\NoteSalaEvent;
 use App\Models\User;
-use App\Filament\Commercial\Resources\NoteResource;
+use App\Support\ActionGps;
+use Livewire\Attributes\On;
 
 class EditMisSupervisiones extends EditRecord
 {
     protected static string $resource = MisSupervisionesResource::class;
+
+    #[On('gpsCapturadoParaAccionNota')]
+    public function setGpsParaAccion(string $lat, string $lng): void
+    {
+        if (isset($this->mountedActionsData[0])) {
+            $this->mountedActionsData[0]['gps_lat'] = $lat;
+            $this->mountedActionsData[0]['gps_lng'] = $lng;
+        }
+    }
 
     public function getTitle(): string
     {
@@ -48,32 +58,23 @@ class EditMisSupervisiones extends EditRecord
                         ->placeholder('Escribe una observación si lo consideras necesario…')
                         ->rows(3)
                         ->maxLength(2000),
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como AUSENTE')
                 ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
-                    // 1) Cambiar estado
+                    ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
+
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->reten = false;
+                    $this->record->fecha_declaracion = now();
+                    $this->record->lat_dentro = $lat;
+                    $this->record->lng_dentro = $lng;
                     $this->record->save();
-
-                    // 2) Resolver ubicación
-                    if (App::environment('local')) {
-                        $lat = '42.2405';
-                        $lng = '-8.7200';
-                    } else {
-                        $lat = request()->input('latitud');
-                        $lng = request()->input('longitud');
-
-                        if (empty($lat) && property_exists($this->record, 'dentro_latitude')) {
-                            $lat = $this->record->dentro_latitude;
-                        }
-                        if (empty($lng) && property_exists($this->record, 'dentro_longitude')) {
-                            $lng = $this->record->dentro_longitude;
-                        }
-                    }
 
                     // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
@@ -138,6 +139,10 @@ class EditMisSupervisiones extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
+
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
@@ -150,18 +155,21 @@ class EditMisSupervisiones extends EditRecord
                     $companionId = $rawCompanionId === '__NONE__' ? null : $rawCompanionId;
 
                     DB::transaction(function () use ($data, $companionId) {
+                        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
                         // 1) Guardar motivo + compañero
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
-                            'companion_id' => $companionId,   // ✅ NUEVO
+                            'companion_id' => $companionId,
                             'reason' => $data['reason'],
                         ]);
 
-                        // 2) Cambiar estado
+                        // 2) Cambiar estado + GPS
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
+                        $this->record->lat = $lat;
+                        $this->record->lng = $lng;
                         $this->record->save();
 
                         DB::afterCommit(function () use ($nullReason) {
