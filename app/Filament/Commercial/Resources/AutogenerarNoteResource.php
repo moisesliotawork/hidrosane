@@ -147,9 +147,13 @@ class AutogenerarNoteResource extends Resource
 
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')
+                            ->required()
                             ->timezone('Europe/Madrid')
                             ->native(false)
-                            ->maxDate(now())              // no permitir fechas futuras
+                            ->maxDate(now())
+                            ->validationMessages([
+                                'required' => 'La fecha de nacimiento es obligatoria',
+                            ])
                             ->reactive()
                             ->afterStateHydrated(function ($state, Set $set) {
                                 $set('age', $state ? Carbon::parse($state)->age : null);

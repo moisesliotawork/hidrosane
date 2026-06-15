@@ -52,7 +52,16 @@ class ComercialesVerNotas extends Page implements HasTable
             $query = User::query()
                 ->role(['commercial', 'team_leader', 'sales_manager'])
                 ->whereNull('baja')
-                ->where('id', '!=', 1);
+                ->where('id', '!=', 1)
+                ->withCount([
+                    'notasDeclaradas as notas_hoy_count' => fn ($q) => $q
+                        ->forReasignarVisitas()
+                        ->whereDate('assignment_date', today()),
+                    'notasDeclaradas as notas_anteriores_count' => fn ($q) => $q
+                        ->forReasignarVisitas()
+                        ->whereDate('assignment_date', '<', today())
+                        ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay()),
+                ]);
 
         } else {
             abort(403);
@@ -71,6 +80,22 @@ class ComercialesVerNotas extends Page implements HasTable
                     ->label('Nombre')
                     ->formatStateUsing(fn($record) => trim($record->name . ' ' . ($record->last_name ?? '')))
                     ->searchable(),
+
+                Tables\Columns\TextColumn::make('notas_hoy_count')
+                    ->label('Notas Hoy')
+                    ->badge()
+                    ->color('success')
+                    ->formatStateUsing(fn ($state) => (int) $state > 0 ? (string) (int) $state : null)
+                    ->placeholder('—')
+                    ->alignCenter(),
+
+                Tables\Columns\TextColumn::make('notas_anteriores_count')
+                    ->label('Anteriores')
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn ($state) => (int) $state > 0 ? (string) (int) $state : null)
+                    ->placeholder('—')
+                    ->alignCenter(),
             ])
             ->actions([
                 Tables\Actions\Action::make('ver_notas')

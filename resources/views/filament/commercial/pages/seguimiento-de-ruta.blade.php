@@ -99,10 +99,10 @@
         }
 
         .active-notes-row {
-            display: grid;
-            grid-template-columns: auto minmax(120px, auto) auto minmax(0, 1fr) auto auto;
-            align-items: start;
-            gap: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
             margin-top: 2px;
         }
 
@@ -154,6 +154,42 @@
             color: #ffffff;
         }
 
+        .active-notes-badge-topic.is-ausente {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .active-notes-badge-topic.is-nulo {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .active-notes-ir-btn {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 3px;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .active-notes-ir-btn:hover,
+        .active-notes-ir-btn:focus-visible {
+            background: #15803d;
+            outline: none;
+        }
+
+        .active-notes-declared-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
         .active-notes-body {
             min-width: 0;
             color: #111827;
@@ -166,15 +202,13 @@
             color: #111827;
             font-size: 12px;
             font-weight: 800;
-            text-align: right;
             text-transform: uppercase;
             overflow-wrap: anywhere;
+            white-space: nowrap;
         }
 
         .active-notes-elapsed {
             display: inline-block;
-            grid-column: -2 / -1;
-            justify-self: end;
             padding: 1px 5px;
             border-radius: 2px;
             background: #e5e7eb;
@@ -182,7 +216,6 @@
             font-size: 12px;
             font-weight: 800;
             line-height: 1.3;
-            text-align: right;
             white-space: nowrap;
         }
 
@@ -211,19 +244,7 @@
             }
 
             .active-notes-row {
-                grid-template-columns: auto minmax(0, 1fr);
-            }
-
-            .active-notes-badge-topic,
-            .active-notes-body,
-            .active-notes-author {
-                grid-column: 1 / -1;
-                text-align: left;
-            }
-
-            .active-notes-elapsed {
-                grid-column: 1 / -1;
-                text-align: left;
+                align-items: flex-start;
             }
         }
     </style>
@@ -276,7 +297,19 @@
                                 'activities' => $this->getDailyActivitiesForNote($note, $date),
                             ];
                         })
-                        ->filter(fn($entry) => $entry['activities']->isNotEmpty())
+                        ->filter(function ($entry) use ($date) {
+                            if ($entry['activities']->isNotEmpty()) {
+                                return true;
+                            }
+
+                            $note = $entry['note'];
+                            if ($note->fecha_declaracion?->isSameDay($date)) {
+                                return true;
+                            }
+
+                            return ($note->ausencias ?? collect())
+                                ->contains(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date));
+                        })
                         ->sortBy(fn($entry) => $entry['activities']->first()['created_at'])
                         ->values();
 
@@ -293,7 +326,20 @@
                     })->count();
 
                     $declaredTodayCount = $notes
-                        ->filter(fn($entry) => $entry['note']->fecha_declaracion?->isToday())
+                        ->filter(function ($entry) use ($date) {
+                            $note = $entry['note'];
+                            if ($note->fecha_declaracion?->isSameDay($date)) {
+                                return true;
+                            }
+
+                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
+                            if ($estado !== 'ausente') {
+                                return false;
+                            }
+
+                            return ($note->ausencias ?? collect())
+                                ->contains(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date));
+                        })
                         ->count();
 
                     $fullName = trim($comercial->name . ' ' . $comercial->last_name);
@@ -326,13 +372,65 @@
                             @php
                                 $note = $entry['note'];
                                 $activities = $entry['activities'];
+                                $estadoVal = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
+
+                                $showDeclaredBanner = $note->fecha_declaracion?->isSameDay($date);
+                                $declaredAt = $showDeclaredBanner ? $note->fecha_declaracion : null;
+                                $declaredEstadoLabel = $note->estado_terminal?->label() ?? 'S/E';
+
+                                if (! $showDeclaredBanner && $estadoVal === 'ausente') {
+                                    $ausenciaDelDia = ($note->ausencias ?? collect())
+                                        ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                                        ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                                        ->first();
+
+                                    if ($ausenciaDelDia) {
+                                        $showDeclaredBanner = true;
+                                        $fechaAusencia = $ausenciaDelDia->fecha?->toDateString() ?? $ausenciaDelDia->created_at?->toDateString() ?? $date->toDateString();
+                                        $horaAusencia = $ausenciaDelDia->hora ?: $ausenciaDelDia->created_at?->format('H:i:s') ?: '00:00:00';
+                                        $declaredAt = \Carbon\Carbon::parse("{$fechaAusencia} {$horaAusencia}");
+                                        $declaredEstadoLabel = 'AUS';
+                                    }
+                                }
+
+                                $declaredGpsLat = null;
+                                $declaredGpsLng = null;
+                                if ($showDeclaredBanner) {
+                                    if ($estadoVal === 'nulo' && filled($note->lat) && filled($note->lng)) {
+                                        $declaredGpsLat = $note->lat;
+                                        $declaredGpsLng = $note->lng;
+                                    } elseif ($estadoVal === 'confirmado' && filled($note->lat_dentro) && filled($note->lng_dentro)) {
+                                        $declaredGpsLat = $note->lat_dentro;
+                                        $declaredGpsLng = $note->lng_dentro;
+                                    } elseif ($estadoVal === 'ausente') {
+                                        $lastAusencia = ($note->ausencias ?? collect())
+                                            ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                                            ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                                            ->first();
+                                        $declaredGpsLat = filled($lastAusencia?->latitud)
+                                            ? $lastAusencia->latitud
+                                            : (filled($note->lat_dentro) ? $note->lat_dentro : null);
+                                        $declaredGpsLng = filled($lastAusencia?->longitud)
+                                            ? $lastAusencia->longitud
+                                            : (filled($note->lng_dentro) ? $note->lng_dentro : null);
+                                    }
+                                }
                             @endphp
 
                             <div class="active-notes-note">
-                                @if($note->fecha_declaracion?->isToday())
-                                    <div class="active-notes-declared">
-                                        Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
-                                        a las {{ $note->fecha_declaracion->format('H:i') }}
+                                @if($showDeclaredBanner && $declaredAt)
+                                    <div class="active-notes-declared-row">
+                                        <div class="active-notes-declared">
+                                            Declarada {{ $date->isToday() ? 'hoy' : 'el ' . $date->format('d/m/Y') }} como {{ $declaredEstadoLabel }}
+                                            a las {{ $declaredAt->format('H:i') }}
+                                        </div>
+                                        @if(filled($declaredGpsLat) && filled($declaredGpsLng))
+                                            <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="active-notes-ir-btn"
+                                            >IR</a>
+                                        @endif
                                     </div>
                                 @endif
 
@@ -371,7 +469,7 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')) }}">
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')))) }}">
                                             {{ $activity['topic'] }}
                                         </span>
                                         <span class="active-notes-body">{{ $activity['body'] }}</span>
@@ -379,6 +477,15 @@
                                             {{ $activity['author'] }}
                                         </span>
                                         <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
+                                        @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
+                                            <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="active-notes-ir-btn"
+                                            >IR</a>
+                                        @else
+                                            <span></span>
+                                        @endif
                                     </div>
                                 @endforeach
                             </div>

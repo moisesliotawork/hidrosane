@@ -14,13 +14,11 @@ class SeguimientoDeRuta extends Page
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Seguimiento de ruta';
     protected static ?string $slug = 'seguimiento-de-ruta';
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 2;
 
     protected static string $view = 'filament.gerente.pages.seguimiento-de-ruta';
 
     public string $selectedDay = 'hoy';
-
-    protected ?Collection $comercialesCache = null;
 
     public function getTitle(): string
     {
@@ -61,14 +59,10 @@ class SeguimientoDeRuta extends Page
 
     public function getComercialesProperty(): Collection
     {
-        if ($this->comercialesCache instanceof Collection) {
-            return $this->comercialesCache;
-        }
-
         $today = today();
         $yesterday = today()->subDay();
 
-        return $this->comercialesCache = User::query()
+        return User::query()
             ->role(['commercial', 'team_leader', 'sales_manager'])
             ->whereNull('baja')
             ->with([
@@ -78,6 +72,9 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.anotacionesVisitas.autor',
                 'notasDeclaradas.observations.author',
                 'notasDeclaradas.confirmations.companion',
+                'notasDeclaradas.ausencias.autor',
+                'notasDeclaradas.nullReasons.companion',
+                'notasDeclaradas.nullReasons.comercial',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
@@ -113,6 +110,11 @@ class SeguimientoDeRuta extends Page
                     ->orWhereHas('venta', function ($q) use ($from, $to) {
                         $q->whereDate('fecha_venta', '>=', $from->toDateString())
                             ->whereDate('fecha_venta', '<=', $to->toDateString());
+                    })
+                    // Caso 4: ausencia registrada en el rango
+                    ->orWhereHas('ausencias', function ($q) use ($from, $to) {
+                        $q->whereDate('fecha', '>=', $from->toDateString())
+                            ->whereDate('fecha', '<=', $to->toDateString());
                     });
             })
             ->orderBy('assignment_date')
@@ -122,7 +124,8 @@ class SeguimientoDeRuta extends Page
     public function getDailyActivitiesForNote(Note $note, Carbon $date): Collection
     {
         $anotaciones = ($note->anotacionesVisitas ?? collect())
-            ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date))
+            ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date)
+                && strtoupper(trim((string) ($anotacion->asunto ?? ''))) !== 'AUSENTE')
             ->map(fn($anotacion) => [
                 'type' => 'anotacion',
                 'created_at' => $anotacion->created_at,
@@ -162,9 +165,97 @@ class SeguimientoDeRuta extends Page
                     . (!empty($conf->observation) ? ' | ' . $conf->observation : ''),
                 'author' => $conf->companion?->display_name ?? '—',
                 'meta_label' => 'Confirmada',
-                'gps_lat' => $note->lat_dentro,
-                'gps_lng' => $note->lng_dentro,
+                'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
+                'gps_lng' => filled($note->lng_dentro) ? $note->lng_dentro : null,
             ]);
+
+        $ausencias = ($note->relationLoaded('ausencias')
+            ? ($note->getRelation('ausencias') ?? collect())
+            : $note->ausencias()->with('autor')->get())
+            ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date)
+                || $ausencia->created_at?->isSameDay($date))
+            ->map(function ($ausencia) use ($note) {
+                $fecha = $ausencia->fecha?->toDateString() ?? $ausencia->created_at?->toDateString() ?? today()->toDateString();
+                $hora = $ausencia->hora ?: $ausencia->created_at?->format('H:i:s') ?: '00:00:00';
+
+                return [
+                    'type' => 'ausente',
+                    'created_at' => Carbon::parse("{$fecha} {$hora}"),
+                    'topic' => 'AUSENTE',
+                    'body' => filled($ausencia->observacion) ? $ausencia->observacion : 'Marcado como AUSENTE',
+                    'author' => $ausencia->autor?->display_name ?? $ausencia->autor?->full_name ?? '—',
+                    'meta_label' => 'Ausente',
+                    'gps_lat' => filled($ausencia->latitud) ? $ausencia->latitud : (filled($note->lat_dentro) ? $note->lat_dentro : null),
+                    'gps_lng' => filled($ausencia->longitud) ? $ausencia->longitud : (filled($note->lng_dentro) ? $note->lng_dentro : null),
+                ];
+            });
+
+        if ($ausencias->isEmpty()) {
+            $ausencias = ($note->anotacionesVisitas ?? collect())
+                ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date)
+                    && strtoupper(trim((string) ($anotacion->asunto ?? ''))) === 'AUSENTE')
+                ->map(fn($anotacion) => [
+                    'type' => 'ausente',
+                    'created_at' => $anotacion->created_at,
+                    'topic' => 'AUSENTE',
+                    'body' => $anotacion->cuerpo ?: 'Marcado como AUSENTE',
+                    'author' => $anotacion->autor?->display_name ?? $anotacion->autor?->full_name ?? '—',
+                    'meta_label' => 'Ausente',
+                    'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
+                    'gps_lng' => filled($note->lng_dentro) ? $note->lng_dentro : null,
+                ]);
+        }
+
+        $nulos = ($note->relationLoaded('nullReasons')
+            ? ($note->getRelation('nullReasons') ?? collect())
+            : $note->nullReasons()->with(['companion', 'comercial'])->get())
+            ->filter(fn($nullReason) => $nullReason->created_at?->isSameDay($date))
+            ->map(function ($nullReason) use ($note) {
+                $bodyParts = [];
+                if ($nullReason->companion) {
+                    $bodyParts[] = 'Compañero: ' . $nullReason->companion->display_name;
+                }
+                if (filled($nullReason->reason)) {
+                    $bodyParts[] = $nullReason->reason;
+                }
+
+                return [
+                    'type' => 'nulo',
+                    'created_at' => $nullReason->created_at ?? $note->fecha_declaracion,
+                    'topic' => 'NULO',
+                    'body' => $bodyParts ? implode(' | ', $bodyParts) : 'Marcado como NULO',
+                    'author' => $nullReason->comercial?->display_name ?? $nullReason->comercial?->full_name ?? '—',
+                    'meta_label' => 'Nulo',
+                    'gps_lat' => filled($note->lat) ? $note->lat : null,
+                    'gps_lng' => filled($note->lng) ? $note->lng : null,
+                ];
+            });
+
+        if ($nulos->isEmpty()
+            && strtolower(trim((string) $note->getRawOriginal('estado_terminal'))) === EstadoTerminal::NUL->value
+            && $note->fecha_declaracion?->isSameDay($date)) {
+            $nullReason = $note->relationLoaded('nullReason')
+                ? $note->nullReason
+                : $note->nullReason()->with(['companion', 'comercial'])->first();
+            $bodyParts = [];
+            if ($nullReason?->companion) {
+                $bodyParts[] = 'Compañero: ' . $nullReason->companion->display_name;
+            }
+            if (filled($nullReason?->reason)) {
+                $bodyParts[] = $nullReason->reason;
+            }
+
+            $nulos = collect([[
+                'type' => 'nulo',
+                'created_at' => $note->fecha_declaracion,
+                'topic' => 'NULO',
+                'body' => $bodyParts ? implode(' | ', $bodyParts) : 'Marcado como NULO',
+                'author' => $nullReason?->comercial?->display_name ?? $nullReason?->comercial?->full_name ?? '—',
+                'meta_label' => 'Nulo',
+                'gps_lat' => filled($note->lat) ? $note->lat : null,
+                'gps_lng' => filled($note->lng) ? $note->lng : null,
+            ]]);
+        }
 
         $ventas = collect();
         if ($note->venta && $note->venta->fecha_venta?->isSameDay($date)) {
@@ -192,6 +283,8 @@ class SeguimientoDeRuta extends Page
         return $anotaciones
             ->concat($observaciones)
             ->concat($confirmaciones)
+            ->concat($ausencias)
+            ->concat($nulos)
             ->concat($ventas)
             ->sortBy('created_at')
             ->values();

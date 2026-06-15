@@ -45,6 +45,7 @@ class HistoricoContratosResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Histórico de Contratos';
+    protected static ?int $navigationSort = 4;
     protected static ?string $pluralModelLabel = 'Histórico de Contratos';
     protected static ?string $slug = 'historico-contratos';
 

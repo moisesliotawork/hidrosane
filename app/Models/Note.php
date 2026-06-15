@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\NoteNullReason;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\NoteSalaObservation;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property int $id
@@ -421,6 +422,29 @@ class Note extends Model
     public function scopeUnprinted($q)
     {
         return $q->where('printed', false);
+    }
+
+    /** Notas visibles en Reasignar Visitas (misma lógica que NotasDeComercial). */
+    public function scopeForReasignarVisitas(Builder $query): Builder
+    {
+        return $query
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('reten')->orWhere('reten', false);
+            });
+    }
+
+    public function scopeReasignarVisitasEnVentana(Builder $query): Builder
+    {
+        return $query
+            ->forReasignarVisitas()
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->whereDate('assignment_date', '<=', today());
     }
 
     public function salaEvents()

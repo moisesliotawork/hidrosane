@@ -20,7 +20,11 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Commercial\Pages\ViewProfile;
+use App\Filament\Commercial\Pages\Notas2;
+use App\Filament\Commercial\Pages\SeguimientoDeRuta;
+use App\Filament\Commercial\Resources\NoteResource;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationItem;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
 
@@ -59,6 +63,24 @@ class CommercialPanelProvider extends PanelProvider
                 Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Commercial/Widgets'), for: 'App\\Filament\\Commercial\\Widgets')
+            ->navigationItems([
+                NavigationItem::make('NOTAS')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn (): string => Notas2::getUrl())
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.comercial.pages.notas'))
+                    ->sort(-1),
+                NavigationItem::make('Notas (listado)')
+                    ->icon('heroicon-o-rectangle-stack')
+                    ->url(fn (): string => NoteResource::getUrl('index'))
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.comercial.resources.notes.*'))
+                    ->sort(0),
+                NavigationItem::make('Seguimiento de ruta')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn (): string => SeguimientoDeRuta::getUrl())
+                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.comercial.pages.seguimiento-de-ruta'))
+                    ->visible(fn (): bool => auth()->user()?->hasAnyRole(['team_leader', 'sales_manager']) ?? false)
+                    ->sort(1),
+            ])
             ->widgets([
                 ActiveWorkSessionWidget::class,
             ])

@@ -1,22 +1,25 @@
 <x-filament-panels::page>
     <style>
-        body,
-        .fi-layout,
-        .fi-main,
-        .fi-page,
-        .fi-page-content,
-        .fi-section,
-        .fi-section-content,
-        .fi-section-content-ctn {
-            background: #ffffff !important;
+        html:not(.dark) body,
+        html:not(.dark) .fi-layout,
+        html:not(.dark) .fi-main,
+        html:not(.dark) .fi-page,
+        html:not(.dark) .fi-page-content,
+        html:not(.dark) .fi-section,
+        html:not(.dark) .fi-section-content,
+        html:not(.dark) .fi-section-content-ctn {
+            background: #f0e6d8 !important;
         }
 
         .active-notes-page {
-            background: #ffffff;
             color: #111827;
             font-family: Arial, Helvetica, sans-serif;
             font-size: 14px;
             line-height: 1.25;
+        }
+
+        html:not(.dark) .active-notes-page {
+            background: #f0e6d8;
         }
 
         .active-notes-day {
@@ -33,12 +36,21 @@
             padding: 6px 12px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
-            background: #ffffff;
             color: #374151;
             font-size: 14px;
             font-weight: 800;
             line-height: 1.2;
             cursor: pointer;
+        }
+
+        html:not(.dark) .active-notes-tab {
+            background: #faf5ef;
+        }
+
+        html:not(.dark) .active-notes-tab.is-active {
+            border-color: #16a34a;
+            background: #16a34a;
+            color: #ffffff;
         }
 
         .active-notes-tab.is-active {
@@ -99,10 +111,10 @@
         }
 
         .active-notes-row {
-            display: grid;
-            grid-template-columns: auto minmax(120px, auto) auto minmax(0, 1fr) auto auto auto;
-            align-items: start;
-            gap: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
             margin-top: 2px;
         }
 
@@ -154,6 +166,16 @@
             color: #ffffff;
         }
 
+        .active-notes-badge-topic.is-ausente {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .active-notes-badge-topic.is-nulo {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
         .active-notes-body {
             min-width: 0;
             color: #111827;
@@ -166,9 +188,9 @@
             color: #111827;
             font-size: 12px;
             font-weight: 800;
-            text-align: right;
             text-transform: uppercase;
             overflow-wrap: anywhere;
+            white-space: nowrap;
         }
 
         .active-notes-elapsed {
@@ -180,7 +202,6 @@
             font-size: 12px;
             font-weight: 800;
             line-height: 1.3;
-            text-align: right;
             white-space: nowrap;
         }
 
@@ -195,7 +216,6 @@
             line-height: 1.3;
             text-decoration: none;
             white-space: nowrap;
-            justify-self: start;
         }
 
         .active-notes-ir-btn:hover,
@@ -236,23 +256,7 @@
             }
 
             .active-notes-row {
-                grid-template-columns: auto minmax(0, 1fr);
-            }
-
-            .active-notes-badge-topic,
-            .active-notes-body,
-            .active-notes-author {
-                grid-column: 1 / -1;
-                text-align: left;
-            }
-
-            .active-notes-elapsed {
-                grid-column: 1 / -1;
-                text-align: left;
-            }
-
-            .active-notes-ir-btn {
-                grid-column: 1 / -1;
+                align-items: flex-start;
             }
         }
     </style>
@@ -305,7 +309,19 @@
                                 'activities' => $this->getDailyActivitiesForNote($note, $date),
                             ];
                         })
-                        ->filter(fn($entry) => $entry['activities']->isNotEmpty())
+                        ->filter(function ($entry) use ($date) {
+                            if ($entry['activities']->isNotEmpty()) {
+                                return true;
+                            }
+
+                            $note = $entry['note'];
+                            if ($note->fecha_declaracion?->isSameDay($date)) {
+                                return true;
+                            }
+
+                            return ($note->ausencias ?? collect())
+                                ->contains(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date));
+                        })
                         ->sortBy(fn($entry) => $entry['activities']->first()['created_at'])
                         ->values();
 
@@ -322,7 +338,20 @@
                     })->count();
 
                     $declaredTodayCount = $notes
-                        ->filter(fn($entry) => $entry['note']->fecha_declaracion?->isToday())
+                        ->filter(function ($entry) use ($date) {
+                            $note = $entry['note'];
+                            if ($note->fecha_declaracion?->isSameDay($date)) {
+                                return true;
+                            }
+
+                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
+                            if ($estado !== 'ausente') {
+                                return false;
+                            }
+
+                            return ($note->ausencias ?? collect())
+                                ->contains(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date));
+                        })
                         ->count();
 
                     $fullName = trim($comercial->name . ' ' . $comercial->last_name);
@@ -355,28 +384,59 @@
                             @php
                                 $note = $entry['note'];
                                 $activities = $entry['activities'];
+                                $estadoVal = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
+
+                                $showDeclaredBanner = $note->fecha_declaracion?->isSameDay($date);
+                                $declaredAt = $showDeclaredBanner ? $note->fecha_declaracion : null;
+                                $declaredEstadoLabel = $note->estado_terminal?->label() ?? 'S/E';
+
+                                if (! $showDeclaredBanner && $estadoVal === 'ausente') {
+                                    $ausenciaDelDia = ($note->ausencias ?? collect())
+                                        ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                                        ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                                        ->first();
+
+                                    if ($ausenciaDelDia) {
+                                        $showDeclaredBanner = true;
+                                        $fechaAusencia = $ausenciaDelDia->fecha?->toDateString() ?? $ausenciaDelDia->created_at?->toDateString() ?? $date->toDateString();
+                                        $horaAusencia = $ausenciaDelDia->hora ?: $ausenciaDelDia->created_at?->format('H:i:s') ?: '00:00:00';
+                                        $declaredAt = \Carbon\Carbon::parse("{$fechaAusencia} {$horaAusencia}");
+                                        $declaredEstadoLabel = 'AUS';
+                                    }
+                                }
+
+                                $declaredGpsLat = null;
+                                $declaredGpsLng = null;
+                                if ($showDeclaredBanner) {
+                                    if ($estadoVal === 'nulo' && filled($note->lat) && filled($note->lng)) {
+                                        $declaredGpsLat = $note->lat;
+                                        $declaredGpsLng = $note->lng;
+                                    } elseif ($estadoVal === 'confirmado' && filled($note->lat_dentro) && filled($note->lng_dentro)) {
+                                        $declaredGpsLat = $note->lat_dentro;
+                                        $declaredGpsLng = $note->lng_dentro;
+                                    } elseif ($estadoVal === 'ausente') {
+                                        $lastAusencia = ($note->ausencias ?? collect())
+                                            ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                                            ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                                            ->first();
+                                        $declaredGpsLat = filled($lastAusencia?->latitud)
+                                            ? $lastAusencia->latitud
+                                            : (filled($note->lat_dentro) ? $note->lat_dentro : null);
+                                        $declaredGpsLng = filled($lastAusencia?->longitud)
+                                            ? $lastAusencia->longitud
+                                            : (filled($note->lng_dentro) ? $note->lng_dentro : null);
+                                    }
+                                }
                             @endphp
 
                             <div class="active-notes-note">
-                                @if($note->fecha_declaracion?->isToday())
-                                    @php
-                                        $estadoVal = $note->getRawOriginal('estado_terminal');
-                                        $declaredGpsLat = null;
-                                        $declaredGpsLng = null;
-                                        if ($estadoVal === 'nulo' && $note->lat && $note->lng) {
-                                            $declaredGpsLat = $note->lat;
-                                            $declaredGpsLng = $note->lng;
-                                        } elseif ($estadoVal === 'confirmado' && $note->lat_dentro && $note->lng_dentro) {
-                                            $declaredGpsLat = $note->lat_dentro;
-                                            $declaredGpsLng = $note->lng_dentro;
-                                        }
-                                    @endphp
+                                @if($showDeclaredBanner && $declaredAt)
                                     <div class="active-notes-declared-row">
                                         <div class="active-notes-declared">
-                                            Declarada hoy como {{ $note->estado_terminal?->label() ?? 'S/E' }}
-                                            a las {{ $note->fecha_declaracion->format('H:i') }}
+                                            Declarada {{ $date->isToday() ? 'hoy' : 'el ' . $date->format('d/m/Y') }} como {{ $declaredEstadoLabel }}
+                                            a las {{ $declaredAt->format('H:i') }}
                                         </div>
-                                        @if($declaredGpsLat && $declaredGpsLng)
+                                        @if(filled($declaredGpsLat) && filled($declaredGpsLng))
                                             <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
                                                target="_blank"
                                                rel="noopener noreferrer"
@@ -425,7 +485,7 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')) }}">
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')))) }}">
                                             {{ $activity['topic'] }}
                                         </span>
                                         <span class="active-notes-body">{{ $activity['body'] }}</span>
@@ -433,7 +493,7 @@
                                             {{ $activity['author'] }}
                                         </span>
                                         <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
-                                        @if(!empty($activity['gps_lat']) && !empty($activity['gps_lng']))
+                                        @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
                                             <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
                                                target="_blank"
                                                rel="noopener noreferrer"
