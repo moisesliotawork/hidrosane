@@ -5,6 +5,7 @@ namespace App\Filament\Gerente\Pages;
 use App\Enums\EstadoTerminal;
 use App\Models\Note;
 use App\Models\User;
+use App\Support\SeguimientoRutaDisplay;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -126,16 +127,25 @@ class SeguimientoDeRuta extends Page
         $anotaciones = ($note->anotacionesVisitas ?? collect())
             ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date)
                 && strtoupper(trim((string) ($anotacion->asunto ?? ''))) !== 'AUSENTE')
-            ->map(fn($anotacion) => [
-                'type' => 'anotacion',
-                'created_at' => $anotacion->created_at,
-                'topic' => $anotacion->asunto ?: 'SIN ASUNTO',
-                'body' => $anotacion->cuerpo ?: 'Sin contenido',
-                'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
-                'meta_label' => 'Anotado',
-                'gps_lat' => null,
-                'gps_lng' => null,
-            ]);
+            ->map(function ($anotacion) use ($note) {
+                $isGpsOnly = SeguimientoRutaDisplay::isGpsLocationText($anotacion->cuerpo);
+                $gps = $isGpsOnly
+                    ? SeguimientoRutaDisplay::gpsCoordsForGpsText($anotacion->cuerpo, (string) ($anotacion->asunto ?? ''), $note)
+                    : ['gps_lat' => null, 'gps_lng' => null];
+
+                return [
+                    'type' => 'anotacion',
+                    'created_at' => $anotacion->created_at,
+                    'topic' => $anotacion->asunto ?: 'SIN ASUNTO',
+                    'body' => $isGpsOnly
+                        ? ''
+                        : SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Sin contenido'),
+                    'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
+                    'meta_label' => 'Anotado',
+                    'gps_lat' => $gps['gps_lat'],
+                    'gps_lng' => $gps['gps_lng'],
+                ];
+            });
 
         $observaciones = ($note->relationLoaded('observations')
             ? ($note->getRelation('observations') ?? collect())
@@ -145,7 +155,7 @@ class SeguimientoDeRuta extends Page
                 'type' => 'observacion',
                 'created_at' => $observacion->created_at,
                 'topic' => 'OBSERVACION',
-                'body' => $observacion->observation ?: 'Sin contenido',
+                'body' => SeguimientoRutaDisplay::displayBody($observacion->observation, 'Sin contenido'),
                 'author' => $observacion->author?->full_name ?? $observacion->author?->display_name ?? 'SIN AUTOR',
                 'meta_label' => 'Observado',
                 'gps_lat' => null,
@@ -160,9 +170,11 @@ class SeguimientoDeRuta extends Page
                 'type' => 'confirmada',
                 'created_at' => $conf->created_at,
                 'topic' => 'CONFIRMADA',
-                'body' => ($conf->companion ? 'Compañero: ' . $conf->companion->display_name : '')
+                'body' => SeguimientoRutaDisplay::displayBody(trim(
+                    ($conf->companion ? 'Compañero: ' . $conf->companion->display_name : '')
                     . ($conf->dio_crema ? ' | Crema: SÍ' : ' | Crema: NO')
-                    . (!empty($conf->observation) ? ' | ' . $conf->observation : ''),
+                    . (!empty($conf->observation) ? ' | ' . $conf->observation : '')
+                )),
                 'author' => $conf->companion?->display_name ?? '—',
                 'meta_label' => 'Confirmada',
                 'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
@@ -182,7 +194,7 @@ class SeguimientoDeRuta extends Page
                     'type' => 'ausente',
                     'created_at' => Carbon::parse("{$fecha} {$hora}"),
                     'topic' => 'AUSENTE',
-                    'body' => filled($ausencia->observacion) ? $ausencia->observacion : 'Marcado como AUSENTE',
+                    'body' => SeguimientoRutaDisplay::displayBody($ausencia->observacion, 'Marcado como AUSENTE'),
                     'author' => $ausencia->autor?->display_name ?? $ausencia->autor?->full_name ?? '—',
                     'meta_label' => 'Ausente',
                     'gps_lat' => filled($ausencia->latitud) ? $ausencia->latitud : (filled($note->lat_dentro) ? $note->lat_dentro : null),
@@ -198,7 +210,7 @@ class SeguimientoDeRuta extends Page
                     'type' => 'ausente',
                     'created_at' => $anotacion->created_at,
                     'topic' => 'AUSENTE',
-                    'body' => $anotacion->cuerpo ?: 'Marcado como AUSENTE',
+                    'body' => SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Marcado como AUSENTE'),
                     'author' => $anotacion->autor?->display_name ?? $anotacion->autor?->full_name ?? '—',
                     'meta_label' => 'Ausente',
                     'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
@@ -223,7 +235,7 @@ class SeguimientoDeRuta extends Page
                     'type' => 'nulo',
                     'created_at' => $nullReason->created_at ?? $note->fecha_declaracion,
                     'topic' => 'NULO',
-                    'body' => $bodyParts ? implode(' | ', $bodyParts) : 'Marcado como NULO',
+                    'body' => SeguimientoRutaDisplay::displayBody($bodyParts ? implode(' | ', $bodyParts) : null, 'Marcado como NULO'),
                     'author' => $nullReason->comercial?->display_name ?? $nullReason->comercial?->full_name ?? '—',
                     'meta_label' => 'Nulo',
                     'gps_lat' => filled($note->lat) ? $note->lat : null,
@@ -249,7 +261,7 @@ class SeguimientoDeRuta extends Page
                 'type' => 'nulo',
                 'created_at' => $note->fecha_declaracion,
                 'topic' => 'NULO',
-                'body' => $bodyParts ? implode(' | ', $bodyParts) : 'Marcado como NULO',
+                'body' => SeguimientoRutaDisplay::displayBody($bodyParts ? implode(' | ', $bodyParts) : null, 'Marcado como NULO'),
                 'author' => $nullReason?->comercial?->display_name ?? $nullReason?->comercial?->full_name ?? '—',
                 'meta_label' => 'Nulo',
                 'gps_lat' => filled($note->lat) ? $note->lat : null,

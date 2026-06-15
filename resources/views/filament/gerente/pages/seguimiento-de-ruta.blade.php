@@ -506,7 +506,9 @@
                                         <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')))) }}">
                                             {{ $activity['topic'] }}
                                         </span>
-                                        <span class="active-notes-body">{{ $activity['body'] }}</span>
+                                        @if(filled($activity['body'] ?? null))
+                                            <span class="active-notes-body">{{ $activity['body'] }}</span>
+                                        @endif
                                         <span class="active-notes-author">
                                             {{ $activity['author'] }}
                                         </span>
