@@ -298,11 +298,15 @@
                             ];
                         })
                         ->filter(function ($entry) use ($date) {
+                            $note = $entry['note'] ?? null;
+                            if (! $note instanceof \App\Models\Note) {
+                                return false;
+                            }
+
                             if ($entry['activities']->isNotEmpty()) {
                                 return true;
                             }
 
-                            $note = $entry['note'];
                             if ($note->fecha_declaracion?->isSameDay($date)) {
                                 return true;
                             }
@@ -310,29 +314,43 @@
                             return ($note->ausencias ?? collect())
                                 ->contains(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date));
                         })
-                        ->sortBy(fn($entry) => $entry['activities']->first()['created_at'])
+                        ->sortBy(function ($entry) {
+                            $firstActivity = $entry['activities']->first();
+
+                            return $firstActivity['created_at']
+                                ?? $entry['note']?->fecha_declaracion
+                                ?? now();
+                        })
                         ->values();
 
                     $activeNotesCount = $notes->filter(function ($entry) {
-                        $note = $entry['note'];
+                        $note = $entry['note'] ?? null;
+                        if (! $note instanceof \App\Models\Note) {
+                            return false;
+                        }
+
                         $estado = $note->getRawOriginal('estado_terminal');
                         $isOpenState = $estado === null
                             || $estado === ''
                             || strtolower(trim((string) $estado)) === 'ausente';
 
                         return $isOpenState
-                            && ! $note->venta
+                            && ! filled($note->venta)
                             && ! (bool) $note->reten;
                     })->count();
 
                     $declaredTodayCount = $notes
                         ->filter(function ($entry) use ($date) {
-                            $note = $entry['note'];
+                            $note = $entry['note'] ?? null;
+                            if (! $note instanceof \App\Models\Note) {
+                                return false;
+                            }
+
                             if ($note->fecha_declaracion?->isSameDay($date)) {
                                 return true;
                             }
 
-                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
+                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal'));
                             if ($estado !== 'ausente') {
                                 return false;
                             }
