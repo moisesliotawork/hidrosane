@@ -350,7 +350,7 @@
                                 return true;
                             }
 
-                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal'));
+                            $estado = strtolower(trim((string) $note->getRawOriginal('estado_terminal')));
                             if ($estado !== 'ausente') {
                                 return false;
                             }
