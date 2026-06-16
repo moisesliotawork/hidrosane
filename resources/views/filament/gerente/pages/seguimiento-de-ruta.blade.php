@@ -518,13 +518,6 @@
                                             {{ $reassignmentBanner['label'] }}
                                             · a las {{ $reassignmentBanner['reassigned_at']->format('H:i') }}
                                         </div>
-                                        @if(filled($reassignedGpsLat) && filled($reassignedGpsLng))
-                                            <a href="https://www.google.com/maps?q={{ $reassignedGpsLat }},{{ $reassignedGpsLng }}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               class="active-notes-ir-btn"
-                                            >IR</a>
-                                        @endif
                                     </div>
                                 @endif
 
