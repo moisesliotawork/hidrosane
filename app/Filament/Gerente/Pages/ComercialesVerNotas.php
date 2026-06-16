@@ -4,6 +4,8 @@ namespace App\Filament\Gerente\Pages;
 
 use App\Models\User;
 use Filament\Pages\Page;
+use Filament\Support\Enums\ActionSize;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Contracts\HasTable;
@@ -28,15 +30,6 @@ class ComercialesVerNotas extends Page implements HasTable
                 User::query()
                     ->role(['commercial', 'team_leader', 'sales_manager'])
                     ->whereNull('baja')
-                    ->withCount([
-                        'notasDeclaradas as notas_hoy_count' => fn ($query) => $query
-                            ->forReasignarVisitas()
-                            ->whereDate('assignment_date', today()),
-                        'notasDeclaradas as notas_anteriores_count' => fn ($query) => $query
-                            ->forReasignarVisitas()
-                            ->whereDate('assignment_date', '<', today())
-                            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay()),
-                    ])
             )
             ->columns([
                 Tables\Columns\TextColumn::make('empleado_id')
@@ -48,29 +41,16 @@ class ComercialesVerNotas extends Page implements HasTable
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre')
                     ->formatStateUsing(fn ($record) => trim($record->name . ' ' . ($record->last_name ?? '')))
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('notas_hoy_count')
-                    ->label('Notas Hoy')
-                    ->badge()
-                    ->color('success')
-                    ->formatStateUsing(fn ($state) => (int) $state > 0 ? (string) (int) $state : null)
-                    ->placeholder('—')
-                    ->alignCenter(),
-
-                Tables\Columns\TextColumn::make('notas_anteriores_count')
-                    ->label('Anteriores')
-                    ->badge()
-                    ->color('gray')
-                    ->formatStateUsing(fn ($state) => (int) $state > 0 ? (string) (int) $state : null)
-                    ->placeholder('—')
-                    ->alignCenter(),
+                    ->searchable()
+                    ->weight(FontWeight::Bold)
+                    ->extraAttributes(['class' => 'reasignar-visitas-nombre']),
             ])
             ->actions([
                 Tables\Actions\Action::make('ver_notas')
                     ->label('Ver notas')
                     ->button()
                     ->outlined()
+                    ->size(ActionSize::Medium)
                     ->color('primary')
                     ->url(fn ($record) => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => $record->id],
@@ -82,7 +62,8 @@ class ComercialesVerNotas extends Page implements HasTable
                 Tables\Actions\Action::make('ver_reten')
                     ->label('Notas RETEN')
                     ->button()
-                    ->color('orange')
+                    ->size(ActionSize::Small)
+                    ->color('warning')
                     ->icon('heroicon-o-document-text')
                     ->url(fn () => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => 'reten'],
