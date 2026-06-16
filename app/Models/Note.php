@@ -364,6 +364,11 @@ class Note extends Model
         return $this->hasMany(\App\Models\AbsentHistory::class, 'note_id');
     }
 
+    public function reassignmentLogs(): HasMany
+    {
+        return $this->hasMany(NoteReassignmentLog::class, 'note_id');
+    }
+
     public function nullReasons()
     {
         return $this->hasMany(\App\Models\NoteNullReason::class);

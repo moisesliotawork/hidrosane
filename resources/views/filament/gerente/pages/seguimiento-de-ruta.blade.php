@@ -250,6 +250,26 @@
             text-transform: uppercase;
         }
 
+        .active-notes-reassigned-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 3px;
+        }
+
+        .active-notes-reassigned {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 2px;
+            background: #bae6fd;
+            color: #0c4a6e;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.3;
+            text-transform: uppercase;
+        }
+
         @media (max-width: 640px) {
             .active-notes-page {
                 font-size: 13px;
@@ -320,6 +340,10 @@
                             }
 
                             if ($note->fecha_declaracion?->isSameDay($date)) {
+                                return true;
+                            }
+
+                            if (\App\Support\SeguimientoRutaDisplay::reassignmentLogForDate($note, $date)) {
                                 return true;
                             }
 
@@ -445,6 +469,30 @@
                                             : (filled($note->lng_dentro) ? $note->lng_dentro : null);
                                     }
                                 }
+
+                                $reassignmentBanner = \App\Support\SeguimientoRutaDisplay::reassignmentBannerForDate($note, $date);
+                                $reassignedGpsLat = null;
+                                $reassignedGpsLng = null;
+                                if ($estadoVal === 'nulo' && filled($note->lat) && filled($note->lng)) {
+                                    $reassignedGpsLat = $note->lat;
+                                    $reassignedGpsLng = $note->lng;
+                                } elseif ($estadoVal === 'confirmado' && filled($note->lat_dentro) && filled($note->lng_dentro)) {
+                                    $reassignedGpsLat = $note->lat_dentro;
+                                    $reassignedGpsLng = $note->lng_dentro;
+                                } elseif ($estadoVal === 'ausente') {
+                                    $lastAusencia = ($note->ausencias ?? collect())
+                                        ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                                        ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                                        ->first();
+
+                                    $reassignedGpsLat = filled($lastAusencia?->latitud)
+                                        ? $lastAusencia->latitud
+                                        : (filled($note->lat_dentro) ? $note->lat_dentro : null);
+
+                                    $reassignedGpsLng = filled($lastAusencia?->longitud)
+                                        ? $lastAusencia->longitud
+                                        : (filled($note->lng_dentro) ? $note->lng_dentro : null);
+                                }
                             @endphp
 
                             <div class="active-notes-note">
@@ -456,6 +504,22 @@
                                         </div>
                                         @if(filled($declaredGpsLat) && filled($declaredGpsLng))
                                             <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="active-notes-ir-btn"
+                                            >IR</a>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @if($reassignmentBanner && $reassignmentBanner['reassigned_at'])
+                                    <div class="active-notes-reassigned-row">
+                                        <div class="active-notes-reassigned">
+                                            {{ $reassignmentBanner['label'] }}
+                                            · a las {{ $reassignmentBanner['reassigned_at']->format('H:i') }}
+                                        </div>
+                                        @if(filled($reassignedGpsLat) && filled($reassignedGpsLng))
+                                            <a href="https://www.google.com/maps?q={{ $reassignedGpsLat }},{{ $reassignedGpsLng }}"
                                                target="_blank"
                                                rel="noopener noreferrer"
                                                class="active-notes-ir-btn"

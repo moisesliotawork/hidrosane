@@ -2,6 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\Note;
+use App\Models\NoteReassignmentLog;
+use Illuminate\Support\Carbon;
+
 class SeguimientoRutaDisplay
 {
     /** Texto de anotación/observación que solo registra coordenadas GPS. */
@@ -81,5 +85,41 @@ class SeguimientoRutaDisplay
         $clean = self::sanitizeBody($body);
 
         return $clean !== '' ? $clean : $fallback;
+    }
+
+    public static function reassignmentLogForDate(Note $note, Carbon $date): ?NoteReassignmentLog
+    {
+        $logs = $note->relationLoaded('reassignmentLogs')
+            ? ($note->getRelation('reassignmentLogs') ?? collect())
+            : collect();
+
+        return $logs
+            ->filter(fn (NoteReassignmentLog $log) => $log->batch?->reassigned_at?->isSameDay($date))
+            ->sortByDesc(fn (NoteReassignmentLog $log) => $log->batch?->reassigned_at?->timestamp ?? 0)
+            ->first();
+    }
+
+    /** @return array{author_id: string, from_id: string, to_id: string, label: string, reassigned_at: Carbon}|null */
+    public static function reassignmentBannerForDate(Note $note, Carbon $date): ?array
+    {
+        $log = self::reassignmentLogForDate($note, $date);
+        if (! $log?->batch) {
+            return null;
+        }
+
+        $batch = $log->batch;
+        $authorId = $batch->author?->empleado_id ?? 'SIN-ID';
+        $fromId = $log->fromComercial?->empleado_id ?? '—';
+        $toId = $batch->to_reten
+            ? 'RETÉN'
+            : ($batch->toComercial?->empleado_id ?? '—');
+
+        return [
+            'author_id' => $authorId,
+            'from_id' => $fromId,
+            'to_id' => $toId,
+            'label' => "Reasignada por: {$authorId} · Desde {$fromId} para com {$toId}",
+            'reassigned_at' => $batch->reassigned_at,
+        ];
     }
 }

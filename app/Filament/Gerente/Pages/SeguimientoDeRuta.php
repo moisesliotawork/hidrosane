@@ -76,6 +76,9 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.ausencias.autor',
                 'notasDeclaradas.nullReasons.companion',
                 'notasDeclaradas.nullReasons.comercial',
+                'notasDeclaradas.reassignmentLogs.batch.author',
+                'notasDeclaradas.reassignmentLogs.batch.toComercial',
+                'notasDeclaradas.reassignmentLogs.fromComercial',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
@@ -116,6 +119,11 @@ class SeguimientoDeRuta extends Page
                     ->orWhereHas('ausencias', function ($q) use ($from, $to) {
                         $q->whereDate('fecha', '>=', $from->toDateString())
                             ->whereDate('fecha', '<=', $to->toDateString());
+                    })
+                    // Caso 5: reasignación registrada en el rango
+                    ->orWhereHas('reassignmentLogs.batch', function ($q) use ($from, $to) {
+                        $q->whereDate('reassigned_at', '>=', $from->toDateString())
+                            ->whereDate('reassigned_at', '<=', $to->toDateString());
                     });
             })
             ->orderBy('assignment_date')
