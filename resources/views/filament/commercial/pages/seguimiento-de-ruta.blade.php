@@ -488,7 +488,7 @@
                                 @if($showDeclaredBanner && $declaredAt)
                                     <div class="active-notes-declared-row">
                                         <div class="active-notes-declared">
-                                            Declarada {{ $date->isToday() ? 'hoy' : 'el ' . $date->format('d/m/Y') }} como {{ $declaredEstadoLabel }}
+                                            #{{ $note->nro_nota }} · Declarada {{ $date->isToday() ? 'hoy' : 'el ' . $date->format('d/m/Y') }} como {{ $declaredEstadoLabel }}
                                             a las {{ $declaredAt->format('H:i') }}
                                         </div>
                                         @if(filled($declaredGpsLat) && filled($declaredGpsLng))
@@ -504,7 +504,7 @@
                                 @if($reassignmentBanner && $reassignmentBanner['reassigned_at'])
                                     <div class="active-notes-reassigned-row">
                                         <div class="active-notes-reassigned">
-                                            {{ $reassignmentBanner['label'] }}
+                                            #{{ $note->nro_nota }} · {{ $reassignmentBanner['label'] }}
                                             · a las {{ $reassignmentBanner['reassigned_at']->format('H:i') }}
                                         </div>
                                     </div>
