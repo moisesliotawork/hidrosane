@@ -272,6 +272,7 @@ class VentaResource extends Resource
 
             /* ───────── Información del cliente ────────── */
             ...SuperAdminVentaCustomerId::formFields(),
+            ...SuperAdminVentaCustomerId::adminReassignGuidanceFields(),
 
             Placeholder::make('customer_shared_warning')
                 ->label('')
