@@ -77,6 +77,232 @@
         background: rgba(26, 46, 5, 0.18);
         color: #1a2e05;
     }
+
+    .pc-card {
+        overflow: hidden;
+        border-radius: 1rem;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    html.dark .pc-card {
+        border-color: #374151;
+        background: #111827;
+    }
+
+    .pc-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        padding: 1rem;
+    }
+
+    .pc-fecha {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #111827;
+        letter-spacing: 0.01em;
+    }
+
+    html.dark .pc-fecha {
+        color: #f9fafb;
+    }
+
+    .pc-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #4b5563;
+        margin-bottom: 0.2rem;
+    }
+
+    html.dark .pc-label {
+        color: #9ca3af;
+    }
+
+    .pc-jefe {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        line-height: 1.35;
+    }
+
+    html.dark .pc-jefe {
+        color: #93c5fd;
+    }
+
+    .pc-reporte {
+        font-size: 0.92rem;
+        line-height: 1.55;
+        color: #1f2937;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    html.dark .pc-reporte {
+        color: #e5e7eb;
+    }
+
+    .pc-btn-ir {
+        display: inline-flex;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        padding: 0.85rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-decoration: none;
+        background: #16a34a;
+        color: #ffffff;
+        border: 1px solid #15803d;
+        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.22);
+    }
+
+    .pc-btn-ir:hover {
+        background: #15803d;
+        color: #ffffff;
+    }
+
+    html.dark .pc-btn-ir {
+        background: #22c55e;
+        color: #052e16;
+        border-color: #16a34a;
+    }
+
+    html.dark .pc-btn-ir:hover {
+        background: #16a34a;
+        color: #ffffff;
+    }
+
+    .pc-sin-gps {
+        border-radius: 0.75rem;
+        padding: 0.85rem 1rem;
+        text-align: center;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #6b7280;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+    }
+
+    html.dark .pc-sin-gps {
+        color: #d1d5db;
+        background: #1f2937;
+        border-color: #374151;
+    }
+
+    .pc-empty {
+        grid-column: 1 / -1;
+        border-radius: 1rem;
+        border: 1px dashed #d1d5db;
+        padding: 2.5rem 1.5rem;
+        text-align: center;
+        color: #6b7280;
+        background: #fafafa;
+    }
+
+    html.dark .pc-empty {
+        border-color: #4b5563;
+        color: #9ca3af;
+        background: #111827;
+    }
+
+    .pc-cards-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    @media (min-width: 640px) {
+        .pc-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .pc-cards-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    .pc-date-filter {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 0.85rem;
+        border: 1px solid #d1d5db;
+        background: #f9fafb;
+    }
+
+    html.dark .pc-date-filter {
+        border-color: #374151;
+        background: #1f2937;
+    }
+
+    .pc-date-filter label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #4b5563;
+        margin-bottom: 0.35rem;
+    }
+
+    html.dark .pc-date-filter label {
+        color: #9ca3af;
+    }
+
+    .pc-date-filter input[type="date"] {
+        min-width: 11rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.6rem;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        color: #111827;
+        font-size: 0.92rem;
+        font-weight: 600;
+    }
+
+    html.dark .pc-date-filter input[type="date"] {
+        border-color: #4b5563;
+        background: #111827;
+        color: #f9fafb;
+    }
+
+    .pc-date-clear {
+        padding: 0.55rem 0.9rem;
+        border-radius: 0.6rem;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        color: #374151;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        cursor: pointer;
+    }
+
+    html.dark .pc-date-clear {
+        border-color: #4b5563;
+        background: #111827;
+        color: #e5e7eb;
+    }
+
+    .pc-date-clear:hover {
+        background: #f3f4f6;
+    }
+
+    html.dark .pc-date-clear:hover {
+        background: #374151;
+    }
 </style>
 
 <div style="padding:0 4px 24px">
@@ -99,8 +325,25 @@
         @endforeach
     </div>
 
+    {{-- Filtro por fecha específica --}}
+    <div class="pc-date-filter">
+        <div>
+            <label for="fechaFiltro">Fecha específica</label>
+            <input
+                id="fechaFiltro"
+                type="date"
+                wire:model.live="fechaFiltro"
+            />
+        </div>
+        @if (filled($fechaFiltro))
+            <button type="button" wire:click="clearFechaFiltro" class="pc-date-clear">
+                Limpiar
+            </button>
+        @endif
+    </div>
+
     {{-- Cards --}}
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div class="pc-cards-grid">
         @forelse ($this->reports as $report)
             @php
                 $leader = $report->teamLeader;
@@ -108,25 +351,20 @@
                 $mapsUrl = $report->mapsUrl();
             @endphp
 
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="bg-sky-600 px-4 py-3 text-white">
-                    <p class="text-xs font-semibold uppercase tracking-wide opacity-90">Punto Comercial de</p>
-                    <p class="mt-1 text-base font-bold leading-tight">{{ mb_strtoupper($leaderLabel) }}</p>
-                </div>
+            <div class="pc-card">
+                <div class="pc-card-body">
+                    <p class="pc-fecha">
+                        {{ $report->submitted_at?->format('d/m/Y H:i') ?? '—' }}
+                    </p>
 
-                <div class="space-y-3 px-4 py-4">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fecha y hora</p>
-                        <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-                            {{ $report->submitted_at?->format('d/m/Y H:i') ?? '—' }}
-                        </p>
+                        <p class="pc-label">Jefe/Equipo</p>
+                        <p class="pc-jefe">{{ mb_strtoupper($leaderLabel) }}</p>
                     </div>
 
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Escrito</p>
-                        <p class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                            {{ $report->texto }}
-                        </p>
+                        <p class="pc-label">Reporte del Punto/Comercial:</p>
+                        <p class="pc-reporte">{{ $report->texto }}</p>
                     </div>
 
                     @if ($mapsUrl)
@@ -134,19 +372,19 @@
                             href="{{ $mapsUrl }}"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold uppercase tracking-wide text-white shadow transition hover:bg-emerald-700"
+                            class="pc-btn-ir"
                         >
-                            IR
+                            GPS - IR
                         </a>
                     @else
-                        <div class="rounded-xl bg-gray-100 px-4 py-3 text-center text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        <div class="pc-sin-gps">
                             Sin ubicación GPS
                         </div>
                     @endif
                 </div>
             </div>
         @empty
-            <div class="col-span-full rounded-2xl border border-dashed border-gray-300 px-6 py-10 text-center text-gray-500 dark:border-gray-600 dark:text-gray-400">
+            <div class="pc-empty">
                 No hay reportes de punto comercial para este filtro.
             </div>
         @endforelse

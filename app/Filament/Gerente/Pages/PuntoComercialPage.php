@@ -25,6 +25,12 @@ class PuntoComercialPage extends Page
 
     public string $selectedTab = 'hoy';
 
+    public ?string $fechaFiltro = null;
+
+    protected $queryString = [
+        'fechaFiltro' => ['except' => ''],
+    ];
+
     public function setTab(string $tab): void
     {
         if (! in_array($tab, ['todos', 'hoy', 'ayer'], true)) {
@@ -32,6 +38,17 @@ class PuntoComercialPage extends Page
         }
 
         $this->selectedTab = $tab;
+        $this->resetPage();
+    }
+
+    public function updatingFechaFiltro(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearFechaFiltro(): void
+    {
+        $this->fechaFiltro = null;
         $this->resetPage();
     }
 
@@ -59,6 +76,7 @@ class PuntoComercialPage extends Page
             ->with('teamLeader:id,name,last_name,empleado_id')
             ->when($this->selectedTab === 'hoy', fn($q) => $q->whereDate('report_date', $today))
             ->when($this->selectedTab === 'ayer', fn($q) => $q->whereDate('report_date', $yesterday))
+            ->when(filled($this->fechaFiltro), fn($q) => $q->whereDate('report_date', $this->fechaFiltro))
             ->orderByDesc('submitted_at')
             ->orderByDesc('id')
             ->paginate(12);
