@@ -125,12 +125,12 @@
     .pc-jefe {
         font-size: 0.95rem;
         font-weight: 700;
-        color: #1e3a8a;
+        color: #14532d;
         line-height: 1.35;
     }
 
     html.dark .pc-jefe {
-        color: #93c5fd;
+        color: #86efac;
     }
 
     .pc-reporte {
@@ -303,9 +303,49 @@
     html.dark .pc-date-clear:hover {
         background: #374151;
     }
+
+    .pc-page-wrap {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+        padding: 0.75rem;
+        border-radius: 0.85rem;
+    }
+
+    html:not(.dark) .pc-page-wrap {
+        background: #ede4d8;
+    }
+
+    html.dark .pc-page-wrap {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+    }
+
+    .pc-page-surface {
+        background: #14532d;
+        padding: 1rem 0.75rem 1.5rem;
+        border-radius: 0.85rem;
+    }
+
+    html.dark .pc-page-surface {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+    }
+
+    html:not(.dark) .pc-page-surface .pc-pagination {
+        color: #dcfce7;
+    }
+
+    html:not(.dark) .pc-page-surface .pc-pagination a,
+    html:not(.dark) .pc-page-surface .pc-pagination span,
+    html:not(.dark) .pc-page-surface .pc-pagination button {
+        color: #dcfce7 !important;
+    }
 </style>
 
-<div style="padding:0 4px 24px">
+<div class="pc-page-wrap">
+<div class="pc-page-surface">
 
     {{-- Tabs --}}
     <div class="punto-comercial-tabs">
@@ -390,8 +430,9 @@
         @endforelse
     </div>
 
-    <div class="mt-4">
+    <div class="pc-pagination">
         {{ $this->reports->links() }}
     </div>
+</div>
 </div>
 </x-filament-panels::page>
