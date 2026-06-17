@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Enums\EstadoTerminal;
 use App\Filament\SuperAdmin\Resources\DclaraNotasResource\Pages;
 use App\Models\Note;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -179,9 +180,23 @@ class DclaraNotasResource extends Resource
                         EstadoTerminal::VENTA->value => EstadoTerminal::VENTA->enNotaLabel(),
                         EstadoTerminal::SALA->value => EstadoTerminal::SALA->enNotaLabel(),
                     ]),
+
+                Tables\Filters\SelectFilter::make('comercial_id')
+                    ->label('Comercial')
+                    ->options(fn(): array => User::role(['commercial', 'team_leader'])
+                        ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
+                        ->orderBy('users.name')
+                        ->distinct()
+                        ->get()
+                        ->mapWithKeys(fn(User $u): array => [
+                            $u->id => trim("{$u->empleado_id} {$u->name} {$u->last_name}"),
+                        ])
+                        ->toArray())
+                    ->searchable()
+                    ->native(false),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
-            ->filtersFormColumns(2);
+            ->filtersFormColumns(3);
     }
 
     public static function getRelations(): array
