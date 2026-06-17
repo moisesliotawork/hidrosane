@@ -101,7 +101,7 @@ class CreateContratoBPage extends Page implements HasForms
 
     public function form(Form $form): Form
     {
-        return VentaResource::form($form)
+        return static::getResource()::form($form)
             ->model(Venta::class)    // ⬅️ evita "->customer() on null" al resolver relationship('customer')
             ->statePath('data');
     }

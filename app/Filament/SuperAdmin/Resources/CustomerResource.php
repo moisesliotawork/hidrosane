@@ -18,7 +18,11 @@ use Filament\Infolists\Components\TextEntry;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\TextInputColumn;
 use App\Models\Venta;
+use App\Services\CustomerPrimaryKeyReassignmentService;
+use Filament\Notifications\Notification;
+use Illuminate\Validation\Rule;
 
 class CustomerResource extends Resource
 {
@@ -136,6 +140,43 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                TextInputColumn::make('id')
+                    ->label('ID_Cliente')
+                    ->type('number')
+                    ->sortable()
+                    ->rules(fn (Customer $record): array => [
+                        'required',
+                        'integer',
+                        'min:1',
+                        Rule::unique('customers', 'id')->ignore($record->id),
+                    ])
+                    ->searchable(
+                        isIndividual: true,
+                        query: function (Builder $query, string $search): Builder {
+                            return $query->whereRaw('CAST(customers.id AS CHAR) LIKE ?', ["%{$search}%"]);
+                        },
+                    )
+                    ->updateStateUsing(function (Customer $record, $state) {
+                        try {
+                            CustomerPrimaryKeyReassignmentService::reassign($record, (int) $state);
+
+                            Notification::make()
+                                ->title('ID_Cliente actualizado')
+                                ->success()
+                                ->send();
+
+                            return (int) $state;
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('No se pudo actualizar el ID_Cliente')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return $record->id;
+                        }
+                    }),
+
                 TextColumn::make('name')
                     ->label('Nombre de Cliente')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))

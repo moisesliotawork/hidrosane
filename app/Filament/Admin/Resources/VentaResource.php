@@ -40,6 +40,7 @@ use Filament\Support\Colors\Color;
 use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
 use App\Services\VentaCustomerIdentityService;
+use App\Filament\Support\SuperAdminVentaCustomerId;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -270,10 +271,7 @@ class VentaResource extends Resource
 
 
             /* ───────── Información del cliente ────────── */
-            Placeholder::make('customer_db_id')
-                ->label('ID Cliente (BD)')
-                ->content(fn (?Venta $record) => $record?->customer_id ?? '—')
-                ->visible(fn (?Venta $record) => filled($record?->customer_id)),
+            ...SuperAdminVentaCustomerId::formFields(),
 
             Placeholder::make('customer_shared_warning')
                 ->label('')

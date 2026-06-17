@@ -31,7 +31,7 @@ class ListVentas extends ListRecords
 
     protected function getTableRecordUrlUsing(): ?Closure
     {
-        return fn (Model $record): string => VentaResource::getUrl('edit', ['record' => $record]);
+        return fn (Model $record): string => static::getResource()::getUrl('edit', ['record' => $record]);
     }
 
     protected function getHeaderActions(): array

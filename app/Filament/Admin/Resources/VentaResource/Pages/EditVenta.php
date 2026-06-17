@@ -140,7 +140,7 @@ class EditVenta extends EditRecord
                 ->label('Crear Contrato -B')
                 ->icon('heroicon-o-document-plus')
                 ->color('success')
-                ->url(fn() => VentaResource::getUrl('create-b', ['record' => $this->record]))
+                ->url(fn() => static::getResource()::getUrl('create-b', ['record' => $this->record]))
                 ->visible(function (): bool {
                     $venta = $this->record;
 

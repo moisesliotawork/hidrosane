@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\VentaResource\RelationManagers;
 
-use App\Filament\Admin\Resources\VentaResource;
 use App\Models\Venta;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -41,7 +40,7 @@ class AsociadasRelationManager extends RelationManager
                 Tables\Actions\Action::make('edit')
                     ->label('Editar')
                     ->icon('heroicon-o-pencil-square')
-                    ->url(fn(Venta $record) => VentaResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn(Venta $record) => static::getResource()::getUrl('edit', ['record' => $record])),
             ])
             ->bulkActions([])
             ->paginated(false); // mostrar todos los -B
