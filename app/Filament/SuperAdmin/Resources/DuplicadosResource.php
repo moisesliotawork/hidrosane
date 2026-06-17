@@ -4,6 +4,7 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Pages;
 use App\Models\Customer;
+use App\Services\CustomerDuplicateSearchService;
 use App\Services\CustomerMergeService;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -34,43 +35,12 @@ class DuplicadosResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $phoneFields = ['phone', 'secondary_phone', 'third_phone', 'phone1_commercial', 'phone2_commercial'];
-
         return parent::getEloquentQuery()
             ->with([
                 'latestNote.user:id,name,last_name,empleado_id',
             ])
             ->withCount('ventas')
-            ->whereIn('id', function ($sub) use ($phoneFields) {
-                $sub->select('c1.id')
-                    ->from('customers as c1')
-                    ->join('customers as c2', 'c1.id', '!=', 'c2.id')
-                    ->whereNull('c1.merged_into_id')
-                    ->whereNull('c2.merged_into_id')
-                    ->whereRaw(
-                        "TRIM(CONCAT(COALESCE(c1.first_names,''),' ',COALESCE(c1.last_names,''))) "
-                        . "= TRIM(CONCAT(COALESCE(c2.first_names,''),' ',COALESCE(c2.last_names,'')))"
-                    )
-                    ->whereRaw('c1.dni = c2.dni')
-                    ->whereRaw("c1.dni IS NOT NULL AND c1.dni != ''")
-                    ->where(function ($q) use ($phoneFields) {
-                        foreach ($phoneFields as $f1) {
-                            foreach ($phoneFields as $f2) {
-                                $q->orWhereRaw(
-                                    "(c1.`{$f1}` IS NOT NULL AND c1.`{$f1}` != '' AND c1.`{$f1}` = c2.`{$f2}`)"
-                                );
-                            }
-                        }
-                    });
-            })
-            ->orderByRaw("
-                GREATEST(
-                    COALESCE((SELECT MAX(fecha_venta) FROM ventas WHERE ventas.customer_id = customers.id), '1970-01-01'),
-                    COALESCE((SELECT MAX(assignment_date) FROM notes WHERE notes.customer_id = customers.id), '1970-01-01'),
-                    COALESCE((SELECT MAX(notes.created_at) FROM notes WHERE notes.customer_id = customers.id), '1970-01-01'),
-                    customers.created_at
-                ) DESC
-            ");
+            ->orderByRaw(CustomerDuplicateSearchService::orderByLatestActivitySql());
     }
 
     public static function table(Table $table): Table
@@ -198,6 +168,9 @@ class DuplicadosResource extends Resource
             ->defaultSort('id', 'desc')
             ->paginated([25, 50, 100, 'all'])
             ->filters([])
+            ->emptyStateHeading('Buscar duplicados')
+            ->emptyStateDescription('Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual (el teléfono puede coincidir o no).')
+            ->emptyStateIcon('heroicon-o-magnifying-glass')
             ->actions([])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('fusionar')

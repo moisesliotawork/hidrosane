@@ -5,21 +5,82 @@ namespace App\Filament\SuperAdmin\Resources\DuplicadosResource\Pages;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\DuplicadosStatsWidget;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\FusionadosWidget;
+use App\Services\CustomerDuplicateSearchService;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListDuplicados extends ListRecords
 {
     protected static string $resource = DuplicadosResource::class;
 
+    public bool $duplicatesSearched = false;
+
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('buscarDuplicados')
+                ->label('Buscar duplicados')
+                ->icon('heroicon-o-magnifying-glass')
+                ->color('primary')
+                ->action(function () {
+                    $this->duplicatesSearched = true;
+
+                    $count = CustomerDuplicateSearchService::countDuplicates();
+
+                    if ($count === 0) {
+                        Notification::make()
+                            ->title('Sin duplicados')
+                            ->body('No se encontraron clientes con el mismo DNI y nombre parcial o total igual.')
+                            ->warning()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Búsqueda completada')
+                            ->body("Se encontraron {$count} clientes con posible duplicado.")
+                            ->success()
+                            ->send();
+                    }
+
+                    $this->resetTable();
+                }),
+        ];
+    }
+
+    protected function getTableQuery(): ?Builder
+    {
+        $query = parent::getTableQuery();
+
+        if (! $this->duplicatesSearched) {
+            return $query?->whereRaw('0 = 1');
+        }
+
+        return CustomerDuplicateSearchService::applySearchScope($query);
+    }
+
+    public function table(Table $table): Table
+    {
+        return parent::table($table)
+            ->emptyStateHeading(
+                $this->duplicatesSearched
+                    ? 'Sin duplicados'
+                    : 'Buscar duplicados'
+            )
+            ->emptyStateDescription(
+                $this->duplicatesSearched
+                    ? 'No se encontraron clientes con el mismo DNI y nombre parcial o total igual.'
+                    : 'Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual (el teléfono puede coincidir o no).'
+            );
     }
 
     protected function getHeaderWidgets(): array
     {
         return [
-            DuplicadosStatsWidget::class,
+            DuplicadosStatsWidget::make([
+                'duplicatesSearched' => $this->duplicatesSearched,
+            ]),
         ];
     }
 

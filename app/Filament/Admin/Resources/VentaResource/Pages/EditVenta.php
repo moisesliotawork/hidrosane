@@ -11,6 +11,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
+use App\Services\VentaNotesCustomerSync;
 use Filament\Actions\DeleteAction;
 
 class EditVenta extends EditRecord
@@ -87,7 +88,6 @@ class EditVenta extends EditRecord
 
         return $data;
     }
-
 
     protected function getHeaderActions(): array
     {
@@ -234,7 +234,9 @@ class EditVenta extends EditRecord
 
     protected function afterSave(): void
     {
-        $venta = $this->record;
+        $venta = $this->record->fresh(['customer', 'note']);
+
+        VentaNotesCustomerSync::syncFromVenta($venta);
 
         // Por si algo externo cambió el repeater, aunque el hook saved ya lo hace:
         $venta->recomputarImportesDesdeOfertas(false)
