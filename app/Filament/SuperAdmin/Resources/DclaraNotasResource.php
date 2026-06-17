@@ -42,7 +42,7 @@ class DclaraNotasResource extends Resource
             ->orderByDesc('id')
             ->with([
                 'customer:id,first_names,last_names',
-                'customer.latestVenta:id,customer_id,nro_cliente_adm',
+                'customer.latestVenta',
                 'comercial:id,name,last_name,empleado_id',
                 'venta:id,note_id,nro_cliente_adm',
             ]);
