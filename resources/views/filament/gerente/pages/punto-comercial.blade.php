@@ -98,6 +98,34 @@
         padding: 1rem;
     }
 
+    .pc-fecha-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .pc-dia-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 2.4rem;
+        padding: 0.2rem 0.45rem;
+        border-radius: 9999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: #14532d;
+        color: #dcfce7;
+        border: 1px solid #166534;
+    }
+
+    html.dark .pc-dia-badge {
+        background: #166534;
+        color: #bbf7d0;
+        border-color: #22c55e;
+    }
+
     .pc-fecha {
         font-size: 1.05rem;
         font-weight: 800;
@@ -389,13 +417,19 @@
                 $leader = $report->teamLeader;
                 $leaderLabel = trim(($leader?->empleado_id ?? '—') . ' ' . ($leader?->name ?? '') . ' ' . ($leader?->last_name ?? ''));
                 $mapsUrl = $report->mapsUrl();
+                $diaBadge = $report->submitted_at
+                    ? mb_strtoupper(mb_substr($report->submitted_at->locale('es')->isoFormat('dddd'), 0, 3))
+                    : '—';
             @endphp
 
             <div class="pc-card">
                 <div class="pc-card-body">
-                    <p class="pc-fecha">
-                        {{ $report->submitted_at?->format('d/m/Y H:i') ?? '—' }}
-                    </p>
+                    <div class="pc-fecha-row">
+                        <span class="pc-dia-badge">{{ $diaBadge }}</span>
+                        <p class="pc-fecha">
+                            {{ $report->submitted_at?->format('d/m/Y H:i') ?? '—' }}
+                        </p>
+                    </div>
 
                     <div>
                         <p class="pc-label">Jefe/Equipo</p>
