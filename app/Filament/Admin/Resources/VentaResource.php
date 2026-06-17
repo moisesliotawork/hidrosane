@@ -39,6 +39,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Support\Colors\Color;
 use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
+use App\Services\VentaCustomerIdentityService;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -273,6 +274,18 @@ class VentaResource extends Resource
                 ->label('ID Cliente (BD)')
                 ->content(fn (?Venta $record) => $record?->customer_id ?? '—')
                 ->visible(fn (?Venta $record) => filled($record?->customer_id)),
+
+            Placeholder::make('customer_shared_warning')
+                ->label('')
+                ->content(new HtmlString(
+                    '<p class="text-sm text-warning-600 dark:text-warning-400">'
+                    . 'Este ID de cliente lo comparten otros contratos o notas. '
+                    . 'Al guardar cambios en los datos del cliente, se creará un <strong>cliente nuevo</strong> '
+                    . 'y este contrato quedará independiente (el Nº Cliente del contrato se guarda aparte).'
+                    . '</p>'
+                ))
+                ->visible(fn (?Venta $record) => filled($record?->customer_id)
+                    && VentaCustomerIdentityService::customerIsShared($record)),
 
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!

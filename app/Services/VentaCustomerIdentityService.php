@@ -3,15 +3,17 @@
 namespace App\Services;
 
 use App\Models\Customer;
+use App\Models\Note;
 use App\Models\Venta;
 
 class VentaCustomerIdentityService
 {
     /**
-     * Si cambian nombre o DNI, el contrato pasa a otro cliente (nuevo o existente por DNI)
-     * sin modificar el registro del cliente anterior.
+     * Desvincula el contrato del cliente compartido cuando hace falta:
+     * - Cliente usado por otros contratos/notas + datos modificados → cliente nuevo.
+     * - Cliente exclusivo + cambio de nombre/DNI → otro cliente (por DNI o nuevo).
      */
-    public static function reassignCustomerIfIdentityChanged(Venta $venta, array &$data): void
+    public static function reassignCustomerIfNeeded(Venta $venta, array &$data): void
     {
         $customerData = $data['customer'] ?? null;
 
@@ -19,22 +21,61 @@ class VentaCustomerIdentityService
             return;
         }
 
-        $venta->loadMissing('customer');
+        $venta->loadMissing(['customer', 'asociadas', 'asociadasConmigo']);
 
         $originalCustomer = $venta->customer;
         if (! $originalCustomer) {
             return;
         }
 
-        if (! static::identityChanged($originalCustomer, $customerData)) {
+        if (! static::customerDataChanged($originalCustomer, $customerData)) {
             return;
         }
 
-        $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
-        static::applyCustomerPayload($targetCustomer, $customerData);
+        if (static::customerIsShared($venta)) {
+            $targetCustomer = Customer::create(static::extractCustomerPayload($customerData));
+        } elseif (static::identityChanged($originalCustomer, $customerData)) {
+            $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
+            static::applyCustomerPayload($targetCustomer, $customerData);
+        } else {
+            return;
+        }
 
         $data['customer_id'] = $targetCustomer->id;
         unset($data['customer']);
+    }
+
+    public static function customerIsShared(Venta $venta): bool
+    {
+        if (! $venta->customer_id) {
+            return false;
+        }
+
+        $venta->loadMissing(['asociadas', 'asociadasConmigo']);
+
+        $ventaIds = collect([$venta->id])
+            ->merge($venta->todasAsociadas()->pluck('id'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $noteIds = collect([$venta->note_id])
+            ->merge($venta->todasAsociadas()->pluck('note_id'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if (Venta::query()
+            ->where('customer_id', $venta->customer_id)
+            ->whereNotIn('id', $ventaIds)
+            ->exists()) {
+            return true;
+        }
+
+        return Note::query()
+            ->where('customer_id', $venta->customer_id)
+            ->whereNotIn('id', $noteIds)
+            ->exists();
     }
 
     public static function identityChanged(Customer $original, array $newData): bool
@@ -42,6 +83,24 @@ class VentaCustomerIdentityService
         return static::normalizeDni($original->dni) !== static::normalizeDni($newData['dni'] ?? null)
             || static::normalizeName($original->first_names) !== static::normalizeName($newData['first_names'] ?? null)
             || static::normalizeName($original->last_names) !== static::normalizeName($newData['last_names'] ?? null);
+    }
+
+    public static function customerDataChanged(Customer $original, array $newData): bool
+    {
+        foreach ((new Customer)->getFillable() as $field) {
+            if (! array_key_exists($field, $newData)) {
+                continue;
+            }
+
+            $old = static::normalizeFieldValue($field, $original->{$field});
+            $new = static::normalizeFieldValue($field, $newData[$field]);
+
+            if ($old !== $new) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected static function resolveTargetCustomer(array $customerData, int $excludeCustomerId): Customer
@@ -77,6 +136,37 @@ class VentaCustomerIdentityService
             ->only($fillable)
             ->reject(fn ($value) => $value === null)
             ->all();
+    }
+
+    protected static function normalizeFieldValue(string $field, mixed $value): string
+    {
+        if (in_array($field, [
+            'phone',
+            'secondary_phone',
+            'third_phone',
+            'phone1_commercial',
+            'phone2_commercial',
+        ], true)) {
+            return preg_replace('/\D+/', '', (string) $value);
+        }
+
+        if ($field === 'dni') {
+            return static::normalizeDni($value);
+        }
+
+        if (in_array($field, ['first_names', 'last_names'], true)) {
+            return static::normalizeName($value);
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        return mb_strtolower(trim((string) $value));
     }
 
     protected static function normalizeDni(?string $dni): string

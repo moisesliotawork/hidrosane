@@ -48,7 +48,7 @@ class EditVenta extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        VentaCustomerIdentityService::reassignCustomerIfIdentityChanged($this->record, $data);
+        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
 
         $this->persistCustomerIban($data);
 
