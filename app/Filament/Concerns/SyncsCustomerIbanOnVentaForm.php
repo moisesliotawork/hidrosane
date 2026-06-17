@@ -19,11 +19,16 @@ trait SyncsCustomerIbanOnVentaForm
 
     protected function persistCustomerIban(array &$data): void
     {
-        if (!array_key_exists('iban', $data)) {
+        if (! array_key_exists('iban', $data)) {
             return;
         }
 
-        CustomerIbanForm::persist($this->record?->customer, $data['iban']);
+        $customerId = $data['customer_id'] ?? $this->record?->customer_id;
+        $customer = $customerId
+            ? \App\Models\Customer::query()->find($customerId)
+            : $this->record?->customer;
+
+        CustomerIbanForm::persist($customer, $data['iban']);
         unset($data['iban']);
     }
 }

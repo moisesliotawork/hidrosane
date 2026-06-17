@@ -269,6 +269,11 @@ class VentaResource extends Resource
 
 
             /* ───────── Información del cliente ────────── */
+            Placeholder::make('customer_db_id')
+                ->label('ID Cliente (BD)')
+                ->content(fn (?Venta $record) => $record?->customer_id ?? '—')
+                ->visible(fn (?Venta $record) => filled($record?->customer_id)),
+
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
                 ->schema([

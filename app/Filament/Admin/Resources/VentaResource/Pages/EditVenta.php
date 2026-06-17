@@ -12,6 +12,7 @@ use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
 use App\Services\VentaNotesCustomerSync;
+use App\Services\VentaCustomerIdentityService;
 use Filament\Actions\DeleteAction;
 
 class EditVenta extends EditRecord
@@ -47,6 +48,8 @@ class EditVenta extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        VentaCustomerIdentityService::reassignCustomerIfIdentityChanged($this->record, $data);
+
         $this->persistCustomerIban($data);
 
         /* 1. Nunca tocar el Nº de nota */
