@@ -13,6 +13,8 @@ use App\Listeners\EnviarNotaOficinaATelegram;
 use App\Events\NotasEnviadasAOficinaBulk;
 use App\Listeners\EnviarNotasOficinaBulkATelegram;
 use App\Listeners\EnviarNotasOficinaBulkPorEmail;
+use App\Events\PuntoComercialEnviado;
+use App\Listeners\EnviarPuntoComercialATelegram;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 
@@ -38,6 +40,10 @@ class EventServiceProvider extends ServiceProvider
         NotasEnviadasAOficinaBulk::class => [
             EnviarNotasOficinaBulkATelegram::class,
             EnviarNotasOficinaBulkPorEmail::class,
+        ],
+
+        PuntoComercialEnviado::class => [
+            EnviarPuntoComercialATelegram::class,
         ],
     ];
 }

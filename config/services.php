@@ -38,7 +38,8 @@ return [
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'chat_id_ventas' => env('TELEGRAM_CHAT_ID_VENTAS'),
-        'chat_id_canticos' => env('TELEGRAM_CHAT_ID_CANTICOS')
+        'chat_id_canticos' => env('TELEGRAM_CHAT_ID_CANTICOS'),
+        'chat_id_accion_ohana' => env('TELEGRAM_CHAT_ID_ACCION_OHANA'),
     ],
 
 ];
