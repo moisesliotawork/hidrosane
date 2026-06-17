@@ -21,6 +21,8 @@ class EditVenta extends EditRecord
 
     protected static string $resource = VentaResource::class;
 
+    protected ?int $pendingCustomerId = null;
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -46,9 +48,42 @@ class EditVenta extends EditRecord
         return $this->hydrateCustomerIban($data);
     }
 
+    protected function beforeSave(): void
+    {
+        $customerData = $this->data['customer'] ?? null;
+
+        if (! is_array($customerData) || ! $this->record->customer_id) {
+            return;
+        }
+
+        $payload = [
+            'customer_id' => $this->record->customer_id,
+            'customer' => $customerData,
+        ];
+
+        $previousCustomerId = (int) $this->record->customer_id;
+
+        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $payload);
+
+        if ((int) ($payload['customer_id'] ?? 0) === $previousCustomerId) {
+            return;
+        }
+
+        $this->pendingCustomerId = (int) $payload['customer_id'];
+        $this->record->customer_id = $this->pendingCustomerId;
+        $this->record->saveQuietly();
+        $this->record->unsetRelation('customer');
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
+        if ($this->pendingCustomerId) {
+            $data['customer_id'] = $this->pendingCustomerId;
+            unset($data['customer']);
+        } else {
+            $data['customer'] = $data['customer'] ?? Arr::get($this->data, 'customer');
+            VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
+        }
 
         $this->persistCustomerIban($data);
 

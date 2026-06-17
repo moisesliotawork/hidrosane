@@ -12,6 +12,10 @@ class EditVenta extends BaseEditVenta
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if ($this->pendingCustomerId) {
+            return parent::mutateFormDataBeforeSave($data);
+        }
+
         $newCustomerId = isset($data['customer_id']) ? (int) $data['customer_id'] : null;
         $oldCustomerId = (int) $this->record->customer_id;
 
