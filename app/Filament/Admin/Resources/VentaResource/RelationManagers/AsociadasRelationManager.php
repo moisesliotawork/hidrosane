@@ -40,7 +40,7 @@ class AsociadasRelationManager extends RelationManager
                 Tables\Actions\Action::make('edit')
                     ->label('Editar')
                     ->icon('heroicon-o-pencil-square')
-                    ->url(fn(Venta $record) => static::getResource()::getUrl('edit', ['record' => $record])),
+                    ->url(fn (Venta $record) => $this->getPageClass()::getResource()::getUrl('edit', ['record' => $record])),
             ])
             ->bulkActions([])
             ->paginated(false); // mostrar todos los -B
