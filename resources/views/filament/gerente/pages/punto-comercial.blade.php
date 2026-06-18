@@ -207,6 +207,46 @@
         color: #ffffff;
     }
 
+    .pc-btn-delete {
+        display: inline-flex;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        padding: 0.7rem 1rem;
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        background: #ffffff;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .pc-btn-delete:hover {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #f87171;
+    }
+
+    html.dark .pc-btn-delete {
+        background: #1f2937;
+        color: #fca5a5;
+        border-color: #7f1d1d;
+    }
+
+    html.dark .pc-btn-delete:hover {
+        background: #450a0a;
+        color: #fecaca;
+    }
+
+    .pc-card-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
     .pc-sin-gps {
         border-radius: 0.75rem;
         padding: 0.85rem 1rem;
@@ -441,20 +481,31 @@
                         <p class="pc-reporte">{{ $report->texto }}</p>
                     </div>
 
-                    @if ($mapsUrl)
-                        <a
-                            href="{{ $mapsUrl }}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="pc-btn-ir"
+                    <div class="pc-card-actions">
+                        @if ($mapsUrl)
+                            <a
+                                href="{{ $mapsUrl }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="pc-btn-ir"
+                            >
+                                GPS - IR
+                            </a>
+                        @else
+                            <div class="pc-sin-gps">
+                                Sin ubicación GPS
+                            </div>
+                        @endif
+
+                        <button
+                            type="button"
+                            wire:click="deleteReport({{ $report->id }})"
+                            wire:confirm="¿Eliminar este reporte de punto comercial?"
+                            class="pc-btn-delete"
                         >
-                            GPS - IR
-                        </a>
-                    @else
-                        <div class="pc-sin-gps">
-                            Sin ubicación GPS
-                        </div>
-                    @endif
+                            BORRAR
+                        </button>
+                    </div>
                 </div>
             </div>
         @empty

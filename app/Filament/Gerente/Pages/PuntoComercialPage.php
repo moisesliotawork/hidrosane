@@ -3,6 +3,7 @@
 namespace App\Filament\Gerente\Pages;
 
 use App\Models\PuntoComercialReport;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
@@ -80,5 +81,26 @@ class PuntoComercialPage extends Page
             ->orderByDesc('submitted_at')
             ->orderByDesc('id')
             ->paginate(12);
+    }
+
+    public function deleteReport(int $reportId): void
+    {
+        $report = PuntoComercialReport::query()->find($reportId);
+
+        if (! $report) {
+            Notification::make()
+                ->title('Registro no encontrado')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $report->delete();
+
+        Notification::make()
+            ->title('Reporte eliminado')
+            ->success()
+            ->send();
     }
 }
