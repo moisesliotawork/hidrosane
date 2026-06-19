@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -146,6 +147,40 @@ class Customer extends Model
     public function latestNote(): HasOne
     {
         return $this->hasOne(Note::class, 'customer_id')->latestOfMany();
+    }
+
+    /** Última nota del cliente con ubicación GPS del botón DENTRO. */
+    public function latestNoteWithDentroGps(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')
+            ->ofMany(['id' => 'max'], function (Builder $query): void {
+                $query->whereNotNull('lat_dentro')
+                    ->whereNotNull('lng_dentro')
+                    ->where('lat_dentro', '!=', '')
+                    ->where('lng_dentro', '!=', '');
+            });
+    }
+
+    public function hasDentroGps(): bool
+    {
+        if ($this->relationLoaded('latestNoteWithDentroGps')) {
+            return $this->latestNoteWithDentroGps?->hasCoordinatesDentro() ?? false;
+        }
+
+        return $this->latestNoteWithDentroGps()->exists();
+    }
+
+    public function dentroGpsMapsUrl(): ?string
+    {
+        $note = $this->relationLoaded('latestNoteWithDentroGps')
+            ? $this->latestNoteWithDentroGps
+            : $this->latestNoteWithDentroGps()->first();
+
+        if (! $note?->hasCoordinatesDentro()) {
+            return null;
+        }
+
+        return 'https://www.google.com/maps?q=' . urlencode("{$note->lat_dentro},{$note->lng_dentro}");
     }
 
     /** Relación: un cliente puede tener muchas observaciones */

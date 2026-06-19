@@ -746,9 +746,15 @@
 
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
-                                De Camino
-                            </button>
+                            @if($note['de_camino'] ?? false)
+                                <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @else
+                                <button class="action-button" onclick="toggleDeCaminoConGps({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @endif
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
@@ -780,6 +786,37 @@
         </div>
     </div>
     <script>
+        function toggleDeCaminoConGps(notaId) {
+            function enviar(lat, lng) {
+                Livewire.dispatch('toggleDeCamino', {
+                    noteId: notaId,
+                    lat: lat,
+                    lng: lng
+                });
+            }
+
+            if (location.protocol !== 'https:') {
+                enviar(10.4806, -66.9036);
+                alert('Estás en entorno local, se usó ubicación de Caracas para DE CAMINO.');
+                return;
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        enviar(position.coords.latitude, position.coords.longitude);
+                    },
+                    function (error) {
+                        enviar(10.4806, -66.9036);
+                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
+                    }
+                );
+            } else {
+                enviar(10.4806, -66.9036);
+                alert('Geolocalización no soportada, se usó Caracas para DE CAMINO.');
+            }
+        }
+
         function getUbicacion(notaId) {
             if (location.protocol !== 'https:')
             {

@@ -27,6 +27,7 @@ use App\Models\NoteSalaEvent;
 use App\Models\User;
 use App\Filament\Commercial\Resources\NoteResource;
 use App\Support\ActionGps;
+use App\Support\NoteRouteGps;
 use Livewire\Attributes\On;
 
 class EditNote extends EditRecord
@@ -95,7 +96,7 @@ class EditNote extends EditRecord
                         'nota_id' => $this->record->id,
                         'author_id' => auth()->id(),
                         'asunto' => 'AUSENTE',
-                        'cuerpo' => $data['observacion'] ?? 'Marcado como AUSENTE',
+                        'cuerpo' => NoteRouteGps::ausenteCuerpo($data['observacion'] ?? null, $lat, $lng),
                     ]);
 
                     // 4) Notificación + redirect

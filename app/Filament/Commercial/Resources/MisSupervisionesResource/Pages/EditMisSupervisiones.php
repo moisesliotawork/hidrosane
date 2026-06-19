@@ -25,6 +25,7 @@ use App\Models\CreamDailyControl;
 use App\Models\NoteSalaEvent;
 use App\Models\User;
 use App\Support\ActionGps;
+use App\Support\NoteRouteGps;
 use Livewire\Attributes\On;
 
 class EditMisSupervisiones extends EditRecord
@@ -92,7 +93,7 @@ class EditMisSupervisiones extends EditRecord
                         'nota_id' => $this->record->id,
                         'author_id' => auth()->id(),
                         'asunto' => 'AUSENTE',
-                        'cuerpo' => $data['observacion'] ?? 'Marcado como AUSENTE',
+                        'cuerpo' => NoteRouteGps::ausenteCuerpo($data['observacion'] ?? null, $lat, $lng),
                     ]);
 
                     // 4) Notificación + redirect

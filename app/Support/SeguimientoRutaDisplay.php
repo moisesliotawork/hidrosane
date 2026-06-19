@@ -16,7 +16,7 @@ class SeguimientoRutaDisplay
             return false;
         }
 
-        if (preg_match('/^(Ubicación|Ubicacion)\s*(capturada|DENTRO|repartidor)/iu', $text)) {
+        if (preg_match('/^(Ubicación|Ubicacion)\s*(capturada|DENTRO|DE CAMINO|repartidor)/iu', $text)) {
             return true;
         }
 
@@ -80,11 +80,78 @@ class SeguimientoRutaDisplay
         ];
     }
 
+    /** @return array{gps_lat: mixed, gps_lng: mixed} */
+    public static function gpsCoordsForAnotacion(string $asunto, ?string $cuerpo, Note $note): array
+    {
+        $asunto = strtoupper(trim($asunto));
+        $cuerpo = trim((string) $cuerpo);
+
+        if ($asunto === 'DE CAMINO') {
+            if (preg_match('/no\s+va\s+de\s+camino/iu', $cuerpo)) {
+                return ['gps_lat' => null, 'gps_lng' => null];
+            }
+
+            $parsed = self::extractGpsFromText($cuerpo);
+            if ($parsed) {
+                return ['gps_lat' => $parsed['lat'], 'gps_lng' => $parsed['lng']];
+            }
+
+            return self::gpsCoordsForGpsText($cuerpo, $asunto, $note);
+        }
+
+        if (self::isGpsLocationText($cuerpo)) {
+            return self::gpsCoordsForGpsText($cuerpo, $asunto, $note);
+        }
+
+        return ['gps_lat' => null, 'gps_lng' => null];
+    }
+
+    /** @return array{gps_lat: mixed, gps_lng: mixed} */
+    public static function gpsCoordsForAusente(?string $observacion, ?string $cuerpo, Note $note, mixed $latitud = null, mixed $longitud = null): array
+    {
+        $lat = filled($latitud) ? $latitud : null;
+        $lng = filled($longitud) ? $longitud : null;
+
+        if (! filled($lat) || ! filled($lng)) {
+            $parsed = self::extractGpsFromText($cuerpo ?? $observacion);
+            if ($parsed) {
+                $lat = $parsed['lat'];
+                $lng = $parsed['lng'];
+            }
+        }
+
+        if (! filled($lat) || ! filled($lng)) {
+            $lat = $note->lat_dentro ?? null;
+            $lng = $note->lng_dentro ?? null;
+        }
+
+        return [
+            'gps_lat' => filled($lat) ? $lat : null,
+            'gps_lng' => filled($lng) ? $lng : null,
+        ];
+    }
+
     public static function displayBody(?string $body, string $fallback = ''): string
     {
         $clean = self::sanitizeBody($body);
 
         return $clean !== '' ? $clean : $fallback;
+    }
+
+    public static function displayAnotacionBody(?string $asunto, ?string $cuerpo, string $fallback = 'Sin contenido'): string
+    {
+        $asuntoNorm = strtoupper(trim((string) $asunto));
+        $cuerpo = trim((string) $cuerpo);
+
+        if ($asuntoNorm === 'DE CAMINO' && ! preg_match('/no\s+va\s+de\s+camino/iu', $cuerpo)) {
+            return 'Comercial:';
+        }
+
+        if (self::isGpsLocationText($cuerpo) && $asuntoNorm !== 'DE CAMINO') {
+            return '';
+        }
+
+        return self::displayBody($cuerpo, $fallback);
     }
 
     public static function reassignmentLogForDate(Note $note, Carbon $date): ?NoteReassignmentLog

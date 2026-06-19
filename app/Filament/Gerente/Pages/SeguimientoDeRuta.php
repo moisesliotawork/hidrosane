@@ -136,18 +136,14 @@ class SeguimientoDeRuta extends Page
             ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date)
                 && strtoupper(trim((string) ($anotacion->asunto ?? ''))) !== 'AUSENTE')
             ->map(function ($anotacion) use ($note) {
-                $isGpsOnly = SeguimientoRutaDisplay::isGpsLocationText($anotacion->cuerpo);
-                $gps = $isGpsOnly
-                    ? SeguimientoRutaDisplay::gpsCoordsForGpsText($anotacion->cuerpo, (string) ($anotacion->asunto ?? ''), $note)
-                    : ['gps_lat' => null, 'gps_lng' => null];
+                $asunto = (string) ($anotacion->asunto ?? '');
+                $gps = SeguimientoRutaDisplay::gpsCoordsForAnotacion($asunto, $anotacion->cuerpo, $note);
 
                 return [
                     'type' => 'anotacion',
                     'created_at' => $anotacion->created_at,
                     'topic' => $anotacion->asunto ?: 'SIN ASUNTO',
-                    'body' => $isGpsOnly
-                        ? ''
-                        : SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Sin contenido'),
+                    'body' => SeguimientoRutaDisplay::displayAnotacionBody($asunto, $anotacion->cuerpo),
                     'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
                     'meta_label' => 'Anotado',
                     'gps_lat' => $gps['gps_lat'],
@@ -197,6 +193,13 @@ class SeguimientoDeRuta extends Page
             ->map(function ($ausencia) use ($note) {
                 $fecha = $ausencia->fecha?->toDateString() ?? $ausencia->created_at?->toDateString() ?? today()->toDateString();
                 $hora = $ausencia->hora ?: $ausencia->created_at?->format('H:i:s') ?: '00:00:00';
+                $gps = SeguimientoRutaDisplay::gpsCoordsForAusente(
+                    $ausencia->observacion,
+                    null,
+                    $note,
+                    $ausencia->latitud,
+                    $ausencia->longitud
+                );
 
                 return [
                     'type' => 'ausente',
@@ -205,8 +208,8 @@ class SeguimientoDeRuta extends Page
                     'body' => SeguimientoRutaDisplay::displayBody($ausencia->observacion, 'Marcado como AUSENTE'),
                     'author' => $ausencia->autor?->display_name ?? $ausencia->autor?->full_name ?? '—',
                     'meta_label' => 'Ausente',
-                    'gps_lat' => filled($ausencia->latitud) ? $ausencia->latitud : (filled($note->lat_dentro) ? $note->lat_dentro : null),
-                    'gps_lng' => filled($ausencia->longitud) ? $ausencia->longitud : (filled($note->lng_dentro) ? $note->lng_dentro : null),
+                    'gps_lat' => $gps['gps_lat'],
+                    'gps_lng' => $gps['gps_lng'],
                 ];
             });
 
@@ -214,16 +217,20 @@ class SeguimientoDeRuta extends Page
             $ausencias = ($note->anotacionesVisitas ?? collect())
                 ->filter(fn($anotacion) => $anotacion->created_at?->isSameDay($date)
                     && strtoupper(trim((string) ($anotacion->asunto ?? ''))) === 'AUSENTE')
-                ->map(fn($anotacion) => [
-                    'type' => 'ausente',
-                    'created_at' => $anotacion->created_at,
-                    'topic' => 'AUSENTE',
-                    'body' => SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Marcado como AUSENTE'),
-                    'author' => $anotacion->autor?->display_name ?? $anotacion->autor?->full_name ?? '—',
-                    'meta_label' => 'Ausente',
-                    'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
-                    'gps_lng' => filled($note->lng_dentro) ? $note->lng_dentro : null,
-                ]);
+                ->map(function ($anotacion) use ($note) {
+                    $gps = SeguimientoRutaDisplay::gpsCoordsForAusente(null, $anotacion->cuerpo, $note);
+
+                    return [
+                        'type' => 'ausente',
+                        'created_at' => $anotacion->created_at,
+                        'topic' => 'AUSENTE',
+                        'body' => SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Marcado como AUSENTE'),
+                        'author' => $anotacion->autor?->display_name ?? $anotacion->autor?->full_name ?? '—',
+                        'meta_label' => 'Ausente',
+                        'gps_lat' => $gps['gps_lat'],
+                        'gps_lng' => $gps['gps_lng'],
+                    ];
+                });
         }
 
         $nulos = ($note->relationLoaded('nullReasons')

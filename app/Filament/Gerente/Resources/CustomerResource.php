@@ -4,6 +4,7 @@ namespace App\Filament\Gerente\Resources;
 
 use App\Filament\Gerente\Resources\CustomerResource\Pages;
 use App\Filament\Gerente\Resources\CustomerResource\RelationManagers;
+use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Forms;
@@ -37,6 +38,11 @@ class CustomerResource extends Resource
             ->schema([
                 //
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return CustomerPosicionGlobalTable::applyEagerLoads(parent::getEloquentQuery());
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -208,6 +214,8 @@ class CustomerResource extends Resource
                                      ->orWhere('phone2_commercial', 'like', "%{$search}%");
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                CustomerPosicionGlobalTable::gpsDentroColumn(),
 
             ])
             ->defaultSort('id', 'desc')

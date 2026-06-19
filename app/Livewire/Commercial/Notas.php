@@ -14,6 +14,7 @@ use App\Models\NoteSalaEvent;
 use App\Enums\NoteStatus;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Support\NoteRouteGps;
 
 class Notas extends Component
 {
@@ -27,6 +28,7 @@ class Notas extends Component
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
+        'toggleDeCamino' => 'toggleDeCamino',
     ];
 
     public function resetFilters(): void
@@ -251,7 +253,7 @@ class Notas extends Component
         $this->dispatch('notaActualizada');
     }
 
-    public function toggleDeCamino($noteId): void
+    public function toggleDeCamino($noteId, $lat = null, $lng = null): void
     {
         $note = Note::find($noteId);
 
@@ -264,22 +266,23 @@ class Notas extends Component
             return;
         }
 
-        $nuevoEstado = !$note->de_camino;
-        $note->de_camino = $nuevoEstado;
-        $note->save();
+        $enCamino = ! $note->de_camino;
 
-        AnotacionVisita::create([
-            'nota_id' => $noteId,
-            'author_id' => auth()->id(),
-            'asunto' => 'DE CAMINO',
-            'cuerpo' => $nuevoEstado ? "Va de camino" : "No va de camino",
-        ]);
+        if (! NoteRouteGps::toggleDeCamino($note, auth()->id(), $lat, $lng)) {
+            Notification::make()
+                ->title('GPS requerido')
+                ->warning()
+                ->body('Debes permitir la geolocalización para marcar DE CAMINO.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
-                    ->title('Estado actualizado')
-                    ->body($nuevoEstado ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
-            ->{$nuevoEstado ? 'success' : 'warning'}()
-                ->send();
+            ->title('Estado actualizado')
+            ->body($enCamino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
+            ->{$enCamino ? 'success' : 'warning'}()
+            ->send();
 
         $this->dispatch('notaActualizada');
     }
