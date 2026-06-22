@@ -161,6 +161,18 @@ class Customer extends Model
             });
     }
 
+    /** Última nota del cliente con ubicación GPS (botón GPS / DE CAMINO). */
+    public function latestNoteWithGps(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')
+            ->ofMany(['id' => 'max'], function (Builder $query): void {
+                $query->whereNotNull('lat')
+                    ->whereNotNull('lng')
+                    ->where('lat', '!=', '')
+                    ->where('lng', '!=', '');
+            });
+    }
+
     public function hasDentroGps(): bool
     {
         if ($this->relationLoaded('latestNoteWithDentroGps')) {
@@ -181,6 +193,29 @@ class Customer extends Model
         }
 
         return 'https://www.google.com/maps?q=' . urlencode("{$note->lat_dentro},{$note->lng_dentro}");
+    }
+
+    public function hasAnyGps(): bool
+    {
+        return filled($this->anyGpsMapsUrl());
+    }
+
+    public function anyGpsMapsUrl(): ?string
+    {
+        $dentroUrl = $this->dentroGpsMapsUrl();
+        if (filled($dentroUrl)) {
+            return $dentroUrl;
+        }
+
+        $note = $this->relationLoaded('latestNoteWithGps')
+            ? $this->latestNoteWithGps
+            : $this->latestNoteWithGps()->first();
+
+        if ($note?->hasCoordinates()) {
+            return 'https://www.google.com/maps?q=' . urlencode("{$note->lat},{$note->lng}");
+        }
+
+        return null;
     }
 
     /** Relación: un cliente puede tener muchas observaciones */

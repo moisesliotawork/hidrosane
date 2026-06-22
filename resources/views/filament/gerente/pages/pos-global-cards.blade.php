@@ -388,6 +388,18 @@
         color: #ffffff;
     }
 
+    .pgc-btn-gps.is-disabled {
+        background: #9ca3af;
+        color: #f9fafb;
+        cursor: not-allowed;
+        opacity: 0.95;
+    }
+
+    html.dark .pgc-btn-gps.is-disabled {
+        background: #4b5563;
+        color: #d1d5db;
+    }
+
     .pgc-btn-icon {
         width: 1.1rem;
         height: 1.1rem;
@@ -450,7 +462,7 @@
                 $contracts = \App\Filament\Support\CustomerPosicionGlobalTable::contractsForCard($customer);
                 $clientPhoneBadges = \App\Filament\Support\CustomerPosicionGlobalTable::clientPhoneBadges($customer);
                 $commercialPhoneBadges = \App\Filament\Support\CustomerPosicionGlobalTable::commercialPhoneBadges($customer);
-                $gpsUrl = $customer->dentroGpsMapsUrl();
+                $gpsUrl = $customer->anyGpsMapsUrl();
             @endphp
 
             <article @class(['pgc-card', 'is-inhab' => (bool) $customer->inhabilitado])>
@@ -535,11 +547,16 @@
                     <a href="{{ $this->viewUrl($customer) }}" class="pgc-btn pgc-btn-view">
                         Ver posición global
                     </a>
-                    @if ($customer->hasDentroGps() && filled($gpsUrl))
+                    @if ($customer->hasAnyGps() && filled($gpsUrl))
                         <a href="{{ $gpsUrl }}" target="_blank" rel="noopener noreferrer" class="pgc-btn pgc-btn-gps">
                             <x-heroicon-o-map-pin class="pgc-btn-icon" />
                             GPS
                         </a>
+                    @else
+                        <span class="pgc-btn pgc-btn-gps is-disabled" aria-disabled="true" title="Sin GPS registrado">
+                            <x-heroicon-o-map-pin class="pgc-btn-icon" />
+                            GPS
+                        </span>
                     @endif
                 </div>
             </article>

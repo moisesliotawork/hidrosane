@@ -14,6 +14,7 @@ class CustomerPosicionGlobalTable
         return $query
             ->with([
                 'latestNoteWithDentroGps',
+                'latestNoteWithGps',
                 'notes' => fn ($q) => $q
                     ->select(['id', 'customer_id', 'nro_nota'])
                     ->whereNotNull('nro_nota')
@@ -189,9 +190,9 @@ class CustomerPosicionGlobalTable
     {
         return TextColumn::make('dentro_gps')
             ->label('GPS')
-            ->state(fn ($record): ?string => $record->hasDentroGps() ? 'GPS' : null)
+            ->state(fn ($record): ?string => $record->hasAnyGps() ? 'GPS' : null)
             ->placeholder('')
-            ->url(fn ($record): ?string => $record->dentroGpsMapsUrl())
+            ->url(fn ($record): ?string => $record->anyGpsMapsUrl())
             ->openUrlInNewTab()
             ->icon('heroicon-o-map-pin')
             ->badge()
