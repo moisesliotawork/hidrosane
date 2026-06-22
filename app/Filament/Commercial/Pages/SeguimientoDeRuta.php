@@ -3,6 +3,7 @@
 namespace App\Filament\Commercial\Pages;
 
 use App\Enums\EstadoTerminal;
+use App\Filament\Support\HasSeguimientoDeRutaDateFilter;
 use App\Models\Note;
 use App\Models\User;
 use App\Support\SeguimientoRutaDisplay;
@@ -12,6 +13,8 @@ use Illuminate\Support\Collection;
 
 class SeguimientoDeRuta extends Page
 {
+    use HasSeguimientoDeRutaDateFilter;
+
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Seguimiento de ruta';
     protected static ?string $slug = 'seguimiento-de-ruta';
@@ -36,48 +39,15 @@ class SeguimientoDeRuta extends Page
         return 'Seguimiento de ruta';
     }
 
-    public function getReportDaysProperty(): array
-    {
-        return [
-            [
-                'key' => 'hoy',
-                'label' => 'HOY',
-                'date' => today(),
-            ],
-            [
-                'key' => 'ayer',
-                'label' => 'AYER',
-                'date' => today()->subDay(),
-            ],
-        ];
-    }
-
-    public function getSelectedReportDayProperty(): array
-    {
-        return collect($this->reportDays)
-            ->firstWhere('key', $this->selectedDay)
-            ?? $this->reportDays[0];
-    }
-
-    public function setSelectedDay(string $day): void
-    {
-        if (! in_array($day, ['hoy', 'ayer'], true)) {
-            return;
-        }
-
-        $this->selectedDay = $day;
-    }
-
     public function getComercialesProperty(): Collection
     {
-        $today = today();
-        $yesterday = today()->subDay();
+        [$from, $to] = $this->getNotesQueryDateRange();
 
         return User::query()
             ->role(['commercial', 'team_leader', 'sales_manager'])
             ->whereNull('baja')
             ->with([
-                'notasDeclaradas' => fn($query) => $this->activeNotesQuery($query, $yesterday, $today),
+                'notasDeclaradas' => fn($query) => $this->activeNotesQuery($query, $from, $to),
                 'notasDeclaradas.customer',
                 'notasDeclaradas.venta',
                 'notasDeclaradas.anotacionesVisitas.autor',

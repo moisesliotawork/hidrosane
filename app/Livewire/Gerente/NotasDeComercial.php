@@ -11,6 +11,7 @@ use App\Models\NoteReassignmentLog;
 use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Models\NoteSalaEvent;
+use App\Support\NoteRouteGps;
 use Illuminate\Support\Facades\DB;
 
 class NotasDeComercial extends Component
@@ -41,6 +42,7 @@ class NotasDeComercial extends Component
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
+        'toggleDeCamino' => 'toggleDeCamino',
     ];
 
     public function mount(string|int $comercialId): void
@@ -309,7 +311,7 @@ class NotasDeComercial extends Component
             ->send();
     }
 
-    public function toggleDeCamino($noteId): void
+    public function toggleDeCamino($noteId, $lat = null, $lng = null): void
     {
         $note = Note::find($noteId);
         if (!$note) {
@@ -327,21 +329,23 @@ class NotasDeComercial extends Component
             return;
         }
 
-        $note->de_camino = !$note->de_camino;
-        $note->save();
+        $enCamino = ! $note->de_camino;
 
-        AnotacionVisita::create([
-            'nota_id' => $noteId,
-            'author_id' => auth()->id(),
-            'asunto' => 'DE CAMINO',
-            'cuerpo' => $note->de_camino ? 'Va de camino' : 'No va de camino',
-        ]);
+        if (! NoteRouteGps::toggleDeCamino($note, auth()->id(), $lat, $lng)) {
+            Notification::make()
+                ->title('GPS requerido')
+                ->warning()
+                ->body('Debes permitir la geolocalización para marcar DE CAMINO.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
-                    ->title('Estado actualizado')
-            ->{$note->de_camino ? 'success' : 'warning'}()
-                ->body($note->de_camino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
-                ->send();
+            ->title('Estado actualizado')
+            ->{$enCamino ? 'success' : 'warning'}()
+            ->body($enCamino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
+            ->send();
 
         $this->dispatch('notaActualizada');
     }

@@ -267,16 +267,119 @@
                 align-items: flex-start;
             }
         }
+
+        .active-notes-date-filter {
+            margin-bottom: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: #faf5ef;
+        }
+
+        html.dark .active-notes-date-filter {
+            border-color: #374151;
+            background: #1f2937;
+        }
+
+        .active-notes-date-filter label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1.3;
+        }
+
+        html.dark .active-notes-date-filter label {
+            color: #e5e7eb;
+        }
+
+        .active-notes-date-filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .active-notes-date-filter input[type="date"] {
+            flex: 1 1 100%;
+            min-width: 0;
+            min-height: 44px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #111827;
+            font-size: 16px;
+            font-weight: 600;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        html.dark .active-notes-date-filter input[type="date"] {
+            border-color: #4b5563;
+            background: #111827;
+            color: #f9fafb;
+        }
+
+        .active-notes-date-clear {
+            flex: 1 1 100%;
+            min-height: 44px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        html.dark .active-notes-date-clear {
+            border-color: #4b5563;
+            background: #111827;
+            color: #e5e7eb;
+        }
+
+        @media (min-width: 480px) {
+            .active-notes-date-filter input[type="date"] {
+                flex: 1 1 auto;
+            }
+
+            .active-notes-date-clear {
+                flex: 0 0 auto;
+                min-width: 7rem;
+            }
+        }
     </style>
 
     <div class="active-notes-page">
+        <div class="active-notes-date-filter">
+            <label for="fechaEspecifica">Buscar por Fecha específica</label>
+            <div class="active-notes-date-filter-row">
+                <input
+                    id="fechaEspecifica"
+                    type="date"
+                    wire:model.live="fechaEspecifica"
+                    max="{{ today()->toDateString() }}"
+                />
+                @if (filled($fechaEspecifica))
+                    <button type="button" wire:click="clearFechaEspecifica" class="active-notes-date-clear">
+                        Limpiar
+                    </button>
+                @endif
+            </div>
+        </div>
+
         <div class="active-notes-tabs" role="tablist" aria-label="Día del reporte">
             @foreach($this->reportDays as $day)
                 <button
                     type="button"
                     role="tab"
-                    aria-selected="{{ $selectedDay === $day['key'] ? 'true' : 'false' }}"
-                    class="active-notes-tab {{ $selectedDay === $day['key'] ? 'is-active' : '' }}"
+                    aria-selected="{{ ! filled($fechaEspecifica) && $selectedDay === $day['key'] ? 'true' : 'false' }}"
+                    class="active-notes-tab {{ ! filled($fechaEspecifica) && $selectedDay === $day['key'] ? 'is-active' : '' }}"
                     wire:click="setSelectedDay('{{ $day['key'] }}')"
                 >
                     {{ ucfirst(strtolower($day['label'])) }}
