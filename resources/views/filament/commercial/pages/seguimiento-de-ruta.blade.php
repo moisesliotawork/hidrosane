@@ -164,6 +164,11 @@
             color: #b91c1c;
         }
 
+        .active-notes-badge-topic.is-oficina {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
         .active-notes-ir-btn {
             display: inline-block;
             padding: 1px 7px;
@@ -648,7 +653,7 @@
                                             {{ $note->nro_nota }}
                                         </a>
                                         <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')))) }}">
+                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'oficina' ? 'is-oficina' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : ''))))) }}">
                                             {{ $activity['topic'] }}
                                         </span>
                                         @if(filled($activity['body'] ?? null))
