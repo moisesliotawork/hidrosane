@@ -196,15 +196,14 @@
         }
 
         .active-notes-declared-row {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
             flex-wrap: wrap;
-            width: 100%;
+            max-width: 100%;
         }
 
         .active-notes-ir-btn--declared {
-            margin-left: auto;
             flex-shrink: 0;
         }
 
