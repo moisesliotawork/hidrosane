@@ -204,6 +204,20 @@ class SeguimientoRutaDisplay
             return self::gpsCoordsForSala($salaEvent);
         }
 
+        if ($estadoVal === 'venta') {
+            $venta = $note->relationLoaded('venta')
+                ? $note->venta
+                : $note->venta()->first();
+
+            $lat = filled($venta?->lat) ? $venta->lat : ($note->lat ?? null);
+            $lng = filled($venta?->lng) ? $venta->lng : ($note->lng ?? null);
+
+            return [
+                'gps_lat' => filled($lat) ? $lat : null,
+                'gps_lng' => filled($lng) ? $lng : null,
+            ];
+        }
+
         return ['gps_lat' => null, 'gps_lng' => null];
     }
 
