@@ -569,12 +569,7 @@ class NoteResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Enviar a Oficina')
                     ->modalDescription('Se enviarán a OFICINA las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
-                    ->form([
-                        Forms\Components\Hidden::make('gps_lat'),
-                        Forms\Components\Hidden::make('gps_lng'),
-                        Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
-                    ])
-                    ->action(function (iterable $records, array $data): void {
+                    ->action(function (iterable $records): void {
                         $allIds = collect($records)->pluck('id')->all();
 
                         // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
@@ -600,14 +595,63 @@ class NoteResource extends Resource
                             return;
                         }
 
-                        ['lat' => $lat, 'lng' => $lng] = \App\Support\ActionGps::resolve($data);
+                        \DB::transaction(function () use ($eligible) {
+                            $now = now();
+                            $userId = auth()->id();
 
-                        \App\Support\NoteSalaActions::sendBulkToOffice(
-                            $eligible,
-                            auth()->id(),
-                            $lat,
-                            $lng,
-                        );
+                            // 1) Actualizar todas las notas elegibles
+                            Note::whereIn('id', $eligible)->update([
+                                'estado_terminal' => EstadoTerminal::SALA->value,
+                                'printed' => false,
+                                'reten' => false,
+                                'sent_to_sala_at' => $now,
+                                'fecha_declaracion' => $now,
+                            ]);
+
+                            // 2) Crear historial de envíos a sala (masivo)
+                            $rows = [];
+                            foreach ($eligible as $noteId) {
+                                $rows[] = [
+                                    'note_id' => $noteId,
+                                    'sent_by_user_id' => $userId,
+                                    'via' => 'masivo',
+                                    'sent_at' => $now,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ];
+                            }
+
+                            if (!empty($rows)) {
+                                NoteSalaEvent::insert($rows);
+                            }
+
+                            // 2.5) Agregar observación automática si son 2 o más
+                            if (count($eligible) >= 2) {
+                                $obsRows = [];
+                                foreach ($eligible as $noteId) {
+                                    $obsRows[] = [
+                                        'note_id' => $noteId,
+                                        'author_id' => $userId,
+                                        'observation' => 'Envío Masivo a sala',
+                                        'created_at' => $now,
+                                        'updated_at' => $now,
+                                    ];
+                                }
+                                if (!empty($obsRows)) {
+                                    \App\Models\NoteSalaObservation::insert($obsRows);
+                                }
+                            }
+
+                            // 3) Lanzar evento de siempre después del commit
+                            \DB::afterCommit(function () use ($eligible) {
+                                $comercial = auth()->user();
+
+                                event(new \App\Events\NotasEnviadasAOficinaBulk(
+                                    $eligible,
+                                    $comercial
+                                ));
+                            });
+                        });
 
                         Notification::make()
                             ->title('Notas enviadas a Oficina')

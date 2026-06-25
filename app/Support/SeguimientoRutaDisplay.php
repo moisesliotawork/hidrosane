@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Models\Note;
 use App\Models\NoteReassignmentLog;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 class SeguimientoRutaDisplay
 {
@@ -43,23 +42,6 @@ class SeguimientoRutaDisplay
         $body = preg_replace('/\s*\[\s*-?\d+[.,]?\d*\s*,\s*-?\d+[.,]?\d*\s*\]/u', '', $body) ?? $body;
 
         return trim($body);
-    }
-
-    /** @return array{gps_lat: mixed, gps_lng: mixed} */
-    public static function gpsCoordsForSala(mixed $event, Note $note): array
-    {
-        $lat = $event->lat ?? null;
-        $lng = $event->lng ?? null;
-
-        if (! filled($lat) || ! filled($lng)) {
-            $lat = $note->lat ?? null;
-            $lng = $note->lng ?? null;
-        }
-
-        return [
-            'gps_lat' => filled($lat) ? $lat : null,
-            'gps_lng' => filled($lng) ? $lng : null,
-        ];
     }
 
     /** @return array{lat: string, lng: string}|null */
@@ -170,62 +152,6 @@ class SeguimientoRutaDisplay
         }
 
         return self::displayBody($cuerpo, $fallback);
-    }
-
-    public static function oficinaActivitiesForNote(Note $note, Carbon $date): Collection
-    {
-        $events = $note->relationLoaded('salaEvents')
-            ? ($note->getRelation('salaEvents') ?? collect())
-            : $note->salaEvents()->with('sentBy')->get();
-
-        $observations = $note->relationLoaded('salaObservations')
-            ? ($note->getRelation('salaObservations') ?? collect())
-            : collect();
-
-        $mapped = $events
-            ->filter(fn ($event) => ($event->sent_at ?? $event->created_at)?->isSameDay($date))
-            ->map(function ($event) use ($note, $observations) {
-                $at = $event->sent_at ?? $event->created_at;
-                $obs = $observations->first(
-                    fn ($o) => $o->created_at && $at && abs($o->created_at->diffInSeconds($at)) <= 10
-                ) ?? $observations->first(fn ($o) => $o->created_at?->isSameDay($at));
-
-                $gps = self::gpsCoordsForSala($event, $note);
-
-                return [
-                    'type' => 'oficina',
-                    'created_at' => $at,
-                    'topic' => 'ENVIADA A OFICINA',
-                    'body' => self::displayBody($obs?->observation, 'Enviada a oficina'),
-                    'author' => $event->sentBy?->display_name ?? $event->sentBy?->full_name ?? '—',
-                    'meta_label' => 'Enviada a oficina',
-                    'gps_lat' => $gps['gps_lat'],
-                    'gps_lng' => $gps['gps_lng'],
-                ];
-            });
-
-        if ($mapped->isNotEmpty()) {
-            return $mapped->values();
-        }
-
-        if (strtolower(trim((string) $note->getRawOriginal('estado_terminal'))) !== 'sala'
-            || ! $note->sent_to_sala_at?->isSameDay($date)) {
-            return collect();
-        }
-
-        $obs = $observations->first(fn ($o) => $o->created_at?->isSameDay($date));
-        $gps = self::gpsCoordsForSala((object) ['lat' => null, 'lng' => null], $note);
-
-        return collect([[
-            'type' => 'oficina',
-            'created_at' => $note->sent_to_sala_at,
-            'topic' => 'ENVIADA A OFICINA',
-            'body' => self::displayBody($obs?->observation, 'Enviada a oficina'),
-            'author' => $obs?->author?->display_name ?? $obs?->author?->full_name ?? '—',
-            'meta_label' => 'Enviada a oficina',
-            'gps_lat' => $gps['gps_lat'],
-            'gps_lng' => $gps['gps_lng'],
-        ]]);
     }
 
     public static function reassignmentLogForDate(Note $note, Carbon $date): ?NoteReassignmentLog

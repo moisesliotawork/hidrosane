@@ -334,8 +334,8 @@
                 </button>
                 <button class="action-button pink small"
                     style="flex:1;{{ $oficinaAct ? '' : 'opacity:.35;cursor:not-allowed;' }}"
-                    type="button"
-                    onclick="enviarAOficinaConGps('sendSelectedToOfficeFromReten')"
+                    wire:click="sendSelectedToOfficeFromReten"
+                    wire:confirm="Estás a punto de enviar notas a oficina. ¿ESTÁS SEGURO DE QUE QUIERES ENVIAR A OFICINA?"
                     @disabled(!$oficinaAct)>
                     Enviar a Oficina
                 </button>
@@ -689,8 +689,6 @@
         </div>
     @endif
 
-
-    @include('filament.commercial.components.bulk-oficina-gps-script')
 
     <script>
         function toggleDeCaminoConGps(notaId) {

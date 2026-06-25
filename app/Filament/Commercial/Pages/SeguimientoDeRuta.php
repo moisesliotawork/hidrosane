@@ -59,8 +59,6 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.reassignmentLogs.batch.author',
                 'notasDeclaradas.reassignmentLogs.batch.toComercial',
                 'notasDeclaradas.reassignmentLogs.fromComercial',
-                'notasDeclaradas.salaEvents.sentBy',
-                'notasDeclaradas.salaObservations.author',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
@@ -290,14 +288,11 @@ class SeguimientoDeRuta extends Page
             ]]);
         }
 
-        $oficina = SeguimientoRutaDisplay::oficinaActivitiesForNote($note, $date);
-
         return $anotaciones
             ->concat($observaciones)
             ->concat($confirmaciones)
             ->concat($ausencias)
             ->concat($nulos)
-            ->concat($oficina)
             ->concat($ventas)
             ->sortBy('created_at')
             ->values();

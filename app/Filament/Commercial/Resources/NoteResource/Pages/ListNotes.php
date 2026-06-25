@@ -8,20 +8,10 @@ use Filament\Resources\Components\Tab;
 use Filament\Actions;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\{Team, Note};
-use Livewire\Attributes\On;
 
 class ListNotes extends ListRecords
 {
     protected static string $resource = NoteResource::class;
-
-    #[On('gpsCapturadoParaAccionNota')]
-    public function setGpsParaAccion(string $lat, string $lng): void
-    {
-        if (isset($this->mountedActionsData[0])) {
-            $this->mountedActionsData[0]['gps_lat'] = $lat;
-            $this->mountedActionsData[0]['gps_lng'] = $lng;
-        }
-    }
 
     protected function getRedirectUrl(): string
     {

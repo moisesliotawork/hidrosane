@@ -549,8 +549,7 @@
                 Seleccionadas: {{ count($selectedNotes) }}
             </span>
 
-            <button class="filament-bulk-btn btn-sala" type="button"
-                onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
+            <button class="filament-bulk-btn btn-sala" wire:click="bulkEnviarASala" wire:loading.attr="disabled"
                 wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
                 <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                     stroke-width="2" stroke="currentColor">
@@ -786,7 +785,6 @@
             @endforeach
         </div>
     </div>
-    @include('filament.commercial.components.bulk-oficina-gps-script')
     <script>
         function toggleDeCaminoConGps(notaId) {
             function enviar(lat, lng) {
