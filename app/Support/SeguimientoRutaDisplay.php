@@ -4,34 +4,11 @@ namespace App\Support;
 
 use App\Models\Note;
 use App\Models\NoteReassignmentLog;
-use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class SeguimientoRutaDisplay
 {
-    public static function authorEmpleadoId(?User $user): string
-    {
-        if (! $user || ! filled($user->empleado_id)) {
-            return '—';
-        }
-
-        return 'Com ' . (string) $user->empleado_id;
-    }
-
-    /** GPS de envío a oficina: solo coordenadas del evento, sin fallback a la nota. */
-    /** @return array{gps_lat: mixed, gps_lng: mixed} */
-    public static function gpsCoordsForSalaEvent(mixed $event): array
-    {
-        $lat = is_object($event) ? ($event->lat ?? null) : null;
-        $lng = is_object($event) ? ($event->lng ?? null) : null;
-
-        return [
-            'gps_lat' => filled($lat) ? $lat : null,
-            'gps_lng' => filled($lng) ? $lng : null,
-        ];
-    }
-
     /** Texto de anotación/observación que solo registra coordenadas GPS. */
     public static function isGpsLocationText(?string $text): bool
     {
@@ -213,14 +190,14 @@ class SeguimientoRutaDisplay
                     fn ($o) => $o->created_at && $at && abs($o->created_at->diffInSeconds($at)) <= 10
                 ) ?? $observations->first(fn ($o) => $o->created_at?->isSameDay($at));
 
-                $gps = self::gpsCoordsForSalaEvent($event);
+                $gps = self::gpsCoordsForSala($event, $note);
 
                 return [
                     'type' => 'oficina',
                     'created_at' => $at,
                     'topic' => 'ENVIADA A OFICINA',
                     'body' => self::displayBody($obs?->observation, 'Enviada a oficina'),
-                    'author' => self::authorEmpleadoId($event->sentBy),
+                    'author' => $event->sentBy?->display_name ?? $event->sentBy?->full_name ?? '—',
                     'meta_label' => 'Enviada a oficina',
                     'gps_lat' => $gps['gps_lat'],
                     'gps_lng' => $gps['gps_lng'],
@@ -237,16 +214,17 @@ class SeguimientoRutaDisplay
         }
 
         $obs = $observations->first(fn ($o) => $o->created_at?->isSameDay($date));
+        $gps = self::gpsCoordsForSala((object) ['lat' => null, 'lng' => null], $note);
 
         return collect([[
             'type' => 'oficina',
             'created_at' => $note->sent_to_sala_at,
             'topic' => 'ENVIADA A OFICINA',
             'body' => self::displayBody($obs?->observation, 'Enviada a oficina'),
-            'author' => self::authorEmpleadoId($obs?->author),
+            'author' => $obs?->author?->display_name ?? $obs?->author?->full_name ?? '—',
             'meta_label' => 'Enviada a oficina',
-            'gps_lat' => null,
-            'gps_lng' => null,
+            'gps_lat' => $gps['gps_lat'],
+            'gps_lng' => $gps['gps_lng'],
         ]]);
     }
 
