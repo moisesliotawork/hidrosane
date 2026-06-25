@@ -492,13 +492,12 @@
                         })
                         ->count();
 
-                    $fullName = trim($comercial->name . ' ' . $comercial->last_name);
-                    $commercialLabelName = mb_strtoupper($fullName, 'UTF-8');
+                    $commercialLabelName = (string) ($comercial->empleado_id ?? 'SIN-ID');
                 @endphp
 
                 <article class="active-notes-commercial">
                     <div class="active-notes-commercial-label">
-                        Com {{ $comercial->empleado_id ?? 'SIN-ID' }} - {{ $commercialLabelName }}
+                        Com {{ $commercialLabelName }}
                     </div>
 
                     @if($notes->isEmpty())
@@ -643,36 +642,55 @@
                                 @endphp
 
                                 @foreach($activities as $activity)
-                                    <div class="active-notes-note-meta">
-                                        {{ $activity['meta_label'] }} el {{ $activity['created_at']?->format('d/m/Y') ?? 'Sin fecha' }}
-                                        a las <span class="active-notes-note-time">{{ $activity['created_at']?->format('H:i') ?? '--:--' }}</span>
-                                    </div>
+                                    @if($activity['type'] === 'oficina')
+                                        <div class="active-notes-declared-row">
+                                            <div class="active-notes-declared">
+                                                #{{ $note->nro_nota }} · {{ $activity['topic'] }} · {{ $activity['author'] }}
+                                                a las <span class="active-notes-note-time">{{ $activity['created_at']?->format('H:i') ?? '--:--' }}</span>
+                                                @if(filled($activity['body'] ?? null) && $activity['body'] !== 'Enviada a oficina')
+                                                    · {{ $activity['body'] }}
+                                                @endif
+                                            </div>
+                                            @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
+                                                <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="active-notes-ir-btn"
+                                                >IR</a>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="active-notes-note-meta">
+                                            {{ $activity['meta_label'] }} el {{ $activity['created_at']?->format('d/m/Y') ?? 'Sin fecha' }}
+                                            a las <span class="active-notes-note-time">{{ $activity['created_at']?->format('H:i') ?? '--:--' }}</span>
+                                        </div>
 
-                                    <div class="active-notes-row">
-                                        <a href="{{ $notaUrl }}" class="active-notes-badge" style="background: {{ $noteBg }}">
-                                            {{ $note->nro_nota }}
-                                        </a>
-                                        <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
-                                        <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'oficina' ? 'is-oficina' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : ''))))) }}">
-                                            {{ $activity['topic'] }}
-                                        </span>
-                                        @if(filled($activity['body'] ?? null))
-                                            <span class="active-notes-body">{{ $activity['body'] }}</span>
-                                        @endif
-                                        <span class="active-notes-author">
-                                            {{ $activity['author'] }}
-                                        </span>
-                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
-                                        @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
-                                            <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               class="active-notes-ir-btn"
-                                            >IR</a>
-                                        @else
-                                            <span></span>
-                                        @endif
-                                    </div>
+                                        <div class="active-notes-row">
+                                            <a href="{{ $notaUrl }}" class="active-notes-badge" style="background: {{ $noteBg }}">
+                                                {{ $note->nro_nota }}
+                                            </a>
+                                            <span class="active-notes-badge active-notes-badge-customer">{{ $customerName }}</span>
+                                            <span class="active-notes-badge active-notes-badge-topic {{ $activity['type'] === 'venta' ? 'is-venta' : ($activity['type'] === 'ausente' ? 'is-ausente' : ($activity['type'] === 'nulo' ? 'is-nulo' : ($activity['type'] === 'observacion' ? 'is-observation' : ($activity['type'] === 'anotacion' ? 'is-annotation' : '')))) }}">
+                                                {{ $activity['topic'] }}
+                                            </span>
+                                            @if(filled($activity['body'] ?? null))
+                                                <span class="active-notes-body">{{ $activity['body'] }}</span>
+                                            @endif
+                                            <span class="active-notes-author">
+                                                {{ $activity['author'] }}
+                                            </span>
+                                            <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
+                                            @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
+                                                <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="active-notes-ir-btn"
+                                                >IR</a>
+                                            @else
+                                                <span></span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 @endforeach
                             </div>
                         @endforeach

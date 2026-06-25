@@ -126,7 +126,7 @@ class SeguimientoDeRuta extends Page
                     'created_at' => $anotacion->created_at,
                     'topic' => $anotacion->asunto ?: 'SIN ASUNTO',
                     'body' => SeguimientoRutaDisplay::displayAnotacionBody($asunto, $anotacion->cuerpo),
-                    'author' => $anotacion->autor?->full_name ?? $anotacion->autor?->display_name ?? 'SIN AUTOR',
+                    'author' => SeguimientoRutaDisplay::authorEmpleadoId($anotacion->autor),
                     'meta_label' => 'Anotado',
                     'gps_lat' => $gps['gps_lat'],
                     'gps_lng' => $gps['gps_lng'],
@@ -142,7 +142,7 @@ class SeguimientoDeRuta extends Page
                 'created_at' => $observacion->created_at,
                 'topic' => 'OBSERVACION',
                 'body' => SeguimientoRutaDisplay::displayBody($observacion->observation, 'Sin contenido'),
-                'author' => $observacion->author?->full_name ?? $observacion->author?->display_name ?? 'SIN AUTOR',
+                'author' => SeguimientoRutaDisplay::authorEmpleadoId($observacion->author),
                 'meta_label' => 'Observado',
                 'gps_lat' => null,
                 'gps_lng' => null,
@@ -157,11 +157,11 @@ class SeguimientoDeRuta extends Page
                 'created_at' => $conf->created_at,
                 'topic' => 'CONFIRMADA',
                 'body' => SeguimientoRutaDisplay::displayBody(trim(
-                    ($conf->companion ? 'Compañero: ' . $conf->companion->display_name : '')
+                    ($conf->companion ? 'Compañero: ' . SeguimientoRutaDisplay::authorEmpleadoId($conf->companion) : '')
                     . ($conf->dio_crema ? ' | Crema: SÍ' : ' | Crema: NO')
                     . (!empty($conf->observation) ? ' | ' . $conf->observation : '')
                 )),
-                'author' => $conf->companion?->display_name ?? '—',
+                'author' => SeguimientoRutaDisplay::authorEmpleadoId($conf->companion),
                 'meta_label' => 'Confirmada',
                 'gps_lat' => filled($note->lat_dentro) ? $note->lat_dentro : null,
                 'gps_lng' => filled($note->lng_dentro) ? $note->lng_dentro : null,
@@ -188,7 +188,7 @@ class SeguimientoDeRuta extends Page
                     'created_at' => Carbon::parse("{$fecha} {$hora}"),
                     'topic' => 'AUSENTE',
                     'body' => SeguimientoRutaDisplay::displayBody($ausencia->observacion, 'Marcado como AUSENTE'),
-                    'author' => $ausencia->autor?->display_name ?? $ausencia->autor?->full_name ?? '—',
+                    'author' => SeguimientoRutaDisplay::authorEmpleadoId($ausencia->autor),
                     'meta_label' => 'Ausente',
                     'gps_lat' => $gps['gps_lat'],
                     'gps_lng' => $gps['gps_lng'],
@@ -208,7 +208,7 @@ class SeguimientoDeRuta extends Page
                         'created_at' => $anotacion->created_at,
                         'topic' => 'AUSENTE',
                         'body' => SeguimientoRutaDisplay::displayBody($anotacion->cuerpo, 'Marcado como AUSENTE'),
-                        'author' => $anotacion->autor?->display_name ?? $anotacion->autor?->full_name ?? '—',
+                        'author' => SeguimientoRutaDisplay::authorEmpleadoId($anotacion->autor),
                         'meta_label' => 'Ausente',
                         'gps_lat' => $gps['gps_lat'],
                         'gps_lng' => $gps['gps_lng'],
@@ -223,7 +223,7 @@ class SeguimientoDeRuta extends Page
             ->map(function ($nullReason) use ($note) {
                 $bodyParts = [];
                 if ($nullReason->companion) {
-                    $bodyParts[] = 'Compañero: ' . $nullReason->companion->display_name;
+                    $bodyParts[] = 'Compañero: ' . SeguimientoRutaDisplay::authorEmpleadoId($nullReason->companion);
                 }
                 if (filled($nullReason->reason)) {
                     $bodyParts[] = $nullReason->reason;
@@ -234,7 +234,7 @@ class SeguimientoDeRuta extends Page
                     'created_at' => $nullReason->created_at ?? $note->fecha_declaracion,
                     'topic' => 'NULO',
                     'body' => SeguimientoRutaDisplay::displayBody($bodyParts ? implode(' | ', $bodyParts) : null, 'Marcado como NULO'),
-                    'author' => $nullReason->comercial?->display_name ?? $nullReason->comercial?->full_name ?? '—',
+                    'author' => SeguimientoRutaDisplay::authorEmpleadoId($nullReason->comercial),
                     'meta_label' => 'Nulo',
                     'gps_lat' => filled($note->lat) ? $note->lat : null,
                     'gps_lng' => filled($note->lng) ? $note->lng : null,
@@ -249,7 +249,7 @@ class SeguimientoDeRuta extends Page
                 : $note->nullReason()->with(['companion', 'comercial'])->first();
             $bodyParts = [];
             if ($nullReason?->companion) {
-                $bodyParts[] = 'Compañero: ' . $nullReason->companion->display_name;
+                $bodyParts[] = 'Compañero: ' . SeguimientoRutaDisplay::authorEmpleadoId($nullReason->companion);
             }
             if (filled($nullReason?->reason)) {
                 $bodyParts[] = $nullReason->reason;
@@ -260,7 +260,7 @@ class SeguimientoDeRuta extends Page
                 'created_at' => $note->fecha_declaracion,
                 'topic' => 'NULO',
                 'body' => SeguimientoRutaDisplay::displayBody($bodyParts ? implode(' | ', $bodyParts) : null, 'Marcado como NULO'),
-                'author' => $nullReason?->comercial?->display_name ?? $nullReason?->comercial?->full_name ?? '—',
+                'author' => SeguimientoRutaDisplay::authorEmpleadoId($nullReason?->comercial),
                 'meta_label' => 'Nulo',
                 'gps_lat' => filled($note->lat) ? $note->lat : null,
                 'gps_lng' => filled($note->lng) ? $note->lng : null,
