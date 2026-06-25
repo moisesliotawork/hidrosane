@@ -154,6 +154,59 @@ class SeguimientoRutaDisplay
         return self::displayBody($cuerpo, $fallback);
     }
 
+    /** @return array{gps_lat: mixed, gps_lng: mixed} */
+    public static function gpsCoordsForSala(mixed $event): array
+    {
+        $lat = $event?->lat ?? null;
+        $lng = $event?->lng ?? null;
+
+        return [
+            'gps_lat' => filled($lat) ? $lat : null,
+            'gps_lng' => filled($lng) ? $lng : null,
+        ];
+    }
+
+    /** @return array{gps_lat: mixed, gps_lng: mixed} */
+    public static function declaredGpsCoords(Note $note, Carbon $date, string $estadoVal): array
+    {
+        $estadoVal = strtolower(trim($estadoVal));
+
+        if ($estadoVal === 'nulo' && filled($note->lat) && filled($note->lng)) {
+            return ['gps_lat' => $note->lat, 'gps_lng' => $note->lng];
+        }
+
+        if ($estadoVal === 'confirmado' && filled($note->lat_dentro) && filled($note->lng_dentro)) {
+            return ['gps_lat' => $note->lat_dentro, 'gps_lng' => $note->lng_dentro];
+        }
+
+        if ($estadoVal === 'ausente') {
+            $lastAusencia = ($note->ausencias ?? collect())
+                ->filter(fn ($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
+                ->sortByDesc(fn ($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
+                ->first();
+
+            return [
+                'gps_lat' => filled($lastAusencia?->latitud)
+                    ? $lastAusencia->latitud
+                    : (filled($note->lat_dentro) ? $note->lat_dentro : null),
+                'gps_lng' => filled($lastAusencia?->longitud)
+                    ? $lastAusencia->longitud
+                    : (filled($note->lng_dentro) ? $note->lng_dentro : null),
+            ];
+        }
+
+        if ($estadoVal === 'sala') {
+            $salaEvent = ($note->salaEvents ?? collect())
+                ->filter(fn ($event) => ($event->sent_at ?? $event->created_at)?->isSameDay($date))
+                ->sortByDesc(fn ($event) => ($event->sent_at ?? $event->created_at)?->timestamp ?? 0)
+                ->first();
+
+            return self::gpsCoordsForSala($salaEvent);
+        }
+
+        return ['gps_lat' => null, 'gps_lng' => null];
+    }
+
     public static function reassignmentLogForDate(Note $note, Carbon $date): ?NoteReassignmentLog
     {
         $logs = $note->relationLoaded('reassignmentLogs')

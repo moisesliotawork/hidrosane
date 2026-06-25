@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Models\NoteSalaEvent;
 use App\Support\NoteRouteGps;
+use App\Support\NoteSalaActions;
 use Illuminate\Support\Facades\DB;
 
 class NotasDeComercial extends Component
@@ -445,62 +446,7 @@ class NotasDeComercial extends Component
             return;
         }
 
-        DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
-
-            // ✅ UPDATE EXACTO que pediste
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 2.5) Agregar observación automática si son 2 o más
-            if (count($eligible) >= 2) {
-                $obsRows = [];
-                foreach ($eligible as $noteId) {
-                    $obsRows[] = [
-                        'note_id' => $noteId,
-                        'author_id' => $userId,
-                        'observation' => 'Envío Masivo a sala',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                if (!empty($obsRows)) {
-                    \App\Models\NoteSalaObservation::insert($obsRows);
-                }
-            }
-
-            DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
+        NoteSalaActions::sendBulkToOffice($eligible, auth()->id());
 
         $enviadas = count($eligible);
         Notification::make()
@@ -560,62 +506,7 @@ class NotasDeComercial extends Component
             return;
         }
 
-        DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
-
-            // ✅ UPDATE EXACTO (el mismo que pediste)
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 2.5) Agregar observación automática si son 2 o más
-            if (count($eligible) >= 2) {
-                $obsRows = [];
-                foreach ($eligible as $noteId) {
-                    $obsRows[] = [
-                        'note_id' => $noteId,
-                        'author_id' => $userId,
-                        'observation' => 'Envío Masivo a sala',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                if (!empty($obsRows)) {
-                    \App\Models\NoteSalaObservation::insert($obsRows);
-                }
-            }
-
-            DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
+        NoteSalaActions::sendBulkToOffice($eligible, auth()->id());
 
         $enviadas = count($eligible);
         Notification::make()

@@ -28,4 +28,12 @@ class ActionGps
             'lng' => filled($lng) ? $lng : request()->input('longitud'),
         ];
     }
+
+    public static function resolveFromCoords(?string $lat, ?string $lng): array
+    {
+        return self::resolve([
+            'gps_lat' => $lat,
+            'gps_lng' => $lng,
+        ]);
+    }
 }

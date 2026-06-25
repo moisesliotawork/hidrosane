@@ -15,6 +15,8 @@ use App\Enums\EstadoTerminal;
 use App\Models\NoteSalaEvent;
 use Illuminate\Support\Facades\DB;
 use App\Support\NoteRouteGps;
+use App\Support\ActionGps;
+use App\Support\NoteSalaActions;
 
 
 class NotasDeComercial extends Component
@@ -411,7 +413,7 @@ class NotasDeComercial extends Component
         $this->dispatch('notaActualizada');
     }
 
-    public function sendSelectedToOfficeFromReten(): void
+    public function sendSelectedToOfficeFromReten(?string $lat = null, ?string $lng = null): void
     {
         $ids = array_values(array_filter($this->selectedNotes));
 
@@ -449,46 +451,15 @@ class NotasDeComercial extends Component
             return;
         }
 
-        DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
+        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolveFromCoords($lat, $lng);
 
-            // 1) Actualizar notas elegibles (SAL A + salir de retén)
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // 2) Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 3) Evento después del commit (igual que tu bulk action)
-            DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
+        NoteSalaActions::sendBulkToOffice(
+            $eligible,
+            auth()->id(),
+            $lat,
+            $lng,
+            addMassObservation: false,
+        );
 
         $enviadas = count($eligible);
         Notification::make()
@@ -498,7 +469,6 @@ class NotasDeComercial extends Component
             ->persistent()
             ->send();
 
-        // limpiar selección y refrescar
         $this->selectedNotes = [];
         $this->dispatch('notaActualizada');
     }

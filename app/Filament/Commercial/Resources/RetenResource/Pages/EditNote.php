@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Filament\Commercial\Resources\NoteResource;
 use App\Support\ActionGps;
 use App\Support\NoteRouteGps;
+use App\Support\NoteSalaActions;
 use Livewire\Attributes\On;
 
 class EditNote extends EditRecord
@@ -398,51 +399,27 @@ class EditNote extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
+                    Forms\Components\Hidden::make('gps_lat'),
+                    Forms\Components\Hidden::make('gps_lng'),
+                    Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como OFICINA')
                 ->modalDescription('Confirma que deseas marcar la nota como OFICINA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function (array $data) {
-                    DB::transaction(function () use ($data) {
+                    ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
-                        $this->syncComercialToSession();
-                        $this->record->save();
+                    $this->syncComercialToSession();
+                    $this->record->save();
 
-                        // 1) Guardar observación de sala
-                        $salaObservation = NoteSalaObservation::create([
-                            'note_id' => $this->record->id,
-                            'author_id' => Auth::id(),
-                            'observation' => $data['observation'],
-                        ]);
-
-                        // 2) Cambiar estado a SALA, registrar fecha/hora y RESET de printed
-                        $this->record->forceFill([
-                            'estado_terminal' => EstadoTerminal::SALA,
-                            'sent_to_sala_at' => now(),
-                            'printed' => false,
-                            'reten' => false,
-                        ])->save();
-
-                        // 3) Crear registro en el historial de envíos a sala
-                        //    vía 'declaracion' porque es el comercial pulsando el botón
-                        NoteSalaEvent::create([
-                            'note_id' => $this->record->id,
-                            'sent_by_user_id' => Auth::id(),
-                            'via' => 'declaracion',
-                            'sent_at' => now(),
-                        ]);
-
-                        // 4) Evento para notificaciones u otros listeners
-                        DB::afterCommit(function () use ($salaObservation) {
-                            $note = $this->record->fresh(['customer', 'comercial']);
-
-                            event(new \App\Events\NotaEnviadaAOficina(
-                                $note,
-                                $salaObservation->fresh()
-                            ));
-                        });
-                    });
+                    NoteSalaActions::sendIndividualToOffice(
+                        $this->record,
+                        Auth::id(),
+                        $data['observation'],
+                        $lat,
+                        $lng,
+                    );
 
                     Notification::make()
                         ->title('Nota marcada como OFICINA')

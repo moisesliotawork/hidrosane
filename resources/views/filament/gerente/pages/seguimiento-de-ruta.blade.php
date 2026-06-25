@@ -224,11 +224,29 @@
             outline: none;
         }
 
+        .active-notes-ir-btn.is-disabled {
+            background: #9ca3af;
+            color: #ffffff;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .active-notes-ir-btn.is-disabled:hover,
+        .active-notes-ir-btn.is-disabled:focus-visible {
+            background: #9ca3af;
+        }
+
         .active-notes-declared-row {
             display: flex;
             align-items: center;
             gap: 6px;
             margin-top: 3px;
+            width: 100%;
+        }
+
+        .active-notes-ir-btn--declared {
+            margin-left: auto;
+            flex-shrink: 0;
         }
 
         .active-notes-empty-note {
@@ -550,28 +568,9 @@
                                     }
                                 }
 
-                                $declaredGpsLat = null;
-                                $declaredGpsLng = null;
-                                if ($showDeclaredBanner) {
-                                    if ($estadoVal === 'nulo' && filled($note->lat) && filled($note->lng)) {
-                                        $declaredGpsLat = $note->lat;
-                                        $declaredGpsLng = $note->lng;
-                                    } elseif ($estadoVal === 'confirmado' && filled($note->lat_dentro) && filled($note->lng_dentro)) {
-                                        $declaredGpsLat = $note->lat_dentro;
-                                        $declaredGpsLng = $note->lng_dentro;
-                                    } elseif ($estadoVal === 'ausente') {
-                                        $lastAusencia = ($note->ausencias ?? collect())
-                                            ->filter(fn($ausencia) => $ausencia->fecha?->isSameDay($date) || $ausencia->created_at?->isSameDay($date))
-                                            ->sortByDesc(fn($ausencia) => ($ausencia->fecha?->format('Y-m-d') ?? '') . ' ' . ($ausencia->hora ?? $ausencia->created_at?->format('H:i:s') ?? ''))
-                                            ->first();
-                                        $declaredGpsLat = filled($lastAusencia?->latitud)
-                                            ? $lastAusencia->latitud
-                                            : (filled($note->lat_dentro) ? $note->lat_dentro : null);
-                                        $declaredGpsLng = filled($lastAusencia?->longitud)
-                                            ? $lastAusencia->longitud
-                                            : (filled($note->lng_dentro) ? $note->lng_dentro : null);
-                                    }
-                                }
+                                $declaredGps = \App\Support\SeguimientoRutaDisplay::declaredGpsCoords($note, $date, $estadoVal);
+                                $declaredGpsLat = $declaredGps['gps_lat'];
+                                $declaredGpsLng = $declaredGps['gps_lng'];
 
                                 $reassignmentBanner = \App\Support\SeguimientoRutaDisplay::reassignmentBannerForDate($note, $date);
                                 $reassignedGpsLat = null;
@@ -609,8 +608,10 @@
                                             <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
                                                target="_blank"
                                                rel="noopener noreferrer"
-                                               class="active-notes-ir-btn"
+                                               class="active-notes-ir-btn active-notes-ir-btn--declared"
                                             >IR</a>
+                                        @else
+                                            <span class="active-notes-ir-btn active-notes-ir-btn--declared is-disabled" aria-disabled="true" title="Sin GPS registrado">IR</span>
                                         @endif
                                     </div>
                                 @endif

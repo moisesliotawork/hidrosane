@@ -59,6 +59,7 @@ class SeguimientoDeRuta extends Page
                 'notasDeclaradas.reassignmentLogs.batch.author',
                 'notasDeclaradas.reassignmentLogs.batch.toComercial',
                 'notasDeclaradas.reassignmentLogs.fromComercial',
+                'notasDeclaradas.salaEvents',
             ])
             ->orderBy('empleado_id')
             ->orderBy('name')
