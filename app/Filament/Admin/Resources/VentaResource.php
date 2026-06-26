@@ -1121,21 +1121,20 @@ class VentaResource extends Resource
 
                 // FUENTE DE LA TELEOPERADORA //
 
-                TextColumn::make('note.fuente')
+                TextColumn::make('fuente_display')
                     ->label('Fuente')
                     ->badge()
-                    // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
-                    ->color(fn($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
-                        FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
-                        FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
-                        FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
+                    ->state(fn (Venta $record) => \App\Support\VentaOrigenResolver::fuenteDisplayForVenta($record))
+                    ->color(fn ($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
+                        FuenteNotas::CALLE => 'warning',
+                        FuenteNotas::VIP_INT => 'success',
+                        FuenteNotas::VIP_EXT => 'info',
                         FuenteNotas::PTA_FRIA => 'danger',
                         default => 'gray',
                     })
-                    // 2. TEXTO BONITO:
                     ->formatStateUsing(function ($state) {
-                        // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
                         $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
+
                         return $enum?->getLabel() ?? $state;
                     }),
 

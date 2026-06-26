@@ -14,6 +14,7 @@ use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use App\Events\VentaCreada;
+use App\Support\VentaOrigenResolver;
 
 class CreateVenta extends CreateRecord
 {
@@ -282,6 +283,8 @@ class CreateVenta extends CreateRecord
                 'reten' => false,
                 'comercial_id' => auth()->id()
             ]);
+
+            VentaOrigenResolver::repairMislabeledFuente($note->fresh());
 
             DB::afterCommit(function () use ($venta) {
                 event(new VentaCreada($venta));

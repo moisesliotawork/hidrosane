@@ -14,6 +14,8 @@ use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Events\VentaCreada;
+use App\Support\VentaOrigenResolver;
+use App\Enums\OrigenVenta;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
@@ -155,30 +157,48 @@ class CreateVentaDesdeCero extends CreateRecord
             }
 
             /** ─────────────────────────────
-             * 3) Note (igual que antes, pero usando $customer->id)
+             * 3) Nota: reutilizar asignada existente o crear puerta fría
              * ───────────────────────────── */
-            $noteFillable = (new Note)->getFillable();
+            $comercialId = $data['nota_comercial_id'] ?? auth()->id();
+            $existingNote = VentaOrigenResolver::findReusableAssignedNote($customer);
+            $origenVenta = OrigenVenta::PUERTA_FRIA;
 
-            $notaBase = [
-                'user_id' => auth()->id(),
-                'customer_id' => $customer->id,
-                'comercial_id' => $data['nota_comercial_id'] ?? auth()->id(),
-                'status' => $data['nota_status'] ?? NoteStatus::CONTACTED->value,
-                'visit_date' => $data['nota_visit_date'] ?? null,
-                'visit_schedule' => $data['nota_visit_schedule'] ?? null,
-                'assignment_date' => ($data['nota_comercial_id'] ?? null) ? now() : null,
-                'show_phone' => $data['nota_show_phone'] ?? true,
-                'de_camino' => $data['nota_de_camino'] ?? false,
-                'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
-                'created_at' => $fechaVenta,
-                'updated_at' => $fechaVenta,
-                'estado_terminal' => EstadoTerminal::VENTA,
-                'fuente' => \App\Enums\FuenteNotas::PTA_FRIA->value,
-            ];
+            if ($existingNote) {
+                $existingNote->update([
+                    'estado_terminal' => EstadoTerminal::VENTA,
+                    'comercial_id' => $comercialId,
+                    'reten' => false,
+                ]);
+                $note = $existingNote->fresh();
+                VentaOrigenResolver::repairMislabeledFuente($note);
+                $note = $note->fresh();
+                $origenVenta = OrigenVenta::VENTA_NORMAL;
+            } else {
+                $noteFillable = (new Note)->getFillable();
 
-            $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));
-            /** @var Note $note */
-            $note = Note::create($notaPayload);
+                $notaBase = [
+                    'user_id' => auth()->id(),
+                    'customer_id' => $customer->id,
+                    'comercial_id' => $comercialId,
+                    'status' => $data['nota_status'] ?? NoteStatus::CONTACTED->value,
+                    'visit_date' => $data['nota_visit_date'] ?? null,
+                    'visit_schedule' => $data['nota_visit_schedule'] ?? null,
+                    'assignment_date' => $comercialId ? now() : null,
+                    'show_phone' => $data['nota_show_phone'] ?? true,
+                    'de_camino' => $data['nota_de_camino'] ?? false,
+                    'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
+                    'created_at' => $fechaVenta,
+                    'updated_at' => $fechaVenta,
+                    'estado_terminal' => EstadoTerminal::VENTA,
+                    'fuente' => \App\Enums\FuenteNotas::PTA_FRIA->value,
+                ];
+
+                $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));
+                /** @var Note $note */
+                $note = Note::create($notaPayload);
+            }
+
+            $notaPayload = ['comercial_id' => $note->comercial_id];
 
             /** ─────────────────────────────
              * 4) Normalizaciones Venta (igual que tu código original)
@@ -231,7 +251,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'otros_documentos' => $data['otros_documentos'] ?? null,
                 'foto_sorteo' => $data['foto_sorteo'] ?? null,
 
-                'origen_venta' => \App\Enums\OrigenVenta::PUERTA_FRIA,
+                'origen_venta' => $origenVenta,
             ]);
 
             $this->form->model($venta)->saveRelationships();

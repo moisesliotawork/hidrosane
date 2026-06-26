@@ -10,6 +10,7 @@ use Filament\Forms\Components\Wizard\Step;
 use App\Models\Venta;
 use App\Models\Note;
 use App\Models\Reparto;
+use App\Support\VentaOrigenResolver;
 
 class CreateVenta extends CreateRecord
 {
@@ -116,6 +117,7 @@ class CreateVenta extends CreateRecord
             'importe_total' => $data['importe_total'],
             'num_cuotas' => $data['num_cuotas'] ?? null,
             'interes_art' => $data['interes_art'] ?? false,
+            'origen_venta' => VentaOrigenResolver::origenForCreateFromNote($note),
         ]);
 
         /* 4. Guardar ofertas + productos ------------------------------------ */
