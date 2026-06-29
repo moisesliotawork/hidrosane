@@ -1232,7 +1232,7 @@ class VentaResource extends Resource
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
+                    ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))
                     ->sortable(),
                 TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')

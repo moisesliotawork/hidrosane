@@ -13,6 +13,7 @@ use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
 use App\Services\VentaNotesCustomerSync;
 use App\Services\VentaCustomerIdentityService;
+use App\Support\VentaFechaVenta;
 use Filament\Actions\DeleteAction;
 
 class EditVenta extends EditRecord
@@ -122,6 +123,13 @@ class EditVenta extends EditRecord
                 ->filter()
                 ->values()
                 ->all();
+        }
+
+        if (array_key_exists('fecha_venta', $data)) {
+            $data['fecha_venta'] = VentaFechaVenta::normalizeOnSave(
+                $data['fecha_venta'],
+                $this->record,
+            );
         }
 
         return $data;

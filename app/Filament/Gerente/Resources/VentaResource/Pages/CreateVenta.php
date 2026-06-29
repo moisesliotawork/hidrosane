@@ -10,6 +10,7 @@ use Filament\Forms\Components\Wizard\Step;
 use App\Models\Venta;
 use App\Models\Note;
 use App\Models\Reparto;
+use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 
 class CreateVenta extends CreateRecord
@@ -113,7 +114,7 @@ class CreateVenta extends CreateRecord
         $venta = Venta::create([
             'note_id' => $note->id,
             'customer_id' => $customer->id,
-            'fecha_venta' => $data['fecha_venta'],
+            'fecha_venta' => VentaFechaVenta::normalizeOnCreate($data['fecha_venta'] ?? null),
             'importe_total' => $data['importe_total'],
             'num_cuotas' => $data['num_cuotas'] ?? null,
             'interes_art' => $data['interes_art'] ?? false,

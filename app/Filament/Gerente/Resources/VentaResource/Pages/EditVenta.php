@@ -4,6 +4,7 @@ namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 
 use App\Filament\Gerente\Resources\VentaResource;
 use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
+use App\Support\VentaFechaVenta;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Filament\Actions\Action;
@@ -60,6 +61,13 @@ class EditVenta extends EditRecord
                 ->filter()      // quita strings vacíos
                 ->values()
                 ->all();
+        }
+
+        if (array_key_exists('fecha_venta', $data)) {
+            $data['fecha_venta'] = VentaFechaVenta::normalizeOnSave(
+                $data['fecha_venta'],
+                $this->record,
+            );
         }
 
         return $data;

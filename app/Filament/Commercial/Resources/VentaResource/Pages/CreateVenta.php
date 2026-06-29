@@ -14,6 +14,7 @@ use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 
 class CreateVenta extends CreateRecord
@@ -193,7 +194,7 @@ class CreateVenta extends CreateRecord
                 'lat' => $note->lat,
                 'lng' => $note->lng,
                 'companion_id' => $data['companion_id'],
-                'fecha_venta' => now(),
+                'fecha_venta' => VentaFechaVenta::normalizeOnCreate(),
                 'importe_total' => $data['importe_total'],
                 'importe_comercial' => $data['importe_total'],
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',

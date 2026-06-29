@@ -18,7 +18,7 @@ use Filament\Forms\Components\{
     FileUpload,
     Group
 };
-use Filament\Forms\Get;
+use App\Support\Filament\FechaNacimientoField;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -178,19 +178,7 @@ class VentaResource extends Resource
                             ]),
                         TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())          // no permitir fechas futuras
-                            ->required()
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::make(),
 
                         TextInput::make('age')
                             ->numeric()
@@ -854,7 +842,7 @@ class VentaResource extends Resource
                 TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
-                    ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
+                    ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))
                     ->sortable(),
                 TextColumn::make('comercial.name')
                     ->label('Comercial')

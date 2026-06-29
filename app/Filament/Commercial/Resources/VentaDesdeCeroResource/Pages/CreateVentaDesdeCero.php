@@ -14,6 +14,7 @@ use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Enums\OrigenVenta;
 
@@ -104,13 +105,13 @@ class CreateVentaDesdeCero extends CreateRecord
                 $data['companion_id'] = null;
             }
 
-            $fechaVenta = !empty($data['manual_created_at'])
-                ? (
+            $fechaVenta = ! empty($data['manual_created_at'])
+                ? VentaFechaVenta::normalizeOnSave(
                     $data['manual_created_at'] instanceof Carbon
-                    ? $data['manual_created_at']
-                    : Carbon::parse($data['manual_created_at'], 'Europe/Madrid')
+                        ? $data['manual_created_at']
+                        : Carbon::parse($data['manual_created_at'], VentaFechaVenta::timezone()),
                 )
-                : now('Europe/Madrid');
+                : VentaFechaVenta::normalizeOnCreate();
 
             if (($data['companion_id'] ?? null) === '__NONE__') {
                 $data['companion_id'] = null;

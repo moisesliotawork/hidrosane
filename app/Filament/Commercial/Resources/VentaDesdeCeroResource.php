@@ -22,7 +22,7 @@ use Filament\Forms\Components\{
     FileUpload,
     Textarea
 };
-use Filament\Forms\Get;
+use App\Support\Filament\FechaNacimientoField;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
@@ -80,22 +80,7 @@ class VentaDesdeCeroResource extends Resource
                         ->required(),
                     //->columnSpanFull(),
 
-                    DatePicker::make('fecha_nac')
-                        ->label('Fec. nac.')
-                        ->timezone('Europe/Madrid')
-                        ->native(false)
-                        ->maxDate(now())            // evita fechas futuras
-                        ->required()
-                        ->reactive()
-                        ->afterStateHydrated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        })
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        }),
-
-
-
+                    FechaNacimientoField::make(),
 
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')

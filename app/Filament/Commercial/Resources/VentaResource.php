@@ -26,7 +26,7 @@ use Filament\Forms\Components\{
     Hidden,
     Grid
 };
-use Filament\Forms\Get;
+use App\Support\Filament\FechaNacimientoField;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Filament\Forms\Components\{
@@ -88,20 +88,7 @@ class VentaResource extends Resource
                                         ->readOnly()
                                         ->dehydrated(false),
 
-                                    DatePicker::make('fecha_nac')
-                                        ->label('Fec. nac.')
-                                        ->timezone('Europe/Madrid')
-                                        ->native(false)
-                                        ->maxDate(now())              // no permitir fechas futuras
-                                        ->required()
-                                        ->reactive()
-                                        ->afterStateHydrated(function ($state, Set $set) {
-                                            $set('age', $state ?
-                                                Carbon::parse($state)->age : null);
-                                        })
-                                        ->afterStateUpdated(function ($state, Set $set) {
-                                            $set('age', $state ? Carbon::parse($state)->age : null);
-                                        }),
+                                    FechaNacimientoField::make(),
 
                                     TextInput::make('age')
                                         ->numeric()

@@ -12,6 +12,7 @@ use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
 use Illuminate\Support\Str;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
@@ -168,7 +169,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
-                'fecha_venta' => now(),
+                'fecha_venta' => VentaFechaVenta::normalizeOnCreate(),
                 'importe_total' => $data['importe_total'] ?? 0,
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado' ? ($data['forma_pago'] ?? null) : null,
