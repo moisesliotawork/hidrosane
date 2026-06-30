@@ -6,6 +6,7 @@ use App\Support\ActionGps;
 use Filament\Actions\Action;
 use Filament\Actions\StaticAction;
 use Filament\Forms;
+use Livewire\Livewire;
 
 class GpsActionForm
 {
@@ -52,8 +53,8 @@ class GpsActionForm
         }
 
         return $action
-            ->disabled(fn (object $livewire): bool => ! self::gpsReadyOnLivewire($livewire))
-            ->tooltip(fn (object $livewire): ?string => self::gpsReadyOnLivewire($livewire)
+            ->disabled(fn (): bool => ! self::gpsReadyOnCurrentComponent())
+            ->tooltip(fn (): ?string => self::gpsReadyOnCurrentComponent()
                 ? null
                 : 'Esperando ubicación GPS…');
     }
@@ -65,10 +66,33 @@ class GpsActionForm
         }
 
         return $action
-            ->disabled(fn (object $livewire): bool => ! self::gpsReadyOnForm($livewire->data ?? []))
-            ->tooltip(fn (object $livewire): ?string => self::gpsReadyOnForm($livewire->data ?? [])
+            ->disabled(fn (): bool => ! self::gpsReadyOnCurrentComponent())
+            ->tooltip(fn (): ?string => self::gpsReadyOnCurrentComponent()
                 ? null
                 : 'Esperando ubicación GPS…');
+    }
+
+    /**
+     * StaticAction (botón del modal) no puede inyectar $livewire en closures;
+     * resolvemos el componente activo con Livewire::current().
+     */
+    public static function gpsReadyOnCurrentComponent(): bool
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return true;
+        }
+
+        $livewire = Livewire::current();
+
+        if ($livewire === null) {
+            return false;
+        }
+
+        if (is_array($livewire->data ?? null) && self::gpsReadyOnForm($livewire->data)) {
+            return true;
+        }
+
+        return self::gpsReadyOnLivewire($livewire);
     }
 
     /** @param  array<string, mixed>  $data */
