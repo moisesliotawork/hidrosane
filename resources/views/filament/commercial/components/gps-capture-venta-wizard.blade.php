@@ -16,7 +16,11 @@
                 return;
             }
 
-            wizard.querySelectorAll('button[wire\\:click=\"create\"]').forEach((btn) => {
+            wizard.querySelectorAll('button').forEach((btn) => {
+                if (btn.getAttribute('wire:click') !== 'create') {
+                    return;
+                }
+
                 btn.disabled = ! this.gpsReady;
                 btn.classList.toggle('opacity-50', ! this.gpsReady);
                 btn.classList.toggle('pointer-events-none', ! this.gpsReady);
