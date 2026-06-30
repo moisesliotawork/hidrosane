@@ -16,6 +16,9 @@ use Carbon\Carbon;
 use App\Events\VentaCreada;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
+use App\Support\ActionGps;
+use App\Support\Filament\GpsActionForm;
+use Filament\Actions\Action;
 use App\Enums\OrigenVenta;
 
 class CreateVentaDesdeCero extends CreateRecord
@@ -72,6 +75,11 @@ class CreateVentaDesdeCero extends CreateRecord
     protected function afterCreate(): void
     {
         session()->forget($this->sessionKey());
+    }
+
+    protected function getSubmitFormAction(): Action
+    {
+        return GpsActionForm::applyToCreateAction(parent::getSubmitFormAction());
     }
 
     // ─── Wizard steps ─────────────────────────────────────────────────────────
@@ -217,11 +225,20 @@ class CreateVentaDesdeCero extends CreateRecord
             }
 
             /** @var Venta $venta */
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::coordsForVenta(
+                $note->lat,
+                $note->lng,
+                $data,
+                auth()->user(),
+            );
+
             $venta = Venta::create([
                 'note_id' => $note->id,
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => $data['companion_id'],
+                'lat' => $ventaLat,
+                'lng' => $ventaLng,
 
                 'fecha_venta' => $fechaVenta,
                 'created_at' => $fechaVenta,

@@ -5,27 +5,18 @@
 <div
     x-data="{
         gpsReady: @js(! $registerGps),
-        gpsStatus: @js($registerGps ? 'Obteniendo ubicación…' : ''),
-        syncSubmit() {
+        gpsStatus: @js($registerGps ? 'Obteniendo ubicación para la venta…' : ''),
+        syncCreateButton() {
             if (! @js($registerGps)) {
                 return;
             }
 
-            const modal = $el.closest('.fi-modal') ?? $el.closest('[role=dialog]');
-            if (! modal) {
+            const wizard = $el.closest('.fi-fo-wizard');
+            if (! wizard) {
                 return;
             }
 
-            modal.querySelectorAll('.fi-modal-footer-actions button').forEach((btn) => {
-                const label = (btn.textContent || '').trim().toLowerCase();
-                const isCancel = btn.classList.contains('fi-btn-color-gray')
-                    || label.includes('cancel')
-                    || label.includes('cancelar');
-
-                if (isCancel) {
-                    return;
-                }
-
+            wizard.querySelectorAll('button[wire\\:click=\"create\"]').forEach((btn) => {
                 btn.disabled = ! this.gpsReady;
                 btn.classList.toggle('opacity-50', ! this.gpsReady);
                 btn.classList.toggle('pointer-events-none', ! this.gpsReady);
@@ -33,13 +24,13 @@
         },
     }"
     x-init="
-        $watch('gpsReady', () => syncSubmit());
+        $watch('gpsReady', () => syncCreateButton());
 
         if (gpsReady) {
             return;
         }
 
-        syncSubmit();
+        syncCreateButton();
 
         if (! navigator.geolocation) {
             gpsStatus = 'Este dispositivo no soporta geolocalización.';
@@ -50,14 +41,15 @@
             function (pos) {
                 const lat = String(pos.coords.latitude);
                 const lng = String(pos.coords.longitude);
-                gpsStatus = 'Ubicación capturada.';
+                gpsStatus = 'Ubicación capturada para la venta.';
                 gpsReady = true;
-                syncSubmit();
-                $wire.dispatch('gpsCapturadoParaAccionNota', { lat, lng });
+                syncCreateButton();
+                $wire.set('data.gps_lat', lat);
+                $wire.set('data.gps_lng', lng);
             },
             function (err) {
                 gpsStatus = 'Sin GPS: permite la ubicación en el navegador (' + (err.message || 'denegado') + ').';
-                syncSubmit();
+                syncCreateButton();
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );

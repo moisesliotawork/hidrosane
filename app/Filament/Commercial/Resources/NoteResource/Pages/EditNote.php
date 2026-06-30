@@ -30,22 +30,16 @@ use App\Models\User;
 use App\Support\ActionGps;
 use App\Support\NoteRouteGps;
 use App\Support\NoteSalaActions;
-use Livewire\Attributes\On;
+use App\Support\Filament\GpsActionForm;
+use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 
 
 
 class EditNote extends EditRecord
 {
-    protected static string $resource = NoteResource::class;
+    use HandlesGpsActionModal;
 
-    #[On('gpsCapturadoParaAccionNota')]
-    public function setGpsParaAccion(string $lat, string $lng): void
-    {
-        if (isset($this->mountedActionsData[0])) {
-            $this->mountedActionsData[0]['gps_lat'] = $lat;
-            $this->mountedActionsData[0]['gps_lng'] = $lng;
-        }
-    }
+    protected static string $resource = NoteResource::class;
 
     public function getTitle(): string
     {
@@ -65,14 +59,13 @@ class EditNote extends EditRecord
                         ->placeholder('Escribe una observación si lo consideras necesario…')
                         ->rows(3)
                         ->maxLength(2000),
-                    Forms\Components\Hidden::make('gps_lat'),
-                    Forms\Components\Hidden::make('gps_lng'),
-                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como AUSENTE')
                 ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
                     ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
@@ -148,14 +141,13 @@ class EditNote extends EditRecord
                         ->required()
                         ->maxLength(2000),
 
-                    Forms\Components\Hidden::make('gps_lat'),
-                    Forms\Components\Hidden::make('gps_lng'),
-                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
                 ->modalDescription('Confirma que deseas marcar la nota como NULA con el motivo indicado.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data): void {
 
                     // '__NONE__' => null
@@ -252,14 +244,13 @@ class EditNote extends EditRecord
                         ->rows(3)
                         ->maxLength(2000),
 
-                    Forms\Components\Hidden::make('gps_lat'),
-                    Forms\Components\Hidden::make('gps_lng'),
-                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Confirmar nota')
                 ->modalDescription('Confirma que deseas marcar la nota como CONFIRMADA.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
 
                     $dioCrema = (bool) ($data['dio_crema'] ?? false);
@@ -377,10 +368,9 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->form([
-                    Forms\Components\Hidden::make('gps_lat'),
-                    Forms\Components\Hidden::make('gps_lng'),
-                    \Filament\Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                    ...GpsActionForm::fields(),
                 ])
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
 
                     // Guardar GPS de la venta en la nota (CreateVenta lo copiará al venta)
@@ -415,14 +405,13 @@ class EditNote extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
-                    Forms\Components\Hidden::make('gps_lat'),
-                    Forms\Components\Hidden::make('gps_lng'),
-                    Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como OFICINA')
                 ->modalDescription('Confirma que deseas marcar la nota como OFICINA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
                     ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 

@@ -25,6 +25,7 @@ use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
 use App\Models\NoteSalaEvent;
+use App\Support\Filament\GpsActionForm;
 
 class NoteResource extends Resource
 {
@@ -570,10 +571,9 @@ class NoteResource extends Resource
                     ->modalHeading('Enviar a Oficina')
                     ->modalDescription('Se enviarán a OFICINA las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
                     ->form([
-                        Forms\Components\Hidden::make('gps_lat'),
-                        Forms\Components\Hidden::make('gps_lng'),
-                        Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
+                        ...GpsActionForm::fields(),
                     ])
+                    ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                     ->action(function (iterable $records, array $data): void {
                         $allIds = collect($records)->pluck('id')->all();
 

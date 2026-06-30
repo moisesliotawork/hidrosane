@@ -13,22 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class NoteSalaActions
 {
-    /** El gerente (empleado_id 001) no registra GPS al enviar a oficina. */
-    public static function shouldRegisterGpsForOffice(?User $user = null): bool
-    {
-        $user ??= auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        return trim((string) ($user->empleado_id ?? '')) !== '001';
-    }
-
     /** @return array{lat: ?string, lng: ?string} */
     public static function gpsForOffice(?string $lat, ?string $lng, ?User $user = null): array
     {
-        if (! self::shouldRegisterGpsForOffice($user)) {
+        if (! ActionGps::shouldRegisterGps($user)) {
             return ['lat' => null, 'lng' => null];
         }
 

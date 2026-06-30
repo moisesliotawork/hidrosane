@@ -16,6 +16,9 @@ use Filament\Notifications\Notification;
 use App\Events\VentaCreada;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
+use App\Support\ActionGps;
+use App\Support\Filament\GpsActionForm;
+use Filament\Actions\Action;
 
 class CreateVenta extends CreateRecord
 {
@@ -73,6 +76,11 @@ class CreateVenta extends CreateRecord
                 ->description('Sube los documentos requeridos')
                 ->schema(VentaResource::step2Schema()),
         ];
+    }
+
+    protected function getSubmitFormAction(): Action
+    {
+        return GpsActionForm::applyToCreateAction(parent::getSubmitFormAction());
     }
 
     /* ---------------------------------------------------------------------
@@ -187,12 +195,19 @@ class CreateVenta extends CreateRecord
             }
 
             /* 2.4 Crear venta -------------------------------------------------- */
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::coordsForVenta(
+                $note->lat,
+                $note->lng,
+                $data,
+                auth()->user(),
+            );
+
             $venta = Venta::create([
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
                 'comercial_id' => auth()->id(),
-                'lat' => $note->lat,
-                'lng' => $note->lng,
+                'lat' => $ventaLat,
+                'lng' => $ventaLng,
                 'companion_id' => $data['companion_id'],
                 'fecha_venta' => VentaFechaVenta::normalizeOnCreate(),
                 'importe_total' => $data['importe_total'],

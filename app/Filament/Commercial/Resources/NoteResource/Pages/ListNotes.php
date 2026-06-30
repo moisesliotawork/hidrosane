@@ -3,6 +3,7 @@
 namespace App\Filament\Commercial\Resources\NoteResource\Pages;
 
 use App\Filament\Commercial\Resources\NoteResource;
+use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Components\Tab;
 use Filament\Actions;
@@ -11,6 +12,8 @@ use App\Models\{Team, Note};
 
 class ListNotes extends ListRecords
 {
+    use HandlesGpsActionModal;
+
     protected static string $resource = NoteResource::class;
 
     protected function getRedirectUrl(): string

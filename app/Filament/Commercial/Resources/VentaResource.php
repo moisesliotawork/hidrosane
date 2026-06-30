@@ -27,6 +27,7 @@ use Filament\Forms\Components\{
     Grid
 };
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\GpsActionForm;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
@@ -786,6 +787,7 @@ class VentaResource extends Resource
     public static function step2Schema(): array
     {
         return [
+            ...GpsActionForm::ventaWizardFields(),
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
