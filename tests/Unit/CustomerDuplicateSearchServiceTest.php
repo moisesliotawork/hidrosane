@@ -31,12 +31,10 @@ class CustomerDuplicateSearchServiceTest extends TestCase
             'dni' => null,
         ]);
 
-        $matches = Customer::query()
-            ->whereIn('id', [$first->id, $second->id])
-            ->whereIn('id', CustomerDuplicateSearchService::duplicateIdsSubquery())
-            ->count();
+        $ids = CustomerDuplicateSearchService::findDuplicateIds();
 
-        $this->assertSame(2, $matches);
+        $this->assertContains($first->id, $ids);
+        $this->assertContains($second->id, $ids);
     }
 
     public function test_does_not_detect_different_names_with_shared_phone(): void
@@ -57,11 +55,9 @@ class CustomerDuplicateSearchServiceTest extends TestCase
             'dni' => null,
         ]);
 
-        $matches = Customer::query()
-            ->whereIn('id', [$first->id, $second->id])
-            ->whereIn('id', CustomerDuplicateSearchService::duplicateIdsSubquery())
-            ->count();
+        $ids = CustomerDuplicateSearchService::findDuplicateIds();
 
-        $this->assertSame(0, $matches);
+        $this->assertNotContains($first->id, $ids);
+        $this->assertNotContains($second->id, $ids);
     }
 }

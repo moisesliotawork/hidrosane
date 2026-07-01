@@ -18,6 +18,11 @@ class ListDuplicados extends ListRecords
 
     public bool $duplicatesSearched = false;
 
+    public function mount(): void
+    {
+        $this->duplicatesSearched = CustomerDuplicateSearchService::duplicateIdsFromSession() !== [];
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -26,9 +31,12 @@ class ListDuplicados extends ListRecords
                 ->icon('heroicon-o-magnifying-glass')
                 ->color('primary')
                 ->action(function () {
+                    $ids = CustomerDuplicateSearchService::findDuplicateIds();
+                    CustomerDuplicateSearchService::storeDuplicateIdsInSession($ids);
+
                     $this->duplicatesSearched = true;
 
-                    $count = CustomerDuplicateSearchService::countDuplicates();
+                    $count = count($ids);
 
                     if ($count === 0) {
                         Notification::make()

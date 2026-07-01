@@ -258,6 +258,13 @@ class DuplicadosResource extends Resource
                         try {
                             $result = $mergeService->mergeByIds($keeper->id, $toDelete->id, auth()->id());
 
+                            CustomerDuplicateSearchService::storeDuplicateIdsInSession(
+                                array_values(array_diff(
+                                    CustomerDuplicateSearchService::duplicateIdsFromSession(),
+                                    [$toDelete->id]
+                                ))
+                            );
+
                             Notification::make()
                                 ->title('Fusión completada')
                                 ->body(

@@ -22,10 +22,20 @@ class DuplicadosStatsWidget extends StatsOverviewWidget
             ];
         }
 
-        $baseQuery = Customer::query()
-            ->whereIn('id', CustomerDuplicateSearchService::duplicateIdsSubquery());
+        $ids = CustomerDuplicateSearchService::duplicateIdsFromSession();
 
-        $total = (clone $baseQuery)->count();
+        if ($ids === []) {
+            return [
+                Stat::make('Total de registros', 0)
+                    ->description('Clientes activos con posible duplicado')
+                    ->color('warning')
+                    ->icon('heroicon-o-users'),
+            ];
+        }
+
+        $baseQuery = Customer::query()->whereIn('id', $ids);
+
+        $total = count($ids);
 
         /** @var Customer|null $latest */
         $latest = (clone $baseQuery)->latest('created_at')->first();
