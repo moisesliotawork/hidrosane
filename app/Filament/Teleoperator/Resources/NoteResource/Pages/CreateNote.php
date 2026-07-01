@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
+use App\Support\TeleoperatorCustomerNoteGuard;
 
 class CreateNote extends CreateRecord
 {
@@ -141,19 +142,15 @@ class CreateNote extends CreateRecord
         $data['secondary_phone'] = $sec === '' ? null : $sec;
         $data['third_phone'] = $thr === '' ? null : $thr;
 
+        $this->assertNoteCreationAllowed($data);
+
         // ===== 2) Buscar cliente existente SOLO por teléfono =====
         // (lo busca en phone, secondary_phone, third_phone, phone1_commercial o phone2_commercial)
         $customer = null;
 
         if (!empty($data['phone'])) {
-            $customer = Customer::query()
-                ->where(function ($q) use ($data) {
-                    $q->where('phone', $data['phone'])
-                        ->orWhere('secondary_phone', $data['phone'])
-                        ->orWhere('third_phone', $data['phone'])
-                        ->orWhere('phone1_commercial', $data['phone'])
-                        ->orWhere('phone2_commercial', $data['phone']);
-                })
+            $customer = app(TeleoperatorCustomerNoteGuard::class)
+                ->resolveCustomersForPhone($data['phone'])
                 ->first();
         }
 
@@ -226,23 +223,6 @@ class CreateNote extends CreateRecord
 
             throw ValidationException::withMessages([
                 'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
-            ]);
-        }
-
-        // ===== 4.5) Bloquear si el cliente ya tiene una venta registrada =====
-        if ($customer && \App\Models\Venta::where('customer_id', $customer->id)->exists()) {
-            Notification::make()
-                ->title('Cliente con venta existente')
-                ->body(
-                    'El cliente ' . $customer->first_names . ' ' . $customer->last_names .
-                    ' ya tiene una venta registrada. No se puede crear una nueva nota.'
-                )
-                ->danger()
-                ->persistent()
-                ->send();
-
-            throw ValidationException::withMessages([
-                'phone' => 'Este cliente ya tiene una venta registrada.',
             ]);
         }
 
@@ -329,6 +309,33 @@ class CreateNote extends CreateRecord
                 'observation' => $text,
             ]);
         }
+    }
+
+    protected function assertNoteCreationAllowed(array $data): void
+    {
+        $guard = app(TeleoperatorCustomerNoteGuard::class);
+        $customers = $guard->resolveCustomersForPhones([
+            $data['phone'] ?? null,
+            $data['secondary_phone'] ?? null,
+            $data['third_phone'] ?? null,
+        ]);
+
+        $evaluation = $guard->evaluate($customers);
+
+        if ($evaluation->allowed) {
+            return;
+        }
+
+        Notification::make()
+            ->title('NO SE PUEDE LLAMAR')
+            ->body($evaluation->message)
+            ->danger()
+            ->persistent()
+            ->send();
+
+        throw ValidationException::withMessages([
+            'phone' => $evaluation->message,
+        ]);
     }
 
 }

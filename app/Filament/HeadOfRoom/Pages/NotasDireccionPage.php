@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 use Filament\Actions\Action;
 use App\Filament\HeadOfRoom\Resources\NoteResource;
+use App\Support\TeleoperatorCustomerNoteGuard;
+use Filament\Notifications\Notification;
 
 class NotasDireccionPage extends Page implements HasTable
 {
@@ -29,9 +31,30 @@ class NotasDireccionPage extends Page implements HasTable
 
     public ?string $phone = null;
 
+    public ?string $createBlockedMessage = null;
+
     public function mount(): void
     {
         $this->phone = request()->get('phone');
+
+        $digits = TeleoperatorCustomerNoteGuard::normalizePhoneDigits($this->phone);
+
+        if ($digits === null) {
+            return;
+        }
+
+        $evaluation = app(TeleoperatorCustomerNoteGuard::class)->evaluateForPhone($digits);
+
+        if (! $evaluation->allowed) {
+            $this->createBlockedMessage = $evaluation->message;
+
+            Notification::make()
+                ->title('NO SE PUEDE LLAMAR')
+                ->body($evaluation->message)
+                ->danger()
+                ->persistent()
+                ->send();
+        }
     }
 
     protected function getHeaderActions(): array
@@ -47,10 +70,23 @@ class NotasDireccionPage extends Page implements HasTable
                 ->label('Seguir')
                 ->icon('heroicon-o-arrow-right')
                 ->color('warning')
-                ->disabled(fn() => blank($this->phone))
-                ->url(fn() => NoteResource::getUrl('create', [
-                    'phone' => $this->phone,
-                ])),
+                ->disabled(fn () => blank($this->phone) || filled($this->createBlockedMessage))
+                ->action(function () {
+                    if (filled($this->createBlockedMessage)) {
+                        Notification::make()
+                            ->title('NO SE PUEDE LLAMAR')
+                            ->body($this->createBlockedMessage)
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
+
+                    return redirect()->to(NoteResource::getUrl('create', [
+                        'phone' => $this->phone,
+                    ]));
+                }),
         ];
     }
 

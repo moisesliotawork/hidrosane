@@ -8,10 +8,10 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use App\Models\Observation;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
+use App\Support\TeleoperatorCustomerNoteGuard;
 
 class CreateNote extends CreateRecord
 {
@@ -136,15 +136,11 @@ class CreateNote extends CreateRecord
         $data['secondary_phone'] = $sec === '' ? null : $sec;
         $data['third_phone'] = $thr === '' ? null : $thr;
 
-        // 2) Normalizar nombres para comparación
-        $normalizedFirstName = Str::slug(Str::lower($data['first_names']), '');
-        $normalizedLastName = Str::slug(Str::lower($data['last_names']), '');
+        $this->assertNoteCreationAllowed($data);
 
-        // 3) Buscar cliente existente
-        $customer = Customer::query()
-            ->whereRaw("LOWER(REPLACE(first_names, ' ', '')) = ?", [$normalizedFirstName])
-            ->whereRaw("LOWER(REPLACE(last_names, ' ', '')) = ?", [$normalizedLastName])
-            ->where('phone', $data['phone'])
+        // 2) Buscar cliente existente
+        $customer = app(TeleoperatorCustomerNoteGuard::class)
+            ->resolveCustomersForPhone($data['phone'])
             ->first();
 
         // Calcular edad desde fecha_nac (si viene)
@@ -229,6 +225,31 @@ class CreateNote extends CreateRecord
         }
     }
 
+    protected function assertNoteCreationAllowed(array $data): void
+    {
+        $guard = app(TeleoperatorCustomerNoteGuard::class);
+        $customers = $guard->resolveCustomersForPhones([
+            $data['phone'] ?? null,
+            $data['secondary_phone'] ?? null,
+            $data['third_phone'] ?? null,
+        ]);
 
+        $evaluation = $guard->evaluate($customers);
+
+        if ($evaluation->allowed) {
+            return;
+        }
+
+        Notification::make()
+            ->title('NO SE PUEDE LLAMAR')
+            ->body($evaluation->message)
+            ->danger()
+            ->persistent()
+            ->send();
+
+        throw ValidationException::withMessages([
+            'phone' => $evaluation->message,
+        ]);
+    }
 
 }
