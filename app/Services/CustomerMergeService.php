@@ -159,6 +159,39 @@ class CustomerMergeService
         });
     }
 
+    /**
+     * @param  list<array{keeper_id: int, to_delete_id: int}>  $pairs
+     * @return array{merged: int, failed: list<string>}
+     */
+    public function mergePairs(array $pairs, ?int $mergedByUserId = null): array
+    {
+        $merged = 0;
+        $failed = [];
+
+        foreach ($pairs as $pair) {
+            try {
+                $this->mergeByIds(
+                    (int) $pair['keeper_id'],
+                    (int) $pair['to_delete_id'],
+                    $mergedByUserId,
+                );
+                $merged++;
+            } catch (\Throwable $exception) {
+                $failed[] = sprintf(
+                    'Par #%d → #%d: %s',
+                    $pair['keeper_id'],
+                    $pair['to_delete_id'],
+                    $exception->getMessage(),
+                );
+            }
+        }
+
+        return [
+            'merged' => $merged,
+            'failed' => $failed,
+        ];
+    }
+
     protected function buildPayloadFromLatestUpdated(Customer $source, Customer $keeper, string $searchedPhone): array
     {
         $payload = $source->only([

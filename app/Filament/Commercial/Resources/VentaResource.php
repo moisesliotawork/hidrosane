@@ -28,6 +28,7 @@ use Filament\Forms\Components\{
 };
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\GpsActionForm;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
@@ -156,10 +157,7 @@ class VentaResource extends Resource
                                     // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
                                     return $state ? preg_replace('/\D/', '', $state) : null;
                                 }),
-                                    TextInput::make('third_phone')
-                                        ->label('Teléfono 3')
-                                        ->maxLength(11)
-                                        ->tel(),
+                                    CustomerPhoneForm::make('third_phone', 'Teléfono 3'),
 
                                     TextInput::make('email')
                                         ->label('Email')

@@ -31,8 +31,7 @@ class ListDuplicados extends ListRecords
                 ->icon('heroicon-o-magnifying-glass')
                 ->color('primary')
                 ->action(function () {
-                    $ids = CustomerDuplicateSearchService::findDuplicateIds();
-                    CustomerDuplicateSearchService::storeDuplicateIdsInSession($ids);
+                    $ids = CustomerDuplicateSearchService::refreshDuplicateIdsInSession();
 
                     $this->duplicatesSearched = true;
 
@@ -41,7 +40,7 @@ class ListDuplicados extends ListRecords
                     if ($count === 0) {
                         Notification::make()
                             ->title('Sin duplicados')
-                            ->body('No se encontraron clientes con el mismo DNI y nombre parcial o total igual, ni con el mismo nombre y teléfono compartido.')
+                            ->body('No se encontraron grupos de 2 o más clientes con el mismo nombre completo, mismo DNI compatible o mismo nombre con teléfono compartido.')
                             ->warning()
                             ->send();
                     } else {
@@ -54,6 +53,13 @@ class ListDuplicados extends ListRecords
 
                     $this->resetTable();
                 }),
+
+            Action::make('fusionarTodos')
+                ->label('Fusionar Todos')
+                ->icon('heroicon-o-arrows-right-left')
+                ->color('danger')
+                ->visible(fn () => $this->duplicatesSearched)
+                ->url(fn () => DuplicadosResource::getUrl('fusionar-todos')),
         ];
     }
 
@@ -78,8 +84,8 @@ class ListDuplicados extends ListRecords
             )
             ->emptyStateDescription(
                 $this->duplicatesSearched
-                    ? 'No se encontraron clientes con el mismo DNI y nombre parcial o total igual, ni con el mismo nombre y teléfono compartido.'
-                    : 'Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual, o con el mismo nombre y algún teléfono compartido.'
+                    ? 'No se encontraron grupos de 2 o más clientes con el mismo nombre completo, mismo DNI compatible o mismo nombre con teléfono compartido.'
+                    : 'Pulsa «Buscar duplicados» para escanear clientes con el mismo nombre completo (2+ activos), mismo DNI y nombre compatible, o mismo nombre con teléfono compartido.'
             );
     }
 

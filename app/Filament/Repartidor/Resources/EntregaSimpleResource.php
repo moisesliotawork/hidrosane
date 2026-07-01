@@ -25,6 +25,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Repartidor\Resources\EntregaSimpleResource\Pages;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\Financiera;
 use Carbon\Carbon;
@@ -91,9 +92,9 @@ class EntregaSimpleResource extends Resource
                             ->readOnly()                     // no editable
                             ->dehydrated(false),             // no se envía; la calcula el modelo
 
-                        TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3'),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')

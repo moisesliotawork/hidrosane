@@ -19,16 +19,27 @@ class CustomerDuplicateSearchService
     public const SESSION_KEY = 'duplicados_customer_ids';
 
     /**
-     * Clientes activos con otro registro duplicado por:
-     * - mismo DNI (no vacío) y nombre parcial o total igual, o
-     * - mismo nombre parcial o total y al menos un teléfono compartido (cualquier campo).
+     * Clientes activos que pertenecen a un grupo de al menos 2 registros con:
+     * - mismo DNI (no vacío) y nombre compatible, o
+     * - mismo nombre completo (2+ activos), o
+     * - mismo nombre completo y al menos un teléfono compartido.
      */
     public static function findDuplicateIds(): array
     {
-        $dniIds = static::findDniDuplicateIds();
-        $phoneIds = static::findPhoneDuplicateIds();
+        return array_values(array_unique(array_merge(
+            static::findDniDuplicateIds(),
+            static::findExactFullNameDuplicateIds(),
+            static::findPhoneDuplicateIds(),
+        )));
+    }
 
-        return array_values(array_unique(array_merge($dniIds, $phoneIds)));
+    /** @return list<int> */
+    public static function refreshDuplicateIdsInSession(): array
+    {
+        $ids = static::findDuplicateIds();
+        static::storeDuplicateIdsInSession($ids);
+
+        return $ids;
     }
 
     public static function storeDuplicateIdsInSession(array $ids): void
@@ -88,6 +99,239 @@ class CustomerDuplicateSearchService
         $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
 
         return "TRIM(CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, ''))) {$direction}";
+    }
+
+    /**
+     * Pares fusionables: exactamente 2 clientes activos, mismo nombre completo y al menos un teléfono compartido.
+     *
+     * @return list<array{
+     *     pair_key: string,
+     *     name: string,
+     *     keeper_id: int,
+     *     to_delete_id: int,
+     *     shared_phones: list<string>,
+     *     customers: list<array<string, mixed>>
+     * }>
+     */
+    public static function findAutoMergePairsOfTwo(): array
+    {
+        $edges = static::findStrictNameSharedPhonePairEdges();
+        $components = static::connectedComponentsFromEdges($edges);
+
+        $pairs = [];
+
+        foreach ($components as $component) {
+            if (count($component) !== 2) {
+                continue;
+            }
+
+            $customers = \App\Models\Customer::query()
+                ->withCount(['notes', 'ventas'])
+                ->whereIn('id', $component)
+                ->whereNull('merged_into_id')
+                ->get();
+
+            if ($customers->count() !== 2) {
+                continue;
+            }
+
+            $sorted = $customers
+                ->sortBy(fn (\App\Models\Customer $customer) => [
+                    optional($customer->created_at)->timestamp ?? PHP_INT_MAX,
+                    $customer->id,
+                ])
+                ->values();
+
+            /** @var \App\Models\Customer $keeper */
+            $keeper = $sorted->first();
+            /** @var \App\Models\Customer $toDelete */
+            $toDelete = $sorted->last();
+
+            $pairs[] = static::formatAutoMergePair($keeper, $toDelete);
+        }
+
+        usort(
+            $pairs,
+            fn (array $left, array $right) => strcasecmp($left['name'], $right['name'])
+        );
+
+        return $pairs;
+    }
+
+    /**
+     * @param  list<array{0: int, 1: int}>  $edges
+     * @return list<list<int>>
+     */
+    public static function connectedComponentsFromEdges(array $edges): array
+    {
+        $adjacency = [];
+
+        foreach ($edges as [$leftId, $rightId]) {
+            $adjacency[$leftId][] = $rightId;
+            $adjacency[$rightId][] = $leftId;
+        }
+
+        $visited = [];
+        $components = [];
+
+        foreach (array_keys($adjacency) as $nodeId) {
+            if (isset($visited[$nodeId])) {
+                continue;
+            }
+
+            $stack = [$nodeId];
+            $component = [];
+
+            while ($stack !== []) {
+                $current = array_pop($stack);
+
+                if (isset($visited[$current])) {
+                    continue;
+                }
+
+                $visited[$current] = true;
+                $component[] = $current;
+
+                foreach ($adjacency[$current] ?? [] as $neighborId) {
+                    if (! isset($visited[$neighborId])) {
+                        $stack[] = $neighborId;
+                    }
+                }
+            }
+
+            sort($component);
+            $components[] = $component;
+        }
+
+        return $components;
+    }
+
+    /**
+     * @return list<array{0: int, 1: int}>
+     */
+    public static function findStrictNameSharedPhonePairEdges(): array
+    {
+        $phonesUnion = static::customerPhonesUnionSql();
+
+        $sharedPhones = DB::query()
+            ->fromRaw("{$phonesUnion} AS shared_cp")
+            ->select('shared_cp.phone')
+            ->groupBy('shared_cp.phone')
+            ->havingRaw('COUNT(DISTINCT shared_cp.customer_id) > 1');
+
+        $rows = DB::query()
+            ->fromRaw("{$phonesUnion} AS cp1")
+            ->join(DB::raw("{$phonesUnion} AS cp2"), function ($join) {
+                $join->on('cp1.phone', '=', 'cp2.phone')
+                    ->whereColumn('cp1.customer_id', '<', 'cp2.customer_id');
+            })
+            ->joinSub($sharedPhones, 'shared_phones', 'shared_phones.phone', '=', 'cp1.phone')
+            ->join('customers as c1', 'c1.id', '=', 'cp1.customer_id')
+            ->join('customers as c2', 'c2.id', '=', 'cp2.customer_id')
+            ->whereNull('c1.merged_into_id')
+            ->whereNull('c2.merged_into_id')
+            ->where(function ($query) {
+                static::applyStrictFullNameMatch($query);
+            })
+            ->selectRaw('cp1.customer_id AS id_a, cp2.customer_id AS id_b')
+            ->get();
+
+        return $rows
+            ->map(fn ($row) => [(int) $row->id_a, (int) $row->id_b])
+            ->unique(fn (array $pair) => $pair[0].'-'.$pair[1])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{
+     *     pair_key: string,
+     *     name: string,
+     *     keeper_id: int,
+     *     to_delete_id: int,
+     *     shared_phones: list<string>,
+     *     customers: list<array<string, mixed>>
+     * }
+     */
+    protected static function formatAutoMergePair(
+        \App\Models\Customer $keeper,
+        \App\Models\Customer $toDelete,
+    ): array {
+        $sharedPhones = static::sharedPhonesBetween($keeper, $toDelete);
+        $name = mb_strtoupper(trim($keeper->first_names.' '.$keeper->last_names));
+
+        return [
+            'pair_key' => min($keeper->id, $toDelete->id).'-'.max($keeper->id, $toDelete->id),
+            'name' => $name,
+            'keeper_id' => $keeper->id,
+            'to_delete_id' => $toDelete->id,
+            'shared_phones' => $sharedPhones,
+            'customers' => [
+                static::formatCustomerRow($keeper, 'keeper'),
+                static::formatCustomerRow($toDelete, 'merge'),
+            ],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function sharedPhonesBetween(
+        \App\Models\Customer $left,
+        \App\Models\Customer $right,
+    ): array {
+        $leftPhones = collect(static::phonesFromCustomer($left));
+        $rightPhones = collect(static::phonesFromCustomer($right));
+
+        return $leftPhones->intersect($rightPhones)->sort()->values()->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function phonesFromCustomer(\App\Models\Customer $customer): array
+    {
+        $phones = [];
+
+        foreach (self::PHONE_FIELDS as $field) {
+            $digits = preg_replace('/\D+/', '', (string) ($customer->{$field} ?? ''));
+
+            if (strlen($digits) === 9) {
+                $phones[] = $digits;
+            }
+        }
+
+        return array_values(array_unique($phones));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected static function formatCustomerRow(\App\Models\Customer $customer, string $role): array
+    {
+        return [
+            'id' => $customer->id,
+            'role' => $role,
+            'name' => mb_strtoupper(trim($customer->first_names.' '.$customer->last_names)),
+            'phone' => static::formatPhoneDisplay($customer->phone),
+            'secondary_phone' => static::formatPhoneDisplay($customer->secondary_phone),
+            'third_phone' => static::formatPhoneDisplay($customer->third_phone),
+            'dni' => $customer->dni ?: '—',
+            'notes_count' => (int) $customer->notes_count,
+            'ventas_count' => (int) $customer->ventas_count,
+            'created_at' => optional($customer->created_at)?->format('d/m/Y H:i') ?? '—',
+        ];
+    }
+
+    public static function formatPhoneDisplay(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+
+        if (strlen($digits) !== 9) {
+            return '—';
+        }
+
+        return implode(' ', str_split($digits, 3));
     }
 
     /** @return list<int> */
@@ -151,7 +395,7 @@ class CustomerDuplicateSearchService
             ->whereNull('c1.merged_into_id')
             ->whereNull('c2.merged_into_id')
             ->where(function ($query) {
-                static::applyNameMatchConditions($query);
+                static::applyStrictFullNameMatch($query);
             });
 
         return $base->clone()
@@ -161,6 +405,26 @@ class CustomerDuplicateSearchService
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()
+            ->all();
+    }
+
+    /** @return list<int> */
+    protected static function findExactFullNameDuplicateIds(): array
+    {
+        $fullName = static::normalizedFullNameSql('c');
+        $fullName2 = static::normalizedFullNameSql('c2');
+
+        return DB::table('customers as c')
+            ->whereNull('c.merged_into_id')
+            ->whereExists(function ($query) use ($fullName, $fullName2) {
+                $query->from('customers as c2')
+                    ->whereNull('c2.merged_into_id')
+                    ->whereColumn('c2.id', '!=', 'c.id')
+                    ->whereRaw("{$fullName} != ''")
+                    ->whereRaw("{$fullName} = {$fullName2}");
+            })
+            ->pluck('c.id')
+            ->map(fn ($id) => (int) $id)
             ->all();
     }
 
@@ -207,5 +471,13 @@ class CustomerDuplicateSearchService
                         });
                 });
         });
+    }
+
+    protected static function applyStrictFullNameMatch($query): void
+    {
+        $full1 = static::normalizedFullNameSql('c1');
+        $full2 = static::normalizedFullNameSql('c2');
+
+        $query->whereRaw("{$full1} != '' AND {$full1} = {$full2}");
     }
 }

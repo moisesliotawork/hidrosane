@@ -53,10 +53,11 @@ class DuplicadosResource extends Resource
             ->columns([
                 TextColumn::make('nombre_cliente')
                     ->label('Nombre del Cliente')
-                    ->getStateUsing(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                    ->getStateUsing(fn (Customer $r) => mb_strtoupper(trim($r->first_names.' '.$r->last_names)))
                     ->weight(FontWeight::Bold)
                     ->color(Color::Green)
                     ->searchable(['first_names', 'last_names'])
+                    ->extraAttributes(['class' => 'whitespace-nowrap'])
                     ->sortable(query: function (Builder $query, string $direction): void {
                         $query->reorder()
                             ->orderByRaw(CustomerDuplicateSearchService::orderByClientNameSql($direction));
@@ -172,7 +173,7 @@ class DuplicadosResource extends Resource
             ->paginated([25, 50, 100, 'all'])
             ->filters([])
             ->emptyStateHeading('Buscar duplicados')
-            ->emptyStateDescription('Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual, o con el mismo nombre y algún teléfono compartido.')
+            ->emptyStateDescription('Pulsa «Buscar duplicados» para escanear clientes con el mismo nombre completo (2+ activos), mismo DNI y nombre compatible, o mismo nombre con teléfono compartido.')
             ->emptyStateIcon('heroicon-o-magnifying-glass')
             ->actions([])
             ->bulkActions([
@@ -257,12 +258,7 @@ class DuplicadosResource extends Resource
                         try {
                             $result = $mergeService->mergeByIds($keeper->id, $toDelete->id, auth()->id());
 
-                            CustomerDuplicateSearchService::storeDuplicateIdsInSession(
-                                array_values(array_diff(
-                                    CustomerDuplicateSearchService::duplicateIdsFromSession(),
-                                    [$toDelete->id]
-                                ))
-                            );
+                            CustomerDuplicateSearchService::refreshDuplicateIdsInSession();
 
                             Notification::make()
                                 ->title('Fusión completada')
@@ -294,6 +290,7 @@ class DuplicadosResource extends Resource
     {
         return [
             'index' => Pages\ListDuplicados::route('/'),
+            'fusionar-todos' => Pages\FusionarTodosDuplicados::route('/fusionar-todos'),
         ];
     }
 

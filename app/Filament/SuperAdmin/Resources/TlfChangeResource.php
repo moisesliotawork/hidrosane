@@ -4,6 +4,7 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\TlfChangeResource\Pages;
 use App\Models\Customer;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -13,6 +14,7 @@ use Filament\Tables\Columns\TextInputColumn;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\FontWeight;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class TlfChangeResource extends Resource
 {
@@ -60,15 +62,18 @@ class TlfChangeResource extends Resource
 
                 TextInputColumn::make('phone')
                     ->label('TEL 1')
-                    ->extraAttributes(['class' => 'font-bold']),
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->updateStateUsing(fn (Customer $record, $state) => static::normalizePhoneColumn($record, 'phone', $state)),
 
                 TextInputColumn::make('secondary_phone')
                     ->label('TEL 2')
-                    ->extraAttributes(['class' => 'font-bold']),
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->updateStateUsing(fn (Customer $record, $state) => static::normalizePhoneColumn($record, 'secondary_phone', $state)),
 
                 TextInputColumn::make('third_phone')
                     ->label('TEL 3')
-                    ->extraAttributes(['class' => 'font-bold']),
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->updateStateUsing(fn (Customer $record, $state) => static::normalizePhoneColumn($record, 'third_phone', $state)),
 
                 TextInputColumn::make('phone1_commercial')
                     ->label('COM 1')
@@ -82,6 +87,27 @@ class TlfChangeResource extends Resource
             ->filters([])
             ->actions([])
             ->bulkActions([]);
+    }
+
+    protected static function normalizePhoneColumn(Customer $record, string $field, mixed $state): ?string
+    {
+        $digits = CustomerPhoneForm::normalizeDigits(is_string($state) ? $state : null);
+
+        if ($field === 'phone' && $digits === null) {
+            throw ValidationException::withMessages([
+                $field => 'Debe tener exactamente 9 cifras.',
+            ]);
+        }
+
+        if ($digits !== null && strlen($digits) !== 9) {
+            throw ValidationException::withMessages([
+                $field => 'Debe tener exactamente 9 cifras.',
+            ]);
+        }
+
+        $record->update([$field => $digits]);
+
+        return $digits;
     }
 
     public static function getPages(): array

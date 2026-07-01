@@ -3,6 +3,7 @@
 namespace App\Filament\Teleoperator\Resources\OficinaEditResource\Pages;
 
 use App\Filament\Teleoperator\Resources\OficinaEditResource;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Resources\Pages\ListRecords;
@@ -24,19 +25,7 @@ class ListOficinaEdit extends ListRecords
                 ->modalHeading('Buscar nota por teléfono')
                 ->modalSubmitActionLabel('Buscar')
                 ->form([
-                    Forms\Components\TextInput::make('phone')
-                        ->label('Número de teléfono')
-                        ->mask('999 999 999')
-                        ->placeholder('999 999 999')
-                        ->required()
-                        ->rule(function () {
-                            return function (string $attribute, $value, \Closure $fail) {
-                                $digits = preg_replace('/\D+/', '', (string) $value);
-                                if (strlen($digits) !== 9) {
-                                    $fail('Debe tener exactamente 9 cifras.');
-                                }
-                            };
-                        }),
+                    CustomerPhoneForm::make('phone', 'Número de teléfono', required: true),
                 ])
                 ->action(function (array $data) {
                     $this->telefonoBusqueda = preg_replace('/\D+/', '', $data['phone']);

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Filament\Support\CustomerPhoneForm;
 use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -69,6 +70,14 @@ class Customer extends Model
         static::addGlobalScope(new NotMergedScope());
 
         static::saving(function (Customer $model) {
+            foreach (CustomerPhoneForm::CLIENT_FIELDS as $phoneField) {
+                if (! $model->isDirty($phoneField) && ! $model->wasRecentlyCreated) {
+                    continue;
+                }
+
+                $model->{$phoneField} = CustomerPhoneForm::normalizeDigits($model->{$phoneField});
+            }
+
             if ($model->fecha_nac) {
                 try {
                     $age = Carbon::parse($model->fecha_nac)->age;

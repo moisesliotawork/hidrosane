@@ -28,6 +28,7 @@ use Filament\Forms\Components\{
 };
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use App\Filament\Support\CustomerPhoneForm;
 use Illuminate\Validation\Rule;
 use Filament\Forms\Components\{
     Group,
@@ -72,8 +73,8 @@ class HistoricoContratosResource extends Resource
                                     DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
                                     TextInput::make('age')->numeric()->label('Edad'),
 
-                                    TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                                    TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                                    CustomerPhoneForm::make('phone', 'Teléfono', required: true),
+                                    CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
                                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                                     Forms\Components\TextInput::make('nro_piso')

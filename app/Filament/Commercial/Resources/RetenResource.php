@@ -9,6 +9,7 @@ use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Infolist;
@@ -67,39 +68,28 @@ class RetenResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        // Teléfono
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('phone')
+                                ->disabled()
+                                ->label('Teléfono')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                            required: true,
+                        ),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('secondary_phone')
+                                ->disabled()
+                                ->label('Teléfono secundario (opcional)')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                        ),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()

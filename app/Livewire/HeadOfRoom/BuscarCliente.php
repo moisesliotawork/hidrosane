@@ -15,6 +15,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Filament\HeadOfRoom\Pages\NotasDireccionPage;
 use App\Support\TeleoperatorCustomerNoteGuard;
+use App\Filament\Support\CustomerPhoneForm;
 
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
@@ -46,15 +47,7 @@ class BuscarCliente extends Component implements HasForms, HasActions
                             ->mask('999 999 999')
                             ->placeholder('999 999 999')
                             ->required()
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras.');
-                                    }
-                                };
-                            }),
+                            ->rule(CustomerPhoneForm::nineDigitValidationRule()),
 
                         Forms\Components\Actions::make([
                             Forms\Components\Actions\Action::make('buscarTelefono')

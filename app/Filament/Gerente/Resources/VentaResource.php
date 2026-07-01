@@ -19,6 +19,7 @@ use Filament\Forms\Components\{
     Group
 };
 use App\Support\Filament\FechaNacimientoField;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
@@ -188,9 +189,9 @@ class VentaResource extends Resource
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
 
-                        TextInput::make('phone')->label('Teléfono 1')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                        CustomerPhoneForm::make('phone', 'Teléfono 1', required: true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3'),
                         TextInput::make('phone1_commercial')->label('Teléfono comercial 1')->tel(),
                         TextInput::make('phone2_commercial')->label('Teléfono comercial 2')->tel(),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),

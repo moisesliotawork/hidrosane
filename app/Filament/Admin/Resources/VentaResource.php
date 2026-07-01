@@ -41,6 +41,7 @@ use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
 use App\Services\VentaCustomerIdentityService;
 use App\Filament\Support\SuperAdminVentaCustomerId;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -325,39 +326,12 @@ class VentaResource extends Resource
                             ->readOnly()              // NO editable
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
-                        TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->columnSpan(1)
-                            ->mask('999 999 999')
-                            ->label('Teléfono 1 (requerido)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('phone', 'Teléfono 1 (requerido)', required: true)
+                            ->columnSpan(1),
 
-                        TextInput::make('secondary_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            //->columnSpan(['default' => 1])
-                            ->mask('999 999 999')
-                            ->label('Teléfono 2 (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2 (opcional)'),
 
-                        TextInput::make('third_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            //->columnSpan(['default' => 1])
-                            ->mask('999 999 999')
-                            ->label('Teléfono 3 (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
                         TextInput::make('phone1_commercial')
                             ->tel()

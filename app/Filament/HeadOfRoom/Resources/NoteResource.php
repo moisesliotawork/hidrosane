@@ -36,6 +36,7 @@ use Filament\Notifications\Actions\Action as NotificationAction;
 use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
+use App\Filament\Support\CustomerPhoneForm;
 
 class NoteResource extends Resource
 {
@@ -129,63 +130,11 @@ class NoteResource extends Resource
                             ]),
 
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->label('Teléfono')
-                            ->mask('999 999 999') // se ve con espacios
-                            // Validación: exactamente 9 dígitos (ignora espacios/guiones)
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            // Guardar: solo dígitos
-                            ->dehydrateStateUsing(fn($state) => preg_replace('/\D+/', '', (string) $state))
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->label('Teléfono secundario (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
-                        Forms\Components\TextInput::make('third_phone')
-                            ->tel()
-                            ->label('Teléfono 3 (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
