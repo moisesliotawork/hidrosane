@@ -57,7 +57,11 @@ class DuplicadosResource extends Resource
                     ->weight(FontWeight::Bold)
                     ->color(Color::Green)
                     ->searchable(['first_names', 'last_names'])
-                    ->wrap(),
+                    ->sortable(query: function (Builder $query, string $direction): void {
+                        $query->orderByRaw(
+                            "TRIM(CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, ''))) {$direction}"
+                        );
+                    }),
 
                 TextColumn::make('dni')
                     ->label('DNI')
@@ -169,7 +173,7 @@ class DuplicadosResource extends Resource
             ->paginated([25, 50, 100, 'all'])
             ->filters([])
             ->emptyStateHeading('Buscar duplicados')
-            ->emptyStateDescription('Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual (el teléfono puede coincidir o no).')
+            ->emptyStateDescription('Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre parcial o total igual, o con el mismo nombre y algún teléfono compartido.')
             ->emptyStateIcon('heroicon-o-magnifying-glass')
             ->actions([])
             ->bulkActions([

@@ -18,8 +18,9 @@ class CustomerDuplicateSearchService
     ];
 
     /**
-     * Clientes activos con otro registro que comparte DNI y nombre (parcial o total).
-     * El teléfono puede coincidir o ser distinto.
+     * Clientes activos con otro registro duplicado por:
+     * - mismo DNI (no vacío) y nombre parcial o total igual, o
+     * - mismo nombre parcial o total y al menos un teléfono compartido (cualquier campo).
      */
     public static function duplicateIdsSubquery(): QueryBuilder
     {
@@ -28,10 +29,18 @@ class CustomerDuplicateSearchService
             ->join('customers as c2', 'c1.id', '!=', 'c2.id')
             ->whereNull('c1.merged_into_id')
             ->whereNull('c2.merged_into_id')
-            ->whereRaw('c1.dni = c2.dni')
-            ->whereRaw("c1.dni IS NOT NULL AND c1.dni != ''")
             ->where(function ($query) {
-                static::applyNameMatchConditions($query);
+                $query->where(function ($dniMatch) {
+                    $dniMatch
+                        ->whereRaw('c1.dni = c2.dni')
+                        ->whereRaw("c1.dni IS NOT NULL AND c1.dni != ''")
+                        ->where(function ($nameQuery) {
+                            static::applyNameMatchConditions($nameQuery);
+                        });
+                })->orWhere(function ($phoneMatch) {
+                    static::applyNameMatchConditions($phoneMatch);
+                    static::applySharedPhoneConditions($phoneMatch);
+                });
             })
             ->distinct();
     }
@@ -89,6 +98,20 @@ class CustomerDuplicateSearchService
                                 ->orWhereRaw("{$full2} LIKE CONCAT('%', {$full1}, '%')");
                         });
                 });
+        });
+    }
+
+    protected static function applySharedPhoneConditions($query): void
+    {
+        $query->where(function ($phoneQuery) {
+            foreach (static::PHONE_FIELDS as $field1) {
+                foreach (static::PHONE_FIELDS as $field2) {
+                    $phoneQuery->orWhere(function ($pair) use ($field1, $field2) {
+                        $pair->whereRaw("NULLIF(TRIM(COALESCE(c1.{$field1}, '')), '') IS NOT NULL")
+                            ->whereRaw("TRIM(COALESCE(c1.{$field1}, '')) = TRIM(COALESCE(c2.{$field2}, ''))");
+                    });
+                }
+            }
         });
     }
 }

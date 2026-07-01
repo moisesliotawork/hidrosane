@@ -187,7 +187,7 @@ class CustomerResource extends Resource
                     ->label('Nombre de Cliente')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
                     ->searchable(['first_names', 'last_names'])
-                    ->wrap(),
+                    ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                 TextColumn::make('nro_cliente')
                     ->label('ID/Cliente')
