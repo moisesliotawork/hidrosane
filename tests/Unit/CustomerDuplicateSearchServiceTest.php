@@ -61,7 +61,7 @@ class CustomerDuplicateSearchServiceTest extends TestCase
         $this->assertNotContains($second->id, $ids);
     }
 
-    public function test_detects_duplicates_with_same_full_name_without_shared_phone(): void
+    public function test_does_not_detect_same_full_name_without_shared_phone_or_dni(): void
     {
         $first = Customer::factory()->create([
             'first_names' => 'PEDRO',
@@ -79,8 +79,8 @@ class CustomerDuplicateSearchServiceTest extends TestCase
 
         $ids = CustomerDuplicateSearchService::findDuplicateIds();
 
-        $this->assertContains($first->id, $ids);
-        $this->assertContains($second->id, $ids);
+        $this->assertNotContains($first->id, $ids);
+        $this->assertNotContains($second->id, $ids);
     }
 
     public function test_find_auto_merge_pairs_of_two_returns_valid_pair(): void

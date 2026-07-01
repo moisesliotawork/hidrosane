@@ -40,7 +40,7 @@ class ListDuplicados extends ListRecords
                     if ($count === 0) {
                         Notification::make()
                             ->title('Sin duplicados')
-                            ->body('No se encontraron grupos de 2 o más clientes con el mismo nombre completo, mismo DNI compatible o mismo nombre con teléfono compartido.')
+                            ->body('No se encontraron clientes con el mismo DNI y nombre compatible, ni con el mismo nombre completo y teléfono compartido.')
                             ->warning()
                             ->send();
                     } else {
@@ -84,8 +84,8 @@ class ListDuplicados extends ListRecords
             )
             ->emptyStateDescription(
                 $this->duplicatesSearched
-                    ? 'No se encontraron grupos de 2 o más clientes con el mismo nombre completo, mismo DNI compatible o mismo nombre con teléfono compartido.'
-                    : 'Pulsa «Buscar duplicados» para escanear clientes con el mismo nombre completo (2+ activos), mismo DNI y nombre compatible, o mismo nombre con teléfono compartido.'
+                    ? 'No se encontraron clientes con el mismo DNI y nombre compatible, ni con el mismo nombre completo y teléfono compartido.'
+                    : 'Pulsa «Buscar duplicados» para escanear clientes con el mismo DNI y nombre compatible, o con el mismo nombre completo y algún teléfono compartido.'
             );
     }
 

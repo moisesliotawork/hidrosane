@@ -21,14 +21,12 @@ class CustomerDuplicateSearchService
     /**
      * Clientes activos que pertenecen a un grupo de al menos 2 registros con:
      * - mismo DNI (no vacío) y nombre compatible, o
-     * - mismo nombre completo (2+ activos), o
      * - mismo nombre completo y al menos un teléfono compartido.
      */
     public static function findDuplicateIds(): array
     {
         return array_values(array_unique(array_merge(
             static::findDniDuplicateIds(),
-            static::findExactFullNameDuplicateIds(),
             static::findPhoneDuplicateIds(),
         )));
     }
@@ -405,26 +403,6 @@ class CustomerDuplicateSearchService
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()
-            ->all();
-    }
-
-    /** @return list<int> */
-    protected static function findExactFullNameDuplicateIds(): array
-    {
-        $fullName = static::normalizedFullNameSql('c');
-        $fullName2 = static::normalizedFullNameSql('c2');
-
-        return DB::table('customers as c')
-            ->whereNull('c.merged_into_id')
-            ->whereExists(function ($query) use ($fullName, $fullName2) {
-                $query->from('customers as c2')
-                    ->whereNull('c2.merged_into_id')
-                    ->whereColumn('c2.id', '!=', 'c.id')
-                    ->whereRaw("{$fullName} != ''")
-                    ->whereRaw("{$fullName} = {$fullName2}");
-            })
-            ->pluck('c.id')
-            ->map(fn ($id) => (int) $id)
             ->all();
     }
 
