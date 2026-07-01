@@ -26,8 +26,9 @@ class FusionadosWidget extends BaseWidget
                 'mergedInto:id,first_names,last_names',
                 'mergedBy:id,name,last_name,empleado_id',
             ])
-            ->orderBy('merged_at', 'desc')
-            ->orderBy('id', 'desc');
+            ->orderByRaw('CASE WHEN merged_at IS NULL THEN 1 ELSE 0 END')
+            ->orderByDesc('merged_at')
+            ->orderByDesc('id');
     }
 
     public function table(Table $table): Table
@@ -98,10 +99,13 @@ class FusionadosWidget extends BaseWidget
 
                 TextColumn::make('merged_at')
                     ->label('Fecha Fusión')
-                    ->getStateUsing(fn(Customer $r): string =>
-                        optional($r->merged_at)->format('d/m/Y H:i') ?? '—'
-                    )
-                    ->sortable()
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(query: function (Builder $query, string $direction): void {
+                        $query->reorder()
+                            ->orderByRaw('CASE WHEN merged_at IS NULL THEN 1 ELSE 0 END')
+                            ->orderBy('merged_at', $direction)
+                            ->orderBy('id', $direction);
+                    })
                     ->badge()
                     ->color(Color::Indigo),
 

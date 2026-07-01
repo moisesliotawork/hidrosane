@@ -40,7 +40,7 @@ class DuplicadosResource extends Resource
                 'latestNote.user:id,name,last_name,empleado_id',
             ])
             ->withCount('ventas')
-            ->orderByRaw(CustomerDuplicateSearchService::orderByLatestActivitySql());
+            ->orderByRaw(CustomerDuplicateSearchService::orderByClientNameSql());
     }
 
     public static function table(Table $table): Table
@@ -58,9 +58,8 @@ class DuplicadosResource extends Resource
                     ->color(Color::Green)
                     ->searchable(['first_names', 'last_names'])
                     ->sortable(query: function (Builder $query, string $direction): void {
-                        $query->orderByRaw(
-                            "TRIM(CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, ''))) {$direction}"
-                        );
+                        $query->reorder()
+                            ->orderByRaw(CustomerDuplicateSearchService::orderByClientNameSql($direction));
                     }),
 
                 TextColumn::make('dni')
@@ -169,7 +168,7 @@ class DuplicadosResource extends Resource
                     ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray')
                     ->sortable(),
             ])
-            ->defaultSort('id', 'desc')
+            ->defaultSort('nombre_cliente', 'asc')
             ->paginated([25, 50, 100, 'all'])
             ->filters([])
             ->emptyStateHeading('Buscar duplicados')

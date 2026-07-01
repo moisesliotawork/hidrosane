@@ -83,6 +83,13 @@ class CustomerDuplicateSearchService
         ";
     }
 
+    public static function orderByClientNameSql(string $direction = 'ASC'): string
+    {
+        $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+
+        return "TRIM(CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, ''))) {$direction}";
+    }
+
     /** @return list<int> */
     protected static function findDniDuplicateIds(): array
     {
