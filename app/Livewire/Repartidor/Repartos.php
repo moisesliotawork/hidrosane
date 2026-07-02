@@ -9,9 +9,11 @@ use App\Models\AnotacionVisita;
 use Filament\Notifications\Notification;
 use App\Filament\Commercial\Resources\VentaResource;
 use App\Enums\EstadoEntrega;
+use App\Livewire\Concerns\ValidatesLivewireGps;
 
 class Repartos extends Component
 {
+    use ValidatesLivewireGps;
     protected $listeners = [
         'ventaActualizada' => '$refresh',
         'guardarUbicacion' => 'guardarUbicacion',
@@ -37,6 +39,12 @@ class Repartos extends Component
 
     public function guardarUbicacion($repartoId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $reparto = Reparto::with('venta')->find($repartoId);
         if (!$reparto || $reparto->venta?->repartidor_id !== auth()->id()) {
             Notification::make()->title('No autorizado')->danger()->body('No puedes modificar este reparto.')->send();
@@ -44,15 +52,15 @@ class Repartos extends Component
         }
 
         $reparto->update([
-            'lat' => $lat,
-            'lng' => $lng,
+            'lat' => $coords['lat'],
+            'lng' => $coords['lng'],
         ]);
 
         AnotacionVisita::create([
             'nota_id' => $reparto->venta->note_id,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
-            'cuerpo' => "Ubicación repartidor: [$lat, $lng]",
+            'cuerpo' => "Ubicación repartidor: [{$coords['lat']}, {$coords['lng']}]",
         ]);
 
         Notification::make()
@@ -64,6 +72,12 @@ class Repartos extends Component
 
     public function guardarUbicacionDentro($repartoId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $reparto = Reparto::with('venta')->find($repartoId);
         if (!$reparto || $reparto->venta?->repartidor_id !== auth()->id()) {
             Notification::make()->title('No autorizado')->danger()->body('No puedes modificar este reparto.')->send();
@@ -71,15 +85,15 @@ class Repartos extends Component
         }
 
         $reparto->update([
-            'dentro_lat' => $lat,
-            'dentro_lng' => $lng,
+            'dentro_lat' => $coords['lat'],
+            'dentro_lng' => $coords['lng'],
         ]);
 
         AnotacionVisita::create([
             'nota_id' => $reparto->venta->note_id,
             'author_id' => auth()->id(),
             'asunto' => 'GPS-DENTRO',
-            'cuerpo' => "Ubicación DENTRO: [$lat, $lng]",
+            'cuerpo' => "Ubicación DENTRO: [{$coords['lat']}, {$coords['lng']}]",
         ]);
 
         Notification::make()

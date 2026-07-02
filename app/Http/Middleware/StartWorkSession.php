@@ -36,10 +36,20 @@ class StartWorkSession
                         $location = false;
                     }
 
-                    $defaultLocation = (object) ['latitude' => 10.4806, 'longitude' => -66.9036];
-                    $loc = ($location === false || in_array($ip, ['127.0.0.1', '::1']))
+                    $defaultLocation = app()->environment('local')
+                        ? (object) ['latitude' => 42.2405, 'longitude' => -8.7200]
+                        : (object) ['latitude' => null, 'longitude' => null];
+
+                    $loc = ($location === false || in_array($ip, ['127.0.0.1', '::1'], true))
                         ? $defaultLocation
                         : $location;
+
+                    if (
+                        isset($loc->latitude, $loc->longitude)
+                        && ! \App\Support\ActionGps::isPlausibleOperatingCoordinate((float) $loc->latitude, (float) $loc->longitude)
+                    ) {
+                        $loc = (object) ['latitude' => null, 'longitude' => null];
+                    }
 
                     WorkSession::create([
                         'user_id' => $user->id,

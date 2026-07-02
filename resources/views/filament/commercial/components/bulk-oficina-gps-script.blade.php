@@ -12,20 +12,14 @@
             );
         }
 
-        if (location.protocol !== 'https:') {
-            ejecutar(10.4806, -66.9036);
+        if (!window.OhanaGpsCapture) {
+            alert('No se pudo cargar el módulo de geolocalización. Recarga la página.');
             return;
         }
 
-        if (!navigator.geolocation) {
-            ejecutar(null, null);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => ejecutar(pos.coords.latitude, pos.coords.longitude),
-            () => ejecutar(null, null),
-            { enableHighAccuracy: true, timeout: 15000 }
+        OhanaGpsCapture.capture(
+            (lat, lng) => ejecutar(lat, lng),
+            (message) => alert(message)
         );
     }
 </script>

@@ -54,8 +54,16 @@ class NoteRouteGps
         $note->de_camino = $enCamino;
 
         if ($enCamino) {
-            $note->lat = $lat;
-            $note->lng = $lng;
+            $coords = ActionGps::validateOperatingCoords($lat, $lng);
+
+            if ($coords === null) {
+                return false;
+            }
+
+            $note->lat = $coords['lat'];
+            $note->lng = $coords['lng'];
+            $lat = $coords['lat'];
+            $lng = $coords['lng'];
         }
 
         $note->save();

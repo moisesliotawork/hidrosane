@@ -9,9 +9,11 @@ use App\Models\AnotacionVisita;
 use App\Filament\Commercial\Resources\NoteResource;
 use Carbon\Carbon;
 use App\Support\NoteRouteGps;
+use App\Livewire\Concerns\ValidatesLivewireGps;
 
 class NotasToday extends Component
 {
+    use ValidatesLivewireGps;
 
     public array $selectedNotes = [];
 
@@ -41,61 +43,70 @@ class NotasToday extends Component
 
     public function guardarUbicacionDentro($notaId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note) {
             return;
         }
 
-        $note->lat_dentro = $lat;
-        $note->lng_dentro = $lng;
+        $note->lat_dentro = $coords['lat'];
+        $note->lng_dentro = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'DENTRO',
-            'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación DENTRO: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación DENTRO capturada')
             ->success()
-            ->body("Guardada para nota #$notaId: [$lat, $lng]")
+            ->body("Guardada para nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
 
         $this->dispatch('notaActualizada');
     }
-
 
     public ?float $ubicacionLat = null;
     public ?float $ubicacionLng = null;
 
     public function guardarUbicacion($notaId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
-        $note->lat = $lat;
-        $note->lng = $lng;
+
+        if (! $note) {
+            return;
+        }
+
+        $note->lat = $coords['lat'];
+        $note->lng = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
-            'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng"
+            'cuerpo' => "Ubicación capturada: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
-
 
         Notification::make()
             ->title('Ubicación capturada')
             ->success()
-            ->body("Ubicación guardada para la nota #$notaId: [$lat, $lng]")
+            ->body("Ubicación guardada para la nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
-
-        // Aquí puedes opcionalmente guardar en BD si quieres
-        // $note = Note::find($notaId);
-        // $note->lat = $lat;
-        // $note->lng = $lng;
-        // $note->save();
     }
 
     public function toggleDeCamino($noteId, $lat = null, $lng = null): void
