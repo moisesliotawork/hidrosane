@@ -9,6 +9,25 @@ use Filament\Forms\Set;
 
 class FechaNacimientoField
 {
+    public static function parse(?string $value): ?Carbon
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        try {
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
+                return Carbon::createFromFormat('d/m/Y', $value);
+            }
+
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public static function make(string $name = 'fecha_nac', ?Closure $configure = null): TextInput
     {
         $field = TextInput::make($name)
@@ -43,30 +62,20 @@ class FechaNacimientoField
                 'date_format' => 'Usa el formato dd/mm/aaaa (ej. 04/05/1949).',
             ])
             ->dehydrateStateUsing(function (?string $state): ?string {
-                if (blank($state)) {
-                    return null;
-                }
+                $date = self::parse($state);
 
-                return Carbon::createFromFormat('d/m/Y', trim($state))->format('Y-m-d');
+                return $date?->format('Y-m-d');
             })
-            ->formatStateUsing(fn ($state) => filled($state)
-                ? Carbon::parse($state)->format('d/m/Y')
+            ->formatStateUsing(fn ($state) => ($date = self::parse($state)) !== null
+                ? $date->format('d/m/Y')
                 : null)
             ->afterStateHydrated(function ($state, Set $set): void {
-                $set('age', filled($state) ? Carbon::parse($state)->age : null);
+                $date = self::parse($state);
+                $set('age', $date?->age);
             })
             ->afterStateUpdated(function ($state, Set $set): void {
-                if (blank($state)) {
-                    $set('age', null);
-
-                    return;
-                }
-
-                try {
-                    $set('age', Carbon::createFromFormat('d/m/Y', trim((string) $state))->age);
-                } catch (\Throwable) {
-                    $set('age', null);
-                }
+                $date = self::parse($state);
+                $set('age', $date?->age);
             });
 
         if ($configure) {
