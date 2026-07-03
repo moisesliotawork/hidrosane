@@ -59,7 +59,9 @@ class CustomerResource extends Resource
                         ->label('Nombre de Cliente')
                         ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
                         ->color('success')
-                        ->weight(\Filament\Support\Enums\FontWeight::ExtraBold),
+                        ->weight(\Filament\Support\Enums\FontWeight::ExtraBold)
+                        ->columnSpanFull()
+                        ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                     TextEntry::make('nro_cliente')
                         ->label('ID/Cliente')
