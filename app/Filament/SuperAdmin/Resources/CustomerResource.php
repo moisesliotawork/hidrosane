@@ -178,11 +178,11 @@ class CustomerResource extends Resource
                                 ->modalHeading('Editar teléfonos')
                                 ->modalSubmitActionLabel('Guardar')
                                 ->form([
-                                    CustomerPhoneForm::make('phone', required: true),
-                                    CustomerPhoneForm::make('secondary_phone'),
-                                    CustomerPhoneForm::make('third_phone'),
-                                    CustomerPhoneForm::make('phone1_commercial', 'Teléfono comercial 1'),
-                                    CustomerPhoneForm::make('phone2_commercial', 'Teléfono comercial 2'),
+                                    CustomerPhoneForm::make('phone', required: true, strictDigits: false),
+                                    CustomerPhoneForm::make('secondary_phone', strictDigits: false),
+                                    CustomerPhoneForm::make('third_phone', strictDigits: false),
+                                    CustomerPhoneForm::make('phone1_commercial', 'Teléfono comercial 1', strictDigits: false),
+                                    CustomerPhoneForm::make('phone2_commercial', 'Teléfono comercial 2', strictDigits: false),
                                 ])
                                 ->columns(2)
                                 ->fillForm(fn (Customer $record): array => [
@@ -193,13 +193,13 @@ class CustomerResource extends Resource
                                     'phone2_commercial' => $record->phone2_commercial,
                                 ])
                                 ->action(function (Customer $record, array $data): void {
-                                    $record->update([
-                                        'phone' => $data['phone'],
-                                        'secondary_phone' => $data['secondary_phone'],
-                                        'third_phone' => $data['third_phone'],
-                                        'phone1_commercial' => $data['phone1_commercial'],
-                                        'phone2_commercial' => $data['phone2_commercial'],
-                                    ]);
+                                    $record->update(CustomerPhoneForm::validateAndNormalizeFields($data, [
+                                        'phone' => true,
+                                        'secondary_phone' => false,
+                                        'third_phone' => false,
+                                        'phone1_commercial' => false,
+                                        'phone2_commercial' => false,
+                                    ]));
 
                                     Notification::make()
                                         ->title('Teléfonos actualizados')

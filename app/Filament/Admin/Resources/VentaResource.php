@@ -326,7 +326,7 @@ class VentaResource extends Resource
                             ->readOnly()              // NO editable
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
-                        CustomerPhoneForm::make('phone', 'Teléfono 1 (requerido)', required: true)
+                        CustomerPhoneForm::make('phone', 'Teléfono 1 (opcional)')
                             ->columnSpan(1),
 
                         CustomerPhoneForm::make('secondary_phone', 'Teléfono 2 (opcional)'),

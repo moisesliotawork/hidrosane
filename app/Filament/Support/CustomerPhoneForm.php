@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use Filament\Forms\Components\TextInput;
+use Illuminate\Validation\ValidationException;
 
 class CustomerPhoneForm
 {
@@ -55,7 +56,7 @@ class CustomerPhoneForm
         };
     }
 
-    public static function make(string $name, ?string $label = null, bool $required = false): TextInput
+    public static function make(string $name, ?string $label = null, bool $required = false, bool $strictDigits = true): TextInput
     {
         $defaultLabels = [
             'phone' => 'Teléfono',
@@ -67,27 +68,65 @@ class CustomerPhoneForm
 
         $field = TextInput::make($name)
             ->tel()
-            ->mask(self::MASK)
             ->placeholder(self::PLACEHOLDER)
             ->label($label ?? $defaultLabels[$name] ?? 'Teléfono')
-            ->maxLength(11)
             ->formatStateUsing(fn ($state) => self::formatMask($state) ?? $state)
-            ->rule(self::nineDigitValidationRule($allowEmpty))
             ->dehydrateStateUsing(function ($state) {
                 $digits = self::normalizeDigits($state);
 
                 return $digits;
             })
-            ->dehydrated(true)
-            ->validationMessages([
-                'required' => 'Debe tener exactamente 9 cifras.',
-            ]);
+            ->dehydrated(true);
+
+        if ($strictDigits) {
+            $field
+                ->mask(self::MASK)
+                ->maxLength(11)
+                ->rule(self::nineDigitValidationRule($allowEmpty))
+                ->validationMessages([
+                    'required' => 'Debe tener exactamente 9 cifras.',
+                ]);
+        } else {
+            $field->maxLength(20);
+        }
 
         if ($required) {
             $field->required();
         }
 
         return $field;
+    }
+
+    /**
+     * @param  array<string, bool>  $fields
+     * @return array<string, string|null>
+     */
+    public static function validateAndNormalizeFields(array $data, array $fields): array
+    {
+        $normalized = [];
+        $errors = [];
+
+        foreach ($fields as $field => $required) {
+            $digits = self::normalizeDigits($data[$field] ?? null);
+
+            if ($required && $digits === null) {
+                $errors[$field] = 'Debe tener exactamente 9 cifras.';
+                continue;
+            }
+
+            if ($digits !== null && strlen($digits) !== 9) {
+                $errors[$field] = 'Debe tener exactamente 9 cifras.';
+                continue;
+            }
+
+            $normalized[$field] = $digits;
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $normalized;
     }
 
     public static function applyTo(TextInput $field, bool $required = false): TextInput
