@@ -4,6 +4,7 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\SuperAdmin\Resources\CustomerResource\Pages;
 use App\Filament\SuperAdmin\Resources\CustomerResource\RelationManagers;
+use App\Filament\Support\CustomerPhoneForm;
 use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
 use Filament\Forms;
@@ -14,6 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\Actions\Action;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Illuminate\Support\HtmlString;
@@ -71,7 +73,50 @@ class CustomerResource extends Resource
                         ->state(function (Customer $r) {
                             return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
                         })
-                        ->columnSpan(2),
+                        ->columnSpan(2)
+                        ->suffixAction(
+                            Action::make('editar_domicilio')
+                                ->icon('heroicon-o-pencil-square')
+                                ->tooltip('Editar domicilio')
+                                ->modalHeading('Editar domicilio')
+                                ->modalSubmitActionLabel('Guardar')
+                                ->form([
+                                    Forms\Components\TextInput::make('primary_address')
+                                        ->label('Domicilio')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->columnSpanFull(),
+                                    Forms\Components\TextInput::make('nro_piso')
+                                        ->label('No. y Piso')
+                                        ->maxLength(20),
+                                    Forms\Components\TextInput::make('postal_code')
+                                        ->label('Código postal')
+                                        ->maxLength(255),
+                                    Forms\Components\TextInput::make('ciudad')
+                                        ->label('Ciudad')
+                                        ->maxLength(255),
+                                ])
+                                ->columns(2)
+                                ->fillForm(fn (Customer $record): array => [
+                                    'primary_address' => $record->primary_address,
+                                    'nro_piso' => $record->nro_piso,
+                                    'postal_code' => $record->postal_code,
+                                    'ciudad' => $record->ciudad,
+                                ])
+                                ->action(function (Customer $record, array $data): void {
+                                    $record->update([
+                                        'primary_address' => $data['primary_address'],
+                                        'nro_piso' => $data['nro_piso'],
+                                        'postal_code' => $data['postal_code'],
+                                        'ciudad' => $data['ciudad'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Domicilio actualizado')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ),
 
                     TextEntry::make('secondary_address')
                         ->label('DOMICILIO 2')
@@ -125,7 +170,43 @@ class CustomerResource extends Resource
                                 ->filter()->map($fmt)->join('   |   ') ?: '—';
                         })
                         ->color('warning')
-                        ->weight(\Filament\Support\Enums\FontWeight::Bold),
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                        ->suffixAction(
+                            Action::make('editar_telefonos')
+                                ->icon('heroicon-o-pencil-square')
+                                ->tooltip('Editar teléfonos')
+                                ->modalHeading('Editar teléfonos')
+                                ->modalSubmitActionLabel('Guardar')
+                                ->form([
+                                    CustomerPhoneForm::make('phone', required: true),
+                                    CustomerPhoneForm::make('secondary_phone'),
+                                    CustomerPhoneForm::make('third_phone'),
+                                    CustomerPhoneForm::make('phone1_commercial', 'Teléfono comercial 1'),
+                                    CustomerPhoneForm::make('phone2_commercial', 'Teléfono comercial 2'),
+                                ])
+                                ->columns(2)
+                                ->fillForm(fn (Customer $record): array => [
+                                    'phone' => $record->phone,
+                                    'secondary_phone' => $record->secondary_phone,
+                                    'third_phone' => $record->third_phone,
+                                    'phone1_commercial' => $record->phone1_commercial,
+                                    'phone2_commercial' => $record->phone2_commercial,
+                                ])
+                                ->action(function (Customer $record, array $data): void {
+                                    $record->update([
+                                        'phone' => $data['phone'],
+                                        'secondary_phone' => $data['secondary_phone'],
+                                        'third_phone' => $data['third_phone'],
+                                        'phone1_commercial' => $data['phone1_commercial'],
+                                        'phone2_commercial' => $data['phone2_commercial'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Teléfonos actualizados')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ),
 
                     TextEntry::make('all_phones_commercial')
                         ->label('TELÉFONOS COMERCIAL')
