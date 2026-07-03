@@ -318,6 +318,68 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('name')
+                    ->label('Nombre de Cliente')
+                    ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                    ->searchable(['first_names', 'last_names'])
+                    ->extraAttributes(['class' => 'whitespace-nowrap'])
+                    ->toggleable(),
+
+                TextColumn::make('nro_cliente')
+                    ->label('ID/Cliente')
+                    ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('ventas', function ($q) use ($search) {
+                            // antes: nro_cliente_admin
+                            $q->where('nro_cliente_adm', 'like', "%{$search}%");
+                        });
+                    })
+                    ->sortable(query: function (Builder $query, string $direction) {
+                        $firstVentaAdmin = Venta::select('nro_cliente_adm') // antes: nro_cliente_admin
+                            ->whereColumn('ventas.customer_id', 'customers.id')
+                            ->whereNotNull('nro_cliente_adm')
+                            ->where('nro_cliente_adm', '!=', '')
+                            ->orderBy('created_at', 'asc')
+                            ->limit(1);
+
+                        $query->orderBy($firstVentaAdmin, $direction);
+                    })
+                    ->toggleable(),
+
+                TextColumn::make('dni')
+                    ->label('DNI')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('ventas_count')
+                    ->label('#VENTAS')
+                    ->state(fn(Customer $r): int => $r->ventas()->count())
+                    ->badge()
+                    ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray')
+                    ->toggleable(),
+
+                TextColumn::make('inhabilitado')
+                    ->label('INHAB')
+                    ->state(fn(Customer $r) => $r->inhabilitado ? '☠️' : '')
+                    ->color(fn(Customer $r) => $r->inhabilitado ? 'danger' : null)
+                    ->weight(fn(Customer $r) => $r->inhabilitado ? \Filament\Support\Enums\FontWeight::Bold : null)
+                    ->alignCenter()
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('phones')
+                    ->label('TELEFONOS')
+                    ->state(function (Customer $r): string {
+                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        return collect([$r->phone, $r->secondary_phone, $r->third_phone])
+                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                    })
+                    ->color('warning')
+                    ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                    ->searchable(['phone', 'secondary_phone'])
+                    ->toggleable(),
+
                 TextInputColumn::make('id')
                     ->label('ID_Cliente')
                     ->type('number')
@@ -353,63 +415,8 @@ class CustomerResource extends Resource
 
                             return $record->id;
                         }
-                    }),
-
-                TextColumn::make('name')
-                    ->label('Nombre de Cliente')
-                    ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
-                    ->searchable(['first_names', 'last_names'])
-                    ->extraAttributes(['class' => 'whitespace-nowrap']),
-
-                TextColumn::make('nro_cliente')
-                    ->label('ID/Cliente')
-                    ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('ventas', function ($q) use ($search) {
-                            // antes: nro_cliente_admin
-                            $q->where('nro_cliente_adm', 'like', "%{$search}%");
-                        });
                     })
-                    ->sortable(query: function (Builder $query, string $direction) {
-                        $firstVentaAdmin = Venta::select('nro_cliente_adm') // antes: nro_cliente_admin
-                            ->whereColumn('ventas.customer_id', 'customers.id')
-                            ->whereNotNull('nro_cliente_adm')
-                            ->where('nro_cliente_adm', '!=', '')
-                            ->orderBy('created_at', 'asc')
-                            ->limit(1);
-
-                        $query->orderBy($firstVentaAdmin, $direction);
-                    }),
-
-                TextColumn::make('dni')
-                    ->label('DNI')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('ventas_count')
-                    ->label('#VENTAS')
-                    ->state(fn(Customer $r): int => $r->ventas()->count())
-                    ->badge()
-                    ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray'),
-
-                TextColumn::make('inhabilitado')
-                    ->label('INHAB')
-                    ->state(fn(Customer $r) => $r->inhabilitado ? '☠️' : '')
-                    ->color(fn(Customer $r) => $r->inhabilitado ? 'danger' : null)
-                    ->weight(fn(Customer $r) => $r->inhabilitado ? \Filament\Support\Enums\FontWeight::Bold : null)
-                    ->alignCenter()
-                    ->sortable(),
-
-                TextColumn::make('phones')
-                    ->label('TELEFONOS')
-                    ->state(function (Customer $r): string {
-                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
-                        return collect([$r->phone, $r->secondary_phone, $r->third_phone])
-                            ->filter()->map($fmt)->join(' | ') ?: '—';
-                    })
-                    ->color('warning')
-                    ->weight(\Filament\Support\Enums\FontWeight::Bold)
-                    ->searchable(['phone', 'secondary_phone']),
+                    ->toggleable(),
 
                 TextColumn::make('phones_commercial')
                     ->label('TEL. COMERCIAL')
@@ -424,9 +431,10 @@ class CustomerResource extends Resource
                         return $query->where('phone1_commercial', 'like', "%{$search}%")
                                      ->orWhere('phone2_commercial', 'like', "%{$search}%");
                     })
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
 
-                CustomerPosicionGlobalTable::gpsDentroColumn(),
+                CustomerPosicionGlobalTable::gpsDentroColumn()
+                    ->toggleable(),
 
             ])
             ->defaultSort('id', 'desc')
