@@ -151,6 +151,8 @@ class CustomerResource extends Resource
 
                     TextEntry::make('dni')
                         ->label('DNI')
+                        ->state(fn (Customer $r) => filled($r->dni) ? $r->dni : '—')
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
                         ->columnSpan(1)
                         ->suffixAction(
                             Action::make('editar_dni')
@@ -185,21 +187,14 @@ class CustomerResource extends Resource
 
                     TextEntry::make('fecha_nac')
                         ->label('Fecha de nacimiento')
-                        ->columnSpan(2)
+                        ->columnSpanFull()
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
                         ->state(
-                            fn(Customer $r) =>
+                            fn (Customer $r) =>
                             blank($r->fecha_nac)
                             ? '—'
                             : Carbon::parse($r->fecha_nac)->format('d/m/Y')
                         )
-                        ->suffix(function (Customer $r) {
-                            if (blank($r->fecha_nac)) {
-                                return null;
-                            }
-                            $d = Carbon::parse($r->fecha_nac)->diff(now());
-
-                            return " ({$d->y} años {$d->m} meses y {$d->d} días)";
-                        })
                         ->suffixAction(
                             Action::make('editar_fecha_nac')
                                 ->icon('heroicon-o-pencil-square')
@@ -228,6 +223,19 @@ class CustomerResource extends Resource
                                         ->send();
                                 }),
                         ),
+
+                    TextEntry::make('edad_cliente')
+                        ->label('Edad')
+                        ->columnSpan(2)
+                        ->state(function (Customer $r): string {
+                            if (blank($r->fecha_nac)) {
+                                return '—';
+                            }
+
+                            $d = Carbon::parse($r->fecha_nac)->diff(now());
+
+                            return "{$d->y} años {$d->m} meses y {$d->d} días";
+                        }),
 
                     TextEntry::make('secondary_address')
                         ->label('DOMICILIO 2')
