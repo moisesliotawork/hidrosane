@@ -125,14 +125,16 @@ class CustomerPosicionGlobalTable
                 $digits = preg_replace('/\D+/', '', $phone);
                 $display = $digits !== '' ? implode(' ', str_split($digits, 3)) : $phone;
 
-                return '<span class="inline-flex flex-col items-start mr-5 mb-1">'
-                    . '<span class="text-[10px] leading-tight text-gray-500 dark:text-gray-400 uppercase">' . e($label) . '</span>'
-                    . '<span class="text-sm font-bold text-amber-500">' . e($display) . '</span>'
+                return '<span style="display:inline-flex;flex-direction:column;align-items:flex-start;margin-right:2.75rem;margin-bottom:0.35rem;min-width:7rem;">'
+                    . '<span style="font-size:10px;line-height:1.2;color:#9ca3af;text-transform:uppercase;letter-spacing:0.03em;">' . e($label) . '</span>'
+                    . '<span style="font-size:15px;font-weight:700;color:#f59e0b;letter-spacing:0.02em;">' . e($display) . '</span>'
                     . '</span>';
             })
             ->values();
 
-        return $items->isNotEmpty() ? '<span class="flex flex-wrap items-end gap-y-1">' . $items->join('') . '</span>' : '—';
+        return $items->isNotEmpty()
+            ? '<span style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:0.75rem 0;">' . $items->join('') . '</span>'
+            : '—';
     }
 
     public static function streetAddress(Customer $customer): string

@@ -68,6 +68,7 @@ class CustomerResource extends Resource
                         ->state(function (Customer $r) {
                             return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
                         })
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
                         ->columnSpan(4)
                         ->suffixAction(
                             Action::make('editar_domicilio')

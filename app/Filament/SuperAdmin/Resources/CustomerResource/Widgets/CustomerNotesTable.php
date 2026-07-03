@@ -112,7 +112,9 @@ class CustomerNotesTable extends BaseWidget
                     $lines = [];
 
                     foreach (($record->getRelation('observations') ?? collect())->sortBy('created_at') as $o) {
-                        if (empty($o->observation)) continue;
+                        if (empty($o->observation)) {
+                            continue;
+                        }
                         $lines[] =
                             '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
                             '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
@@ -130,12 +132,28 @@ class CustomerNotesTable extends BaseWidget
                             '</div>';
                     }
 
-                    if (empty($lines)) {
+                    if ($lines === []) {
                         return '<span style="color:#9ca3af;font-size:0.7rem;font-style:italic">—</span>';
                     }
-                    return implode('', $lines);
-                })
-                ->wrap(),
+
+                    $content = implode('', $lines);
+                    $count = count($lines);
+
+                    return '<div x-data="{ open: false }" @click.stop>'
+                        . '<div x-show="!open" style="display:flex;align-items:center;gap:0.5rem">'
+                        . '<span style="color:#9ca3af;font-size:0.72rem">' . $count . ' ' . ($count === 1 ? 'observación' : 'observaciones') . '</span>'
+                        . '<button type="button" @click="open = true" '
+                        . 'style="font-size:0.72rem;font-weight:600;color:#d97706;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0">'
+                        . 'Ver</button>'
+                        . '</div>'
+                        . '<div x-show="open" x-cloak style="display:none">'
+                        . $content
+                        . '<button type="button" @click="open = false" '
+                        . 'style="display:block;margin-top:0.35rem;font-size:0.72rem;font-weight:600;color:#d97706;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0">'
+                        . 'Ocultar</button>'
+                        . '</div>'
+                        . '</div>';
+                }),
         ];
     }
 
