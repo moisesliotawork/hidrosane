@@ -81,22 +81,23 @@ class CustomerResource extends Resource
                                 ->modalHeading('Editar domicilio')
                                 ->modalSubmitActionLabel('Guardar')
                                 ->form([
-                                    Forms\Components\TextInput::make('primary_address')
-                                        ->label('Domicilio')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->columnSpanFull(),
-                                    Forms\Components\TextInput::make('nro_piso')
-                                        ->label('No. y Piso')
-                                        ->maxLength(20),
-                                    Forms\Components\TextInput::make('postal_code')
-                                        ->label('Código postal')
-                                        ->maxLength(255),
-                                    Forms\Components\TextInput::make('ciudad')
-                                        ->label('Ciudad')
-                                        ->maxLength(255),
+                                    Forms\Components\Grid::make(2)->schema([
+                                        Forms\Components\TextInput::make('primary_address')
+                                            ->label('Domicilio')
+                                            ->required()
+                                            ->maxLength(255)
+                                            ->columnSpanFull(),
+                                        Forms\Components\TextInput::make('nro_piso')
+                                            ->label('No. y Piso')
+                                            ->maxLength(20),
+                                        Forms\Components\TextInput::make('postal_code')
+                                            ->label('Código postal')
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('ciudad')
+                                            ->label('Ciudad')
+                                            ->maxLength(255),
+                                    ]),
                                 ])
-                                ->columns(2)
                                 ->fillForm(fn (Customer $record): array => [
                                     'primary_address' => $record->primary_address,
                                     'nro_piso' => $record->nro_piso,
@@ -178,13 +179,14 @@ class CustomerResource extends Resource
                                 ->modalHeading('Editar teléfonos')
                                 ->modalSubmitActionLabel('Guardar')
                                 ->form([
-                                    CustomerPhoneForm::make('phone', required: true, strictDigits: false),
-                                    CustomerPhoneForm::make('secondary_phone', strictDigits: false),
-                                    CustomerPhoneForm::make('third_phone', strictDigits: false),
-                                    CustomerPhoneForm::make('phone1_commercial', 'Teléfono comercial 1', strictDigits: false),
-                                    CustomerPhoneForm::make('phone2_commercial', 'Teléfono comercial 2', strictDigits: false),
+                                    Forms\Components\Grid::make(2)->schema([
+                                        CustomerPhoneForm::make('phone', required: true, strictDigits: false),
+                                        CustomerPhoneForm::make('secondary_phone', strictDigits: false),
+                                        CustomerPhoneForm::make('third_phone', strictDigits: false),
+                                        CustomerPhoneForm::make('phone1_commercial', 'Teléfono comercial 1', strictDigits: false),
+                                        CustomerPhoneForm::make('phone2_commercial', 'Teléfono comercial 2', strictDigits: false),
+                                    ]),
                                 ])
-                                ->columns(2)
                                 ->fillForm(fn (Customer $record): array => [
                                     'phone' => $record->phone,
                                     'secondary_phone' => $record->secondary_phone,
