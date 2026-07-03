@@ -105,6 +105,36 @@ class CustomerPosicionGlobalTable
         return self::formatPhones([$customer->phone1_commercial, $customer->phone2_commercial]);
     }
 
+    public static function labeledAllPhonesHtml(Customer $customer): string
+    {
+        return self::labeledPhonesHtml([
+            'Tlf 1' => $customer->phone,
+            'Tlf 2' => $customer->secondary_phone,
+            'Tlf 3' => $customer->third_phone,
+            'Tlf Com 1' => $customer->phone1_commercial,
+            'Tlf Com 2' => $customer->phone2_commercial,
+        ]);
+    }
+
+    /** @param  array<string, string|null>  $phones */
+    public static function labeledPhonesHtml(array $phones): string
+    {
+        $items = collect($phones)
+            ->filter(fn (?string $phone) => filled($phone))
+            ->map(function (string $phone, string $label): string {
+                $digits = preg_replace('/\D+/', '', $phone);
+                $display = $digits !== '' ? implode(' ', str_split($digits, 3)) : $phone;
+
+                return '<span class="inline-flex flex-col items-start mr-5 mb-1">'
+                    . '<span class="text-[10px] leading-tight text-gray-500 dark:text-gray-400 uppercase">' . e($label) . '</span>'
+                    . '<span class="text-sm font-bold text-amber-500">' . e($display) . '</span>'
+                    . '</span>';
+            })
+            ->values();
+
+        return $items->isNotEmpty() ? '<span class="flex flex-wrap items-end gap-y-1">' . $items->join('') . '</span>' : '—';
+    }
+
     public static function streetAddress(Customer $customer): string
     {
         $parts = collect([

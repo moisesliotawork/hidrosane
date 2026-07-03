@@ -63,19 +63,12 @@ class CustomerResource extends Resource
                         ->columnSpanFull()
                         ->extraAttributes(['class' => 'whitespace-nowrap']),
 
-                    TextEntry::make('nro_cliente')
-                        ->label('ID/Cliente')
-                        ->state(fn(Customer $r) => $r->firstVentaClienteAdmin()),
-
-                    TextEntry::make('dni')
-                        ->label('DNI'),
-
                     TextEntry::make('primary_address')
                         ->label('DOMICILIO')
                         ->state(function (Customer $r) {
                             return "{$r->primary_address}, {$r->nro_piso} - {$r->ciudad} ({$r->postal_code})";
                         })
-                        ->columnSpan(2)
+                        ->columnSpan(4)
                         ->suffixAction(
                             Action::make('editar_domicilio')
                                 ->icon('heroicon-o-pencil-square')
@@ -121,12 +114,43 @@ class CustomerResource extends Resource
                                 }),
                         ),
 
-                    TextEntry::make('secondary_address')
-                        ->label('DOMICILIO 2')
-                        ->visible(fn(Customer $r) => filled($r->secondary_address)),
+                    TextEntry::make('dni')
+                        ->label('DNI')
+                        ->columnSpan(1)
+                        ->suffixAction(
+                            Action::make('editar_dni')
+                                ->icon('heroicon-o-pencil-square')
+                                ->tooltip('Editar DNI')
+                                ->modalHeading('Editar DNI')
+                                ->modalSubmitActionLabel('Guardar')
+                                ->form([
+                                    Forms\Components\TextInput::make('dni')
+                                        ->label('DNI')
+                                        ->maxLength(255),
+                                ])
+                                ->fillForm(fn (Customer $record): array => [
+                                    'dni' => $record->dni,
+                                ])
+                                ->action(function (Customer $record, array $data): void {
+                                    $record->update([
+                                        'dni' => $data['dni'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('DNI actualizado')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ),
+
+                    TextEntry::make('nro_cliente')
+                        ->label('ID/Cliente')
+                        ->state(fn(Customer $r) => $r->firstVentaClienteAdmin() ?: '—')
+                        ->columnSpan(1),
 
                     TextEntry::make('fecha_nac')
-                        ->label('F. Nac')
+                        ->label('Fecha de nacimiento')
+                        ->columnSpan(2)
                         ->state(
                             fn(Customer $r) =>
                             blank($r->fecha_nac)
@@ -134,11 +158,46 @@ class CustomerResource extends Resource
                             : Carbon::parse($r->fecha_nac)->format('d/m/Y')
                         )
                         ->suffix(function (Customer $r) {
-                            if (blank($r->fecha_nac))
+                            if (blank($r->fecha_nac)) {
                                 return null;
+                            }
                             $d = Carbon::parse($r->fecha_nac)->diff(now());
+
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
-                        }),
+                        })
+                        ->suffixAction(
+                            Action::make('editar_fecha_nac')
+                                ->icon('heroicon-o-pencil-square')
+                                ->tooltip('Editar fecha de nacimiento')
+                                ->modalHeading('Editar fecha de nacimiento')
+                                ->modalSubmitActionLabel('Guardar')
+                                ->form([
+                                    Forms\Components\DatePicker::make('fecha_nac')
+                                        ->label('Fecha de nacimiento')
+                                        ->timezone('Europe/Madrid')
+                                        ->native(false)
+                                        ->maxDate(now())
+                                        ->nullable(),
+                                ])
+                                ->fillForm(fn (Customer $record): array => [
+                                    'fecha_nac' => $record->fecha_nac,
+                                ])
+                                ->action(function (Customer $record, array $data): void {
+                                    $record->update([
+                                        'fecha_nac' => $data['fecha_nac'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Fecha de nacimiento actualizada')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ),
+
+                    TextEntry::make('secondary_address')
+                        ->label('DOMICILIO 2')
+                        ->columnSpan(4)
+                        ->visible(fn(Customer $r) => filled($r->secondary_address)),
 
                 ])
                 ->columnSpan(6),
@@ -163,17 +222,12 @@ class CustomerResource extends Resource
                 ]),
 
             Section::make('Teléfonos')
-                ->columns(2)
                 ->schema([
                     TextEntry::make('all_phones')
                         ->label('TELÉFONOS CLIENTE')
-                        ->state(function (Customer $r): string {
-                            $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
-                            return collect([$r->phone, $r->secondary_phone, $r->third_phone])
-                                ->filter()->map($fmt)->join('   |   ') ?: '—';
-                        })
-                        ->color('warning')
-                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                        ->columnSpanFull()
+                        ->state(fn (Customer $r) => CustomerPosicionGlobalTable::labeledAllPhonesHtml($r))
+                        ->html()
                         ->suffixAction(
                             Action::make('editar_telefonos')
                                 ->icon('heroicon-o-pencil-square')
@@ -212,16 +266,6 @@ class CustomerResource extends Resource
                                 }),
                         ),
 
-                    TextEntry::make('all_phones_commercial')
-                        ->label('TELÉFONOS COMERCIAL')
-                        ->state(function (Customer $r): string {
-                            $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
-                            return collect([$r->phone1_commercial, $r->phone2_commercial])
-                                ->filter()->map($fmt)->join('   |   ') ?: '—';
-                        })
-                        ->color('warning')
-                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
-                        ->visible(fn(Customer $r) => filled($r->phone1_commercial) || filled($r->phone2_commercial)),
                 ])
                 ->columnSpan(6),
         ]);
