@@ -8,6 +8,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use App\Models\{Customer, Note, NoteSalaObservation};
 use App\Enums\{NoteStatus, EstadoTerminal};
 use App\Filament\SuperAdmin\Resources\NoteDescResource;
@@ -108,53 +109,66 @@ class CustomerNotesTable extends BaseWidget
             TextColumn::make('observaciones_sala')
                 ->label('Observaciones')
                 ->html()
-                ->state(function (Note $record): string {
-                    $lines = [];
-
-                    foreach (($record->getRelation('observations') ?? collect())->sortBy('created_at') as $o) {
-                        if (empty($o->observation)) {
-                            continue;
-                        }
-                        $lines[] =
-                            '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
-                            '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
-                            '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
-                            e($o->observation) .
-                            '</div>';
-                    }
-
-                    foreach (($record->getRelation('salaObservations') ?? collect())->sortBy('created_at') as $o) {
-                        $lines[] =
-                            '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
-                            '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
-                            '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
-                            e($o->observation) .
-                            '</div>';
-                    }
-
-                    if ($lines === []) {
-                        return '<span style="color:#9ca3af;font-size:0.7rem;font-style:italic">—</span>';
-                    }
-
-                    $content = implode('', $lines);
-                    $count = count($lines);
-
-                    return '<div x-data="{ open: false }" @click.stop>'
-                        . '<div x-show="!open" style="display:flex;align-items:center;gap:0.5rem">'
-                        . '<span style="color:#9ca3af;font-size:0.72rem">' . $count . ' ' . ($count === 1 ? 'observación' : 'observaciones') . '</span>'
-                        . '<button type="button" @click="open = true" '
-                        . 'style="font-size:0.72rem;font-weight:600;color:#d97706;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0">'
-                        . 'Ver</button>'
-                        . '</div>'
-                        . '<div x-show="open" x-cloak style="display:none">'
-                        . $content
-                        . '<button type="button" @click="open = false" '
-                        . 'style="display:block;margin-top:0.35rem;font-size:0.72rem;font-weight:600;color:#d97706;text-decoration:underline;cursor:pointer;background:none;border:none;padding:0">'
-                        . 'Ocultar</button>'
-                        . '</div>'
-                        . '</div>';
-                }),
+                ->state(fn (Note $record): string => $this->formatCollapsedObservations($record))
+                ->action(
+                    Tables\Actions\Action::make('ver_observaciones')
+                        ->modalHeading(fn (Note $record): string => 'Observaciones — Nota ' . $record->nro_nota)
+                        ->modalContent(fn (Note $record): HtmlString => new HtmlString(
+                            '<div style="max-height:60vh;overflow-y:auto">'
+                            . (implode('', $this->buildObservationLines($record)) ?: '—')
+                            . '</div>'
+                        ))
+                        ->modalSubmitAction(false)
+                        ->modalCancelActionLabel('Cerrar')
+                        ->visible(fn (Note $record): bool => $this->buildObservationLines($record) !== [])
+                ),
         ];
+    }
+
+    /** @return list<string> */
+    protected function buildObservationLines(Note $record): array
+    {
+        $lines = [];
+
+        foreach (($record->getRelation('observations') ?? collect())->sortBy('created_at') as $o) {
+            if (empty($o->observation)) {
+                continue;
+            }
+
+            $lines[] =
+                '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
+                '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
+                '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
+                e($o->observation) .
+                '</div>';
+        }
+
+        foreach (($record->getRelation('salaObservations') ?? collect())->sortBy('created_at') as $o) {
+            $lines[] =
+                '<div style="font-size:0.72rem;padding:1px 0;line-height:1.4">' .
+                '<span style="color:#9ca3af">' . e($o->created_at->format('d/m/Y H:i')) . '</span> ' .
+                '<strong>' . e($o->author->name ?? '-') . '</strong>: ' .
+                e($o->observation) .
+                '</div>';
+        }
+
+        return $lines;
+    }
+
+    protected function formatCollapsedObservations(Note $record): string
+    {
+        $lines = $this->buildObservationLines($record);
+
+        if ($lines === []) {
+            return '<span style="color:#9ca3af;font-size:0.7rem;font-style:italic">—</span>';
+        }
+
+        $count = count($lines);
+
+        return '<span style="display:inline-flex;align-items:center;gap:0.5rem;cursor:pointer">'
+            . '<span style="color:#9ca3af;font-size:0.72rem">' . $count . ' ' . ($count === 1 ? 'observación' : 'observaciones') . '</span>'
+            . '<span style="font-size:0.72rem;font-weight:600;color:#d97706;text-decoration:underline">Ver</span>'
+            . '</span>';
     }
 
     protected function getTableActions(): array

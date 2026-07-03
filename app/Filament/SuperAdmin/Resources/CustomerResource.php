@@ -61,7 +61,41 @@ class CustomerResource extends Resource
                         ->color('success')
                         ->weight(\Filament\Support\Enums\FontWeight::ExtraBold)
                         ->columnSpanFull()
-                        ->extraAttributes(['class' => 'whitespace-nowrap']),
+                        ->extraAttributes(['class' => 'whitespace-nowrap'])
+                        ->suffixAction(
+                            Action::make('editar_nombre')
+                                ->icon('heroicon-o-pencil-square')
+                                ->tooltip('Editar nombre')
+                                ->modalHeading('Editar nombre del cliente')
+                                ->modalSubmitActionLabel('Guardar')
+                                ->form([
+                                    Forms\Components\Grid::make(2)->schema([
+                                        Forms\Components\TextInput::make('first_names')
+                                            ->label('Nombres')
+                                            ->required()
+                                            ->maxLength(255),
+                                        Forms\Components\TextInput::make('last_names')
+                                            ->label('Apellidos')
+                                            ->required()
+                                            ->maxLength(255),
+                                    ]),
+                                ])
+                                ->fillForm(fn (Customer $record): array => [
+                                    'first_names' => $record->first_names,
+                                    'last_names' => $record->last_names,
+                                ])
+                                ->action(function (Customer $record, array $data): void {
+                                    $record->update([
+                                        'first_names' => $data['first_names'],
+                                        'last_names' => $data['last_names'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Nombre actualizado')
+                                        ->success()
+                                        ->send();
+                                }),
+                        ),
 
                     TextEntry::make('primary_address')
                         ->label('DOMICILIO')
