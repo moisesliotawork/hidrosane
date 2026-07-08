@@ -605,7 +605,6 @@ class Notas extends Component
             'full_address' => $fullAddress,
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
-            'locality' => $addressInfo,
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
             'visit_date' => $note->commercialVisibleDate()
                 ? $note->commercialVisibleDate()->format('d/m/Y')
