@@ -5,7 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\DuplicadosResource\Pages;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\DuplicadosStatsWidget;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\FusionadosWidget;
-use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\UltimaDuplicacionWidget;
+use App\Services\CustomerAutoMergeService;
 use App\Services\CustomerDuplicateSearchService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -27,6 +27,33 @@ class ListDuplicados extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('ejecutarFusionAutomatica')
+                ->label('Ejecutar fusión automática')
+                ->icon('heroicon-o-bolt')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Ejecutar fusión automática')
+                ->modalDescription('Fusiona clientes con el mismo nombre y teléfono compartido (misma lógica que el proceso diario a las 8:00).')
+                ->modalSubmitActionLabel('Ejecutar ahora')
+                ->action(function (CustomerAutoMergeService $autoMergeService): void {
+                    $run = $autoMergeService->run(
+                        mergedByUserId: auth()->id(),
+                        trigger: 'manual',
+                    );
+
+                    $body = "{$run->merged_count} cliente(s) fusionado(s).";
+
+                    if ($run->failed_count > 0) {
+                        $body .= " {$run->failed_count} error(es).";
+                    }
+
+                    Notification::make()
+                        ->title('Fusión automática completada')
+                        ->body($body)
+                        ->color($run->failed_count > 0 ? 'warning' : 'success')
+                        ->send();
+                }),
+
             Action::make('buscarDuplicados')
                 ->label('Buscar duplicados')
                 ->icon('heroicon-o-magnifying-glass')
@@ -96,7 +123,6 @@ class ListDuplicados extends ListRecords
             DuplicadosStatsWidget::make([
                 'duplicatesSearched' => $this->duplicatesSearched,
             ]),
-            UltimaDuplicacionWidget::class,
         ];
     }
 
