@@ -37,6 +37,13 @@ Schedule::command('creams:generate-next-day')
     ->onOneServer()
     ->appendOutputTo(storage_path('logs/creams_generate_next_day.log'));
 
+Schedule::command('customers:auto-merge-duplicates')
+    ->dailyAt('08:00')
+    ->timezone('Europe/Madrid')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->appendOutputTo(storage_path('logs/customers_auto_merge.log'));
+
 Schedule::command('bi:build-teleoperator-monthly-stats --year=' . now()->year)
     ->everyTenMinutes()
     ->timezone('Europe/Madrid')   // 🔥 IMPORTANTE

@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\DuplicadosResource\Pages;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\DuplicadosStatsWidget;
 use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\FusionadosWidget;
+use App\Filament\SuperAdmin\Resources\DuplicadosResource\Widgets\UltimaDuplicacionWidget;
 use App\Services\CustomerDuplicateSearchService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -95,6 +96,7 @@ class ListDuplicados extends ListRecords
             DuplicadosStatsWidget::make([
                 'duplicatesSearched' => $this->duplicatesSearched,
             ]),
+            UltimaDuplicacionWidget::class,
         ];
     }
 

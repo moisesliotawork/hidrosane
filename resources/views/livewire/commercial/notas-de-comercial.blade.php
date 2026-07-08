@@ -420,36 +420,33 @@
                             </div>
                         </div>
 
-                        <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">
-                            {{ $note['full_address'] }}
-                        </p>
+                        <x-commercial.note-customer-location :note="$note">
+                            <x-slot:phones>
+                                @php
+                                    $phone1Raw = $note['phone'] ?? null;
+                                    $phone2Raw = $note['secondary_phone'] ?? null;
+                                    $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                                    $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                                @endphp
 
-
-
-                        @php
-                            $phone1Raw = $note['phone'] ?? null;
-                            $phone2Raw = $note['secondary_phone'] ?? null;
-                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
-                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
-                        @endphp
-
-                        @if($phone1 || $phone2)
-                            <div class="phone-buttons-container">
-                                @if($phone1)
-                                    <a href="tel:{{ $phone1 }}" class="phone-button">
-                                        Tlf 1: {{ $phone1Raw }}
-                                    </a>
+                                @if($phone1 || $phone2)
+                                    <div class="phone-buttons-container">
+                                        @if($phone1)
+                                            <a href="tel:{{ $phone1 }}" class="phone-button">
+                                                Tlf 1: {{ $phone1Raw }}
+                                            </a>
+                                        @endif
+                                        @if($phone2)
+                                            <a href="tel:{{ $phone2 }}" class="phone-button">
+                                                Tlf 2: {{ $phone2Raw }}
+                                            </a>
+                                        @endif
+                                    </div>
+                                @else
+                                    <p class="customer-phone mt-1">Teléfono: No disponible</p>
                                 @endif
-                                @if($phone2)
-                                    <a href="tel:{{ $phone2 }}" class="phone-button">
-                                        Tlf 2: {{ $phone2Raw }}
-                                    </a>
-                                @endif
-                            </div>
-                        @else
-                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
-                        @endif
+                            </x-slot:phones>
+                        </x-commercial.note-customer-location>
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -555,35 +552,33 @@
                             </div>
                         </div>
 
-                        <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">
-                            {{ $note['full_address'] }}
-                        </p>
+                        <x-commercial.note-customer-location :note="$note">
+                            <x-slot:phones>
+                                @php
+                                    $phone1Raw = $note['phone'] ?? null;
+                                    $phone2Raw = $note['secondary_phone'] ?? null;
+                                    $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                                    $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                                @endphp
 
-
-                        @php
-                            $phone1Raw = $note['phone'] ?? null;
-                            $phone2Raw = $note['secondary_phone'] ?? null;
-                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
-                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
-                        @endphp
-
-                        @if($phone1 || $phone2)
-                            <div class="phone-buttons-container">
-                                @if($phone1)
-                                    <a href="tel:{{ $phone1 }}" class="phone-button">
-                                        Tlf 1: {{ $phone1Raw }}
-                                    </a>
+                                @if($phone1 || $phone2)
+                                    <div class="phone-buttons-container">
+                                        @if($phone1)
+                                            <a href="tel:{{ $phone1 }}" class="phone-button">
+                                                Tlf 1: {{ $phone1Raw }}
+                                            </a>
+                                        @endif
+                                        @if($phone2)
+                                            <a href="tel:{{ $phone2 }}" class="phone-button">
+                                                Tlf 2: {{ $phone2Raw }}
+                                            </a>
+                                        @endif
+                                    </div>
+                                @else
+                                    <p class="customer-phone mt-1">Teléfono: No disponible</p>
                                 @endif
-                                @if($phone2)
-                                    <a href="tel:{{ $phone2 }}" class="phone-button">
-                                        Tlf 2: {{ $phone2Raw }}
-                                    </a>
-                                @endif
-                            </div>
-                        @else
-                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
-                        @endif
+                            </x-slot:phones>
+                        </x-commercial.note-customer-location>
 
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>

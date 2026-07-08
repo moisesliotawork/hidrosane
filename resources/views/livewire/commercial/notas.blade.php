@@ -728,20 +728,18 @@
                             </div>
                         </div>
 
-                        <!-- Información del cliente -->
-                        <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">
-                            {{ $note['full_address'] }}
-                        </p>
-
-                        @if($note['show_phone'] || $this->canAlwaysSeePhones())
-                            <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                        <x-commercial.note-customer-location :note="$note">
+                            <x-slot:phones>
+                                @if($note['show_phone'] || $this->canAlwaysSeePhones())
+                                    <div class="mt-1">
+                                        <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
+                                        @if($note['secondary_phone'])
+                                            <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                                        @endif
+                                    </div>
                                 @endif
-                            </div>
-                        @endif
+                            </x-slot:phones>
+                        </x-commercial.note-customer-location>
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 

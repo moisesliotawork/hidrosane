@@ -258,6 +258,7 @@ class NotasToday extends Component
                     // Por si los sigues usando en otros lados
                     'primary_address' => $customer->primary_address ?? 'Sin dirección',
                     'address_info' => $addressInfo,
+                    'locality' => $addressInfo,
 
                     'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
                     'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),

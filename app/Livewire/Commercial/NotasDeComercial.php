@@ -641,6 +641,7 @@ class NotasDeComercial extends Component
             'full_address' => $fullAddress,
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
+            'locality' => $addressInfo,
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
             'visit_date' => \Carbon\Carbon::parse($note->assignment_date)->format('d/m/Y'),
             'visit_schedule' => $note->visit_schedule ?? '--:--',
