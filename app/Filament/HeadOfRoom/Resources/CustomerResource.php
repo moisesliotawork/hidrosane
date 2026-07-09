@@ -8,7 +8,10 @@ use App\Models\Customer;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Forms\Components\TextInput;
 use Filament\Tables;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -190,8 +193,54 @@ class CustomerResource extends Resource
                     ->sortable(),
 
             ])
+            ->filters([
+                Filter::make('nro_nota')
+                    ->label('No. NOTA')
+                    ->form([
+                        TextInput::make('value')
+                            ->label('No. NOTA')
+                            ->placeholder('Buscar por número de nota')
+                            ->live(debounce: 300),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = trim((string) ($data['value'] ?? ''));
 
+                        if ($value === '') {
+                            return $query;
+                        }
 
+                        return $query->whereHas(
+                            'notes',
+                            fn (Builder $q) => $q->where('nro_nota', $value)
+                        );
+                    })
+                    ->indicateUsing(fn (array $data): ?string => filled($data['value'] ?? null)
+                        ? 'No. NOTA: ' . $data['value']
+                        : null),
+
+                Filter::make('dni')
+                    ->label('DNI')
+                    ->form([
+                        TextInput::make('value')
+                            ->label('DNI')
+                            ->placeholder('Buscar por DNI')
+                            ->live(debounce: 300),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = trim((string) ($data['value'] ?? ''));
+
+                        if ($value === '') {
+                            return $query;
+                        }
+
+                        return $query->where('dni', 'like', "%{$value}%");
+                    })
+                    ->indicateUsing(fn (array $data): ?string => filled($data['value'] ?? null)
+                        ? 'DNI: ' . $data['value']
+                        : null),
+            ])
+            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersFormColumns(2)
             ->defaultSort('id', 'desc')
             ->actions([
                 Tables\Actions\ViewAction::make(), // Ver “Vision Global del Cliente”
