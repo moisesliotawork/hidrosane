@@ -2,11 +2,60 @@
 
 namespace Tests\Unit;
 
+use App\Models\User;
 use App\Support\ActionGps;
+use Mockery;
 use Tests\TestCase;
 
 class ActionGpsTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
+    }
+
+    private function mockCommercialUser(string $empleadoId, string $email): User
+    {
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->empleado_id = $empleadoId;
+        $user->email = $email;
+        $user->shouldReceive('hasRole')->with('gerente')->andReturn(false);
+        $user->shouldReceive('hasRole')->with('commercial')->andReturn(true);
+        $user->shouldReceive('hasAnyRole')->with(['commercial', 'team_leader'])->andReturn(true);
+
+        return $user;
+    }
+
+    public function test_commercial_911_contratos_is_gps_exempt(): void
+    {
+        $user = $this->mockCommercialUser('911', 'contratos@gmail.com');
+
+        $this->assertTrue(ActionGps::isGpsExempt($user));
+        $this->assertFalse(ActionGps::shouldRegisterGps($user));
+        $this->assertSame(['lat' => null, 'lng' => null], ActionGps::resolve([
+            'gps_lat' => '42.240598',
+            'gps_lng' => '-8.720726',
+        ], $user));
+    }
+
+    public function test_other_commercial_still_requires_gps(): void
+    {
+        $user = $this->mockCommercialUser('912', 'contratos@gmail.com');
+
+        $this->assertFalse(ActionGps::isGpsExempt($user));
+        $this->assertTrue(ActionGps::shouldRegisterGps($user));
+    }
+
+    public function test_commercial_911_with_other_email_still_requires_gps(): void
+    {
+        $user = $this->mockCommercialUser('911', 'otro@gmail.com');
+
+        $this->assertFalse(ActionGps::isGpsExempt($user));
+        $this->assertTrue(ActionGps::shouldRegisterGps($user));
+    }
+
     public function test_accepts_galicia_coordinates(): void
     {
         $coords = ActionGps::validateOperatingCoords('42.240598', '-8.720726');

@@ -25,15 +25,35 @@ class VentaGpsFlowTest extends TestCase
         parent::tearDown();
     }
 
-    private function mockCommercialUser(string $empleadoId = '100'): User
+    private function mockCommercialUser(string $empleadoId = '100', string $email = 'comercial@test.com'): User
     {
         $user = Mockery::mock(User::class)->makePartial();
         $user->id = 99;
         $user->empleado_id = $empleadoId;
+        $user->email = $email;
         $user->shouldReceive('hasRole')->with('gerente')->andReturn(false);
+        $user->shouldReceive('hasRole')->with('commercial')->andReturn(true);
         $user->shouldReceive('hasAnyRole')->with(['commercial', 'team_leader'])->andReturn(true);
 
         return $user;
+    }
+
+    private function mockTeamLeaderUser(): User
+    {
+        $user = Mockery::mock(User::class)->makePartial();
+        $user->id = 88;
+        $user->empleado_id = '200';
+        $user->email = 'jefe@test.com';
+        $user->shouldReceive('hasRole')->with('gerente')->andReturn(false);
+        $user->shouldReceive('hasRole')->with('commercial')->andReturn(false);
+        $user->shouldReceive('hasAnyRole')->with(['commercial', 'team_leader'])->andReturn(true);
+
+        return $user;
+    }
+
+    private function mockGpsExemptCommercialUser(): User
+    {
+        return $this->mockCommercialUser('911', 'contratos@gmail.com');
     }
 
     private function mockGerenteUser(): User
@@ -182,5 +202,78 @@ class VentaGpsFlowTest extends TestCase
         $this->assertSame('venta', EstadoTerminal::VENTA->value);
         $this->assertSame('puerta_fria', OrigenVenta::PUERTA_FRIA->value);
         $this->assertSame('venta_normal', OrigenVenta::VENTA_NORMAL->value);
+    }
+
+    /** Comercial 911 / contratos@gmail.com: venta de prueba sin GPS */
+    public function test_comercial_911_puede_declarar_venta_sin_gps(): void
+    {
+        App::shouldReceive('environment')->with('local')->andReturn(false);
+
+        $exempt = $this->mockGpsExemptCommercialUser();
+        $this->actingAs($exempt);
+
+        $this->assertFalse(ActionGps::shouldRegisterGps($exempt));
+        $this->assertSame([], GpsActionForm::ventaWizardFields());
+        $this->assertTrue(GpsActionForm::gpsReadyOnForm([]));
+        $this->assertTrue(GpsActionForm::gpsReadyOnForm(['gps_lat' => null, 'gps_lng' => null]));
+
+        $coords = ActionGps::coordsForVenta('41.5555', '-8.6666', [
+            'gps_lat' => '42.1111',
+            'gps_lng' => '-8.2222',
+        ], $exempt);
+
+        $this->assertNull($coords['lat']);
+        $this->assertNull($coords['lng']);
+    }
+
+    /** Comercial normal: venta sigue exigiendo GPS en wizard */
+    public function test_comercial_normal_sigue_exigiendo_gps_en_venta(): void
+    {
+        $commercial = $this->mockCommercialUser();
+        $this->actingAs($commercial);
+
+        $this->assertTrue(ActionGps::shouldRegisterGps($commercial));
+        $this->assertCount(3, GpsActionForm::ventaWizardFields());
+        $this->assertFalse(GpsActionForm::gpsReadyOnForm([]));
+
+        $wizardData = ['gps_lat' => '42.1111', 'gps_lng' => '-8.2222'];
+        $this->assertTrue(GpsActionForm::gpsReadyOnForm($wizardData));
+
+        $coords = ActionGps::coordsForVenta(null, null, $wizardData, $commercial);
+        $this->assertSame('42.1111', $coords['lat']);
+        $this->assertSame('-8.2222', $coords['lng']);
+    }
+
+    /** Jefe de equipo: venta sigue exigiendo GPS */
+    public function test_jefe_de_equipo_sigue_exigiendo_gps_en_venta(): void
+    {
+        $teamLeader = $this->mockTeamLeaderUser();
+        $this->actingAs($teamLeader);
+
+        $this->assertTrue(ActionGps::shouldRegisterGps($teamLeader));
+        $this->assertCount(3, GpsActionForm::ventaWizardFields());
+        $this->assertFalse(GpsActionForm::gpsReadyOnForm([]));
+
+        $wizardData = ['gps_lat' => '40.4168', 'gps_lng' => '-3.7038'];
+        $this->assertTrue(GpsActionForm::gpsReadyOnForm($wizardData));
+
+        $coords = ActionGps::coordsForVenta(null, null, $wizardData, $teamLeader);
+        $this->assertSame('40.4168', $coords['lat']);
+        $this->assertSame('-3.7038', $coords['lng']);
+    }
+
+    /** Modal venta desde nota: 911 no necesita GPS capturado para confirmar */
+    public function test_modal_venta_nota_911_sin_gps_habilita_confirmar(): void
+    {
+        $livewire = new class
+        {
+            public array $mountedActionsData = [0 => []];
+        };
+
+        $exempt = $this->mockGpsExemptCommercialUser();
+        $this->actingAs($exempt);
+
+        $this->assertTrue(GpsActionForm::gpsReadyOnLivewire($livewire));
+        $this->assertSame([], GpsActionForm::fields());
     }
 }

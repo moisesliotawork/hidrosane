@@ -1,3 +1,7 @@
+@php
+    $ohanaRegisterGps = \App\Support\ActionGps::shouldRegisterGps();
+@endphp
+
 <script>
     function enviarAOficinaConGps(livewireMethod) {
         if (!confirm('Estás a punto de enviar notas a oficina. ¿ESTÁS SEGURO DE QUE QUIERES ENVIAR A OFICINA?')) {
@@ -11,6 +15,11 @@
                 lng != null ? String(lng) : null
             );
         }
+
+        @if (! $ohanaRegisterGps)
+            ejecutar(null, null);
+            return;
+        @endif
 
         if (!window.OhanaGpsCapture) {
             alert('No se pudo cargar el módulo de geolocalización. Recarga la página.');

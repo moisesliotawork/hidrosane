@@ -21,15 +21,42 @@ class ActionGps
 
     public const LEGACY_INVALID_LNG = -66.9036;
 
+    public const GPS_EXEMPT_COMMERCIAL_EMPLEADO_ID = '911';
+
+    public const GPS_EXEMPT_COMMERCIAL_EMAIL = 'contratos@gmail.com';
+
+    /**
+     * Comercial único exento de GPS al declarar (emergencia / contratos).
+     */
+    public static function isGpsExempt(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        $empleadoId = trim((string) ($user->empleado_id ?? ''));
+        $email = strtolower(trim((string) ($user->email ?? '')));
+
+        return $empleadoId === self::GPS_EXEMPT_COMMERCIAL_EMPLEADO_ID
+            && $email === self::GPS_EXEMPT_COMMERCIAL_EMAIL
+            && $user->hasRole('commercial');
+    }
+
     /**
      * Solo comercial y jefe de equipo registran GPS al declarar.
-     * Gerente (rol o empleado_id 001) nunca guarda ubicación.
+     * Gerente (rol o empleado_id 001) y el comercial 911/contratos@gmail.com nunca guardan ubicación.
      */
     public static function shouldRegisterGps(?User $user = null): bool
     {
         $user ??= auth()->user();
 
         if (! $user) {
+            return false;
+        }
+
+        if (self::isGpsExempt($user)) {
             return false;
         }
 
