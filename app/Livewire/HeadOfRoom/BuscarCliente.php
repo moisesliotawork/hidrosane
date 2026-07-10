@@ -53,12 +53,12 @@ class BuscarCliente extends Component implements HasForms, HasActions
                             Forms\Components\Actions\Action::make('buscarTelefono')
                                 ->label('Buscar')
                                 ->color('warning')
-                                ->action(fn() => $this->buscarTelefono()),
+                                ->action(fn () => $this->buscarTelefono()),
                         ]),
 
                         Forms\Components\Placeholder::make('no_encontrado')
                             ->content('NO SE ENCONTRO TELÉFONO')
-                            ->visible(fn() => $this->phoneNotFound),
+                            ->visible(fn () => $this->phoneNotFound),
                     ])
                     ->columns(1),
             ])
@@ -88,13 +88,13 @@ class BuscarCliente extends Component implements HasForms, HasActions
     protected function notifyClienteExistePeroAntiguo(string $detalle): void
     {
         Notification::make()
-
             ->title('CLIENTE EXISTE (ANTIGUO)')
             ->body($detalle)
             ->warning()
             ->persistent()
             ->send();
     }
+
     protected function redirectToCreate(?int $customerId, ?string $digits = null): void
     {
         redirect()->to(NoteResource::getUrl('create', [

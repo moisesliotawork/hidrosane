@@ -23,7 +23,8 @@ class ListNotes extends ListRecords
             Actions\CreateAction::make()
                 ->label('Crear Nota')
                 ->icon('heroicon-o-plus')
-                ->color('primary'),
+                ->color('primary')
+                ->url(fn (): string => NoteResource::getUrl('create', ['emergency' => 1])),
 
             \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
                 ->label('Generar PDF (Oficina)')

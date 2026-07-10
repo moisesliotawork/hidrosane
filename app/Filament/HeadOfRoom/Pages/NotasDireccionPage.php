@@ -3,7 +3,6 @@
 namespace App\Filament\HeadOfRoom\Pages;
 
 use App\Models\Note;
-use App\Enums\EstadoTerminal;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -11,8 +10,8 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Illuminate\Database\Eloquent\Builder;
 
-use Filament\Actions\Action;
 use App\Filament\HeadOfRoom\Resources\NoteResource;
+use Filament\Actions\Action;
 use App\Support\TeleoperatorCustomerNoteGuard;
 use Filament\Notifications\Notification;
 

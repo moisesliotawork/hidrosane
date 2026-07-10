@@ -3,19 +3,21 @@
 namespace App\Filament\HeadOfRoom\Resources\NoteResource\Pages;
 
 use App\Filament\HeadOfRoom\Resources\NoteResource;
-use Filament\Actions;
-use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use App\Models\Observation;
-use Carbon\Carbon;
-use Filament\Notifications\Notification;
-use Illuminate\Validation\ValidationException;
 use App\Support\TeleoperatorCustomerNoteGuard;
+use Carbon\Carbon;
+use Filament\Actions;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class CreateNote extends CreateRecord
 {
     protected static string $resource = NoteResource::class;
+
+    public bool $isEmergencyCreate = false;
 
     protected function getRedirectUrl(): string
     {
@@ -25,6 +27,8 @@ class CreateNote extends CreateRecord
     public function mount(): void
     {
         parent::mount();
+
+        $this->isEmergencyCreate = request()->boolean('emergency');
 
         // Si viene un customer_id, precargamos TODO
         if ($customerId = request()->query('customer_id')) {
@@ -38,9 +42,8 @@ class CreateNote extends CreateRecord
                     'phone' => $customer->phone,
                     'secondary_phone' => $customer->secondary_phone,
                     'third_phone' => $customer->third_phone,
-                    'edadTelOp' => $customer->edadTelOp ?? null, // si tienes campo similar
+                    'edadTelOp' => $customer->edadTelOp ?? null,
                     'email' => $customer->email,
-
                     'postal_code' => $customer->postal_code,
                     'nro_piso' => $customer->nro_piso,
                     'ayuntamiento' => $customer->ayuntamiento,
@@ -52,7 +55,6 @@ class CreateNote extends CreateRecord
             }
         }
 
-        // 2) Si NO viene customer_id: precargar lo que venga por query (phone + dirección opcional)
         $prefillKeys = [
             'first_names',
             'last_names',
@@ -79,7 +81,6 @@ class CreateNote extends CreateRecord
                 continue;
             }
 
-            // Formateo para máscara 999 999 999
             if (in_array($key, ['phone', 'secondary_phone', 'third_phone'], true)) {
                 $digits = preg_replace('/\D+/', '', (string) $value);
                 if (strlen($digits) === 9) {
@@ -90,35 +91,29 @@ class CreateNote extends CreateRecord
             $prefill[$key] = $value;
         }
 
-        if (!empty($prefill)) {
+        if (! empty($prefill)) {
             $this->form->fill($prefill);
         }
-
     }
 
     protected function getFormActions(): array
     {
         return [
-            // Botón principal (Guardar)
             Actions\CreateAction::make()
                 ->label('Guardar')
                 ->action('create'),
 
-            // Botón secundario (Guardar y crear otro)
             Actions\Action::make('guardarYBuscarOtro')
                 ->label('Guardar y crear otro')
                 ->color('gray')
                 ->action(function () {
-                    // 1) Guarda el registro (usa el flujo normal)
                     $this->create();
 
-                    // 2) Redirige a la página de búsqueda
                     return redirect()->to(
                         \App\Filament\HeadOfRoom\Pages\BuscarCliente::getUrl()
                     );
                 }),
 
-            // Botón Cancelar
             Actions\Action::make('cancel')
                 ->label('Cancelar')
                 ->color('danger')
@@ -128,7 +123,6 @@ class CreateNote extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // 1) Normalizar teléfonos (solo dígitos)
         $data['phone'] = preg_replace('/\D+/', '', (string) ($data['phone'] ?? ''));
         $sec = preg_replace('/\D+/', '', (string) ($data['secondary_phone'] ?? ''));
         $thr = preg_replace('/\D+/', '', (string) ($data['third_phone'] ?? ''));
@@ -136,36 +130,29 @@ class CreateNote extends CreateRecord
         $data['secondary_phone'] = $sec === '' ? null : $sec;
         $data['third_phone'] = $thr === '' ? null : $thr;
 
-        $this->assertNoteCreationAllowed($data);
+        if (! $this->isEmergencyCreate) {
+            $this->assertNoteCreationAllowed($data);
+        }
 
-        // 2) Buscar cliente existente
         $customer = app(TeleoperatorCustomerNoteGuard::class)
             ->resolveCustomersForPhone($data['phone'])
             ->first();
 
-        // Calcular edad desde fecha_nac (si viene)
-        $fechaNac = $data['fecha_nac'] ?? null;
-        $computedAge = null;
-        if ($fechaNac) {
-            try {
-                $computedAge = Carbon::parse($fechaNac)->age;
-            } catch (\Throwable $e) {
-                $computedAge = null;
+        if (! $this->isEmergencyCreate) {
+            $this->assertNoDuplicatePhones($data, $customer);
+
+            if ($customer && $customer->inhabilitado) {
+                Notification::make()
+                    ->title('☠️ Cliente inhabilitado')
+                    ->body('Este cliente ya no puede ser contactado por la empresa, está descartado.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                throw ValidationException::withMessages([
+                    'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
+                ]);
             }
-        }
-
-        // ===== Bloquear si el cliente está inhabilitado =====
-        if ($customer && $customer->inhabilitado) {
-            Notification::make()
-                ->title('☠️ Cliente inhabilitado')
-                ->body('Este cliente ya no puede ser contactado por la empresa, está descartado.')
-                ->danger()
-                ->persistent()
-                ->send();
-
-            throw ValidationException::withMessages([
-                'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
-            ]);
         }
 
         if ($customer) {
@@ -199,12 +186,10 @@ class CreateNote extends CreateRecord
             ]);
         }
 
-        // Asignar IDs en la Note
         $data['user_id'] = Auth::id();
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
 
-        // Importante: no guardar estos campos en notes si no existen allí
         unset($data['edadTelOp']);
 
         return $data;
@@ -215,7 +200,7 @@ class CreateNote extends CreateRecord
         $observations = $this->form->getState()['observations'] ?? [];
 
         foreach ($observations as $observationData) {
-            if (!empty($observationData['observation'])) {
+            if (! empty($observationData['observation'])) {
                 Observation::create([
                     'note_id' => $this->record->id,
                     'author_id' => $observationData['author_id'] ?? auth()->id(),
@@ -252,4 +237,50 @@ class CreateNote extends CreateRecord
         ]);
     }
 
+    protected function assertNoDuplicatePhones(array $data, ?Customer $customer): void
+    {
+        $numerosAValidar = collect([
+            $data['phone'] ?? null,
+            $data['secondary_phone'] ?? null,
+            $data['third_phone'] ?? null,
+        ])->filter()->unique()->values();
+
+        $duplicados = [];
+
+        foreach ($numerosAValidar as $numero) {
+            $existe = Customer::query()
+                ->when($customer, fn ($q) => $q->where('id', '!=', $customer->id))
+                ->where(function ($q) use ($numero) {
+                    $q->where('phone', $numero)
+                        ->orWhere('secondary_phone', $numero)
+                        ->orWhere('third_phone', $numero)
+                        ->orWhere('phone1_commercial', $numero)
+                        ->orWhere('phone2_commercial', $numero);
+                })
+                ->exists();
+
+            if ($existe) {
+                $duplicados[] = $numero;
+            }
+        }
+
+        if ($duplicados === []) {
+            return;
+        }
+
+        Notification::make()
+            ->title('Teléfono(s) ya registrado(s)')
+            ->body(
+                'Los siguientes números ya están registrados en la base de datos: ' .
+                implode(', ', $duplicados) .
+                '. No se puede crear la nota con teléfonos duplicados.'
+            )
+            ->danger()
+            ->persistent()
+            ->send();
+
+        throw ValidationException::withMessages([
+            'phone' => 'Números de teléfono duplicados: ' . implode(', ', $duplicados),
+        ]);
+    }
 }
