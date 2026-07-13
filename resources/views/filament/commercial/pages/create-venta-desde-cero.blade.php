@@ -129,11 +129,11 @@
     @if ($this->isPuertaFriaLookupBlockingForm())
         <div class="rounded-xl border border-warning-300 bg-warning-50 px-6 py-8 text-center dark:border-warning-700 dark:bg-warning-950">
             <p class="text-base font-semibold text-warning-900 dark:text-warning-100">
-                Búsqueda de cliente obligatoria
+                BUSQUEDA DE CLIENTE
             </p>
             <p class="mt-2 text-sm text-warning-800 dark:text-warning-200">
                 Para crear un contrato de Puerta Fría debes buscar el cliente primero.
-                Puedes cancelar el modal, pero no podrás avanzar hasta completar la búsqueda.
+                Puedes cancelar la ventana, pero no podrás avanzar hasta completar la búsqueda.
             </p>
 
             <div class="mt-5">
