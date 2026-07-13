@@ -10,7 +10,7 @@
                 wire:model="assignmentData.comercial_id"
                 class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             >
-                @foreach ($this->assignableOptions as $value => $label)
+                @foreach ($assignableOptions as $value => $label)
                     <option value="{{ $value }}">{{ $label }}</option>
                 @endforeach
             </select>

@@ -87,7 +87,7 @@
 
                     <div class="flex flex-wrap gap-3">
                         <x-filament::button
-                            :color="$expandedNoteId === $note->id ? 'gray' : 'primary'"
+                            color="{{ $expandedNoteId === $note->id ? 'gray' : 'primary' }}"
                             wire:click="openReassignForm({{ $note->id }})"
                         >
                             {{ $expandedNoteId === $note->id ? 'Cerrar' : 'Reasignar' }}
@@ -95,7 +95,10 @@
                     </div>
 
                     @if ($expandedNoteId === $note->id)
-                        @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', ['note' => $note])
+                        @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', [
+                            'note' => $note,
+                            'assignableOptions' => $this->assignableOptions,
+                        ])
                     @endif
                 </div>
             @endif
@@ -134,7 +137,7 @@
                 </div>
             @endif
 
-            @if ($searchedByPhone && $this->phoneNotes->isNotEmpty())
+            @if ($searchedByPhone && count($phoneNoteIds) > 0)
                 <div class="mt-4 space-y-3">
                     @if ($matchedCustomersLabel)
                         <p class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -174,62 +177,10 @@
                             </thead>
                             <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-950">
                                 @foreach ($this->phoneNotes as $phoneNote)
-                                    @php
-                                        $notePhone = \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatPhoneDisplay(
-                                            $phoneNote->customer?->phone1_commercial ?: $phoneNote->customer?->phone
-                                        );
-                                    @endphp
-                                    <tr wire:key="phone-note-row-{{ $phoneNote->id }}" @class([
-                                        'bg-primary-50 dark:bg-primary-950' => $expandedNoteId === $phoneNote->id,
-                                    ])>
-                                        <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">
-                                            {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($phoneNote->nro_nota) }}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
-                                                {{ $notePhone ?: '—' }}
-                                            </span>
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            {{ $phoneNote->created_at?->format('d/m/Y H:i') ?: '—' }}
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            {{ $phoneNote->assignment_date?->format('d/m/Y') ?: '—' }}
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            {{ $phoneNote->visit_date?->format('d/m/Y H:i') ?: '—' }}
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            @if ($phoneNote->reten)
-                                                COMERCIAL RETÉN
-                                            @elseif ($phoneNote->comercial)
-                                                {{ $phoneNote->comercial->empleado_id }}
-                                                {{ trim($phoneNote->comercial->name . ' ' . $phoneNote->comercial->last_name) }}
-                                            @else
-                                                Sin asignar
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
-                                            {{ $phoneNote->estado_terminal?->label() ?: 'S/E' }}
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <x-filament::button
-                                                size="sm"
-                                                :color="$expandedNoteId === $phoneNote->id ? 'gray' : 'primary'"
-                                                wire:click="openReassignForm({{ $phoneNote->id }})"
-                                            >
-                                                {{ $expandedNoteId === $phoneNote->id ? 'Cerrar' : 'Reasignar' }}
-                                            </x-filament::button>
-                                        </td>
-                                    </tr>
-
-                                    @if ($expandedNoteId === $phoneNote->id)
-                                        <tr wire:key="phone-note-form-{{ $phoneNote->id }}">
-                                            <td colspan="8" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
-                                                @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', ['note' => $phoneNote])
-                                            </td>
-                                        </tr>
-                                    @endif
+                                    @include('filament.superAdmin.resources.super-asignar-resource.partials.phone-note-row', [
+                                        'phoneNote' => $phoneNote,
+                                        'assignableOptions' => $this->assignableOptions,
+                                    ])
                                 @endforeach
                             </tbody>
                         </table>
