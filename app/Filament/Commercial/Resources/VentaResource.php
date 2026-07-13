@@ -889,6 +889,8 @@ class VentaResource extends Resource
                 ->label("")
                 ->disk('public')
                 ->directory('ventas')
+                ->image()
+                ->live()
                 ->openable()
                 ->downloadable()
                 ->required($required)

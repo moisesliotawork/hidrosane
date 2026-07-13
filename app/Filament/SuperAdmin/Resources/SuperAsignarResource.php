@@ -102,15 +102,7 @@ class SuperAsignarResource extends Resource
             ];
         }
 
-        $notes = Note::query()
-            ->whereIn('customer_id', $customers->pluck('id'))
-            ->with([
-                'customer:id,first_names,last_names,phone,phone1_commercial,phone2_commercial,postal_code',
-                'comercial:id,name,last_name,empleado_id',
-                'user:id,empleado_id,name,last_name',
-            ])
-            ->orderByDesc('created_at')
-            ->get();
+        $notes = self::notesForCustomers($customers);
 
         if ($notes->isEmpty()) {
             return [
@@ -125,6 +117,145 @@ class SuperAsignarResource extends Resource
             'customers' => $customers,
             'message' => null,
         ];
+    }
+
+    /**
+     * @return array{
+     *     notes: Collection<int, Note>,
+     *     customers: Collection<int, Customer>,
+     *     message: ?string
+     * }
+     */
+    public static function findNotesByCustomerName(string $name): array
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name));
+
+        if ($name === '') {
+            return [
+                'notes' => collect(),
+                'customers' => collect(),
+                'message' => 'Introduce el nombre del cliente.',
+            ];
+        }
+
+        if (mb_strlen($name) < 3) {
+            return [
+                'notes' => collect(),
+                'customers' => collect(),
+                'message' => 'Introduce al menos 3 caracteres del nombre del cliente.',
+            ];
+        }
+
+        $parts = explode(' ', $name, 2);
+        $firstName = $parts[0];
+        $lastName = $parts[1] ?? '';
+
+        $customers = Customer::query()
+            ->where(function (Builder $query) use ($firstName, $lastName, $name): void {
+                if ($firstName !== '') {
+                    $query->where('first_names', 'like', "%{$firstName}%");
+                }
+
+                if ($lastName !== '') {
+                    $query->orWhere('last_names', 'like', "%{$lastName}%");
+                }
+
+                $query->orWhereRaw(
+                    "CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, '')) LIKE ?",
+                    ["%{$name}%"],
+                );
+            })
+            ->orderBy('first_names')
+            ->orderBy('last_names')
+            ->limit(50)
+            ->get()
+            ->unique('id')
+            ->values();
+
+        if ($customers->isEmpty()) {
+            return [
+                'notes' => collect(),
+                'customers' => collect(),
+                'message' => "No se encontró ningún cliente con el nombre \"{$name}\".",
+            ];
+        }
+
+        $notes = self::notesForCustomers($customers);
+
+        if ($notes->isEmpty()) {
+            return [
+                'notes' => collect(),
+                'customers' => $customers,
+                'message' => 'El cliente existe pero no tiene notas registradas.',
+            ];
+        }
+
+        return [
+            'notes' => $notes,
+            'customers' => $customers,
+            'message' => null,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Customer>  $customers
+     * @return Collection<int, Note>
+     */
+    public static function notesForCustomers(Collection $customers): Collection
+    {
+        if ($customers->isEmpty()) {
+            return collect();
+        }
+
+        return Note::query()
+            ->whereIn('customer_id', $customers->pluck('id'))
+            ->with(self::noteEagerLoads())
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
+    public static function formatCustomerName(?Customer $customer): string
+    {
+        if (! $customer) {
+            return '—';
+        }
+
+        return strtoupper(trim("{$customer->first_names} {$customer->last_names}"));
+    }
+
+    /**
+     * @param  Collection<int, Customer>  $customers
+     */
+    public static function customersLabel(Collection $customers): string
+    {
+        return $customers
+            ->map(fn (Customer $customer): string => self::formatCustomerName($customer))
+            ->unique()
+            ->values()
+            ->implode(' · ');
+    }
+
+    /**
+     * @param  Collection<int, Customer>  $customers
+     */
+    public static function customersPhonesLabel(Collection $customers): string
+    {
+        return $customers
+            ->flatMap(function (Customer $customer): array {
+                $phones = array_filter([
+                    $customer->phone1_commercial,
+                    $customer->phone,
+                    $customer->phone2_commercial,
+                ]);
+
+                return array_map(
+                    fn (?string $phone): string => self::formatPhoneDisplay($phone),
+                    $phones,
+                );
+            })
+            ->unique()
+            ->values()
+            ->implode(' · ');
     }
 
     public static function noteEagerLoads(): array

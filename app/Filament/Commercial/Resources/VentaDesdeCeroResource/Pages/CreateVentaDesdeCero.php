@@ -20,6 +20,7 @@ use App\Events\VentaCreada;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\Filament\GpsActionForm;
+use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
 use Filament\Actions\Action;
 use App\Enums\OrigenVenta;
 use Filament\Notifications\Notification;
@@ -27,6 +28,7 @@ use Filament\Notifications\Notification;
 class CreateVentaDesdeCero extends CreateRecord
 {
     use HasWizard;
+    use HandlesGpsVentaWizard;
 
     protected static string $resource = VentaDesdeCeroResource::class;
 

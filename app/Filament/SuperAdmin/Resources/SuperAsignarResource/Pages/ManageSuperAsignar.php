@@ -20,15 +20,19 @@ class ManageSuperAsignar extends Page
 
     public string $searchPhone = '';
 
+    public string $searchCustomerName = '';
+
     public bool $searchedByNote = false;
 
     public bool $searchedByPhone = false;
+
+    public bool $searchedByCustomerName = false;
 
     public ?int $foundNoteId = null;
 
     public ?string $notFoundMessage = null;
 
-    public ?string $phoneSearchMessage = null;
+    public ?string $listSearchMessage = null;
 
     public ?string $matchedCustomersLabel = null;
 
@@ -37,7 +41,7 @@ class ManageSuperAsignar extends Page
     public ?int $expandedNoteId = null;
 
     /** @var list<int> */
-    public array $phoneNoteIds = [];
+    public array $resultNoteIds = [];
 
     /** @var array<string, mixed> */
     public array $assignmentData = [
@@ -64,15 +68,15 @@ class ManageSuperAsignar extends Page
             ->find($this->foundNoteId);
     }
 
-    public function getPhoneNotesProperty(): Collection
+    public function getResultNotesProperty(): Collection
     {
-        if ($this->phoneNoteIds === []) {
+        if ($this->resultNoteIds === []) {
             return collect();
         }
 
         return Note::query()
             ->with(SuperAsignarResource::noteEagerLoads())
-            ->whereIn('id', $this->phoneNoteIds)
+            ->whereIn('id', $this->resultNoteIds)
             ->orderByDesc('created_at')
             ->get();
     }
@@ -90,7 +94,7 @@ class ManageSuperAsignar extends Page
             return;
         }
 
-        $this->resetPhoneSearch();
+        $this->resetListSearch();
 
         $normalized = SuperAsignarResource::normalizeNroNota($value);
 
@@ -133,52 +137,65 @@ class ManageSuperAsignar extends Page
         }
 
         $this->resetNoteSearch();
+        $this->resetListSearch();
 
         $result = SuperAsignarResource::findNotesByPhone($phone);
 
         $this->searchedByPhone = true;
-        $this->phoneSearchMessage = $result['message'];
-        $this->phoneNoteIds = $result['notes']->pluck('id')->all();
-        $this->matchedCustomersLabel = $result['customers']
-            ->map(fn ($customer): string => strtoupper(trim("{$customer->first_names} {$customer->last_names}")))
-            ->unique()
-            ->values()
-            ->implode(' · ');
-        $this->matchedCustomersPhones = $result['customers']
-            ->flatMap(function ($customer): array {
-                $phones = array_filter([
-                    $customer->phone1_commercial,
-                    $customer->phone,
-                    $customer->phone2_commercial ?? null,
-                ]);
-
-                return array_map(
-                    fn (?string $phone): string => SuperAsignarResource::formatPhoneDisplay($phone),
-                    $phones,
-                );
-            })
-            ->unique()
-            ->values()
-            ->implode(' · ');
-
-        if ($result['notes']->isEmpty()) {
-            $this->foundNoteId = null;
-            $this->expandedNoteId = null;
-            $this->assignmentData = [
-                'comercial_id' => '',
-                'assignment_date' => null,
-            ];
-
-            return;
-        }
+        $this->applyListSearchResult($result);
 
         $digits = preg_replace('/\D+/', '', $phone);
 
         if (strlen($digits) === 9) {
             $this->searchPhone = SuperAsignarResource::formatPhoneDisplay($digits);
         }
+    }
 
+    public function searchNotesByCustomerName(): void
+    {
+        $name = trim($this->searchCustomerName);
+
+        if ($name === '') {
+            Notification::make()
+                ->title('Introduce el nombre del cliente')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->resetNoteSearch();
+        $this->resetListSearch();
+
+        $result = SuperAsignarResource::findNotesByCustomerName($name);
+
+        $this->searchedByCustomerName = true;
+        $this->searchCustomerName = trim(preg_replace('/\s+/u', ' ', $name));
+        $this->applyListSearchResult($result);
+    }
+
+    /**
+     * @param  array{
+     *     notes: Collection<int, Note>,
+     *     customers: Collection<int, \App\Models\Customer>,
+     *     message: ?string
+     * }  $result
+     */
+    protected function applyListSearchResult(array $result): void
+    {
+        $this->listSearchMessage = $result['message'];
+        $this->resultNoteIds = $result['notes']->pluck('id')->all();
+        $this->matchedCustomersLabel = SuperAsignarResource::customersLabel($result['customers']);
+        $this->matchedCustomersPhones = SuperAsignarResource::customersPhonesLabel($result['customers']);
         $this->expandedNoteId = null;
+
+        if ($result['notes']->isEmpty()) {
+            $this->foundNoteId = null;
+            $this->assignmentData = [
+                'comercial_id' => '',
+                'assignment_date' => null,
+            ];
+        }
     }
 
     public function openReassignForm(int $noteId): void
@@ -253,14 +270,16 @@ class ManageSuperAsignar extends Page
     {
         $this->searchNroNota = '';
         $this->searchPhone = '';
+        $this->searchCustomerName = '';
         $this->searchedByNote = false;
         $this->searchedByPhone = false;
+        $this->searchedByCustomerName = false;
         $this->foundNoteId = null;
         $this->notFoundMessage = null;
-        $this->phoneSearchMessage = null;
+        $this->listSearchMessage = null;
         $this->matchedCustomersLabel = null;
         $this->matchedCustomersPhones = null;
-        $this->phoneNoteIds = [];
+        $this->resultNoteIds = [];
         $this->expandedNoteId = null;
         $this->assignmentData = [
             'comercial_id' => '',
@@ -268,14 +287,16 @@ class ManageSuperAsignar extends Page
         ];
     }
 
-    protected function resetPhoneSearch(): void
+    protected function resetListSearch(): void
     {
         $this->searchPhone = '';
+        $this->searchCustomerName = '';
         $this->searchedByPhone = false;
-        $this->phoneSearchMessage = null;
+        $this->searchedByCustomerName = false;
+        $this->listSearchMessage = null;
         $this->matchedCustomersLabel = null;
         $this->matchedCustomersPhones = null;
-        $this->phoneNoteIds = [];
+        $this->resultNoteIds = [];
         $this->expandedNoteId = null;
     }
 

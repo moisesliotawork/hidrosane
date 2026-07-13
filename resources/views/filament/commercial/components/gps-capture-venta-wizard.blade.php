@@ -26,11 +26,24 @@
                 btn.classList.toggle('pointer-events-none', ! this.gpsReady);
             });
         },
+        markGpsReady(status) {
+            gpsStatus = status;
+            gpsReady = true;
+            syncCreateButton();
+        },
     }"
     x-init="
         $watch('gpsReady', () => syncCreateButton());
 
         if (gpsReady) {
+            return;
+        }
+
+        const existingLat = $wire.get('data.gps_lat');
+        const existingLng = $wire.get('data.gps_lng');
+
+        if (existingLat && existingLng) {
+            markGpsReady('Ubicación capturada para la venta.');
             return;
         }
 
@@ -45,11 +58,8 @@
             function (pos) {
                 const lat = String(pos.coords.latitude);
                 const lng = String(pos.coords.longitude);
-                gpsStatus = 'Ubicación capturada para la venta.';
-                gpsReady = true;
-                syncCreateButton();
-                $wire.set('data.gps_lat', lat);
-                $wire.set('data.gps_lng', lng);
+                markGpsReady('Ubicación capturada para la venta.');
+                $wire.dispatch('gpsCapturadoParaVentaWizard', { lat, lng });
             },
             function (err) {
                 gpsStatus = 'Sin GPS: permite la ubicación en el navegador (' + (err.message || 'denegado') + ').';

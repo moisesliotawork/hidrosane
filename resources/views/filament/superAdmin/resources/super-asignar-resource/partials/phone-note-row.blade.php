@@ -12,6 +12,9 @@
     <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">
         {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($phoneNote->nro_nota) }}
     </td>
+    <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
+        {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatCustomerName($phoneNote->customer) }}
+    </td>
     <td class="px-4 py-3">
         <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
             {{ $notePhone ?: '—' }}
@@ -52,7 +55,7 @@
 
 @if ($isExpanded)
     <tr wire:key="phone-note-form-{{ $phoneNote->id }}">
-        <td colspan="8" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
+        <td colspan="9" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
             @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', [
                 'note' => $phoneNote,
                 'assignableOptions' => $assignableOptions,

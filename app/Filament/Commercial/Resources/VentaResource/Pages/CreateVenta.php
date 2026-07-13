@@ -18,11 +18,13 @@ use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\ActionGps;
 use App\Support\Filament\GpsActionForm;
+use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
 use Filament\Actions\Action;
 
 class CreateVenta extends CreateRecord
 {
     use HasWizard;
+    use HandlesGpsVentaWizard;
 
     protected static string $resource = VentaResource::class;
 
@@ -47,13 +49,25 @@ class CreateVenta extends CreateRecord
 
     public function updated(string $name): void
     {
-        if (str_starts_with($name, 'data')) {
-            $toSave = $this->data;
-            foreach ($this->fileFields() as $field) {
-                unset($toSave[$field]);
-            }
-            session()->put($this->sessionKey(), $toSave);
+        if (! str_starts_with($name, 'data')) {
+            return;
         }
+
+        foreach ($this->fileFields() as $field) {
+            if ($name === "data.{$field}" || str_starts_with($name, "data.{$field}.")) {
+                return;
+            }
+        }
+
+        if (in_array($name, ['data.gps_lat', 'data.gps_lng'], true)) {
+            return;
+        }
+
+        $toSave = $this->data;
+        foreach ($this->fileFields() as $field) {
+            unset($toSave[$field]);
+        }
+        session()->put($this->sessionKey(), $toSave);
     }
 
     protected function afterCreate(): void
