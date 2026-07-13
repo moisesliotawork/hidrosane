@@ -3,7 +3,9 @@
 namespace App\Support;
 
 use App\Models\User;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\App;
+use Illuminate\Validation\ValidationException;
 
 class ActionGps
 {
@@ -159,5 +161,35 @@ class ActionGps
             'lat' => filled($noteLat) ? $noteLat : null,
             'lng' => filled($noteLng) ? $noteLng : null,
         ];
+    }
+
+    /**
+     * @return array{lat: string, lng: string}
+     */
+    public static function assertCoordsForVentaOrFail(
+        ?string $noteLat,
+        ?string $noteLng,
+        array $data = [],
+        ?User $user = null,
+    ): array {
+        $coords = self::coordsForVenta($noteLat, $noteLng, $data, $user);
+
+        if (filled($coords['lat']) && filled($coords['lng'])) {
+            return [
+                'lat' => (string) $coords['lat'],
+                'lng' => (string) $coords['lng'],
+            ];
+        }
+
+        Notification::make()
+            ->title('Ubicación GPS requerida')
+            ->body('Permite el acceso a la ubicación en el navegador y espera el mensaje «Ubicación capturada» antes de guardar.')
+            ->danger()
+            ->persistent()
+            ->send();
+
+        throw ValidationException::withMessages([
+            'gps_lat' => 'Se requiere ubicación GPS para registrar la venta.',
+        ]);
     }
 }

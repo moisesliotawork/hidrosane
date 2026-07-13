@@ -1,23 +1,37 @@
 @php
     $registerGps = \App\Support\ActionGps::shouldRegisterGps();
+    $livewire = $getLivewire();
+    $noteHasGps = false;
+
+    if ($registerGps && property_exists($livewire, 'noteId')) {
+        $note = \App\Models\Note::query()->find($livewire->noteId);
+        $noteHasGps = $note !== null
+            && \App\Support\ActionGps::validateOperatingCoords($note->lat, $note->lng) !== null;
+    }
 @endphp
 
 <div
     x-data="{
-        gpsReady: @js(! $registerGps),
-        gpsStatus: @js($registerGps ? 'Obteniendo ubicación para la venta…' : ''),
+        gpsReady: @js(! $registerGps || $noteHasGps),
+        gpsStatus: @js(
+            ! $registerGps
+                ? ''
+                : ($noteHasGps ? 'Ubicación registrada desde la nota.' : 'Obteniendo ubicación para la venta…')
+        ),
         syncCreateButton() {
             if (! @js($registerGps)) {
                 return;
             }
 
-            const wizard = $el.closest('.fi-fo-wizard');
+            const wizard = $el.closest('.fi-fo-wizard') ?? $el.closest('form');
             if (! wizard) {
                 return;
             }
 
             wizard.querySelectorAll('button').forEach((btn) => {
-                if (btn.getAttribute('wire:click') !== 'create') {
+                const wireClick = btn.getAttribute('wire:click') ?? '';
+
+                if (! wireClick.includes('create')) {
                     return;
                 }
 
@@ -29,13 +43,25 @@
         markGpsReady(status) {
             gpsStatus = status;
             gpsReady = true;
-            syncCreateButton();
+            this.syncCreateButton();
+        },
+        captureGpsOnServer(lat, lng) {
+            return $wire.setGpsParaVentaWizard(lat, lng);
         },
     }"
     x-init="
         $watch('gpsReady', () => syncCreateButton());
 
+        if (typeof Livewire !== 'undefined') {
+            Livewire.hook('commit', ({ succeed }) => {
+                succeed(() => {
+                    $nextTick(() => syncCreateButton());
+                });
+            });
+        }
+
         if (gpsReady) {
+            syncCreateButton();
             return;
         }
 
@@ -58,8 +84,13 @@
             function (pos) {
                 const lat = String(pos.coords.latitude);
                 const lng = String(pos.coords.longitude);
-                markGpsReady('Ubicación capturada para la venta.');
-                $wire.dispatch('gpsCapturadoParaVentaWizard', { lat, lng });
+
+                captureGpsOnServer(lat, lng).then(() => {
+                    markGpsReady('Ubicación capturada para la venta.');
+                }).catch(() => {
+                    gpsStatus = 'No se pudo registrar la ubicación en el servidor. Recarga e inténtalo de nuevo.';
+                    syncCreateButton();
+                });
             },
             function (err) {
                 gpsStatus = 'Sin GPS: permite la ubicación en el navegador (' + (err.message || 'denegado') + ').';

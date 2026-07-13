@@ -313,17 +313,35 @@ class CreateVentaDesdeCero extends CreateRecord
 
     protected function getSubmitFormAction(): Action
     {
-        $action = GpsActionForm::applyToCreateAction(parent::getSubmitFormAction());
+        return parent::getSubmitFormAction()
+            ->disabled(fn (): bool => $this->isSubmitBlocked())
+            ->tooltip(fn (): ?string => $this->submitBlockedTooltip());
+    }
 
-        if ($this->requiresPuertaFriaLookup()) {
-            return $action
-                ->disabled(fn (): bool => ! $this->puertaFriaLookupCompleted)
-                ->tooltip(fn (): ?string => $this->puertaFriaLookupCompleted
-                    ? null
-                    : 'Debes completar la búsqueda de cliente en el modal.');
+    protected function isSubmitBlocked(): bool
+    {
+        if ($this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted) {
+            return true;
         }
 
-        return $action;
+        if (ActionGps::shouldRegisterGps() && ! GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function submitBlockedTooltip(): ?string
+    {
+        if ($this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted) {
+            return 'Debes completar la búsqueda de cliente en el modal.';
+        }
+
+        if (ActionGps::shouldRegisterGps() && ! GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return 'Esperando ubicación GPS…';
+        }
+
+        return null;
     }
 
     protected function getSteps(): array
@@ -459,7 +477,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 ? round(((float) ($data['importe_total'] ?? 0)) / $cuotas, 2)
                 : null;
 
-            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::coordsForVenta(
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::assertCoordsForVentaOrFail(
                 $note->lat,
                 $note->lng,
                 $data,

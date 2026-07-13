@@ -36,14 +36,36 @@ class GpsActionForm
         }
 
         return [
-            Forms\Components\Hidden::make('gps_lat')
-                ->required()
-                ->dehydrated(),
-            Forms\Components\Hidden::make('gps_lng')
-                ->required()
-                ->dehydrated(),
+            // No usar ->required(): bloquea el submit con error oculto si el GPS
+            // ya está en la nota (venta normal) o aún no llegó del navegador.
+            Forms\Components\Hidden::make('gps_lat')->dehydrated(),
+            Forms\Components\Hidden::make('gps_lng')->dehydrated(),
             Forms\Components\View::make('filament.commercial.components.gps-capture-venta-wizard'),
         ];
+    }
+
+    /**
+     * @param  callable(): bool|null  $isReady
+     */
+    public static function applyToVentaWizardCreateAction(Action $action, ?callable $isReady = null): Action
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return $action;
+        }
+
+        return $action
+            ->disabled(function () use ($isReady): bool {
+                if ($isReady !== null && $isReady()) {
+                    return false;
+                }
+
+                return ! self::gpsReadyOnCurrentComponent();
+            })
+            ->tooltip(function () use ($isReady): ?string {
+                $ready = ($isReady !== null && $isReady()) || self::gpsReadyOnCurrentComponent();
+
+                return $ready ? null : 'Esperando ubicación GPS…';
+            });
     }
 
     public static function requireGpsBeforeSubmit(StaticAction $action): StaticAction

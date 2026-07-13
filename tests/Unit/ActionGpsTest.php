@@ -97,4 +97,29 @@ class ActionGpsTest extends TestCase
         $this->assertNull($coords['lat']);
         $this->assertNull($coords['lng']);
     }
+
+    public function test_assert_coords_for_venta_uses_note_fallback_when_wizard_empty(): void
+    {
+        $user = $this->mockCommercialUser('100', 'comercial@test.com');
+
+        $coords = ActionGps::assertCoordsForVentaOrFail(
+            '42.2405',
+            '-8.7200',
+            [],
+            $user,
+        );
+
+        $this->assertSame('42.2405', $coords['lat']);
+        $this->assertSame('-8.7200', $coords['lng']);
+    }
+
+    public function test_assert_coords_for_venta_fails_when_no_coords_available(): void
+    {
+        $user = $this->mockCommercialUser('100', 'comercial@test.com');
+        $this->app->detectEnvironment(fn () => 'production');
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        ActionGps::assertCoordsForVentaOrFail(null, null, [], $user);
+    }
 }

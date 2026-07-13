@@ -105,7 +105,48 @@ class CreateVenta extends CreateRecord
 
     protected function getSubmitFormAction(): Action
     {
-        return GpsActionForm::applyToCreateAction(parent::getSubmitFormAction());
+        return GpsActionForm::applyToVentaWizardCreateAction(
+            parent::getSubmitFormAction(),
+            fn (): bool => $this->isCreateVentaGpsReady(),
+        );
+    }
+
+    protected function isCreateVentaGpsReady(): bool
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return true;
+        }
+
+        if (GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return true;
+        }
+
+        $note = Note::query()->find($this->noteId);
+
+        return $note !== null
+            && ActionGps::validateOperatingCoords($note->lat, $note->lng) !== null;
+    }
+
+    private function seedWizardGpsFromNote(Note $note): void
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return;
+        }
+
+        if (GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return;
+        }
+
+        $validated = ActionGps::validateOperatingCoords($note->lat, $note->lng);
+
+        if ($validated === null) {
+            return;
+        }
+
+        $state = $this->form->getRawState();
+        $state['gps_lat'] = $validated['lat'];
+        $state['gps_lng'] = $validated['lng'];
+        $this->form->fill($state);
     }
 
     /* ---------------------------------------------------------------------
@@ -133,6 +174,8 @@ class CreateVenta extends CreateRecord
 
         $this->form->fill($payload);
 
+        $this->seedWizardGpsFromNote($note);
+
         // Restore session draft (user's edits) AFTER pre-filling with note data
         $key = $this->sessionKey();
         if (session()->has($key)) {
@@ -147,6 +190,8 @@ class CreateVenta extends CreateRecord
                 $this->data['age'] = $sessionAge;
             }
         }
+
+        $this->seedWizardGpsFromNote($note->fresh());
     }
 
     protected function handleRecordCreation(array $data): Venta
@@ -230,7 +275,7 @@ class CreateVenta extends CreateRecord
             }
 
             /* 2.4 Crear venta -------------------------------------------------- */
-            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::coordsForVenta(
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::assertCoordsForVentaOrFail(
                 $note->lat,
                 $note->lng,
                 $data,
