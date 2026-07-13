@@ -143,10 +143,12 @@ class CreateVenta extends CreateRecord
             return;
         }
 
-        $state = $this->form->getRawState();
-        $state['gps_lat'] = $validated['lat'];
-        $state['gps_lng'] = $validated['lng'];
-        $this->form->fill($state);
+        if (! is_array($this->data ?? null)) {
+            $this->data = [];
+        }
+
+        $this->data['gps_lat'] = $validated['lat'];
+        $this->data['gps_lng'] = $validated['lng'];
     }
 
     /* ---------------------------------------------------------------------

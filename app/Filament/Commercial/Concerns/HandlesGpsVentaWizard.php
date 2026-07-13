@@ -14,11 +14,13 @@ trait HandlesGpsVentaWizard
             return;
         }
 
-        // Patch only GPS on the server. Avoid $wire.set('data.*') from Alpine,
-        // which can race with FileUpload and clear document paths in form state.
-        $state = $this->form->getRawState();
-        $state['gps_lat'] = $lat;
-        $state['gps_lng'] = $lng;
-        $this->form->fill($state);
+        // Patch only GPS fields. Never call $this->form->fill() here: it races with
+        // FileUpload on mobile and clears document paths from form state.
+        if (! is_array($this->data ?? null)) {
+            $this->data = [];
+        }
+
+        $this->data['gps_lat'] = $lat;
+        $this->data['gps_lng'] = $lng;
     }
 }

@@ -27,6 +27,7 @@ use Filament\Forms\Components\{
     Grid
 };
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use App\Support\Filament\GpsActionForm;
 use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Get;
@@ -39,7 +40,6 @@ use Filament\Forms\Components\{
 };
 use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Str;
 
 class VentaResource extends Resource
@@ -885,46 +885,14 @@ class VentaResource extends Resource
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->image()
-                ->live()
-                ->openable()
-                ->downloadable()
-                ->required($required)
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
         ])->columns(1);
     }
