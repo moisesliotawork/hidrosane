@@ -37,11 +37,23 @@ class ManageSuperAsignar extends Page implements HasForms
 
     public ?string $matchedCustomersLabel = null;
 
+    public ?string $matchedCustomersPhones = null;
+
+    public ?int $expandedNoteId = null;
+
     /** @var list<int> */
     public array $phoneNoteIds = [];
 
     /** @var array<string, mixed> */
     public array $assignmentData = [];
+
+    public function getAssignableOptionsProperty(): array
+    {
+        return [
+            '__RETEN__' => 'COMERCIAL RETÉN',
+            '' => 'Sin asignar',
+        ] + SuperAsignarResource::assignableUserOptions(labeled: true);
+    }
 
     public function getFoundNoteProperty(): ?Note
     {
@@ -138,9 +150,26 @@ class ManageSuperAsignar extends Page implements HasForms
             ->unique()
             ->values()
             ->implode(' · ');
+        $this->matchedCustomersPhones = $result['customers']
+            ->flatMap(function ($customer): array {
+                $phones = array_filter([
+                    $customer->phone1_commercial,
+                    $customer->phone,
+                    $customer->phone2_commercial ?? null,
+                ]);
+
+                return array_map(
+                    fn (?string $phone): string => SuperAsignarResource::formatPhoneDisplay($phone),
+                    $phones,
+                );
+            })
+            ->unique()
+            ->values()
+            ->implode(' · ');
 
         if ($result['notes']->isEmpty()) {
             $this->foundNoteId = null;
+            $this->expandedNoteId = null;
             $this->assignmentData = [];
             $this->form->fill([]);
 
@@ -150,8 +179,22 @@ class ManageSuperAsignar extends Page implements HasForms
         $digits = preg_replace('/\D+/', '', $phone);
 
         if (strlen($digits) === 9) {
-            $this->searchPhone = implode(' ', str_split($digits, 3));
+            $this->searchPhone = SuperAsignarResource::formatPhoneDisplay($digits);
         }
+
+        $this->expandedNoteId = null;
+    }
+
+    public function openReassignForm(int $noteId): void
+    {
+        if ($this->expandedNoteId === $noteId) {
+            $this->expandedNoteId = null;
+
+            return;
+        }
+
+        $this->expandedNoteId = $noteId;
+        $this->selectNoteForAssignment($noteId);
     }
 
     public function selectNoteForAssignment(Note|int $note): void
@@ -167,15 +210,23 @@ class ManageSuperAsignar extends Page implements HasForms
         $this->assignmentData = [
             'comercial_id' => $note->reten
                 ? '__RETEN__'
-                : ($note->comercial_id ?: null),
+                : (string) ($note->comercial_id ?? ''),
             'assignment_date' => $note->assignment_date?->format('Y-m-d'),
         ];
-        $this->form->fill($this->assignmentData);
+        $this->form->fill([
+            'comercial_id' => $note->reten
+                ? '__RETEN__'
+                : ($note->comercial_id ?: null),
+            'assignment_date' => $note->assignment_date?->format('Y-m-d'),
+        ]);
     }
 
     public function assignNote(): void
     {
-        $note = $this->foundNote;
+        $noteId = $this->expandedNoteId ?? $this->foundNoteId;
+        $note = $noteId
+            ? Note::query()->with(SuperAsignarResource::noteEagerLoads())->find($noteId)
+            : $this->foundNote;
 
         if (! $note instanceof Note) {
             Notification::make()
@@ -186,11 +237,18 @@ class ManageSuperAsignar extends Page implements HasForms
             return;
         }
 
-        $data = $this->form->getState();
+        $data = $this->searchedByNote && $this->expandedNoteId === null
+            ? $this->form->getState()
+            : $this->assignmentData;
+
+        if (($data['comercial_id'] ?? '') === '') {
+            $data['comercial_id'] = null;
+        }
 
         SuperAsignarResource::applyAssignment($note, $data);
 
         $note->refresh();
+        $this->foundNoteId = $note->id;
         $this->selectNoteForAssignment($note);
     }
 
@@ -204,7 +262,9 @@ class ManageSuperAsignar extends Page implements HasForms
         $this->notFoundMessage = null;
         $this->phoneSearchMessage = null;
         $this->matchedCustomersLabel = null;
+        $this->matchedCustomersPhones = null;
         $this->phoneNoteIds = [];
+        $this->expandedNoteId = null;
         $this->assignmentData = [];
         $this->form->fill([]);
     }
@@ -215,7 +275,9 @@ class ManageSuperAsignar extends Page implements HasForms
         $this->searchedByPhone = false;
         $this->phoneSearchMessage = null;
         $this->matchedCustomersLabel = null;
+        $this->matchedCustomersPhones = null;
         $this->phoneNoteIds = [];
+        $this->expandedNoteId = null;
     }
 
     protected function resetNoteSearch(): void

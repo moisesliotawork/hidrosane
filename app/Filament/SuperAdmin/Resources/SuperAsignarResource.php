@@ -59,6 +59,17 @@ class SuperAsignarResource extends Resource
         return $value;
     }
 
+    public static function formatPhoneDisplay(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+
+        if (strlen($digits) !== 9) {
+            return trim((string) $phone);
+        }
+
+        return implode(' ', str_split($digits, 3));
+    }
+
     /**
      * @return array{
      *     notes: Collection<int, Note>,
@@ -94,7 +105,7 @@ class SuperAsignarResource extends Resource
         $notes = Note::query()
             ->whereIn('customer_id', $customers->pluck('id'))
             ->with([
-                'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
+                'customer:id,first_names,last_names,phone,phone1_commercial,phone2_commercial,postal_code',
                 'comercial:id,name,last_name,empleado_id',
                 'user:id,empleado_id,name,last_name',
             ])
@@ -119,7 +130,7 @@ class SuperAsignarResource extends Resource
     public static function noteEagerLoads(): array
     {
         return [
-            'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
+            'customer:id,first_names,last_names,phone,phone1_commercial,phone2_commercial,postal_code',
             'comercial:id,name,last_name,empleado_id',
             'user:id,empleado_id,name,last_name',
         ];

@@ -75,11 +75,28 @@
                         </p>
                     @endif
 
+                    @if ($matchedCustomersPhones)
+                        <p class="text-sm text-gray-700 dark:text-gray-200">
+                            Teléfono(s):
+                            <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
+                                {{ $matchedCustomersPhones }}
+                            </span>
+                        </p>
+                    @elseif ($searchPhone)
+                        <p class="text-sm text-gray-700 dark:text-gray-200">
+                            Teléfono buscado:
+                            <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
+                                {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatPhoneDisplay($searchPhone) }}
+                            </span>
+                        </p>
+                    @endif
+
                     <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
                         <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-900">
                                 <tr>
                                     <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">No. Nota</th>
+                                    <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Teléfono</th>
                                     <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Fecha nota</th>
                                     <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Fecha asignación</th>
                                     <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Fecha visita</th>
@@ -90,11 +107,21 @@
                             </thead>
                             <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-950">
                                 @foreach ($this->phoneNotes as $phoneNote)
-                                    <tr @class([
-                                        'bg-primary-50 dark:bg-primary-950' => $foundNoteId === $phoneNote->id,
+                                    @php
+                                        $notePhone = \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatPhoneDisplay(
+                                            $phoneNote->customer?->phone1_commercial ?: $phoneNote->customer?->phone
+                                        );
+                                    @endphp
+                                    <tr wire:key="phone-note-row-{{ $phoneNote->id }}" @class([
+                                        'bg-primary-50 dark:bg-primary-950' => $expandedNoteId === $phoneNote->id,
                                     ])>
                                         <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">
                                             {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($phoneNote->nro_nota) }}
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
+                                                {{ $notePhone ?: '—' }}
+                                            </span>
                                         </td>
                                         <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
                                             {{ $phoneNote->created_at?->format('d/m/Y H:i') ?: '—' }}
@@ -121,13 +148,61 @@
                                         <td class="px-4 py-3">
                                             <x-filament::button
                                                 size="sm"
-                                                color="primary"
-                                                wire:click="selectNoteForAssignment({{ $phoneNote->id }})"
+                                                :color="$expandedNoteId === $phoneNote->id ? 'gray' : 'primary'"
+                                                wire:click="openReassignForm({{ $phoneNote->id }})"
                                             >
-                                                Reasignar
+                                                {{ $expandedNoteId === $phoneNote->id ? 'Cerrar' : 'Reasignar' }}
                                             </x-filament::button>
                                         </td>
                                     </tr>
+
+                                    @if ($expandedNoteId === $phoneNote->id)
+                                        <tr wire:key="phone-note-form-{{ $phoneNote->id }}">
+                                            <td colspan="8" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
+                                                <div class="rounded-lg border border-primary-200 bg-white p-4 dark:border-primary-800 dark:bg-gray-900">
+                                                    <p class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                                                        Reasignar nota {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($phoneNote->nro_nota) }}
+                                                    </p>
+
+                                                    <div class="grid gap-4 md:grid-cols-2">
+                                                        <div>
+                                                            <label class="text-sm font-medium text-gray-950 dark:text-white">Asignar a</label>
+                                                            <select
+                                                                wire:model="assignmentData.comercial_id"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                                                            >
+                                                                @foreach ($this->assignableOptions as $value => $label)
+                                                                    <option value="{{ $value }}">{{ $label }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+
+                                                        <div>
+                                                            <label class="text-sm font-medium text-gray-950 dark:text-white">Fecha de asignación</label>
+                                                            <input
+                                                                type="date"
+                                                                wire:model="assignmentData.assignment_date"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                                                            />
+                                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                                Si se deja vacío, se usará la fecha actual al asignar un comercial.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mt-4 flex flex-wrap gap-3">
+                                                        <x-filament::button color="success" wire:click="assignNote">
+                                                            Confirmar reasignación
+                                                        </x-filament::button>
+
+                                                        <x-filament::button color="gray" wire:click="openReassignForm({{ $phoneNote->id }})">
+                                                            Cancelar
+                                                        </x-filament::button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -144,7 +219,7 @@
             </div>
         @endif
 
-        @if ($this->foundNote)
+        @if ($this->foundNote && $searchedByNote)
             @php($note = $this->foundNote)
 
             <x-filament::section>
@@ -159,7 +234,10 @@
                             {{ strtoupper(trim(($note->customer?->first_names ?? '') . ' ' . ($note->customer?->last_names ?? ''))) }}
                         </p>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                            Tel: {{ $note->customer?->phone1_commercial ?: ($note->customer?->phone ?: '—') }}
+                            Tel:
+                            <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
+                                {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatPhoneDisplay($note->customer?->phone1_commercial ?: $note->customer?->phone) ?: '—' }}
+                            </span>
                         </p>
                         <p class="text-sm text-gray-600 dark:text-gray-300">
                             CP: {{ $note->customer?->postal_code ?: '—' }}
