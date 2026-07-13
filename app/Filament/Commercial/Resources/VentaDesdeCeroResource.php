@@ -62,6 +62,7 @@ class VentaDesdeCeroResource extends Resource
             /* ==================== CLIENTE ==================== */
             Section::make('Información del cliente')->schema([
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
+                    Forms\Components\Hidden::make('pf_existing_customer_id'),
 
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required()
