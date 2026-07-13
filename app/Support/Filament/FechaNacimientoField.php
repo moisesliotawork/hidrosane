@@ -9,8 +9,16 @@ use Filament\Forms\Set;
 
 class FechaNacimientoField
 {
-    public static function parse(?string $value): ?Carbon
+    public static function parse(mixed $value): ?Carbon
     {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance(\DateTime::createFromInterface($value));
+        }
+
         if (blank($value)) {
             return null;
         }
@@ -30,6 +38,11 @@ class FechaNacimientoField
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    public static function normalizeForStorage(mixed $value): ?string
+    {
+        return self::parse($value)?->format('Y-m-d');
     }
 
     public static function make(string $name = 'fecha_nac', ?Closure $configure = null): TextInput
@@ -74,11 +87,7 @@ class FechaNacimientoField
             ->validationMessages([
                 'date_format' => 'Usa el formato dd/mm/aaaa (ej. 04/05/1949).',
             ])
-            ->dehydrateStateUsing(function (?string $state): ?string {
-                $date = self::parse($state);
-
-                return $date?->format('Y-m-d');
-            })
+            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizeForStorage($state))
             ->formatStateUsing(fn ($state) => ($date = self::parse($state)) !== null
                 ? $date->format('d/m/Y')
                 : null)

@@ -28,8 +28,8 @@ class FechaNacimientoFieldTest extends TestCase
         $this->assertNull(FechaNacimientoField::parse('no-es-fecha'));
     }
 
-    public function test_parse_returns_null_for_impossible_spanish_date(): void
+    public function test_normalize_for_storage_rejects_impossible_spanish_date(): void
     {
-        $this->assertNull(FechaNacimientoField::parse('19/47/1019'));
+        $this->assertNull(FechaNacimientoField::normalizeForStorage('19/47/1019'));
     }
 }

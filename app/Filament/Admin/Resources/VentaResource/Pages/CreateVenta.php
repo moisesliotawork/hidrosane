@@ -35,7 +35,7 @@ class CreateVenta extends CreateRecord
         // 2. Pre-rellenar el formulario
         $this->form->fill(array_merge(
             ['note_id' => $this->note->id],
-            $customer->only($customer->getFillable())
+            $customer->formFillableAttributes()
         ));
     }
 

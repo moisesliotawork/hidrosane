@@ -159,7 +159,7 @@ class PuertaFriaCustomerSearch
             'first_names' => $customer->first_names,
             'last_names' => $customer->last_names,
             'dni' => $customer->dni,
-            'fecha_nac' => $customer->fecha_nac?->format('Y-m-d'),
+            'fecha_nac' => $customer->safeFechaNac()?->format('Y-m-d'),
             'phone1_commercial' => $formatPhone($customer->phone1_commercial ?: $customer->phone),
             'phone2_commercial' => $formatPhone($customer->phone2_commercial ?: $customer->secondary_phone),
             'email' => $customer->email,

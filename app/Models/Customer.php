@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\SafeDateCast;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -125,6 +126,25 @@ class Customer extends Model
                 return $full;
             },
         );
+    }
+
+    /** Evita excepciones al leer fechas corruptas en BD (ej. 19/47/1019). */
+    public function safeFechaNac(): ?Carbon
+    {
+        return FechaNacimientoField::parse($this->getRawOriginal('fecha_nac'));
+    }
+
+    /** @return array<string, mixed> */
+    public function formFillableAttributes(): array
+    {
+        $attributes = array_intersect_key(
+            $this->getAttributes(),
+            array_flip($this->getFillable()),
+        );
+
+        $attributes['fecha_nac'] = $this->safeFechaNac()?->format('Y-m-d');
+
+        return $attributes;
     }
 
 

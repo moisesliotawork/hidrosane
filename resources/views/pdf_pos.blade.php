@@ -447,7 +447,7 @@
                 <div class="field" style="top:{{ $yA_Dni }}mm; left:{{ $xA_Dni }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
                 <div class="field" style="top:{{ $yA_Nac }}mm; left:{{ $xA_Nac }}mm;">
-                    {{ $venta->customer->fecha_nac ? Carbon::parse($venta->customer->fecha_nac)->format('d-m-Y') : '' }}
+                    {{ ($fechaNac = $venta->customer->safeFechaNac()) ? $fechaNac->format('d-m-Y') : '' }}
                 </div>
 
                 {{-- Campos nuevos --}}

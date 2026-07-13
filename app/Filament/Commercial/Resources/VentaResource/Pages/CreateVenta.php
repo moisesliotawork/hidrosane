@@ -64,11 +64,21 @@ class CreateVenta extends CreateRecord
             return;
         }
 
-        $toSave = $this->data;
+        $toSave = $this->sanitizeDraftForSession($this->data);
         foreach ($this->fileFields() as $field) {
             unset($toSave[$field]);
         }
         session()->put($this->sessionKey(), $toSave);
+    }
+
+    /** @param  array<string, mixed>  $data */
+    private function sanitizeDraftForSession(array $data): array
+    {
+        if (array_key_exists('fecha_nac', $data)) {
+            $data['fecha_nac'] = FechaNacimientoField::normalizeForStorage($data['fecha_nac']);
+        }
+
+        return $data;
     }
 
     protected function afterCreate(): void
@@ -111,13 +121,14 @@ class CreateVenta extends CreateRecord
         $note = Note::with('customer')->findOrFail($this->noteId);
         $customer = $note->customer;
 
+        $fechaNac = $customer->safeFechaNac();
+
         $payload = array_merge(
             ['note_id' => $note->id],
-            $customer->only($customer->getFillable()),
+            $customer->formFillableAttributes(),
             [
-                // opcional: precargar edad para mostrarla desde el inicio
-                'age' => $customer->fecha_nac?->age,
-            ]
+                'age' => $fechaNac?->age,
+            ],
         );
 
         $this->form->fill($payload);
@@ -125,7 +136,7 @@ class CreateVenta extends CreateRecord
         // Restore session draft (user's edits) AFTER pre-filling with note data
         $key = $this->sessionKey();
         if (session()->has($key)) {
-            $saved = session($key);
+            $saved = $this->sanitizeDraftForSession(session($key));
             foreach ($this->fileFields() as $field) {
                 unset($saved[$field]);
             }
@@ -195,6 +206,10 @@ class CreateVenta extends CreateRecord
             $customer = $note->customer;
 
             /* 2.3 Actualizar datos del cliente */
+            if (array_key_exists('fecha_nac', $data)) {
+                $data['fecha_nac'] = FechaNacimientoField::normalizeForStorage($data['fecha_nac']);
+            }
+
             $customer->update(array_intersect_key(
                 $data,
                 array_flip($customer->getFillable())

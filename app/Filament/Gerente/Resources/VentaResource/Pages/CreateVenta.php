@@ -83,7 +83,7 @@ class CreateVenta extends CreateRecord
 
         $this->form->fill(array_merge(
             ['note_id' => $note->id],
-            $customer->only($customer->getFillable())
+            $customer->formFillableAttributes()
         ));
 
         // Restore session draft AFTER pre-filling with note data
