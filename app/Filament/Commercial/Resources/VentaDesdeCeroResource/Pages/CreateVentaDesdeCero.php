@@ -71,6 +71,15 @@ class CreateVentaDesdeCero extends CreateRecord
         return ContractsCommercialUser::matches();
     }
 
+    public function canShowPuertaFriaLookupContinue(): bool
+    {
+        if (! $this->lookupSearched) {
+            return false;
+        }
+
+        return $this->lookupResults !== [] || $this->lookupMessageStatus === 'not_found';
+    }
+
     private function sessionKey(): string
     {
         return 'pf_draft_commercial_' . auth()->id();
@@ -136,6 +145,15 @@ class CreateVentaDesdeCero extends CreateRecord
     public function openPuertaFriaLookupModal(): void
     {
         $this->dispatch('open-puerta-fria-lookup-modal');
+    }
+
+    public function clearPuertaFriaLookupSearch(): void
+    {
+        $this->lookupSearched = false;
+        $this->lookupMessage = null;
+        $this->lookupMessageStatus = null;
+        $this->lookupResults = [];
+        $this->lookupSelectedChoice = null;
     }
 
     public function create(bool $another = false): void
@@ -205,10 +223,6 @@ class CreateVentaDesdeCero extends CreateRecord
             })
             ->values()
             ->all();
-
-        if ($this->lookupResults === [] && $search['status'] === 'not_found') {
-            $this->lookupSelectedChoice = '__new__';
-        }
     }
 
     public function continuePuertaFriaLookup(): void

@@ -42,10 +42,16 @@
                     </div>
                 </div>
 
-                <div class="flex justify-start">
+                <div class="flex flex-wrap justify-start gap-3">
                     <x-filament::button color="warning" wire:click="searchPuertaFriaCustomers" wire:loading.attr="disabled">
                         Buscar
                     </x-filament::button>
+
+                    @if ($lookupSearched)
+                        <x-filament::button color="info" wire:click="clearPuertaFriaLookupSearch">
+                            LIMPIAR BÚSQUEDA
+                        </x-filament::button>
+                    @endif
                 </div>
 
                 @if ($lookupMessage)
@@ -113,7 +119,11 @@
             </div>
 
             <x-slot name="footer">
-                <div class="flex w-full items-center justify-between gap-3">
+                <div @class([
+                    'flex w-full items-center gap-3',
+                    'justify-between' => $this->canShowPuertaFriaLookupContinue(),
+                    'justify-start' => ! $this->canShowPuertaFriaLookupContinue(),
+                ])>
                     <x-filament::button
                         color="gray"
                         wire:click="cancelPuertaFriaLookup"
@@ -121,13 +131,16 @@
                         Cancelar
                     </x-filament::button>
 
-                    <x-filament::button
-                        color="success"
-                        wire:click="continuePuertaFriaLookup"
-                        wire:loading.attr="disabled"
-                    >
-                        Continuar
-                    </x-filament::button>
+                    @if ($this->canShowPuertaFriaLookupContinue())
+                        <x-filament::button
+                            color="success"
+                            wire:click="continuePuertaFriaLookup"
+                            wire:loading.attr="disabled"
+                            :disabled="blank($lookupSelectedChoice)"
+                        >
+                            Continuar
+                        </x-filament::button>
+                    @endif
                 </div>
             </x-slot>
         </x-filament::modal>
