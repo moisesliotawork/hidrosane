@@ -39,5 +39,6 @@ class PuertaFriaCustomerSearchTest extends TestCase
 
         $this->assertTrue($result['customers']->isEmpty());
         $this->assertSame('Introduce un teléfono válido de 9 dígitos.', $result['message']);
+        $this->assertSame('invalid_phone', $result['status']);
     }
 }

@@ -49,14 +49,21 @@
                 </div>
 
                 @if ($lookupMessage)
-                    <div class="rounded-lg border border-warning-300 bg-warning-50 px-4 py-3 text-sm text-warning-900 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-100">
+                    <div @class([
+                        'rounded-lg border px-4 py-3 text-sm',
+                        'border-danger-300 bg-danger-50 text-danger-900 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-100' => $lookupMessageStatus === 'not_found',
+                        'border-warning-300 bg-warning-50 text-warning-900 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-100' => $lookupMessageStatus === 'invalid_phone',
+                        'border-primary-300 bg-primary-50 text-primary-900 dark:border-primary-700 dark:bg-primary-950 dark:text-primary-100' => in_array($lookupMessageStatus, ['found_by_phone', 'found_by_name'], true),
+                    ])>
                         {{ $lookupMessage }}
                     </div>
                 @endif
 
                 @if (! empty($lookupResults))
                     <div class="space-y-2">
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Clientes encontrados</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                            Selecciona el cliente para crear el contrato
+                        </p>
 
                         @foreach ($lookupResults as $result)
                             <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
@@ -90,7 +97,7 @@
                             </span>
                         </label>
                     </div>
-                @elseif ($lookupSearched)
+                @elseif ($lookupSearched && $lookupMessageStatus === 'not_found')
                     <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-300 bg-primary-50 p-3 dark:border-primary-700 dark:bg-primary-950">
                         <input
                             type="radio"
@@ -99,7 +106,7 @@
                             class="mt-1"
                         />
                         <span class="text-sm font-semibold text-primary-800 dark:text-primary-100">
-                            Crear cliente nuevo
+                            Crear contrato con un NUEVO CLIENTE
                         </span>
                     </label>
                 @endif

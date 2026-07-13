@@ -38,6 +38,8 @@ class CreateVentaDesdeCero extends CreateRecord
 
     public ?string $lookupMessage = null;
 
+    public ?string $lookupMessageStatus = null;
+
     public bool $lookupSearched = false;
 
     /** @var list<array{id: int, name: string, dni: ?string, phone: ?string}> */
@@ -103,6 +105,7 @@ class CreateVentaDesdeCero extends CreateRecord
             $this->lookupResults = [];
             $this->lookupSelectedChoice = null;
             $this->lookupMessage = null;
+            $this->lookupMessageStatus = null;
 
             session()->put($this->puertaFriaLookupTokenKey(), $this->puertaFriaLookupToken);
             session()->forget($this->puertaFriaLookupVerifiedKey());
@@ -186,19 +189,24 @@ class CreateVentaDesdeCero extends CreateRecord
         $search = PuertaFriaCustomerSearch::search($this->lookupPhone, $this->lookupName);
         $this->lookupSearched = true;
         $this->lookupMessage = $search['message'];
+        $this->lookupMessageStatus = $search['status'];
         $this->lookupSelectedChoice = null;
 
         $this->lookupResults = $search['customers']
-            ->map(fn (Customer $customer): array => [
-                'id' => $customer->id,
-                'name' => PuertaFriaCustomerSearch::displayName($customer),
-                'dni' => $customer->dni,
-                'phone' => $search['phone_digits'],
-            ])
+            ->map(function (Customer $customer) use ($search): array {
+                $phoneDigits = PuertaFriaCustomerSearch::primaryPhoneDigits($customer) ?? $search['phone_digits'];
+
+                return [
+                    'id' => $customer->id,
+                    'name' => PuertaFriaCustomerSearch::displayName($customer),
+                    'dni' => $customer->dni,
+                    'phone' => $phoneDigits,
+                ];
+            })
             ->values()
             ->all();
 
-        if ($this->lookupResults === []) {
+        if ($this->lookupResults === [] && $search['status'] === 'not_found') {
             $this->lookupSelectedChoice = '__new__';
         }
     }

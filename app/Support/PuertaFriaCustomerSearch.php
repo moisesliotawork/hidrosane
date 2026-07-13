@@ -12,7 +12,8 @@ class PuertaFriaCustomerSearch
      * @return array{
      *     customers: Collection<int, Customer>,
      *     message: string,
-     *     phone_digits: ?string
+     *     phone_digits: ?string,
+     *     status: 'invalid_phone'|'found_by_phone'|'found_by_name'|'not_found'
      * }
      */
     public static function search(?string $phone, ?string $name = null): array
@@ -24,62 +25,118 @@ class PuertaFriaCustomerSearch
                 'customers' => collect(),
                 'message' => 'Introduce un teléfono válido de 9 dígitos.',
                 'phone_digits' => null,
-            ];
-        }
-
-        $customers = app(TeleoperatorCustomerNoteGuard::class)
-            ->resolveCustomersForPhone($digits)
-            ->unique('id')
-            ->values();
-
-        if ($customers->isEmpty()) {
-            return [
-                'customers' => collect(),
-                'message' => 'No se encontró ningún cliente con ese teléfono. Puedes crear uno nuevo.',
-                'phone_digits' => $digits,
+                'status' => 'invalid_phone',
             ];
         }
 
         $nameTerm = trim((string) $name);
 
-        if ($nameTerm !== '') {
-            $ranked = $customers
-                ->map(fn (Customer $customer): array => [
-                    'customer' => $customer,
-                    'score' => self::nameSimilarityScore($customer, $nameTerm),
-                ])
-                ->sortByDesc('score')
-                ->values();
+        $customersByPhone = app(TeleoperatorCustomerNoteGuard::class)
+            ->resolveCustomersForPhone($digits)
+            ->unique('id')
+            ->values();
 
-            $withSimilarName = $ranked
-                ->filter(fn (array $row): bool => $row['score'] >= 45)
-                ->pluck('customer');
+        if ($customersByPhone->isNotEmpty()) {
+            $hasSimilarName = $nameTerm !== '' && $customersByPhone->contains(
+                fn (Customer $customer): bool => self::nameSimilarityScore($customer, $nameTerm) >= 45,
+            );
 
-            if ($withSimilarName->isNotEmpty()) {
-                return [
-                    'customers' => $withSimilarName->values(),
-                    'message' => 'Existe un cliente con ese teléfono y un nombre parecido. Selecciónalo o crea uno nuevo.',
-                    'phone_digits' => $digits,
-                ];
+            if ($hasSimilarName) {
+                $message = 'Se encontró un cliente con ese teléfono y nombre coincidente. Selecciónalo para crear el contrato con ese cliente o crea uno nuevo.';
+            } elseif ($nameTerm !== '') {
+                $message = 'Se encontró un cliente con ese teléfono, aunque el nombre no coincide. Selecciónalo para crear el contrato con ese cliente o crea uno nuevo.';
+            } else {
+                $message = 'Se encontró un cliente con ese teléfono. Selecciónalo para crear el contrato con ese cliente o crea uno nuevo.';
             }
 
             return [
-                'customers' => $customers,
-                'message' => 'Existe al menos un cliente con ese teléfono, pero el nombre no coincide del todo. Revisa la lista o crea uno nuevo.',
+                'customers' => $customersByPhone,
+                'message' => $message,
                 'phone_digits' => $digits,
+                'status' => 'found_by_phone',
             ];
         }
 
+        if ($nameTerm !== '') {
+            $customersByName = self::resolveCustomersForName($nameTerm);
+
+            if ($customersByName->isNotEmpty()) {
+                return [
+                    'customers' => $customersByName,
+                    'message' => 'Se encontró un cliente con un nombre parecido. Selecciónalo para crear el contrato con ese cliente o crea uno nuevo.',
+                    'phone_digits' => $digits,
+                    'status' => 'found_by_name',
+                ];
+            }
+        }
+
         return [
-            'customers' => $customers,
-            'message' => 'Existe al menos un cliente con ese teléfono. Selecciónalo o crea uno nuevo.',
+            'customers' => collect(),
+            'message' => 'Cliente no encontrado con esos datos, puedes crear un nuevo contrato asociado a un NUEVO CLIENTE',
             'phone_digits' => $digits,
+            'status' => 'not_found',
         ];
+    }
+
+    /**
+     * @return Collection<int, Customer>
+     */
+    public static function resolveCustomersForName(string $nameTerm): Collection
+    {
+        $nameTerm = trim(preg_replace('/\s+/u', ' ', $nameTerm));
+
+        if ($nameTerm === '') {
+            return collect();
+        }
+
+        ['first_names' => $firstName, 'last_names' => $lastName] = self::splitLookupName($nameTerm);
+
+        $candidates = Customer::query()
+            ->where(function ($query) use ($firstName, $lastName, $nameTerm): void {
+                if ($firstName !== '') {
+                    $query->where('first_names', 'like', "%{$firstName}%");
+                }
+
+                if ($lastName !== '') {
+                    $query->orWhere('last_names', 'like', "%{$lastName}%");
+                }
+
+                $query->orWhereRaw(
+                    "CONCAT(COALESCE(first_names, ''), ' ', COALESCE(last_names, '')) LIKE ?",
+                    ["%{$nameTerm}%"],
+                );
+            })
+            ->limit(50)
+            ->get();
+
+        return $candidates
+            ->map(fn (Customer $customer): array => [
+                'customer' => $customer,
+                'score' => self::nameSimilarityScore($customer, $nameTerm),
+            ])
+            ->filter(fn (array $row): bool => $row['score'] >= 45)
+            ->sortByDesc('score')
+            ->pluck('customer')
+            ->unique('id')
+            ->values();
     }
 
     public static function displayName(Customer $customer): string
     {
         return mb_strtoupper(trim("{$customer->first_names} {$customer->last_names}"), 'UTF-8');
+    }
+
+    public static function primaryPhoneDigits(Customer $customer): ?string
+    {
+        foreach (TeleoperatorCustomerNoteGuard::PHONE_COLUMNS as $column) {
+            $digits = TeleoperatorCustomerNoteGuard::normalizePhoneDigits($customer->{$column});
+
+            if ($digits !== null) {
+                return $digits;
+            }
+        }
+
+        return null;
     }
 
     /**
