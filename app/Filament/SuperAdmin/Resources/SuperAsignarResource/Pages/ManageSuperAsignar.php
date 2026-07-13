@@ -28,9 +28,9 @@ class ManageSuperAsignar extends Page
 
     public bool $searchedByCustomerName = false;
 
-    public ?int $foundNoteId = null;
-
     public ?string $notFoundMessage = null;
+
+    public ?string $noteSearchFeedback = null;
 
     public ?string $listSearchMessage = null;
 
@@ -43,8 +43,17 @@ class ManageSuperAsignar extends Page
     /** @var list<int> */
     public array $resultNoteIds = [];
 
+    /** @var list<int> */
+    public array $selectedNoteIds = [];
+
     /** @var array<string, mixed> */
     public array $assignmentData = [
+        'comercial_id' => '',
+        'assignment_date' => null,
+    ];
+
+    /** @var array<string, mixed> */
+    public array $bulkAssignmentData = [
         'comercial_id' => '',
         'assignment_date' => null,
     ];
@@ -55,17 +64,6 @@ class ManageSuperAsignar extends Page
             '__RETEN__' => 'COMERCIAL RETÉN',
             '' => 'Sin asignar',
         ] + SuperAsignarResource::assignableUserOptions(labeled: true);
-    }
-
-    public function getFoundNoteProperty(): ?Note
-    {
-        if ($this->foundNoteId === null) {
-            return null;
-        }
-
-        return Note::query()
-            ->with(SuperAsignarResource::noteEagerLoads())
-            ->find($this->foundNoteId);
     }
 
     public function getResultNotesProperty(): Collection
@@ -81,6 +79,20 @@ class ManageSuperAsignar extends Page
             ->get();
     }
 
+    public function getSelectedNotesProperty(): Collection
+    {
+        if ($this->selectedNoteIds === []) {
+            return collect();
+        }
+
+        return Note::query()
+            ->with(SuperAsignarResource::noteEagerLoads())
+            ->whereIn('id', $this->selectedNoteIds)
+            ->get()
+            ->sortBy(fn (Note $note): int => array_search($note->id, $this->selectedNoteIds, true) ?: 0)
+            ->values();
+    }
+
     public function searchNote(): void
     {
         $value = trim($this->searchNroNota);
@@ -94,33 +106,61 @@ class ManageSuperAsignar extends Page
             return;
         }
 
-        $this->resetListSearch();
+        $numbers = SuperAsignarResource::parseNroNotaInputs($value);
 
-        $normalized = SuperAsignarResource::normalizeNroNota($value);
-
-        /** @var Note|null $note */
-        $note = Note::query()
-            ->with(SuperAsignarResource::noteEagerLoads())
-            ->where('nro_nota', $normalized)
-            ->first();
-
-        $this->searchedByNote = true;
-        $this->searchNroNota = $normalized;
-        $this->expandedNoteId = null;
-        $this->assignmentData = [
-            'comercial_id' => '',
-            'assignment_date' => null,
-        ];
-
-        if (! $note) {
-            $this->foundNoteId = null;
-            $this->notFoundMessage = "No se encontró ninguna nota con el número {$normalized}.";
+        if ($numbers === []) {
+            Notification::make()
+                ->title('Número de nota no válido')
+                ->warning()
+                ->send();
 
             return;
         }
 
-        $this->foundNoteId = $note->id;
+        if (count($numbers) > SuperAsignarResource::MAX_SELECTED_NOTES) {
+            Notification::make()
+                ->title('Máximo ' . SuperAsignarResource::MAX_SELECTED_NOTES . ' notas por búsqueda')
+                ->warning()
+                ->send();
+
+            $numbers = array_slice($numbers, 0, SuperAsignarResource::MAX_SELECTED_NOTES);
+        }
+
+        $this->resetListSearch();
+
+        $added = 0;
+        $duplicates = 0;
+        $notFound = [];
+        $limitReached = false;
+
+        foreach ($numbers as $normalized) {
+            if (count($this->selectedNoteIds) >= SuperAsignarResource::MAX_SELECTED_NOTES) {
+                $limitReached = true;
+                break;
+            }
+
+            $note = Note::query()
+                ->where('nro_nota', $normalized)
+                ->first();
+
+            if (! $note) {
+                $notFound[] = SuperAsignarResource::formatNroNota($normalized);
+                continue;
+            }
+
+            if (in_array($note->id, $this->selectedNoteIds, true)) {
+                $duplicates++;
+                continue;
+            }
+
+            $this->selectedNoteIds[] = $note->id;
+            $added++;
+        }
+
+        $this->searchedByNote = true;
+        $this->searchNroNota = '';
         $this->notFoundMessage = null;
+        $this->noteSearchFeedback = $this->buildSelectionFeedback($added, $duplicates, $notFound, $limitReached);
     }
 
     public function searchNotesByPhone(): void
@@ -188,14 +228,71 @@ class ManageSuperAsignar extends Page
         $this->matchedCustomersLabel = SuperAsignarResource::customersLabel($result['customers']);
         $this->matchedCustomersPhones = SuperAsignarResource::customersPhonesLabel($result['customers']);
         $this->expandedNoteId = null;
+    }
 
-        if ($result['notes']->isEmpty()) {
-            $this->foundNoteId = null;
-            $this->assignmentData = [
-                'comercial_id' => '',
-                'assignment_date' => null,
-            ];
+    public function toggleSelection(int $noteId): void
+    {
+        if (in_array($noteId, $this->selectedNoteIds, true)) {
+            $this->selectedNoteIds = array_values(array_filter(
+                $this->selectedNoteIds,
+                fn (int $id): bool => $id !== $noteId,
+            ));
+
+            return;
         }
+
+        if (count($this->selectedNoteIds) >= SuperAsignarResource::MAX_SELECTED_NOTES) {
+            Notification::make()
+                ->title('Máximo ' . SuperAsignarResource::MAX_SELECTED_NOTES . ' notas seleccionadas')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->selectedNoteIds[] = $noteId;
+    }
+
+    public function selectAllResultNotes(): void
+    {
+        $added = 0;
+
+        foreach ($this->resultNoteIds as $noteId) {
+            if (count($this->selectedNoteIds) >= SuperAsignarResource::MAX_SELECTED_NOTES) {
+                break;
+            }
+
+            if (in_array($noteId, $this->selectedNoteIds, true)) {
+                continue;
+            }
+
+            $this->selectedNoteIds[] = $noteId;
+            $added++;
+        }
+
+        if ($added === 0 && count($this->selectedNoteIds) >= SuperAsignarResource::MAX_SELECTED_NOTES) {
+            Notification::make()
+                ->title('Ya tienes el máximo de ' . SuperAsignarResource::MAX_SELECTED_NOTES . ' notas seleccionadas')
+                ->warning()
+                ->send();
+        }
+    }
+
+    public function removeFromSelection(int $noteId): void
+    {
+        $this->selectedNoteIds = array_values(array_filter(
+            $this->selectedNoteIds,
+            fn (int $id): bool => $id !== $noteId,
+        ));
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedNoteIds = [];
+        $this->bulkAssignmentData = [
+            'comercial_id' => '',
+            'assignment_date' => null,
+        ];
     }
 
     public function openReassignForm(int $noteId): void
@@ -218,7 +315,6 @@ class ManageSuperAsignar extends Page
                 ->findOrFail($note);
         }
 
-        $this->foundNoteId = $note->id;
         $this->assignmentData = [
             'comercial_id' => $note->reten
                 ? '__RETEN__'
@@ -229,7 +325,7 @@ class ManageSuperAsignar extends Page
 
     public function assignNote(): void
     {
-        $noteId = $this->expandedNoteId ?? $this->foundNoteId;
+        $noteId = $this->expandedNoteId;
 
         if ($noteId === null) {
             Notification::make()
@@ -262,8 +358,50 @@ class ManageSuperAsignar extends Page
         SuperAsignarResource::applyAssignment($note, $data);
 
         $note->refresh();
-        $this->foundNoteId = $note->id;
         $this->loadAssignmentDataForNote($note);
+    }
+
+    public function assignSelectedNotes(): void
+    {
+        if ($this->selectedNoteIds === []) {
+            Notification::make()
+                ->title('Selecciona al menos una nota')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $data = $this->bulkAssignmentData;
+
+        if (($data['comercial_id'] ?? '') === '') {
+            $data['comercial_id'] = null;
+        }
+
+        $notes = Note::query()
+            ->with(SuperAsignarResource::noteEagerLoads())
+            ->whereIn('id', $this->selectedNoteIds)
+            ->get();
+
+        if ($notes->isEmpty()) {
+            Notification::make()
+                ->title('No se encontraron las notas seleccionadas')
+                ->danger()
+                ->send();
+
+            $this->selectedNoteIds = [];
+
+            return;
+        }
+
+        SuperAsignarResource::applyBulkAssignment($notes, $data);
+
+        $this->selectedNoteIds = [];
+        $this->bulkAssignmentData = [
+            'comercial_id' => '',
+            'assignment_date' => null,
+        ];
+        $this->expandedNoteId = null;
     }
 
     public function clearSearch(): void
@@ -274,14 +412,19 @@ class ManageSuperAsignar extends Page
         $this->searchedByNote = false;
         $this->searchedByPhone = false;
         $this->searchedByCustomerName = false;
-        $this->foundNoteId = null;
         $this->notFoundMessage = null;
+        $this->noteSearchFeedback = null;
         $this->listSearchMessage = null;
         $this->matchedCustomersLabel = null;
         $this->matchedCustomersPhones = null;
         $this->resultNoteIds = [];
+        $this->selectedNoteIds = [];
         $this->expandedNoteId = null;
         $this->assignmentData = [
+            'comercial_id' => '',
+            'assignment_date' => null,
+        ];
+        $this->bulkAssignmentData = [
             'comercial_id' => '',
             'assignment_date' => null,
         ];
@@ -305,11 +448,45 @@ class ManageSuperAsignar extends Page
         $this->searchNroNota = '';
         $this->searchedByNote = false;
         $this->notFoundMessage = null;
-        $this->foundNoteId = null;
+        $this->noteSearchFeedback = null;
         $this->expandedNoteId = null;
         $this->assignmentData = [
             'comercial_id' => '',
             'assignment_date' => null,
         ];
+    }
+
+    /**
+     * @param  list<string>  $notFound
+     */
+    protected function buildSelectionFeedback(int $added, int $duplicates, array $notFound, bool $limitReached): ?string
+    {
+        $parts = [];
+
+        if ($added > 0) {
+            $parts[] = $added === 1
+                ? '1 nota agregada a la selección.'
+                : "{$added} notas agregadas a la selección.";
+        }
+
+        if ($duplicates > 0) {
+            $parts[] = $duplicates === 1
+                ? '1 nota ya estaba seleccionada.'
+                : "{$duplicates} notas ya estaban seleccionadas.";
+        }
+
+        if ($notFound !== []) {
+            $parts[] = 'No encontradas: ' . implode(', ', $notFound) . '.';
+        }
+
+        if ($limitReached) {
+            $parts[] = 'Se alcanzó el máximo de ' . SuperAsignarResource::MAX_SELECTED_NOTES . ' notas.';
+        }
+
+        if ($parts === []) {
+            return 'No se agregó ninguna nota a la selección.';
+        }
+
+        return implode(' ', $parts);
     }
 }

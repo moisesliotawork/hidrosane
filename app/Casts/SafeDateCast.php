@@ -20,10 +20,10 @@ class SafeDateCast implements CastsAttributes
             return [$key => null];
         }
 
-        $date = $value instanceof Carbon
-            ? $value
-            : FechaNacimientoField::parse(is_string($value) ? $value : (string) $value);
+        if ($value instanceof Carbon) {
+            $value = $value->format('Y-m-d');
+        }
 
-        return [$key => $date?->format('Y-m-d')];
+        return [$key => FechaNacimientoField::normalizeForStorage($value)];
     }
 }

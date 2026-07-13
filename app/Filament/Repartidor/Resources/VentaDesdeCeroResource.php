@@ -27,6 +27,7 @@ use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use App\Support\Filament\FechaNacimientoField;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 
@@ -57,7 +58,12 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
                     TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
-                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false)->required(),
+                    FechaNacimientoField::configureDatePicker(
+                        DatePicker::make('fecha_nac')
+                            ->label('Fec. nac.')
+                            ->timezone('Europe/Madrid')
+                            ->native(false),
+                    ),
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')

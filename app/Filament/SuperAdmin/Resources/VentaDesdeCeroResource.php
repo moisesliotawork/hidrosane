@@ -28,6 +28,7 @@ use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use App\Support\Filament\FechaNacimientoField;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class VentaDesdeCeroResource extends Resource
@@ -57,19 +58,13 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
                     TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
-                    DatePicker::make('fecha_nac')
-                        ->label('Fec. nac.')
-                        ->timezone('Europe/Madrid')
-                        ->native(false)
-                        ->maxDate(now())            // evita fechas futuras
-                        ->required()
-                        ->reactive()
-                        ->afterStateHydrated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        })
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        }),
+                    FechaNacimientoField::configureDatePicker(
+                        DatePicker::make('fecha_nac')
+                            ->label('Fec. nac.')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->reactive(),
+                    ),
 
                     TextInput::make('age')
                         ->numeric()

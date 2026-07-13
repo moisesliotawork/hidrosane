@@ -3,8 +3,8 @@
 namespace App\Filament\HeadOfRoom\Resources\RetenResource\Pages;
 
 use App\Filament\HeadOfRoom\Resources\RetenResource;
+use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Resources\Pages\ListRecords\Tab;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListRetens extends ListRecords
@@ -16,19 +16,41 @@ class ListRetens extends ListRecords
         return [];
     }
 
+    public function getDefaultActiveTab(): string|int|null
+    {
+        return 'todas';
+    }
+
     public function getTabs(): array
     {
+        $baseQuery = fn (): Builder => RetenResource::getEloquentQuery();
+
+        $today = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
+
         return [
-            'todas' => Tab::make('TODAS'),
+            'todas' => Tab::make('TODAS')
+                ->icon('heroicon-o-queue-list')
+                ->badge($baseQuery()->count())
+                ->badgeColor('gray'),
 
             'hoy' => Tab::make('HOY')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', today())),
+                ->icon('heroicon-o-calendar-days')
+                ->badge($baseQuery()->whereDate('created_at', $today)->count())
+                ->badgeColor('success')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', $today)),
 
             'ayer' => Tab::make('AYER')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', today()->subDay())),
+                ->icon('heroicon-o-calendar')
+                ->badge($baseQuery()->whereDate('created_at', $yesterday)->count())
+                ->badgeColor('info')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', $yesterday)),
 
             'anteriores' => Tab::make('ANTERIORES')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', '<', today()->subDay())),
+                ->icon('heroicon-o-archive-box')
+                ->badge($baseQuery()->whereDate('created_at', '<', $yesterday)->count())
+                ->badgeColor('warning')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', '<', $yesterday)),
         ];
     }
 }

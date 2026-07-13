@@ -3,12 +3,21 @@
         $phoneNote->customer?->phone1_commercial ?: $phoneNote->customer?->phone
     );
     $isExpanded = $expandedNoteId === $phoneNote->id;
+    $isSelected = in_array($phoneNote->id, $selectedNoteIds, true);
 @endphp
 
 <tr
     wire:key="phone-note-row-{{ $phoneNote->id }}"
-    class="{{ $isExpanded ? 'bg-primary-50 dark:bg-primary-950' : '' }}"
+    class="{{ $isSelected ? 'bg-success-50 dark:bg-success-950' : ($isExpanded ? 'bg-primary-50 dark:bg-primary-950' : '') }}"
 >
+    <td class="px-4 py-3">
+        <input
+            type="checkbox"
+            wire:click="toggleSelection({{ $phoneNote->id }})"
+            @checked($isSelected)
+            class="rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900"
+        />
+    </td>
     <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">
         {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($phoneNote->nro_nota) }}
     </td>
@@ -55,7 +64,7 @@
 
 @if ($isExpanded)
     <tr wire:key="phone-note-form-{{ $phoneNote->id }}">
-        <td colspan="9" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
+        <td colspan="10" class="bg-primary-50 px-4 py-4 dark:bg-primary-950">
             @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', [
                 'note' => $phoneNote,
                 'assignableOptions' => $assignableOptions,

@@ -29,6 +29,7 @@ use Filament\Forms\Components\{
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use Illuminate\Validation\Rule;
 use Filament\Forms\Components\{
     Group,
@@ -70,7 +71,13 @@ class HistoricoContratosResource extends Resource
                                     TextInput::make('first_names')->label('Nombres')->required(),
                                     TextInput::make('last_names')->label('Apellidos')->required(),
                                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
-                                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
+                                    FechaNacimientoField::configureDatePicker(
+                                        DatePicker::make('fecha_nac')
+                                            ->label('Fec. nac.')
+                                            ->timezone('Europe/Madrid')
+                                            ->native(false),
+                                        required: false,
+                                    ),
                                     TextInput::make('age')->numeric()->label('Edad'),
 
                                     CustomerPhoneForm::make('phone', 'Teléfono', required: true),

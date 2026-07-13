@@ -42,6 +42,7 @@ use App\Enums\FuenteNotas;
 use App\Services\VentaCustomerIdentityService;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -306,19 +307,13 @@ class VentaResource extends Resource
                             ->readOnly()
                             ->dehydrated(false),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())          // no permitir fechas futuras
-                            ->required()
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::configureDatePicker(
+                            DatePicker::make('fecha_nac')
+                                ->label('Fec. nac.')
+                                ->timezone('Europe/Madrid')
+                                ->native(false)
+                                ->reactive(),
+                        ),
 
                         TextInput::make('age')
                             ->numeric()

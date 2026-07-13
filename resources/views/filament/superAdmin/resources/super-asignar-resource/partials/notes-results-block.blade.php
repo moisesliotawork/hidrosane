@@ -21,10 +21,17 @@
             </p>
         @endif
 
+        <div class="flex flex-wrap gap-3">
+            <x-filament::button size="sm" color="primary" wire:click="selectAllResultNotes">
+                Seleccionar todas (hasta {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::MAX_SELECTED_NOTES }})
+            </x-filament::button>
+        </div>
+
         <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
             <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Sel.</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">No. Nota</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Cliente</th>
                         <th class="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Teléfono</th>

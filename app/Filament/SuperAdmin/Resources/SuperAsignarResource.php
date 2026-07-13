@@ -14,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SuperAsignarResource extends Resource
 {
@@ -31,6 +32,8 @@ class SuperAsignarResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
+    public const MAX_SELECTED_NOTES = 10;
+
     public static function form(Form $form): Form
     {
         return $form->schema([]);
@@ -46,6 +49,26 @@ class SuperAsignarResource extends Resource
         }
 
         return $value;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function parseNroNotaInputs(string $value): array
+    {
+        $parts = preg_split('/[\s,;]+/u', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $normalized = [];
+
+        foreach ($parts as $part) {
+            $nro = self::normalizeNroNota($part);
+
+            if ($nro !== '') {
+                $normalized[] = $nro;
+            }
+        }
+
+        return array_values(array_unique($normalized));
     }
 
     public static function formatNroNota(?string $value): string
@@ -427,6 +450,39 @@ class SuperAsignarResource extends Resource
 
             throw $e;
         }
+    }
+
+    /**
+     * @param  Collection<int, Note>  $notes
+     */
+    public static function applyBulkAssignment(Collection $notes, array $data): int
+    {
+        if ($notes->isEmpty()) {
+            return 0;
+        }
+
+        $count = 0;
+
+        DB::transaction(function () use ($notes, $data, &$count): void {
+            foreach ($notes as $note) {
+                self::applyAssignment($note, $data, notify: false);
+                $count++;
+            }
+        });
+
+        $destination = match ($data['comercial_id'] ?? null) {
+            '__RETEN__' => 'COMERCIAL RETÉN',
+            null, '' => 'sin asignar',
+            default => 'comercial seleccionado',
+        };
+
+        Notification::make()
+            ->title("{$count} nota(s) reasignada(s) correctamente")
+            ->body("Destino: {$destination}")
+            ->success()
+            ->send();
+
+        return $count;
     }
 
     public static function getPages(): array

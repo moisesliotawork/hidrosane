@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        @if ($searchedByNote || $searchedByPhone || $searchedByCustomerName)
+        @if ($searchedByNote || $searchedByPhone || $searchedByCustomerName || count($selectedNoteIds) > 0)
             <div class="flex justify-start">
                 <x-filament::button color="info" wire:click="clearSearch">
                     Limpiar búsqueda
@@ -8,13 +8,19 @@
             </div>
         @endif
 
+        @include('filament.superAdmin.resources.super-asignar-resource.partials.selected-notes-basket', [
+            'selectedNoteIds' => $selectedNoteIds,
+        ])
+
         <x-filament::section>
             <x-slot name="heading">
                 Paso 1 · Buscar por número de nota
             </x-slot>
 
             <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                Introduce el número de nota para localizarla y reasignarla sin restricciones.
+                Busca hasta {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::MAX_SELECTED_NOTES }} notas.
+                Puedes introducir una o varias separadas por espacio, coma o punto y coma.
+                Cada búsqueda las agrega a la selección para reasignarlas juntas.
             </p>
 
             <div class="flex flex-col gap-4 md:flex-row md:items-end">
@@ -23,83 +29,21 @@
                     <input
                         type="text"
                         wire:model.defer="searchNroNota"
-                        placeholder="Ej. 04204"
+                        placeholder="Ej. 04204 o 04204 04205 04206"
                         class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                     />
                 </div>
 
                 <div class="flex flex-wrap gap-3">
                     <x-filament::button color="warning" wire:click="searchNote" wire:loading.attr="disabled">
-                        Buscar nota
+                        Buscar y agregar
                     </x-filament::button>
                 </div>
             </div>
 
-            @if ($searchedByNote && $notFoundMessage)
-                <div class="mt-4 rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-900 dark:border-danger-700 dark:bg-danger-950 dark:text-danger-100">
-                    {{ $notFoundMessage }}
-                </div>
-            @endif
-
-            @if ($searchedByNote && $this->foundNote)
-                @php($note = $this->foundNote)
-
-                <div class="mt-4 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">No. Nota</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-                                {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatNroNota($note->nro_nota) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cliente</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-                                {{ strtoupper(trim(($note->customer?->first_names ?? '') . ' ' . ($note->customer?->last_names ?? ''))) }}
-                            </p>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                                <span class="text-base font-bold tracking-wide text-gray-950 dark:text-white">
-                                    {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::formatPhoneDisplay($note->customer?->phone1_commercial ?: $note->customer?->phone) ?: '—' }}
-                                </span>
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fechas</p>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Nota: {{ $note->created_at?->format('d/m/Y H:i') ?: '—' }}</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">Asignación: {{ $note->assignment_date?->format('d/m/Y') ?: '—' }}</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">Visita: {{ $note->visit_date?->format('d/m/Y H:i') ?: '—' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Asignación actual</p>
-                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-                                @if ($note->reten)
-                                    COMERCIAL RETÉN
-                                @elseif ($note->comercial)
-                                    {{ $note->comercial->empleado_id }}
-                                    {{ trim($note->comercial->name . ' ' . $note->comercial->last_name) }}
-                                @else
-                                    Sin asignar
-                                @endif
-                            </p>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">TN: {{ $note->estado_terminal?->label() ?: 'S/E' }}</p>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-3">
-                        <x-filament::button
-                            color="{{ $expandedNoteId === $note->id ? 'gray' : 'primary' }}"
-                            wire:click="openReassignForm({{ $note->id }})"
-                        >
-                            {{ $expandedNoteId === $note->id ? 'Cerrar' : 'Reasignar' }}
-                        </x-filament::button>
-                    </div>
-
-                    @if ($expandedNoteId === $note->id)
-                        @include('filament.superAdmin.resources.super-asignar-resource.partials.reassign-panel', [
-                            'note' => $note,
-                            'assignableOptions' => $this->assignableOptions,
-                        ])
-                    @endif
+            @if ($noteSearchFeedback)
+                <div class="mt-4 rounded-lg border border-primary-300 bg-primary-50 px-4 py-3 text-sm text-primary-900 dark:border-primary-700 dark:bg-primary-950 dark:text-primary-100">
+                    {{ $noteSearchFeedback }}
                 </div>
             @endif
         </x-filament::section>
@@ -110,7 +54,7 @@
             </x-slot>
 
             <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                Introduce el teléfono del cliente para ver todas sus notas y reasignar cualquiera de ellas.
+                Introduce el teléfono del cliente para ver sus notas y marcarlas en la selección (máximo {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::MAX_SELECTED_NOTES }}).
             </p>
 
             <div class="flex flex-col gap-4 md:flex-row md:items-end">
@@ -142,7 +86,7 @@
             </x-slot>
 
             <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                Introduce el nombre del cliente para ver todas sus notas y reasignar cualquiera de ellas.
+                Introduce el nombre del cliente para ver sus notas y marcarlas en la selección (máximo {{ \App\Filament\SuperAdmin\Resources\SuperAsignarResource::MAX_SELECTED_NOTES }}).
             </p>
 
             <div class="flex flex-col gap-4 md:flex-row md:items-end">
@@ -168,7 +112,7 @@
             @endif
         </x-filament::section>
 
-        @if ($searchedByNote || $searchedByPhone || $searchedByCustomerName)
+        @if ($searchedByNote || $searchedByPhone || $searchedByCustomerName || count($selectedNoteIds) > 0)
             <div class="flex justify-start">
                 <x-filament::button color="info" wire:click="clearSearch">
                     Limpiar búsqueda

@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Filament\SuperAdmin\Resources\CustomerResource\Pages;
 use App\Filament\SuperAdmin\Resources\CustomerResource\RelationManagers;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
 use Filament\Forms;
@@ -202,12 +203,13 @@ class CustomerResource extends Resource
                                 ->modalHeading('Editar fecha de nacimiento')
                                 ->modalSubmitActionLabel('Guardar')
                                 ->form([
-                                    Forms\Components\DatePicker::make('fecha_nac')
-                                        ->label('Fecha de nacimiento')
-                                        ->timezone('Europe/Madrid')
-                                        ->native(false)
-                                        ->maxDate(now())
-                                        ->nullable(),
+                                    FechaNacimientoField::configureDatePicker(
+                                        Forms\Components\DatePicker::make('fecha_nac')
+                                            ->label('Fecha de nacimiento')
+                                            ->timezone('Europe/Madrid')
+                                            ->native(false),
+                                        required: false,
+                                    )->nullable(),
                                 ])
                                 ->fillForm(fn (Customer $record): array => [
                                     'fecha_nac' => $record->fecha_nac,

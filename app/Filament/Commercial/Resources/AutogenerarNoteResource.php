@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
@@ -94,22 +95,15 @@ class AutogenerarNoteResource extends Resource
 
                         CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->required()
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())
-                            ->validationMessages([
-                                'required' => 'La fecha de nacimiento es obligatoria',
-                            ])
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::configureDatePicker(
+                            DatePicker::make('fecha_nac')
+                                ->label('Fec. nac.')
+                                ->timezone('Europe/Madrid')
+                                ->native(false)
+                                ->reactive(),
+                        )->validationMessages([
+                            'required' => 'La fecha de nacimiento es obligatoria',
+                        ]),
 
                         TextInput::make('age')
                             ->numeric()
