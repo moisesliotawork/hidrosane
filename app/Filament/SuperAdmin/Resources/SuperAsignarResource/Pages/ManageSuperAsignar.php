@@ -9,6 +9,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Collection;
 
 class ManageSuperAsignar extends Page implements HasForms
 {
@@ -22,11 +23,22 @@ class ManageSuperAsignar extends Page implements HasForms
 
     public string $searchNroNota = '';
 
-    public bool $searched = false;
+    public string $searchPhone = '';
+
+    public bool $searchedByNote = false;
+
+    public bool $searchedByPhone = false;
 
     public ?int $foundNoteId = null;
 
     public ?string $notFoundMessage = null;
+
+    public ?string $phoneSearchMessage = null;
+
+    public ?string $matchedCustomersLabel = null;
+
+    /** @var list<int> */
+    public array $phoneNoteIds = [];
 
     /** @var array<string, mixed> */
     public array $assignmentData = [];
@@ -38,12 +50,21 @@ class ManageSuperAsignar extends Page implements HasForms
         }
 
         return Note::query()
-            ->with([
-                'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
-                'comercial:id,name,last_name,empleado_id',
-                'user:id,empleado_id,name,last_name',
-            ])
+            ->with(SuperAsignarResource::noteEagerLoads())
             ->find($this->foundNoteId);
+    }
+
+    public function getPhoneNotesProperty(): Collection
+    {
+        if ($this->phoneNoteIds === []) {
+            return collect();
+        }
+
+        return Note::query()
+            ->with(SuperAsignarResource::noteEagerLoads())
+            ->whereIn('id', $this->phoneNoteIds)
+            ->orderByDesc('created_at')
+            ->get();
     }
 
     public function form(Form $form): Form
@@ -66,19 +87,17 @@ class ManageSuperAsignar extends Page implements HasForms
             return;
         }
 
+        $this->resetPhoneSearch();
+
         $normalized = SuperAsignarResource::normalizeNroNota($value);
 
         /** @var Note|null $note */
         $note = Note::query()
-            ->with([
-                'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
-                'comercial:id,name,last_name,empleado_id',
-                'user:id,empleado_id,name,last_name',
-            ])
+            ->with(SuperAsignarResource::noteEagerLoads())
             ->where('nro_nota', $normalized)
             ->first();
 
-        $this->searched = true;
+        $this->searchedByNote = true;
         $this->searchNroNota = $normalized;
 
         if (! $note) {
@@ -88,6 +107,59 @@ class ManageSuperAsignar extends Page implements HasForms
             $this->form->fill([]);
 
             return;
+        }
+
+        $this->selectNoteForAssignment($note);
+        $this->notFoundMessage = null;
+    }
+
+    public function searchNotesByPhone(): void
+    {
+        $phone = trim($this->searchPhone);
+
+        if ($phone === '') {
+            Notification::make()
+                ->title('Introduce un número de teléfono')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->resetNoteSearch();
+
+        $result = SuperAsignarResource::findNotesByPhone($phone);
+
+        $this->searchedByPhone = true;
+        $this->phoneSearchMessage = $result['message'];
+        $this->phoneNoteIds = $result['notes']->pluck('id')->all();
+        $this->matchedCustomersLabel = $result['customers']
+            ->map(fn ($customer): string => strtoupper(trim("{$customer->first_names} {$customer->last_names}")))
+            ->unique()
+            ->values()
+            ->implode(' · ');
+
+        if ($result['notes']->isEmpty()) {
+            $this->foundNoteId = null;
+            $this->assignmentData = [];
+            $this->form->fill([]);
+
+            return;
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone);
+
+        if (strlen($digits) === 9) {
+            $this->searchPhone = implode(' ', str_split($digits, 3));
+        }
+    }
+
+    public function selectNoteForAssignment(Note|int $note): void
+    {
+        if (! $note instanceof Note) {
+            $note = Note::query()
+                ->with(SuperAsignarResource::noteEagerLoads())
+                ->findOrFail($note);
         }
 
         $this->foundNoteId = $note->id;
@@ -107,7 +179,7 @@ class ManageSuperAsignar extends Page implements HasForms
 
         if (! $note instanceof Note) {
             Notification::make()
-                ->title('Busca una nota antes de asignar')
+                ->title('Selecciona una nota antes de asignar')
                 ->warning()
                 ->send();
 
@@ -119,22 +191,39 @@ class ManageSuperAsignar extends Page implements HasForms
         SuperAsignarResource::applyAssignment($note, $data);
 
         $note->refresh();
-        $this->foundNoteId = $note->id;
-        $this->assignmentData = [
-            'comercial_id' => $note->reten
-                ? '__RETEN__'
-                : ($note->comercial_id ?: null),
-            'assignment_date' => $note->assignment_date?->format('Y-m-d'),
-        ];
-        $this->form->fill($this->assignmentData);
+        $this->selectNoteForAssignment($note);
     }
 
     public function clearSearch(): void
     {
         $this->searchNroNota = '';
-        $this->searched = false;
+        $this->searchPhone = '';
+        $this->searchedByNote = false;
+        $this->searchedByPhone = false;
         $this->foundNoteId = null;
         $this->notFoundMessage = null;
+        $this->phoneSearchMessage = null;
+        $this->matchedCustomersLabel = null;
+        $this->phoneNoteIds = [];
+        $this->assignmentData = [];
+        $this->form->fill([]);
+    }
+
+    protected function resetPhoneSearch(): void
+    {
+        $this->searchPhone = '';
+        $this->searchedByPhone = false;
+        $this->phoneSearchMessage = null;
+        $this->matchedCustomersLabel = null;
+        $this->phoneNoteIds = [];
+    }
+
+    protected function resetNoteSearch(): void
+    {
+        $this->searchNroNota = '';
+        $this->searchedByNote = false;
+        $this->notFoundMessage = null;
+        $this->foundNoteId = null;
         $this->assignmentData = [];
         $this->form->fill([]);
     }

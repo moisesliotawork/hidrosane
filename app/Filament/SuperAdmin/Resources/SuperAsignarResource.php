@@ -4,13 +4,16 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Enums\EstadoTerminal;
 use App\Filament\SuperAdmin\Resources\SuperAsignarResource\Pages;
+use App\Models\Customer;
 use App\Models\Note;
 use App\Models\User;
+use App\Support\TeleoperatorCustomerNoteGuard;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class SuperAsignarResource extends Resource
 {
@@ -43,6 +46,83 @@ class SuperAsignarResource extends Resource
         }
 
         return $value;
+    }
+
+    public static function formatNroNota(?string $value): string
+    {
+        $value = (string) $value;
+
+        if (strlen($value) === 5) {
+            return substr($value, 0, 3) . ' ' . substr($value, 3, 2);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return array{
+     *     notes: Collection<int, Note>,
+     *     customers: Collection<int, Customer>,
+     *     message: ?string
+     * }
+     */
+    public static function findNotesByPhone(string $phone): array
+    {
+        $digits = TeleoperatorCustomerNoteGuard::normalizePhoneDigits($phone);
+
+        if ($digits === null) {
+            return [
+                'notes' => collect(),
+                'customers' => collect(),
+                'message' => 'Introduce un teléfono válido de 9 dígitos.',
+            ];
+        }
+
+        $customers = app(TeleoperatorCustomerNoteGuard::class)
+            ->resolveCustomersForPhone($digits)
+            ->unique('id')
+            ->values();
+
+        if ($customers->isEmpty()) {
+            return [
+                'notes' => collect(),
+                'customers' => collect(),
+                'message' => "No se encontró ningún cliente con el teléfono {$digits}.",
+            ];
+        }
+
+        $notes = Note::query()
+            ->whereIn('customer_id', $customers->pluck('id'))
+            ->with([
+                'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
+                'comercial:id,name,last_name,empleado_id',
+                'user:id,empleado_id,name,last_name',
+            ])
+            ->orderByDesc('created_at')
+            ->get();
+
+        if ($notes->isEmpty()) {
+            return [
+                'notes' => collect(),
+                'customers' => $customers,
+                'message' => 'El cliente existe pero no tiene notas registradas.',
+            ];
+        }
+
+        return [
+            'notes' => $notes,
+            'customers' => $customers,
+            'message' => null,
+        ];
+    }
+
+    public static function noteEagerLoads(): array
+    {
+        return [
+            'customer:id,first_names,last_names,phone,phone1_commercial,postal_code',
+            'comercial:id,name,last_name,empleado_id',
+            'user:id,empleado_id,name,last_name',
+        ];
     }
 
     /**
