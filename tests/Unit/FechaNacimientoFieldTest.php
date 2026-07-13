@@ -27,4 +27,9 @@ class FechaNacimientoFieldTest extends TestCase
     {
         $this->assertNull(FechaNacimientoField::parse('no-es-fecha'));
     }
+
+    public function test_parse_returns_null_for_impossible_spanish_date(): void
+    {
+        $this->assertNull(FechaNacimientoField::parse('19/47/1019'));
+    }
 }

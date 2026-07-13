@@ -18,6 +18,7 @@ use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\ActionGps;
 use App\Support\Filament\GpsActionForm;
+use App\Support\Filament\FechaNacimientoField;
 use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
 use Filament\Actions\Action;
 
@@ -115,7 +116,7 @@ class CreateVenta extends CreateRecord
             $customer->only($customer->getFillable()),
             [
                 // opcional: precargar edad para mostrarla desde el inicio
-                'age' => $customer->fecha_nac ? Carbon::parse($customer->fecha_nac)->age : null,
+                'age' => $customer->fecha_nac?->age,
             ]
         );
 
@@ -129,6 +130,11 @@ class CreateVenta extends CreateRecord
                 unset($saved[$field]);
             }
             $this->data = array_merge($this->data, $saved);
+
+            $sessionAge = FechaNacimientoField::parse($this->data['fecha_nac'] ?? null)?->age;
+            if ($sessionAge !== null) {
+                $this->data['age'] = $sessionAge;
+            }
         }
     }
 

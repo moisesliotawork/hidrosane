@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\SafeDateCast;
 use App\Filament\Support\CustomerPhoneForm;
 use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -58,7 +59,7 @@ class Customer extends Model
     ];
 
     protected $casts = [
-        'fecha_nac' => 'date:Y-m-d',
+        'fecha_nac' => SafeDateCast::class,
         'age' => 'integer',
         'edadTelOp' => 'integer',
         'merged_at' => 'datetime',
@@ -79,12 +80,7 @@ class Customer extends Model
             }
 
             if ($model->fecha_nac) {
-                try {
-                    $age = Carbon::parse($model->fecha_nac)->age;
-                    $model->age = $age >= 0 ? $age : null; // evita negativos por fechas futuras
-                } catch (\Throwable $e) {
-                    $model->age = null;
-                }
+                $model->age = $model->fecha_nac->age >= 0 ? $model->fecha_nac->age : null;
             } else {
                 $model->age = null;
             }

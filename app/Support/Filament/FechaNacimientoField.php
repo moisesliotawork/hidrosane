@@ -19,10 +19,14 @@ class FechaNacimientoField
 
         try {
             if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
-                return Carbon::createFromFormat('d/m/Y', $value);
+                $date = Carbon::createFromFormat('d/m/Y', $value);
+
+                return ($date && $date->format('d/m/Y') === $value) ? $date : null;
             }
 
-            return Carbon::parse($value);
+            $date = Carbon::parse($value);
+
+            return $date instanceof Carbon ? $date : null;
         } catch (\Throwable) {
             return null;
         }
@@ -39,16 +43,25 @@ class FechaNacimientoField
             ->live(onBlur: true)
             ->rules([
                 'required',
-                'date_format:d/m/Y',
                 function () {
                     return function (string $attribute, $value, Closure $fail): void {
                         if (blank($value)) {
                             return;
                         }
 
-                        try {
-                            $date = Carbon::createFromFormat('d/m/Y', trim((string) $value));
-                        } catch (\Throwable) {
+                        $value = trim((string) $value);
+
+                        if (! preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
+                            $fail('Usa el formato dd/mm/aaaa (ej. 04/05/1949).');
+
+                            return;
+                        }
+
+                        $date = self::parse($value);
+
+                        if ($date === null) {
+                            $fail('La fecha de nacimiento no es válida.');
+
                             return;
                         }
 
