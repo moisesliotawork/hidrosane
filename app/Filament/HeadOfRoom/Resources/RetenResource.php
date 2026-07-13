@@ -100,23 +100,23 @@ class RetenResource extends Resource
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('assignment_date', 'desc')
             ->filters([
                 Filter::make('fecha_exacta')
                     ->label('Fecha exacta')
                     ->form([
                         DatePicker::make('fecha')
-                            ->label('Fecha')
+                            ->label('Fecha de asignación')
                             ->displayFormat('d/m/Y'),
                     ])
                     ->query(fn (Builder $query, array $data): Builder =>
                         $query->when($data['fecha'], fn ($q) =>
-                            $q->whereDate('created_at', $data['fecha'])
+                            $q->whereDate('assignment_date', $data['fecha'])
                         )
                     )
                     ->indicateUsing(fn (array $data): ?string =>
                         $data['fecha']
-                            ? 'Fecha: ' . Carbon::parse($data['fecha'])->format('d/m/Y')
+                            ? 'Asignación: ' . Carbon::parse($data['fecha'])->format('d/m/Y')
                             : null
                     ),
             ])

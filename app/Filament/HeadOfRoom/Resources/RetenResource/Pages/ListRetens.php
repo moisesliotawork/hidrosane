@@ -3,6 +3,7 @@
 namespace App\Filament\HeadOfRoom\Resources\RetenResource\Pages;
 
 use App\Filament\HeadOfRoom\Resources\RetenResource;
+use App\Models\Note;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,15 +19,14 @@ class ListRetens extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'todas';
+        return 'hoy';
     }
 
     public function getTabs(): array
     {
         $baseQuery = fn (): Builder => RetenResource::getEloquentQuery();
-
-        $today = now()->toDateString();
-        $yesterday = now()->subDay()->toDateString();
+        $dateColumn = Note::RETEN_TAB_DATE_COLUMN;
+        $dates = Note::retenTabDates();
 
         return [
             'todas' => Tab::make('TODAS')
@@ -36,21 +36,21 @@ class ListRetens extends ListRecords
 
             'hoy' => Tab::make('HOY')
                 ->icon('heroicon-o-calendar-days')
-                ->badge($baseQuery()->whereDate('created_at', $today)->count())
+                ->badge($baseQuery()->whereDate($dateColumn, $dates['today'])->count())
                 ->badgeColor('success')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', $today)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate($dateColumn, $dates['today'])),
 
             'ayer' => Tab::make('AYER')
                 ->icon('heroicon-o-calendar')
-                ->badge($baseQuery()->whereDate('created_at', $yesterday)->count())
+                ->badge($baseQuery()->whereDate($dateColumn, $dates['yesterday'])->count())
                 ->badgeColor('info')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', $yesterday)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate($dateColumn, $dates['yesterday'])),
 
             'anteriores' => Tab::make('ANTERIORES')
                 ->icon('heroicon-o-archive-box')
-                ->badge($baseQuery()->whereDate('created_at', '<', $yesterday)->count())
+                ->badge($baseQuery()->whereDate($dateColumn, '<', $dates['yesterday'])->count())
                 ->badgeColor('warning')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate('created_at', '<', $yesterday)),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereDate($dateColumn, '<', $dates['yesterday'])),
         ];
     }
 }

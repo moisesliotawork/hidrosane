@@ -441,6 +441,22 @@ class Note extends Model
         return now(self::businessTimezone())->startOfDay();
     }
 
+    /** Columna para pestañas RETEN (fecha de envío/asignación a retén). */
+    public const RETEN_TAB_DATE_COLUMN = 'assignment_date';
+
+    /**
+     * @return array{today: string, yesterday: string}
+     */
+    public static function retenTabDates(): array
+    {
+        $today = self::businessToday();
+
+        return [
+            'today' => $today->toDateString(),
+            'yesterday' => $today->copy()->subDay()->toDateString(),
+        ];
+    }
+
     public static function normalizeCommercialAssignmentDate(mixed $date = null): Carbon
     {
         if (filled($date)) {
