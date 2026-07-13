@@ -154,7 +154,7 @@ class SuperAsignarResource extends Resource
 
             Forms\Components\DatePicker::make('assignment_date')
                 ->label('Fecha de asignación')
-                ->hint('Si se deja vacío, se usará la fecha actual al asignar un comercial')
+                ->hint('Obligatoria para RETÉN. Si se deja vacía, se usará la fecha actual.')
                 ->native(false)
                 ->displayFormat('d/m/Y'),
         ];
@@ -205,11 +205,25 @@ class SuperAsignarResource extends Resource
             $choice = $data['comercial_id'] ?? null;
 
             if ($choice === '__RETEN__') {
-                $record->update(['reten' => true]);
+                $assignmentDate = Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null);
+
+                $updates = [
+                    'reten' => true,
+                    'assignment_date' => $assignmentDate,
+                ];
+
+                if ($record->estado_terminal === EstadoTerminal::SALA) {
+                    $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
+                    $updates['fecha_declaracion'] = null;
+                    $updates['sent_to_sala_at'] = null;
+                }
+
+                $record->update($updates);
 
                 if ($notify) {
                     Notification::make()
                         ->title("Nota #{$record->nro_nota} enviada a COMERCIAL RETÉN")
+                        ->body('Fecha de asignación: ' . $assignmentDate->format('d/m/Y'))
                         ->success()
                         ->send();
                 }
