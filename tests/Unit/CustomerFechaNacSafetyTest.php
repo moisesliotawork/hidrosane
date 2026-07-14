@@ -79,7 +79,7 @@ class CustomerFechaNacSafetyTest extends TestCase
 
         $attributes = $customer->formFillableAttributes();
 
-        $this->assertSame('1948-12-08', $attributes['fecha_nac']);
+        $this->assertSame('08/12/1948', $attributes['fecha_nac']);
         $this->assertSame('08/12/1948', $customer->fechaNacDisplay());
     }
 }

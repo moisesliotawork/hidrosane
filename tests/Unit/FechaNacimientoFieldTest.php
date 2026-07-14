@@ -82,4 +82,10 @@ class FechaNacimientoFieldTest extends TestCase
 
         $this->assertSame('1970-04-11', FechaNacimientoField::toStorageDateString($date));
     }
+
+    public function test_format_display_prevents_mask_mangling_y_m_d_values(): void
+    {
+        $this->assertSame('08/12/1948', FechaNacimientoField::formatDisplay('1948-12-08'));
+        $this->assertSame('07/12/1948', FechaNacimientoField::formatDisplay('1948-12-07'));
+    }
 }

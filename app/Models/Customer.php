@@ -154,7 +154,8 @@ class Customer extends Model
             array_flip($this->getFillable()),
         );
 
-        $attributes['fecha_nac'] = $this->storedFechaNac()
+        $attributes['fecha_nac'] = $this->fechaNacDisplay('d/m/Y')
+            ?? $this->storedFechaNac()
             ?? FechaNacimientoField::normalizeForStorage($this->rawFechaNacValue());
 
         return $attributes;

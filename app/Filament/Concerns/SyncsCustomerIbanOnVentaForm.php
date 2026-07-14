@@ -35,7 +35,7 @@ trait SyncsCustomerIbanOnVentaForm
         $stored = $customer->storedFechaNac();
 
         if ($stored !== null) {
-            $data['customer']['fecha_nac'] = $stored;
+            $data['customer']['fecha_nac'] = $customer->fechaNacDisplay('d/m/Y') ?? $stored;
         }
 
         return $data;

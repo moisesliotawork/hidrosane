@@ -264,7 +264,17 @@ class FechaNacimientoField
                 is_string($state) ? $state : self::toStorageDateString($state),
                 'd/m/Y',
             ))
-            ->afterStateHydrated(function ($state, Set $set): void {
+            ->afterStateHydrated(function (TextInput $component, $state, Set $set) use ($name): void {
+                $formatted = self::formatDisplay(
+                    is_string($state) ? $state : self::toStorageDateString($state),
+                    'd/m/Y',
+                );
+
+                if ($formatted !== null && $formatted !== $state) {
+                    $component->state($formatted);
+                    $state = $formatted;
+                }
+
                 $date = self::parse($state);
                 $set('age', $date?->age);
             })
