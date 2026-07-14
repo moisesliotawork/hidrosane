@@ -19,6 +19,7 @@ use Filament\Forms\Components\{
     Group
 };
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaCustomerRelationshipSection;
 use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -165,6 +166,12 @@ class VentaResource extends Resource
             /* ───────── Información del cliente ────────── */
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
+                ->mutateRelationshipDataBeforeFillUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeFill($data),
+                )
+                ->mutateRelationshipDataBeforeSaveUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeSave($data),
+                )
                 ->schema([
                     Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),

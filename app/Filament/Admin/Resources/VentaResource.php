@@ -43,6 +43,7 @@ use App\Services\VentaCustomerIdentityService;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\Support\CustomerPhoneForm;
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaCustomerRelationshipSection;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -292,6 +293,12 @@ class VentaResource extends Resource
 
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
+                ->mutateRelationshipDataBeforeFillUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeFill($data),
+                )
+                ->mutateRelationshipDataBeforeSaveUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeSave($data),
+                )
                 ->schema([
                     Grid::make([
                         'default' => 1,
