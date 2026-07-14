@@ -2,6 +2,8 @@
 
 namespace App\Support\Filament;
 
+use App\Models\User;
+use App\Support\ContractsCommercialUser;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -27,9 +29,52 @@ class VentaDocumentUpload
         ];
     }
 
-    public static function acceptAttribute(): string
+    /**
+     * @return array<int, string>
+     */
+    public static function acceptedPdfMimeTypes(): array
     {
-        return implode(',', [
+        return [
+            'application/pdf',
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function acceptedDocumentMimeTypes(bool $allowPdf = false): array
+    {
+        $types = self::acceptedImageMimeTypes();
+
+        if ($allowPdf) {
+            $types = array_merge($types, self::acceptedPdfMimeTypes());
+        }
+
+        return $types;
+    }
+
+    public static function fieldsAllowingPdf(): array
+    {
+        return [
+            'precontractual',
+            'foto_sorteo',
+        ];
+    }
+
+    public static function fieldAllowsPdf(string $field, ?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (ContractsCommercialUser::matches($user)) {
+            return true;
+        }
+
+        return in_array($field, self::fieldsAllowingPdf(), true);
+    }
+
+    public static function acceptAttribute(bool $allowPdf = false): string
+    {
+        $parts = [
             'image/png',
             'image/jpeg',
             'image/webp',
@@ -41,20 +86,30 @@ class VentaDocumentUpload
             '.webp',
             '.heic',
             '.heif',
-        ]);
+        ];
+
+        if ($allowPdf) {
+            $parts[] = 'application/pdf';
+            $parts[] = '.pdf';
+        }
+
+        return implode(',', $parts);
     }
 
     public static function configure(
         FileUpload $upload,
         string $field,
         bool $required = false,
+        ?bool $allowPdf = null,
     ): FileUpload {
+        $allowPdf ??= self::fieldAllowsPdf($field, auth()->user());
+
         return $upload
             ->label('')
             ->disk('public')
             ->directory('ventas')
             ->visibility('public')
-            ->acceptedFileTypes(self::acceptedImageMimeTypes())
+            ->acceptedFileTypes(self::acceptedDocumentMimeTypes($allowPdf))
             ->imagePreviewHeight('200')
             ->openable()
             ->downloadable()
@@ -63,7 +118,7 @@ class VentaDocumentUpload
             // Sin ->image(): la regla image de Laravel rechaza HEIC en iPhone.
             ->extraInputAttributes([
                 // Sin capture=: en muchos móviles bloquea la galería y el input no abre.
-                'accept' => self::acceptAttribute(),
+                'accept' => self::acceptAttribute($allowPdf),
             ])
             ->extraAttributes([
                 'class' => 'border-2 border-dashed py-16',
