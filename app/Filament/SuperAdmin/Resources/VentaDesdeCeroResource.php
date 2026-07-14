@@ -61,8 +61,6 @@ class VentaDesdeCeroResource extends Resource
                     FechaNacimientoField::configureDatePicker(
                         DatePicker::make('fecha_nac')
                             ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
                             ->reactive(),
                     ),
 

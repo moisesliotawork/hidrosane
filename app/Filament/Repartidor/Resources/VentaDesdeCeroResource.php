@@ -60,9 +60,7 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
                     FechaNacimientoField::configureDatePicker(
                         DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false),
+                            ->label('Fec. nac.'),
                     ),
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone1_commercial')

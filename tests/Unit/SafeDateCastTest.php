@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Casts\SafeDateCast;
 use App\Models\Customer;
-use Carbon\Carbon;
 use Tests\TestCase;
 
 class SafeDateCastTest extends TestCase
@@ -67,18 +66,13 @@ class SafeDateCastTest extends TestCase
         $this->assertNull($result['fecha_nac']);
     }
 
-    public function test_set_keeps_calendar_date_when_carbon_is_shifted_to_utc(): void
+    public function test_set_keeps_database_date_string_as_is(): void
     {
-        date_default_timezone_set('UTC');
-
         $cast = new SafeDateCast;
         $customer = new Customer;
-        $utcShifted = Carbon::parse('1980-07-15', 'Europe/Madrid')
-            ->startOfDay()
-            ->timezone('UTC');
 
-        $result = $cast->set($customer, 'fecha_nac', $utcShifted, []);
+        $result = $cast->set($customer, 'fecha_nac', '1970-04-11', []);
 
-        $this->assertSame('1980-07-15', $result['fecha_nac']);
+        $this->assertSame('1970-04-11', $result['fecha_nac']);
     }
 }

@@ -73,9 +73,7 @@ class HistoricoContratosResource extends Resource
                                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
                                     FechaNacimientoField::configureDatePicker(
                                         DatePicker::make('fecha_nac')
-                                            ->label('Fec. nac.')
-                                            ->timezone('Europe/Madrid')
-                                            ->native(false),
+                                            ->label('Fec. nac.'),
                                         required: false,
                                     ),
                                     TextInput::make('age')->numeric()->label('Edad'),

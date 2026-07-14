@@ -98,8 +98,6 @@ class AutogenerarNoteResource extends Resource
                         FechaNacimientoField::configureDatePicker(
                             DatePicker::make('fecha_nac')
                                 ->label('Fec. nac.')
-                                ->timezone('Europe/Madrid')
-                                ->native(false)
                                 ->reactive(),
                         )->validationMessages([
                             'required' => 'La fecha de nacimiento es obligatoria',

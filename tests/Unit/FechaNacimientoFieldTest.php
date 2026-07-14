@@ -58,38 +58,28 @@ class FechaNacimientoFieldTest extends TestCase
         $this->assertNull(FechaNacimientoField::normalizeForStorage('19/47/1019'));
     }
 
-    public function test_normalize_for_storage_keeps_calendar_date_when_carbon_is_shifted_to_utc(): void
-    {
-        date_default_timezone_set('UTC');
-
-        $madridMidnight = \Carbon\Carbon::parse('1980-07-15', 'Europe/Madrid')->startOfDay();
-        $utcShifted = $madridMidnight->copy()->timezone('UTC');
-
-        $this->assertSame('1980-07-14', $utcShifted->format('Y-m-d'));
-        $this->assertSame('1980-07-15', FechaNacimientoField::normalizeForStorage($utcShifted));
-    }
-
     public function test_format_display_shows_exact_database_value_regardless_of_timezone(): void
     {
         date_default_timezone_set('UTC');
 
-        $this->assertSame('15/07/1980', FechaNacimientoField::formatDisplay('1980-07-15'));
-        $this->assertSame('15-07-1980', FechaNacimientoField::formatDisplay('1980-07-15', 'd-m-Y'));
-        $this->assertSame('1980-07-15', FechaNacimientoField::formatDisplay('1980-07-15', 'Y-m-d'));
+        $this->assertSame('11/04/1970', FechaNacimientoField::formatDisplay('1970-04-11'));
+        $this->assertSame('01/10/1942', FechaNacimientoField::formatDisplay('1942-10-01'));
+        $this->assertSame('11-04-1970', FechaNacimientoField::formatDisplay('1970-04-11', 'd-m-Y'));
+        $this->assertSame('1970-04-11', FechaNacimientoField::formatDisplay('1970-04-11', 'Y-m-d'));
     }
 
-    public function test_parse_normalizes_shifted_carbon_to_business_calendar_date(): void
+    public function test_normalize_stored_string_accepts_mysql_datetime_prefix(): void
+    {
+        $this->assertSame('1970-04-11', FechaNacimientoField::normalizeStoredString('1970-04-11 00:00:00'));
+        $this->assertSame('1942-10-01', FechaNacimientoField::normalizeStoredString('1942-10-01 00:00:00'));
+    }
+
+    public function test_to_storage_date_string_keeps_calendar_parts_from_carbon(): void
     {
         date_default_timezone_set('UTC');
 
-        $utcShifted = \Carbon\Carbon::parse('1980-07-15', 'Europe/Madrid')
-            ->startOfDay()
-            ->timezone('UTC');
+        $date = \Carbon\Carbon::createFromDate(1970, 4, 11)->startOfDay();
 
-        $date = FechaNacimientoField::parse($utcShifted);
-
-        $this->assertNotNull($date);
-        $this->assertSame('1980-07-15', $date->format('Y-m-d'));
-        $this->assertSame('15/07/1980', $date->format('d/m/Y'));
+        $this->assertSame('1970-04-11', FechaNacimientoField::toStorageDateString($date));
     }
 }

@@ -202,9 +202,7 @@ class CustomerResource extends Resource
                                 ->form([
                                     FechaNacimientoField::configureDatePicker(
                                         Forms\Components\DatePicker::make('fecha_nac')
-                                            ->label('Fecha de nacimiento')
-                                            ->timezone('Europe/Madrid')
-                                            ->native(false),
+                                            ->label('Fecha de nacimiento'),
                                         required: false,
                                     )->nullable(),
                                 ])

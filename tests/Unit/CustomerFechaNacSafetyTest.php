@@ -22,6 +22,20 @@ class CustomerFechaNacSafetyTest extends TestCase
         $this->assertSame('15-07-1980', $customer->fechaNacDisplay('d-m-Y'));
     }
 
+    public function test_fecha_nac_display_handles_mysql_datetime_value(): void
+    {
+        $customer = new Customer;
+        $customer->setRawAttributes([
+            'id' => 1,
+            'first_names' => 'Jose Luis',
+            'last_names' => 'Alonso Posada',
+            'fecha_nac' => '1970-04-11 00:00:00',
+        ]);
+
+        $this->assertSame('1970-04-11', $customer->storedFechaNac());
+        $this->assertSame('11/04/1970', $customer->fechaNacDisplay());
+    }
+
     public function test_safe_fecha_nac_returns_null_for_corrupt_value(): void
     {
         $customer = new Customer;

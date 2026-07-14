@@ -131,15 +131,7 @@ class Customer extends Model
     /** Valor crudo Y-m-d de BD, sin transformaciones. */
     public function storedFechaNac(): ?string
     {
-        $raw = $this->rawFechaNacValue();
-
-        if (! is_string($raw) || blank($raw)) {
-            return null;
-        }
-
-        $raw = trim($raw);
-
-        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) ? $raw : null;
+        return FechaNacimientoField::normalizeStoredString($this->rawFechaNacValue());
     }
 
     /** Fecha de BD formateada para pantallas (d/m/Y, d-m-Y, etc.). */

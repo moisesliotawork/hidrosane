@@ -12,12 +12,41 @@ class FechaNacimientoField
 {
     public const MIN_YEAR = 1936;
 
-    /** Zona del DatePicker en formularios; solo se usa al guardar lo que el usuario eligió. */
-    private const PICKER_TIMEZONE = 'Europe/Madrid';
-
     public static function minDate(): Carbon
     {
         return Carbon::createFromDate(self::MIN_YEAR, 1, 1)->startOfDay();
+    }
+
+    /** Normaliza cualquier valor de BD a Y-m-d sin zona horaria. */
+    public static function normalizeStoredString(mixed $stored): ?string
+    {
+        if (blank($stored)) {
+            return null;
+        }
+
+        $stored = trim((string) $stored);
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $stored, $parts)) {
+            $year = (int) $parts[1];
+            $month = (int) $parts[2];
+            $day = (int) $parts[3];
+
+            return checkdate($month, $day, $year)
+                ? sprintf('%04d-%02d-%02d', $year, $month, $day)
+                : null;
+        }
+
+        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $stored, $parts)) {
+            $day = (int) $parts[1];
+            $month = (int) $parts[2];
+            $year = (int) $parts[3];
+
+            return checkdate($month, $day, $year)
+                ? sprintf('%04d-%02d-%02d', $year, $month, $day)
+                : null;
+        }
+
+        return null;
     }
 
     /**
@@ -26,52 +55,60 @@ class FechaNacimientoField
      */
     public static function formatDisplay(?string $stored, string $format = 'd/m/Y'): ?string
     {
-        if (blank($stored)) {
+        $ymd = self::normalizeStoredString($stored);
+
+        if ($ymd === null) {
             return null;
         }
 
-        $stored = trim($stored);
+        [$year, $month, $day] = array_map('intval', explode('-', $ymd));
 
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $stored, $parts)) {
-            return match ($format) {
-                'd/m/Y' => "{$parts[3]}/{$parts[2]}/{$parts[1]}",
-                'd-m-Y' => "{$parts[3]}-{$parts[2]}-{$parts[1]}",
-                'Y-m-d' => $stored,
-                default => self::parseStored($stored)?->format($format),
-            };
-        }
-
-        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $stored, $parts)) {
-            return match ($format) {
-                'd/m/Y' => $stored,
-                'd-m-Y' => "{$parts[1]}-{$parts[2]}-{$parts[3]}",
-                'Y-m-d' => "{$parts[3]}-{$parts[2]}-{$parts[1]}",
-                default => self::parseStored($stored)?->format($format),
-            };
-        }
-
-        return null;
+        return match ($format) {
+            'd/m/Y' => sprintf('%02d/%02d/%04d', $day, $month, $year),
+            'd-m-Y' => sprintf('%02d-%02d-%04d', $day, $month, $year),
+            'Y-m-d' => $ymd,
+            default => self::parseStored($ymd)?->format($format),
+        };
     }
 
     /** Parsea el valor almacenado en BD para cálculos (edad, validaciones). */
     public static function parseStored(?string $stored): ?Carbon
     {
-        if (blank($stored)) {
+        $ymd = self::normalizeStoredString($stored);
+
+        if ($ymd === null) {
             return null;
         }
 
-        $stored = trim($stored);
+        [$year, $month, $day] = array_map('intval', explode('-', $ymd));
 
-        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $stored, $parts)) {
-            $date = Carbon::createFromDate((int) $parts[1], (int) $parts[2], (int) $parts[3])->startOfDay();
+        return Carbon::createFromDate($year, $month, $day)->startOfDay();
+    }
 
-            return $date->format('Y-m-d') === $stored ? $date : null;
+    /** Convierte cualquier estado de formulario a Y-m-d sin desplazamientos UTC. */
+    public static function toStorageDateString(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
         }
 
-        if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $stored, $parts)) {
-            $date = Carbon::createFromDate((int) $parts[3], (int) $parts[2], (int) $parts[1])->startOfDay();
+        if (is_string($value)) {
+            return self::normalizeStoredString($value);
+        }
 
-            return $date->format('d/m/Y') === $stored ? $date : null;
+        if ($value instanceof Carbon || $value instanceof \DateTimeInterface) {
+            $date = $value instanceof Carbon
+                ? $value
+                : Carbon::instance(\DateTime::createFromInterface($value));
+
+            $ymd = sprintf(
+                '%04d-%02d-%02d',
+                (int) $date->year,
+                (int) $date->month,
+                (int) $date->day,
+            );
+
+            return self::normalizeStoredString($ymd);
         }
 
         return null;
@@ -79,21 +116,7 @@ class FechaNacimientoField
 
     public static function parse(mixed $value): ?Carbon
     {
-        if ($value instanceof Carbon || $value instanceof \DateTimeInterface) {
-            return self::parseStored(self::calendarDateFromPicker($value));
-        }
-
-        if (blank($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) || preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
-            return self::parseStored($value);
-        }
-
-        return null;
+        return self::parseStored(self::toStorageDateString($value));
     }
 
     public static function normalizeForStorage(mixed $value): ?string
@@ -102,31 +125,39 @@ class FechaNacimientoField
             return null;
         }
 
-        if ($value instanceof Carbon || $value instanceof \DateTimeInterface) {
-            $ymd = self::calendarDateFromPicker($value);
-        } else {
-            $stringValue = trim((string) $value);
+        if (is_string($value)) {
+            $stringValue = trim($value);
 
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $stringValue)) {
-                $ymd = self::parseStored($stringValue) ? $stringValue : null;
-            } elseif (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $stringValue)) {
-                $ymd = self::parseStored($stringValue)?->format('Y-m-d');
-            } else {
-                $ymd = null;
+            if (preg_match('/^\d{4}-\d{2}-\d{2}/', $stringValue)) {
+                $ymd = self::normalizeStoredString($stringValue);
+
+                if ($ymd === null) {
+                    return null;
+                }
+
+                $date = self::parseStored($ymd);
+
+                return ($date !== null && ! $date->isFuture()) ? $ymd : null;
             }
 
-            if ($ymd === null) {
-                return null;
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $stringValue)) {
+                $ymd = self::normalizeStoredString($stringValue);
+
+                if ($ymd === null) {
+                    return null;
+                }
+
+                if ($ymd < self::MIN_YEAR.'-01-01') {
+                    return null;
+                }
+
+                $date = self::parseStored($ymd);
+
+                return ($date !== null && ! $date->isFuture()) ? $ymd : null;
             }
-
-            if ($ymd < self::MIN_YEAR.'-01-01' && preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $stringValue)) {
-                return null;
-            }
-
-            $date = self::parseStored($ymd);
-
-            return ($date !== null && ! $date->isFuture()) ? $ymd : null;
         }
+
+        $ymd = self::toStorageDateString($value);
 
         if ($ymd === null) {
             return null;
@@ -191,9 +222,13 @@ class FechaNacimientoField
     public static function configureDatePicker(DatePicker $field, bool $required = true): DatePicker
     {
         $field = $field
+            ->native(false)
+            ->format('Y-m-d')
+            ->displayFormat('d/m/Y')
             ->minDate(self::minDate())
             ->maxDate(now())
             ->rules(self::validationRules($required))
+            ->formatStateUsing(fn (mixed $state): ?string => self::toStorageDateString($state))
             ->dehydrateStateUsing(fn (mixed $state): ?string => self::normalizeForStorage($state));
 
         if ($required) {
@@ -226,7 +261,7 @@ class FechaNacimientoField
             ])
             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizeForStorage($state))
             ->formatStateUsing(fn ($state) => self::formatDisplay(
-                is_string($state) ? $state : self::normalizeForStorage($state),
+                is_string($state) ? $state : self::toStorageDateString($state),
                 'd/m/Y',
             ))
             ->afterStateHydrated(function ($state, Set $set): void {
@@ -243,18 +278,5 @@ class FechaNacimientoField
         }
 
         return $field;
-    }
-
-    /**
-     * Extrae Y-m-d de un DatePicker respetando la fecha que eligió el usuario.
-     * Solo aplica en el flujo de guardado, no al leer de BD.
-     */
-    private static function calendarDateFromPicker(Carbon|\DateTimeInterface $value): ?string
-    {
-        $date = $value instanceof Carbon
-            ? $value->copy()
-            : Carbon::instance(\DateTime::createFromInterface($value));
-
-        return $date->timezone(self::PICKER_TIMEZONE)->format('Y-m-d');
     }
 }
