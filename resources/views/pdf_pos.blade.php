@@ -447,7 +447,7 @@
                 <div class="field" style="top:{{ $yA_Dni }}mm; left:{{ $xA_Dni }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
                 <div class="field" style="top:{{ $yA_Nac }}mm; left:{{ $xA_Nac }}mm;">
-                    {{ ($fechaNac = $venta->customer->safeFechaNac()) ? $fechaNac->format('d-m-Y') : '' }}
+                    {{ $venta->customer->fechaNacDisplay('d-m-Y') ?? '' }}
                 </div>
 
                 {{-- Campos nuevos --}}

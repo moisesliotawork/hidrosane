@@ -311,7 +311,7 @@
                         </tr>
                         <tr>
                             <td>Fecha nacimiento: <span
-                                    class="uppercase">{{ date('d-m-Y', strtotime($venta->customer->fecha_nac)) }}</span>
+                                    class="uppercase">{{ $venta->customer->fechaNacDisplay('d-m-Y') ?? '' }}</span>
                             </td>
                         </tr>
                         <tr>

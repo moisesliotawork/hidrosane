@@ -7,6 +7,21 @@ use Tests\TestCase;
 
 class CustomerFechaNacSafetyTest extends TestCase
 {
+    public function test_fecha_nac_display_shows_exact_database_value(): void
+    {
+        $customer = new Customer;
+        $customer->setRawAttributes([
+            'id' => 1,
+            'first_names' => 'Test',
+            'last_names' => 'Cliente',
+            'fecha_nac' => '1980-07-15',
+        ]);
+
+        $this->assertSame('1980-07-15', $customer->storedFechaNac());
+        $this->assertSame('15/07/1980', $customer->fechaNacDisplay());
+        $this->assertSame('15-07-1980', $customer->fechaNacDisplay('d-m-Y'));
+    }
+
     public function test_safe_fecha_nac_returns_null_for_corrupt_value(): void
     {
         $customer = new Customer;

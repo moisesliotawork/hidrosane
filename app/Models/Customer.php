@@ -128,10 +128,30 @@ class Customer extends Model
         );
     }
 
-    /** Evita excepciones al leer fechas corruptas en BD (ej. 19/47/1019). */
+    /** Valor crudo Y-m-d de BD, sin transformaciones. */
+    public function storedFechaNac(): ?string
+    {
+        $raw = $this->rawFechaNacValue();
+
+        if (! is_string($raw) || blank($raw)) {
+            return null;
+        }
+
+        $raw = trim($raw);
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) ? $raw : null;
+    }
+
+    /** Fecha de BD formateada para pantallas (d/m/Y, d-m-Y, etc.). */
+    public function fechaNacDisplay(string $format = 'd/m/Y'): ?string
+    {
+        return FechaNacimientoField::formatDisplay($this->rawFechaNacValue(), $format);
+    }
+
+    /** Para cálculo de edad; null si el valor en BD no es válido. */
     public function safeFechaNac(): ?Carbon
     {
-        return FechaNacimientoField::parse($this->getRawOriginal('fecha_nac'));
+        return FechaNacimientoField::parseStored($this->rawFechaNacValue());
     }
 
     /** @return array<string, mixed> */
@@ -142,9 +162,17 @@ class Customer extends Model
             array_flip($this->getFillable()),
         );
 
-        $attributes['fecha_nac'] = $this->safeFechaNac()?->format('Y-m-d');
+        $attributes['fecha_nac'] = $this->storedFechaNac()
+            ?? FechaNacimientoField::normalizeForStorage($this->rawFechaNacValue());
 
         return $attributes;
+    }
+
+    private function rawFechaNacValue(): mixed
+    {
+        return $this->exists
+            ? $this->getRawOriginal('fecha_nac')
+            : ($this->attributes['fecha_nac'] ?? null);
     }
 
 

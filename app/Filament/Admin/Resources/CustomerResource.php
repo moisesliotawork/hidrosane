@@ -75,16 +75,16 @@ class CustomerResource extends Resource
 
                     TextEntry::make('fecha_nac')
                         ->label('F. Nac')
-                        ->state(
-                            fn(Customer $r) =>
-                            blank($r->fecha_nac)
-                            ? '—'
-                            : Carbon::parse($r->fecha_nac)->format('d/m/Y')
-                        )
+                        ->state(fn (Customer $r) => $r->fechaNacDisplay('d/m/Y') ?? '—')
                         ->suffix(function (Customer $r) {
-                            if (blank($r->fecha_nac))
+                            $fechaNac = $r->safeFechaNac();
+
+                            if ($fechaNac === null) {
                                 return null;
-                            $d = Carbon::parse($r->fecha_nac)->diff(now());
+                            }
+
+                            $d = $fechaNac->diff(now());
+
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
                         }),
 

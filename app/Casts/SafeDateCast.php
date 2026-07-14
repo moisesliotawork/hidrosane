@@ -11,17 +11,13 @@ class SafeDateCast implements CastsAttributes
 {
     public function get(Model $model, string $key, mixed $value, array $attributes): ?Carbon
     {
-        return FechaNacimientoField::parse($attributes[$key] ?? null);
+        return FechaNacimientoField::parseStored($attributes[$key] ?? null);
     }
 
     public function set(Model $model, string $key, mixed $value, array $attributes): ?array
     {
         if ($value === null || $value === '') {
             return [$key => null];
-        }
-
-        if ($value instanceof Carbon) {
-            $value = $value->format('Y-m-d');
         }
 
         return [$key => FechaNacimientoField::normalizeForStorage($value)];

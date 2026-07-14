@@ -191,10 +191,7 @@ class CustomerResource extends Resource
                         ->columnSpanFull()
                         ->weight(\Filament\Support\Enums\FontWeight::Bold)
                         ->state(
-                            fn (Customer $r) =>
-                            blank($r->fecha_nac)
-                            ? '—'
-                            : Carbon::parse($r->fecha_nac)->format('d/m/Y')
+                            fn (Customer $r) => $r->fechaNacDisplay('d/m/Y') ?? '—'
                         )
                         ->suffixAction(
                             Action::make('editar_fecha_nac')
@@ -212,7 +209,7 @@ class CustomerResource extends Resource
                                     )->nullable(),
                                 ])
                                 ->fillForm(fn (Customer $record): array => [
-                                    'fecha_nac' => $record->fecha_nac,
+                                    'fecha_nac' => $record->storedFechaNac(),
                                 ])
                                 ->action(function (Customer $record, array $data): void {
                                     $record->update([
@@ -230,11 +227,13 @@ class CustomerResource extends Resource
                         ->label('Edad')
                         ->columnSpan(2)
                         ->state(function (Customer $r): string {
-                            if (blank($r->fecha_nac)) {
+                            $fechaNac = $r->safeFechaNac();
+
+                            if ($fechaNac === null) {
                                 return '—';
                             }
 
-                            $d = Carbon::parse($r->fecha_nac)->diff(now());
+                            $d = $fechaNac->diff(now());
 
                             return "{$d->y} años {$d->m} meses y {$d->d} días";
                         }),
