@@ -2,8 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Models\Customer;
 use App\Support\Filament\VentaCustomerRelationshipSection;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class VentaCustomerRelationshipSectionTest extends TestCase
 {
@@ -25,6 +26,23 @@ class VentaCustomerRelationshipSectionTest extends TestCase
         ]);
 
         $this->assertSame('07/12/1948', $data['fecha_nac']);
+    }
+
+    public function test_mutate_data_before_fill_converts_iso_datetime_to_spanish_display_in_madrid_timezone(): void
+    {
+        config(['app.timezone' => 'Europe/Madrid']);
+        date_default_timezone_set('Europe/Madrid');
+
+        $customer = new Customer;
+        $customer->setRawAttributes(['id' => 1, 'fecha_nac' => '1947-09-18']);
+        $iso = $customer->attributesToArray()['fecha_nac'];
+
+        $data = VentaCustomerRelationshipSection::mutateDataBeforeFill([
+            'first_names' => 'Maria Teresa',
+            'fecha_nac' => $iso,
+        ]);
+
+        $this->assertSame('18/09/1947', $data['fecha_nac']);
     }
 
     public function test_mutate_data_before_save_persists_spanish_input_as_database_date(): void

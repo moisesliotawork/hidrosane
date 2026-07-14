@@ -2,8 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Models\Customer;
 use App\Support\Filament\FechaNacimientoField;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class FechaNacimientoFieldTest extends TestCase
 {
@@ -81,6 +82,42 @@ class FechaNacimientoFieldTest extends TestCase
         $date = \Carbon\Carbon::createFromDate(1970, 4, 11)->startOfDay();
 
         $this->assertSame('1970-04-11', FechaNacimientoField::toStorageDateString($date));
+    }
+
+    public function test_normalize_stored_string_handles_iso_datetime_in_europe_madrid_timezone(): void
+    {
+        config(['app.timezone' => 'Europe/Madrid']);
+        date_default_timezone_set('Europe/Madrid');
+
+        $customer = new Customer;
+        $customer->setRawAttributes([
+            'id' => 1,
+            'fecha_nac' => '1947-09-18',
+        ]);
+
+        $iso = $customer->attributesToArray()['fecha_nac'];
+
+        $this->assertSame('1947-09-17T23:00:00.000000Z', $iso);
+        $this->assertSame('1947-09-18', FechaNacimientoField::normalizeStoredString($iso));
+        $this->assertSame('18/09/1947', FechaNacimientoField::formatDisplay($iso));
+        $this->assertSame('1947-09-18', FechaNacimientoField::normalizeForStorage($iso));
+    }
+
+    public function test_iso_datetime_roundtrip_does_not_shift_birth_date_on_repeated_save(): void
+    {
+        config(['app.timezone' => 'Europe/Madrid']);
+        date_default_timezone_set('Europe/Madrid');
+
+        $stored = '1947-09-18';
+
+        foreach (range(1, 3) as $cycle) {
+            $customer = new Customer;
+            $customer->setRawAttributes(['id' => 1, 'fecha_nac' => $stored]);
+            $iso = $customer->attributesToArray()['fecha_nac'];
+            $stored = FechaNacimientoField::normalizeForStorage($iso);
+        }
+
+        $this->assertSame('1947-09-18', $stored);
     }
 
     public function test_format_display_prevents_mask_mangling_y_m_d_values(): void

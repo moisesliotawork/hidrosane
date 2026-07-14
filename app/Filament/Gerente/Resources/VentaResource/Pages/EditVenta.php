@@ -4,8 +4,8 @@ namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 
 use App\Filament\Gerente\Resources\VentaResource;
 use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
+use App\Filament\Concerns\PersistsVentaCustomerOnSave;
 use App\Support\VentaFechaVenta;
-use App\Services\VentaCustomerIdentityService;
 use App\Services\VentaNotesCustomerSync;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
@@ -18,6 +18,7 @@ use App\Enums\EstadoEntrega;
 class EditVenta extends EditRecord
 {
     use SyncsCustomerIbanOnVentaForm;
+    use PersistsVentaCustomerOnSave;
 
     protected static string $resource = VentaResource::class;
 
@@ -35,40 +36,12 @@ class EditVenta extends EditRecord
 
     protected function beforeSave(): void
     {
-        $customerData = $this->data['customer'] ?? null;
-
-        if (! is_array($customerData) || ! $this->record->customer_id) {
-            return;
-        }
-
-        $payload = [
-            'customer_id' => $this->record->customer_id,
-            'customer' => $customerData,
-        ];
-
-        $previousCustomerId = (int) $this->record->customer_id;
-
-        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $payload);
-
-        if ((int) ($payload['customer_id'] ?? 0) === $previousCustomerId) {
-            return;
-        }
-
-        $this->pendingCustomerId = (int) $payload['customer_id'];
-        $this->record->customer_id = $this->pendingCustomerId;
-        $this->record->saveQuietly();
-        $this->record->unsetRelation('customer');
+        $this->persistVentaCustomerInBeforeSave();
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if ($this->pendingCustomerId) {
-            $data['customer_id'] = $this->pendingCustomerId;
-            unset($data['customer']);
-        } else {
-            $data['customer'] = $data['customer'] ?? Arr::get($this->data, 'customer');
-            VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
-        }
+        $this->stripVentaCustomerFromSavePayload($data);
 
         $this->persistCustomerIban($data);
 

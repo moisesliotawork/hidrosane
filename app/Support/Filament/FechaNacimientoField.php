@@ -27,6 +27,18 @@ class FechaNacimientoField
 
         $stored = trim((string) $stored);
 
+        // ISO 8601 (p. ej. 1947-09-17T23:00:00.000000Z): usar calendario en zona app.
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T/', $stored)) {
+            $parsed = Carbon::parse($stored)->timezone(config('app.timezone'));
+
+            return sprintf(
+                '%04d-%02d-%02d',
+                (int) $parsed->year,
+                (int) $parsed->month,
+                (int) $parsed->day,
+            );
+        }
+
         if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $stored, $parts)) {
             $year = (int) $parts[1];
             $month = (int) $parts[2];
@@ -101,6 +113,8 @@ class FechaNacimientoField
             $date = $value instanceof Carbon
                 ? $value
                 : Carbon::instance(\DateTime::createFromInterface($value));
+
+            $date = $date->copy()->timezone(config('app.timezone'));
 
             $ymd = sprintf(
                 '%04d-%02d-%02d',
