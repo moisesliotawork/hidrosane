@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Note;
 use App\Models\Venta;
+use App\Support\Filament\FechaNacimientoField;
 
 class VentaCustomerIdentityService
 {
     /**
      * Desvincula el contrato del cliente compartido cuando hace falta:
-     * - Cliente usado por otros contratos/notas + datos modificados → cliente nuevo.
+     * - Cliente compartido + cambio de nombre/DNI → cliente nuevo.
+     * - Cliente compartido + otros datos (fecha_nac, teléfono, etc.) → mismo registro Customer.
      * - Cliente exclusivo + cambio de nombre/DNI → otro cliente (por DNI o nuevo).
      */
     public static function reassignCustomerIfNeeded(Venta $venta, array &$data): void
@@ -32,16 +34,24 @@ class VentaCustomerIdentityService
             return;
         }
 
-        if (static::customerIsShared($venta)) {
+        if (static::customerIsShared($venta) && static::identityChanged($originalCustomer, $customerData)) {
             $targetCustomer = Customer::create(static::extractCustomerPayload($customerData));
-        } elseif (static::identityChanged($originalCustomer, $customerData)) {
-            $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
-            static::applyCustomerPayload($targetCustomer, $customerData);
-        } else {
+            $data['customer_id'] = $targetCustomer->id;
+            unset($data['customer']);
+
             return;
         }
 
-        $data['customer_id'] = $targetCustomer->id;
+        if (static::identityChanged($originalCustomer, $customerData)) {
+            $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
+            static::applyCustomerPayload($targetCustomer, $customerData);
+            $data['customer_id'] = $targetCustomer->id;
+            unset($data['customer']);
+
+            return;
+        }
+
+        static::applyCustomerPayload($originalCustomer, $customerData);
         unset($data['customer']);
     }
 
@@ -134,12 +144,27 @@ class VentaCustomerIdentityService
 
         return collect($customerData)
             ->only($fillable)
+            ->map(function (mixed $value, string $field): mixed {
+                if ($field === 'fecha_nac') {
+                    return FechaNacimientoField::normalizeForStorage($value);
+                }
+
+                return $value;
+            })
             ->reject(fn ($value) => $value === null)
             ->all();
     }
 
     protected static function normalizeFieldValue(string $field, mixed $value): string
     {
+        if ($field === 'fecha_nac') {
+            if ($value instanceof \DateTimeInterface) {
+                $value = FechaNacimientoField::toStorageDateString($value);
+            }
+
+            return FechaNacimientoField::normalizeForStorage($value) ?? '';
+        }
+
         if (in_array($field, [
             'phone',
             'secondary_phone',

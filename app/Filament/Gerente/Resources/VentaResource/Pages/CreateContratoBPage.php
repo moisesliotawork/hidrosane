@@ -81,6 +81,7 @@ class CreateContratoBPage extends Page implements HasForms
 
         $state['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
         $state['iban'] = $this->origen->customer?->iban;
+        $state['customer'] = $this->origen->customer?->formFillableAttributes() ?? [];
 
         $this->form->fill($state ?? []);
     }

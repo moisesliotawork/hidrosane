@@ -65,4 +65,21 @@ class CustomerFechaNacSafetyTest extends TestCase
         $this->assertNull($attributes['fecha_nac']);
         $this->assertSame('12345678A', $attributes['dni']);
     }
+
+    public function test_form_fillable_attributes_keeps_exact_birth_date_for_contract_forms(): void
+    {
+        $customer = new Customer;
+        $customer->setRawAttributes([
+            'id' => 1,
+            'first_names' => 'Maria Oliva',
+            'last_names' => 'Lamas Tejeiro',
+            'fecha_nac' => '1948-12-08',
+            'dni' => '32416659e',
+        ]);
+
+        $attributes = $customer->formFillableAttributes();
+
+        $this->assertSame('1948-12-08', $attributes['fecha_nac']);
+        $this->assertSame('08/12/1948', $customer->fechaNacDisplay());
+    }
 }

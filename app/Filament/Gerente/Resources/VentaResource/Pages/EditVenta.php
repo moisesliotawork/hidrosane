@@ -5,6 +5,8 @@ namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 use App\Filament\Gerente\Resources\VentaResource;
 use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
 use App\Support\VentaFechaVenta;
+use App\Services\VentaCustomerIdentityService;
+use App\Services\VentaNotesCustomerSync;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Filament\Actions\Action;
@@ -19,6 +21,8 @@ class EditVenta extends EditRecord
 
     protected static string $resource = VentaResource::class;
 
+    protected ?int $pendingCustomerId = null;
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -26,11 +30,46 @@ class EditVenta extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        return $this->hydrateCustomerIban($data);
+        return $this->hydrateCustomerFormData($data);
+    }
+
+    protected function beforeSave(): void
+    {
+        $customerData = $this->data['customer'] ?? null;
+
+        if (! is_array($customerData) || ! $this->record->customer_id) {
+            return;
+        }
+
+        $payload = [
+            'customer_id' => $this->record->customer_id,
+            'customer' => $customerData,
+        ];
+
+        $previousCustomerId = (int) $this->record->customer_id;
+
+        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $payload);
+
+        if ((int) ($payload['customer_id'] ?? 0) === $previousCustomerId) {
+            return;
+        }
+
+        $this->pendingCustomerId = (int) $payload['customer_id'];
+        $this->record->customer_id = $this->pendingCustomerId;
+        $this->record->saveQuietly();
+        $this->record->unsetRelation('customer');
     }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if ($this->pendingCustomerId) {
+            $data['customer_id'] = $this->pendingCustomerId;
+            unset($data['customer']);
+        } else {
+            $data['customer'] = $data['customer'] ?? Arr::get($this->data, 'customer');
+            VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
+        }
+
         $this->persistCustomerIban($data);
 
         /* 1. Nunca tocar el Nº de nota */
@@ -126,6 +165,10 @@ class EditVenta extends EditRecord
 
     protected function afterSave(): void
     {
+        $venta = $this->record->fresh(['customer', 'note']);
+
+        VentaNotesCustomerSync::syncFromVenta($venta);
+
         $venta = $this->record;
 
         // 🔁 Recalcula importes según lo que quedó en venta_ofertas y sus productos

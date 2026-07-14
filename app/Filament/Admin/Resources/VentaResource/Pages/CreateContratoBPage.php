@@ -57,30 +57,8 @@ class CreateContratoBPage extends Page implements HasForms
             'observaciones_repartidor' => $this->origen->observaciones_repartidor,
         ];
 
-        // ✅ Precargar cliente (state anidado)
-        $state['customer'] = $this->origen->customer?->only([
-            'first_names',
-            'last_names',
-            'dni',
-            'phone',
-            'secondary_phone',
-            'third_phone',
-            'email',
-            'fecha_nac',
-            'nro_piso',
-            'postal_code',
-            'ciudad',
-            'provincia',
-            'primary_address',
-            'secondary_address',
-            'ayuntamiento',
-            'tipo_vivienda',
-            'estado_civil',
-            'situacion_laboral',
-            'num_hab_casa',
-            'iban',
-            'ingresos_rango',
-        ]) ?? [];
+        // Precargar cliente (state anidado) con fecha_nac exacta de BD
+        $state['customer'] = $this->origen->customer?->formFillableAttributes() ?? [];
 
         // ✅ No precargar ventaOfertas ni totales
         $state['ventaOfertas'] = [];

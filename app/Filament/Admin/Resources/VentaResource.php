@@ -281,8 +281,10 @@ class VentaResource extends Resource
                 ->content(new HtmlString(
                     '<p class="text-sm text-warning-600 dark:text-warning-400">'
                     . 'Este ID de cliente lo comparten otros contratos o notas. '
-                    . 'Al guardar cambios en los datos del cliente, se creará un <strong>cliente nuevo</strong> '
-                    . 'y este contrato quedará independiente (el Nº Cliente del contrato se guarda aparte).'
+                    . 'Los cambios en <strong>nombre, apellidos o DNI</strong> crearán un <strong>cliente nuevo</strong> '
+                    . 'y este contrato quedará independiente. '
+                    . 'Otros datos (fecha de nacimiento, teléfonos, dirección, etc.) se actualizan en el mismo cliente '
+                    . 'y se verán igual en el resto de contratos y notas.'
                     . '</p>'
                 ))
                 ->visible(fn (?Venta $record) => filled($record?->customer_id)
@@ -307,11 +309,7 @@ class VentaResource extends Resource
                             ->readOnly()
                             ->dehydrated(false),
 
-                        FechaNacimientoField::configureDatePicker(
-                            DatePicker::make('fecha_nac')
-                                ->label('Fec. nac.')
-                                ->reactive(),
-                        ),
+                        FechaNacimientoField::make(),
 
                         TextInput::make('age')
                             ->numeric()

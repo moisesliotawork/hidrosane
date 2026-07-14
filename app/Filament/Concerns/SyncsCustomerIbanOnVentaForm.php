@@ -17,6 +17,37 @@ trait SyncsCustomerIbanOnVentaForm
         return $data;
     }
 
+    /**
+     * Evita desfases de 1 día al hidratar relationship('customer'): la BD es la fuente de verdad.
+     */
+    protected function hydrateCustomerFechaNac(array $data): array
+    {
+        $customer = $this->record?->customer;
+
+        if (! $customer) {
+            return $data;
+        }
+
+        if (! isset($data['customer']) || ! is_array($data['customer'])) {
+            $data['customer'] = [];
+        }
+
+        $stored = $customer->storedFechaNac();
+
+        if ($stored !== null) {
+            $data['customer']['fecha_nac'] = $stored;
+        }
+
+        return $data;
+    }
+
+    protected function hydrateCustomerFormData(array $data): array
+    {
+        return $this->hydrateCustomerFechaNac(
+            $this->hydrateCustomerIban($data),
+        );
+    }
+
     protected function persistCustomerIban(array &$data): void
     {
         if (! array_key_exists('iban', $data)) {

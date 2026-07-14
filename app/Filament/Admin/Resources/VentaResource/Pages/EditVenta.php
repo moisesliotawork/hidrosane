@@ -46,7 +46,7 @@ class EditVenta extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        return $this->hydrateCustomerIban($data);
+        return $this->hydrateCustomerFormData($data);
     }
 
     protected function beforeSave(): void
