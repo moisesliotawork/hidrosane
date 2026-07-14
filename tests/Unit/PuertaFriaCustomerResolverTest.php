@@ -329,4 +329,104 @@ class PuertaFriaCustomerResolverTest extends TestCase
                 ->count(),
         );
     }
+
+    public function test_merges_same_dni_duplicates_with_conflicting_fecha_nac_keeps_most_recent(): void
+    {
+        $user = User::query()->firstOrFail();
+
+        $older = Customer::factory()->create([
+            'first_names' => 'MARIA',
+            'last_names' => 'OLIVA LAMAS',
+            'dni' => '32416659E',
+            'fecha_nac' => '1948-12-07',
+            'phone1_commercial' => '611000001',
+            'created_at' => now()->subDays(5),
+            'updated_at' => now()->subDays(5),
+        ]);
+
+        $newer = Customer::factory()->create([
+            'first_names' => 'MARIA',
+            'last_names' => 'OLIVA LAMAS TEIJEIRO',
+            'dni' => '32416659e',
+            'fecha_nac' => '1948-12-08',
+            'phone1_commercial' => '611000002',
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $resolved = $this->resolver->resolveOrCreate([
+            'first_names' => 'MARIA',
+            'last_names' => 'OLIVA',
+            'phone1_commercial' => '611000003',
+            'dni' => '32416659E',
+            'pf_existing_customer_id' => null,
+        ], $user->id);
+
+        $this->assertSame($older->id, $resolved->id);
+        $this->assertSame('1948-12-08', $resolved->getRawOriginal('fecha_nac'));
+
+        $newer->refresh();
+        $this->assertSame($older->id, $newer->merged_into_id);
+    }
+
+    public function test_applies_form_fecha_nac_when_reusing_customer_by_dni(): void
+    {
+        $existing = Customer::factory()->create([
+            'first_names' => 'ANA',
+            'last_names' => 'RUIZ',
+            'dni' => '55555555F',
+            'fecha_nac' => '1948-12-07',
+            'phone1_commercial' => '622000001',
+        ]);
+
+        $resolved = $this->resolver->resolveOrCreate([
+            'first_names' => 'ANA',
+            'last_names' => 'RUIZ',
+            'phone1_commercial' => '622000002',
+            'dni' => '55555555F',
+            'fecha_nac' => '08/12/1948',
+            'pf_existing_customer_id' => null,
+        ]);
+
+        $this->assertSame($existing->id, $resolved->id);
+        $this->assertSame('1948-12-08', $resolved->getRawOriginal('fecha_nac'));
+    }
+
+    public function test_merges_same_dni_when_existing_customer_selected_from_lookup(): void
+    {
+        $user = User::query()->firstOrFail();
+
+        $selected = Customer::factory()->create([
+            'first_names' => 'LUIS',
+            'last_names' => 'MARTIN',
+            'dni' => '66666666G',
+            'phone1_commercial' => '633000001',
+        ]);
+
+        $duplicate = Customer::factory()->create([
+            'first_names' => 'LUIS',
+            'last_names' => 'MARTINEZ',
+            'dni' => '66666666g',
+            'phone1_commercial' => '633000002',
+            'created_at' => now()->subDay(),
+        ]);
+
+        $resolved = $this->resolver->resolveOrCreate([
+            'first_names' => 'LUIS',
+            'last_names' => 'MARTIN',
+            'phone1_commercial' => '633000003',
+            'dni' => '66666666G',
+            'pf_existing_customer_id' => $selected->id,
+        ], $user->id);
+
+        $this->assertSame($selected->id, $resolved->id);
+
+        $duplicate->refresh();
+        $this->assertSame($selected->id, $duplicate->merged_into_id);
+
+        $this->assertSame(
+            1,
+            Customer::query()->whereRaw('UPPER(TRIM(dni)) = ?', ['66666666G'])->count(),
+        );
+    }
 }

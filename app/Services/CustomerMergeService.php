@@ -8,6 +8,7 @@ use App\Models\CustomerObservation;
 use App\Models\Note;
 use App\Models\Scopes\NotMergedScope;
 use App\Models\Venta;
+use App\Support\Filament\FechaNacimientoField;
 use Illuminate\Support\Facades\DB;
 
 class CustomerMergeService
@@ -131,7 +132,7 @@ class CustomerMergeService
                 'first_names', 'last_names', 'phone', 'secondary_phone', 'third_phone',
                 'phone1_commercial', 'phone2_commercial', 'email', 'nro_piso',
                 'postal_code_id', 'primary_address', 'secondary_address', 'parish', 'dni',
-                'fecha_nac', 'iban', 'tipo_vivienda', 'estado_civil', 'situacion_laboral',
+                'iban', 'tipo_vivienda', 'estado_civil', 'situacion_laboral',
                 'ingresos_rango', 'num_hab_casa', 'ayuntamiento', 'edadTelOp',
                 'postal_code', 'ciudad', 'provincia', 'antiguedad', 'nombre_empresa', 'oficio',
             ];
@@ -141,6 +142,11 @@ class CustomerMergeService
                     $keeper->$field = $toDelete->$field;
                 }
             }
+
+            $keeper->fecha_nac = FechaNacimientoField::resolveOnCustomerMerge(
+                $keeper,
+                $toDelete,
+            );
             $keeper->save();
 
             // Marcar el duplicado como fusionado (soft-merge: queda en BD para auditoría)

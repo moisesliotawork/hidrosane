@@ -35,7 +35,8 @@ class VentaCustomerIdentityService
         }
 
         if (static::customerIsShared($venta) && static::identityChanged($originalCustomer, $customerData)) {
-            $targetCustomer = Customer::create(static::extractCustomerPayload($customerData));
+            $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
+            static::applyCustomerPayload($targetCustomer, $customerData);
             $data['customer_id'] = $targetCustomer->id;
             unset($data['customer']);
 
@@ -119,9 +120,11 @@ class VentaCustomerIdentityService
 
         if (filled($dni)) {
             $existing = Customer::query()
-                ->where('dni', $dni)
+                ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
                 ->whereKeyNot($excludeCustomerId)
                 ->whereNull('merged_into_id')
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id')
                 ->first();
 
             if ($existing) {

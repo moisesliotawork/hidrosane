@@ -2,6 +2,7 @@
 
 namespace App\Support\Filament;
 
+use App\Models\Customer;
 use Carbon\Carbon;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -244,6 +245,46 @@ class FechaNacimientoField
                 $date = self::parse($state);
                 $set('age', $date?->age);
             });
+    }
+
+    /**
+     * Al fusionar duplicados con el mismo DNI, unifica fecha_nac.
+     * Si difieren, conserva la del registro actualizado más recientemente.
+     */
+    public static function resolveOnCustomerMerge(Customer $keeper, Customer $toDelete): ?string
+    {
+        $keeperDate = self::normalizeStoredString(self::rawFechaNacFromCustomer($keeper));
+        $toDeleteDate = self::normalizeStoredString(self::rawFechaNacFromCustomer($toDelete));
+
+        if ($keeperDate === null) {
+            return $toDeleteDate;
+        }
+
+        if ($toDeleteDate === null) {
+            return $keeperDate;
+        }
+
+        if ($keeperDate === $toDeleteDate) {
+            return $keeperDate;
+        }
+
+        $keeperDni = mb_strtoupper(trim((string) ($keeper->dni ?? '')));
+        $toDeleteDni = mb_strtoupper(trim((string) ($toDelete->dni ?? '')));
+
+        if ($keeperDni === '' || $keeperDni !== $toDeleteDni) {
+            return $keeperDate;
+        }
+
+        $keeperUpdatedAt = $keeper->updated_at?->getTimestamp() ?? 0;
+        $toDeleteUpdatedAt = $toDelete->updated_at?->getTimestamp() ?? 0;
+
+        return $toDeleteUpdatedAt >= $keeperUpdatedAt ? $toDeleteDate : $keeperDate;
+    }
+
+    protected static function rawFechaNacFromCustomer(Customer $customer): mixed
+    {
+        return $customer->getRawOriginal('fecha_nac')
+            ?? ($customer->getAttributes()['fecha_nac'] ?? null);
     }
 
     public static function make(string $name = 'fecha_nac', ?Closure $configure = null): TextInput

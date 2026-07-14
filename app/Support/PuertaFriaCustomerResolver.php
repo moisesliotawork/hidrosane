@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Customer;
 use App\Services\CustomerMergeService;
+use App\Support\Filament\FechaNacimientoField;
 use Illuminate\Support\Collection;
 
 /**
@@ -26,7 +27,7 @@ class PuertaFriaCustomerResolver
      */
     public function resolveOrCreate(array $customerPayload, ?int $mergedByUserId = null): Customer
     {
-        $payload = $this->normalizePhoneFields($customerPayload);
+        $payload = $this->normalizePayload($this->normalizePhoneFields($customerPayload));
 
         $existingId = filled($payload['pf_existing_customer_id'] ?? null)
             ? (int) $payload['pf_existing_customer_id']
@@ -46,6 +47,10 @@ class PuertaFriaCustomerResolver
 
         if ($existingId !== null) {
             $keeper = Customer::query()->findOrFail($existingId);
+
+            if ($dni !== null) {
+                $keeper = $this->mergeSameDniDuplicates($keeper, $dni, $mergedByUserId);
+            }
         } elseif ($dni !== null) {
             $keeper = $this->findByDni($dni);
         } elseif ($phoneDigits !== null) {
@@ -63,7 +68,13 @@ class PuertaFriaCustomerResolver
         }
 
         if ($keeper === null) {
-            return Customer::create($payload);
+            if ($dni !== null) {
+                $keeper = $this->findByDni($dni);
+            }
+
+            if ($keeper === null) {
+                return Customer::create($payload);
+            }
         }
 
         if ($dni !== null) {
@@ -72,7 +83,7 @@ class PuertaFriaCustomerResolver
 
         $keeper = $this->mergeSamePhoneAndNameDuplicates($keeper, $phoneDigits, $firstNames, $lastNames, $mergedByUserId);
 
-        $toUpdate = array_filter($payload, fn ($value) => $value !== null && $value !== '');
+        $toUpdate = $this->preparePayloadForKeeper($payload);
 
         if ($toUpdate !== []) {
             $keeper->fill($toUpdate)->save();
@@ -212,5 +223,27 @@ class PuertaFriaCustomerResolver
         }
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function normalizePayload(array $payload): array
+    {
+        if (array_key_exists('fecha_nac', $payload) && filled($payload['fecha_nac'])) {
+            $payload['fecha_nac'] = FechaNacimientoField::normalizeForStorage($payload['fecha_nac']);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    protected function preparePayloadForKeeper(array $payload): array
+    {
+        return array_filter($payload, fn ($value) => $value !== null && $value !== '');
     }
 }
