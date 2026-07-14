@@ -197,6 +197,14 @@ class PuertaFriaCustomerSearch
         ];
     }
 
+    public static function hasSameFullNameFromParts(Customer $customer, string $firstNames, string $lastNames): bool
+    {
+        $formName = self::normalizeComparableName(trim("{$firstNames} {$lastNames}"));
+        $customerName = self::normalizeComparableName(trim("{$customer->first_names} {$customer->last_names}"));
+
+        return $formName !== '' && $formName === $customerName;
+    }
+
     public static function nameSimilarityScore(Customer $customer, string $term): int
     {
         $full = self::normalizeName("{$customer->first_names} {$customer->last_names}");
@@ -230,8 +238,13 @@ class PuertaFriaCustomerSearch
         return (int) round($percent);
     }
 
-    private static function normalizeName(string $value): string
+    public static function normalizeComparableName(string $value): string
     {
         return Str::ascii(mb_strtolower(trim(preg_replace('/\s+/u', ' ', $value)), 'UTF-8'));
+    }
+
+    private static function normalizeName(string $value): string
+    {
+        return self::normalizeComparableName($value);
     }
 }

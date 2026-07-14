@@ -5,6 +5,7 @@ namespace App\Filament\Commercial\Resources\VentaDesdeCeroResource\Pages;
 use App\Filament\Commercial\Resources\VentaDesdeCeroResource;
 use App\Support\ActionGps;
 use App\Support\ContractsCommercialUser;
+use App\Support\PuertaFriaCustomerResolver;
 use App\Support\PuertaFriaCustomerSearch;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
@@ -391,42 +392,12 @@ class CreateVentaDesdeCero extends CreateRecord
 
             $customerFillable = (new Customer)->getFillable();
             $customerPayload = array_intersect_key($data, array_flip($customerFillable));
+            $customerPayload['pf_existing_customer_id'] = $data['pf_existing_customer_id'] ?? null;
 
-            if (! empty($data['pf_existing_customer_id'])) {
-                /** @var Customer $customer */
-                $customer = Customer::query()->findOrFail((int) $data['pf_existing_customer_id']);
-                $toUpdate = array_filter($customerPayload, fn ($value) => $value !== null && $value !== '');
-
-                if ($toUpdate !== []) {
-                    $customer->fill($toUpdate)->save();
-                }
-            } else {
-                $normalizedFirst = Str::slug(Str::lower($data['first_names'] ?? ''), '');
-                $normalizedLast = Str::slug(Str::lower($data['last_names'] ?? ''), '');
-
-                /** @var Customer|null $customer */
-                $customer = Customer::query()
-                    ->whereRaw("LOWER(REPLACE(first_names, ' ', '')) = ?", [$normalizedFirst])
-                    ->whereRaw("LOWER(REPLACE(last_names, ' ', '')) = ?", [$normalizedLast])
-                    ->where('phone1_commercial', $data['phone1_commercial'] ?? null)
-                    ->first();
-
-                if (! $customer && filled($data['phone1_commercial'] ?? null)) {
-                    $customer = Customer::query()
-                        ->where('phone1_commercial', $data['phone1_commercial'])
-                        ->first();
-                }
-
-                if ($customer) {
-                    $toUpdate = array_filter($customerPayload, fn ($value) => $value !== null && $value !== '');
-
-                    if ($toUpdate !== []) {
-                        $customer->fill($toUpdate)->save();
-                    }
-                } else {
-                    $customer = Customer::create($customerPayload);
-                }
-            }
+            $customer = app(PuertaFriaCustomerResolver::class)->resolveOrCreate(
+                $customerPayload,
+                auth()->id(),
+            );
 
             $comercialId = $data['nota_comercial_id'] ?? auth()->id();
             $existingNote = VentaOrigenResolver::findReusableAssignedNote($customer);
