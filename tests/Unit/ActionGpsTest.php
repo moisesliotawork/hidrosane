@@ -122,4 +122,14 @@ class ActionGpsTest extends TestCase
 
         ActionGps::assertCoordsForVentaOrFail(null, null, [], $user);
     }
+
+    public function test_assert_coords_for_venta_allows_empty_for_gps_exempt_commercial_911(): void
+    {
+        $user = $this->mockCommercialUser('911', 'contratos@gmail.com');
+
+        $coords = ActionGps::assertCoordsForVentaOrFail(null, null, [], $user);
+
+        $this->assertNull($coords['lat']);
+        $this->assertNull($coords['lng']);
+    }
 }

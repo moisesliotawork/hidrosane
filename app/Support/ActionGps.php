@@ -164,7 +164,7 @@ class ActionGps
     }
 
     /**
-     * @return array{lat: string, lng: string}
+     * @return array{lat: ?string, lng: ?string}
      */
     public static function assertCoordsForVentaOrFail(
         ?string $noteLat,
@@ -172,6 +172,10 @@ class ActionGps
         array $data = [],
         ?User $user = null,
     ): array {
+        if (! self::shouldRegisterGps($user)) {
+            return ['lat' => null, 'lng' => null];
+        }
+
         $coords = self::coordsForVenta($noteLat, $noteLng, $data, $user);
 
         if (filled($coords['lat']) && filled($coords['lng'])) {

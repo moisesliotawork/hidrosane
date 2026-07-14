@@ -224,6 +224,10 @@ class VentaGpsFlowTest extends TestCase
 
         $this->assertNull($coords['lat']);
         $this->assertNull($coords['lng']);
+
+        $saved = ActionGps::assertCoordsForVentaOrFail(null, null, [], $exempt);
+        $this->assertNull($saved['lat']);
+        $this->assertNull($saved['lng']);
     }
 
     /** Comercial normal: venta sigue exigiendo GPS en wizard */
