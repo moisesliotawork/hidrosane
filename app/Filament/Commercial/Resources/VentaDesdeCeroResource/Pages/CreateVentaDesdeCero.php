@@ -35,6 +35,8 @@ class CreateVentaDesdeCero extends CreateRecord
 
     protected static string $view = 'filament.commercial.pages.create-venta-desde-cero';
 
+    public const NEW_CUSTOMER_CHOICE = '__new__';
+
     public string $lookupPhone = '';
 
     public string $lookupName = '';
@@ -159,6 +161,11 @@ class CreateVentaDesdeCero extends CreateRecord
         $this->lookupSelectedChoice = null;
     }
 
+    public function selectPuertaFriaLookupChoice(string $choice): void
+    {
+        $this->lookupSelectedChoice = $choice;
+    }
+
     public function create(bool $another = false): void
     {
         $this->assertPuertaFriaLookupCompleted();
@@ -239,7 +246,9 @@ class CreateVentaDesdeCero extends CreateRecord
             return;
         }
 
-        if (blank($this->lookupSelectedChoice)) {
+        $choice = trim((string) $this->lookupSelectedChoice);
+
+        if ($choice === '') {
             Notification::make()
                 ->title('Selecciona un cliente o crea uno nuevo')
                 ->warning()
@@ -250,8 +259,8 @@ class CreateVentaDesdeCero extends CreateRecord
 
         $prefill = [];
 
-        if ($this->lookupSelectedChoice !== '__new__') {
-            $customer = Customer::query()->find((int) $this->lookupSelectedChoice);
+        if ($choice !== self::NEW_CUSTOMER_CHOICE) {
+            $customer = Customer::query()->find((int) $choice);
 
             if (! $customer) {
                 Notification::make()
@@ -278,13 +287,14 @@ class CreateVentaDesdeCero extends CreateRecord
             ];
         }
 
-        $this->form->fill(array_merge($this->data, $prefill));
-        session()->put($this->puertaFriaLookupVerifiedKey(), $this->puertaFriaLookupToken);
-        $this->puertaFriaLookupCompleted = true;
         $this->dispatch('close-puerta-fria-lookup-modal');
 
+        $this->form->fill(array_merge($this->data ?? [], $prefill));
+        session()->put($this->puertaFriaLookupVerifiedKey(), $this->puertaFriaLookupToken);
+        $this->puertaFriaLookupCompleted = true;
+
         Notification::make()
-            ->title($this->lookupSelectedChoice === '__new__'
+            ->title($choice === self::NEW_CUSTOMER_CHOICE
                 ? 'Puedes continuar creando el cliente nuevo'
                 : 'Cliente seleccionado. Revisa los datos y continúa con la venta.')
             ->success()

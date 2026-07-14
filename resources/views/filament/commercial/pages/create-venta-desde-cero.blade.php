@@ -4,7 +4,7 @@
         'fi-resource-' . str_replace('/', '-', $this->getResource()::getSlug()),
     ])
 >
-    @if ($this->shouldShowPuertaFriaLookupModal())
+    @if ($this->requiresPuertaFriaLookup())
         <x-filament::modal
             id="puerta-fria-customer-lookup"
             width="2xl"
@@ -72,12 +72,16 @@
                         </p>
 
                         @foreach ($lookupResults as $result)
-                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                            <label
+                                class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                                wire:key="pf-lookup-{{ $result['id'] }}"
+                                wire:click="selectPuertaFriaLookupChoice('{{ $result['id'] }}')"
+                            >
                                 <input
                                     type="radio"
-                                    wire:model="lookupSelectedChoice"
+                                    wire:model.live="lookupSelectedChoice"
                                     value="{{ $result['id'] }}"
-                                    class="mt-1"
+                                    class="mt-1 pointer-events-none"
                                 />
                                 <span class="text-sm text-gray-800 dark:text-gray-100">
                                     <span class="font-semibold">{{ $result['name'] }}</span>
@@ -91,12 +95,15 @@
                             </label>
                         @endforeach
 
-                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-300 bg-primary-50 p-3 dark:border-primary-700 dark:bg-primary-950">
+                        <label
+                            class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-300 bg-primary-50 p-3 dark:border-primary-700 dark:bg-primary-950"
+                            wire:click="selectPuertaFriaLookupChoice('__new__')"
+                        >
                             <input
                                 type="radio"
-                                wire:model="lookupSelectedChoice"
+                                wire:model.live="lookupSelectedChoice"
                                 value="__new__"
-                                class="mt-1"
+                                class="mt-1 pointer-events-none"
                             />
                             <span class="text-sm font-semibold text-primary-800 dark:text-primary-100">
                                 Crear cliente nuevo
@@ -104,12 +111,15 @@
                         </label>
                     </div>
                 @elseif ($lookupSearched && $lookupMessageStatus === 'not_found')
-                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-300 bg-primary-50 p-3 dark:border-primary-700 dark:bg-primary-950">
+                    <label
+                        class="flex cursor-pointer items-start gap-3 rounded-lg border border-primary-300 bg-primary-50 p-3 dark:border-primary-700 dark:bg-primary-950"
+                        wire:click="selectPuertaFriaLookupChoice('__new__')"
+                    >
                         <input
                             type="radio"
-                            wire:model="lookupSelectedChoice"
+                            wire:model.live="lookupSelectedChoice"
                             value="__new__"
-                            class="mt-1"
+                            class="mt-1 pointer-events-none"
                         />
                         <span class="text-sm font-semibold text-primary-800 dark:text-primary-100">
                             Crear contrato con un NUEVO CLIENTE
@@ -136,7 +146,6 @@
                             color="success"
                             wire:click="continuePuertaFriaLookup"
                             wire:loading.attr="disabled"
-                            :disabled="blank($lookupSelectedChoice)"
                         >
                             Continuar
                         </x-filament::button>
@@ -165,7 +174,7 @@
     @else
     <x-filament-panels::form
         id="form"
-        :wire:key="$this->getId() . '.forms.' . $this->getFormStatePath()"
+        :wire:key="$this->getId() . '.forms.' . $this->getFormStatePath() . '.' . ($this->puertaFriaLookupCompleted ? 'ready' : 'blocked')"
         wire:submit="create"
     >
         {{ $this->form }}
