@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Admin\Resources\ContratosBorradosResource\Pages;
+namespace App\Filament\SuperAdmin\Resources\ContratosBorradosResource\Pages;
 
-use App\Filament\Admin\Resources\ContratosBorradosResource;
+use App\Filament\SuperAdmin\Resources\ContratosBorradosResource;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\MaxWidth;
 

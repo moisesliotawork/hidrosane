@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Filament\Admin\Resources;
+namespace App\Filament\SuperAdmin\Resources;
 
-use App\Filament\Admin\Resources\ContratosBorradosResource\Pages;
+use App\Filament\SuperAdmin\Resources\ContratosBorradosResource\Pages;
+use App\Models\Scopes\NotMergedScope;
 use App\Models\Venta;
+use App\Support\Filament\ContratosBorradosTable;
 use App\Support\VentaSoftRestore;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -27,56 +28,25 @@ class ContratosBorradosResource extends Resource
 
     protected static ?string $slug = 'contratos-borrados';
 
+    protected static ?int $navigationSort = 94;
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
             ->onlyTrashed()
-            ->with(['customer', 'deletedBy']);
+            ->with([
+                'customer' => fn ($query) => $query
+                    ->withoutGlobalScope(NotMergedScope::class)
+                    ->withTrashed(),
+                'deletedBy',
+            ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->defaultSort('deleted_at', 'desc')
-            ->columns([
-                TextColumn::make('deleted_at')
-                    ->label('Fecha')
-                    ->date('d/m/Y')
-                    ->sortable(),
-
-                TextColumn::make('deleted_at_time')
-                    ->label('Hora')
-                    ->state(fn (Venta $record): string => optional($record->deleted_at)?->format('H:i') ?? '—'),
-
-                TextColumn::make('deletedBy.display_name')
-                    ->label('Usuario')
-                    ->state(fn (Venta $record): string => $record->deletedBy?->display_name ?? '—')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('deletedBy', function (Builder $userQuery) use ($search) {
-                            $userQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%")
-                                ->orWhere('empleado_id', 'like', "%{$search}%");
-                        });
-                    }),
-
-                TextColumn::make('customer.name')
-                    ->label('Cliente')
-                    ->searchable(['first_names', 'last_names'])
-                    ->sortable(),
-
-                TextColumn::make('nro_contr_adm')
-                    ->label('Nº Contrato')
-                    ->badge()
-                    ->color('danger')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('customer.dni')
-                    ->label('DNI')
-                    ->searchable()
-                    ->sortable(),
-            ])
+            ->columns(ContratosBorradosTable::columns())
             ->actions([
                 Tables\Actions\RestoreAction::make()
                     ->label('Restaurar contrato')
