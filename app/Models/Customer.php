@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\SafeDateCast;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\CustomerSoftDelete;
 use App\Support\Filament\FechaNacimientoField;
 use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,12 +14,13 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'first_names',
@@ -57,6 +59,7 @@ class Customer extends Model
         'oficio',
 
         'inhabilitado',
+        'deleted_by_user_id',
     ];
 
     protected $casts = [
@@ -70,6 +73,11 @@ class Customer extends Model
     protected static function booted()
     {
         static::addGlobalScope(new NotMergedScope());
+
+        // Nunca borrar un cliente de forma definitiva (protege notas, contratos y demás datos).
+        static::forceDeleting(function () {
+            return false;
+        });
 
         static::saving(function (Customer $model) {
             foreach (CustomerPhoneForm::CLIENT_FIELDS as $phoneField) {
@@ -168,6 +176,11 @@ class Customer extends Model
             : ($this->attributes['fecha_nac'] ?? null);
     }
 
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
+    }
 
     /** Relación: un cliente puede tener muchas ventas */
     public function ventas(): HasMany
@@ -412,5 +425,13 @@ class Customer extends Model
         return !is_null($this->merged_into_id);
     }
 
-
+    /**
+     * Los clientes solo se archivan. Nunca se borran definitivamente
+     * (así se conservan notas, contratos y el resto de datos).
+     */
+    public function forceDelete()
+    {
+        CustomerSoftDelete::assertNotForceDeletable();
+    }
 }
+

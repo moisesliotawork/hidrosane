@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Support\Colors\Color;
+use App\Support\Filament\VentaSoftDeleteTableAction;
 
 class VentaResource extends Resource
 {
@@ -869,15 +870,7 @@ class VentaResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-
-                Tables\Actions\DeleteAction::make()
-                    ->label('') // sin texto, solo ícono
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Eliminar contrato')
-                    ->modalDescription('Esta acción eliminará el contrato y sus datos relacionados. ¿Deseas continuar?')
-                    ->successNotificationTitle('Contrato eliminado'),
+                VentaSoftDeleteTableAction::make(),
             ])
             ->filters([
                 Filter::make('cp_contrato')

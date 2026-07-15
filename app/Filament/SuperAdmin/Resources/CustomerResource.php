@@ -14,7 +14,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Actions\Action;
 use Filament\Infolists\Components\Section;
@@ -25,6 +24,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use App\Models\Venta;
 use App\Services\CustomerPrimaryKeyReassignmentService;
+use App\Support\Filament\CustomerSoftDeleteTableAction;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\Rule;
 
@@ -439,16 +439,11 @@ class CustomerResource extends Resource
             ->defaultSort('id', 'desc')
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\DeleteAction::make()
-                    ->label(''),
+                CustomerSoftDeleteTableAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->label('Eliminar seleccionados')
-                        ->modalHeading('Eliminar clientes seleccionados')
-                        ->modalDescription('¿Seguro que quieres eliminar los clientes seleccionados? Esta acción no se puede deshacer.')
-                        ->modalSubmitActionLabel('Sí, eliminar'),
+                    CustomerSoftDeleteTableAction::bulk(),
                 ]),
             ]);
     }

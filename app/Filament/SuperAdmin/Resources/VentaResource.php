@@ -7,8 +7,10 @@ use App\Filament\Admin\Resources\VentaResource\RelationManagers\AsociadasRelatio
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use App\Models\Venta;
+use App\Support\Filament\VentaSoftDeleteTableAction;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Tables;
 use Filament\Tables\Table;
 
 class VentaResource extends Resource
@@ -31,10 +33,15 @@ class VentaResource extends Resource
     {
         $table = AdminVentaResource::table($table);
 
-        return $table->columns([
-            SuperAdminVentaCustomerId::tableColumn(),
-            ...array_values($table->getColumns()),
-        ]);
+        return $table
+            ->columns([
+                SuperAdminVentaCustomerId::tableColumn(),
+                ...array_values($table->getColumns()),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                VentaSoftDeleteTableAction::make(),
+            ]);
     }
 
     public static function getRelations(): array

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
 use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
@@ -101,7 +102,7 @@ use App\Enums\OrigenVenta;
  */
 class Venta extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'note_id',
@@ -172,7 +173,7 @@ class Venta extends Model
         'pasadas_financieras',
 
         'contrato_firmado_at',
-
+        'deleted_by_user_id',
 
     ];
 
@@ -425,6 +426,11 @@ class Venta extends Model
     public function comercial(): BelongsTo
     {
         return $this->belongsTo(User::class, 'comercial_id');
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
     }
 
     public function companion(): BelongsTo
