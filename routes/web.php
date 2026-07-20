@@ -63,11 +63,13 @@ Route::get('/picking-diario/pdf/{date}', function (string $date) {
     return $pdf->stream($filename);
 })->name('picking-diario.pdf');
 
-// Logout global de Laravel
+// Logout global de Laravel (solo POST: CSRF). GET → login para evitar 405 en barra/atrás.
+Route::get('/logout', fn () => redirect('/admin/login'));
 Route::post('/logout', LogoutController::class)->name('logout');
 
 // Logout de todos los paneles Filament (apuntan al mismo controlador)
 foreach (['admin', 'comercial', 'teleoperador', 'jefe-sala', 'gerente', 'repartidor', 'superAdmin'] as $panel) {
+    Route::get("/{$panel}/logout", fn () => redirect("/{$panel}/login"));
     Route::post("/{$panel}/logout", LogoutController::class)
         ->name("filament.{$panel}.auth.logout");
 }
