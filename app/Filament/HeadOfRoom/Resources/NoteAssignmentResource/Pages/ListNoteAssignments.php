@@ -12,12 +12,12 @@ class ListNoteAssignments extends ListRecords
 {
     protected static string $resource = NoteAssignmentResource::class;
 
-    // Esta propiedad fuerza a que todos los grupos nazcan colapsados
-    public bool $tableGroupingCollapsed = true;
+    // Grupos abiertos por defecto para ver de un vistazo las asignaciones del día
+    public bool $tableGroupingCollapsed = false;
 
     public function isTableGroupingCollapsedByDefault(): bool
     {
-        return true;
+        return false;
     }
 
     public function getTabs(): array
