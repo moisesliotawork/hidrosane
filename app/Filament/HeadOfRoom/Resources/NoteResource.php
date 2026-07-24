@@ -1022,12 +1022,13 @@ class NoteResource extends Resource
                     ->modalSubmitActionLabel('Sí, eliminar')
                     ->successNotificationTitle('Notas eliminadas correctamente'),
 
-                // Modal de forzado tras bulk (debe ser BulkAction para replaceMountedTableAction).
+                // Modal de forzado tras bulk. visible() según sesión (no ->hidden():
+                // hidden implica isDisabled y Filament no monta la acción).
                 Tables\Actions\BulkAction::make('forceAssignBulkDespiteRestriction')
-                    ->label('Forzar asignación masiva')
+                    ->label('ASIGNAR DE TODOS MODOS')
                     ->icon('heroicon-o-exclamation-triangle')
                     ->color('warning')
-                    ->hidden()
+                    ->visible(fn (): bool => filled(session(NoteAssignRestriction::SESSION_PENDING_BULK)))
                     ->modalHeading('Asignación restringida')
                     ->modalWidth('3xl')
                     ->modalContent(function (): HtmlString {
@@ -1228,11 +1229,10 @@ class NoteResource extends Resource
                                         : 'Ninguna se asignó aún.')
                                 )
                                 ->warning()
-                                ->persistent()
                                 ->send();
 
-                            // Es BulkAction oculta: replaceMountedTableAction (no mountAction de header).
-                            $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
+                            // API correcta para bulk (no replaceMountedTableAction de filas).
+                            $livewire->replaceMountedTableBulkAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en asignación masiva')
@@ -1455,10 +1455,9 @@ class NoteResource extends Resource
                                         : 'Ninguna se procesó aún.')
                                 )
                                 ->warning()
-                                ->persistent()
                                 ->send();
 
-                            $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
+                            $livewire->replaceMountedTableBulkAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en acción masiva')
