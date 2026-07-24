@@ -457,13 +457,17 @@ class Note extends Model
         ];
     }
 
+    /**
+     * Fecha de asignación comercial como día de calendario de negocio (Europe/Madrid).
+     * Se guarda como Y-m-d 00:00:00 en el timezone de la app para que whereDate / pestañas HOY no pierdan el día por UTC.
+     */
     public static function normalizeCommercialAssignmentDate(mixed $date = null): Carbon
     {
-        if (filled($date)) {
-            return Carbon::parse($date, self::businessTimezone())->startOfDay();
-        }
+        $dateString = filled($date)
+            ? Carbon::parse($date, self::businessTimezone())->toDateString()
+            : self::businessToday()->toDateString();
 
-        return self::businessToday();
+        return Carbon::parse($dateString.' 00:00:00', config('app.timezone'));
     }
 
     /** Notas con comercial asignado (Asign.Comercial). */
@@ -478,18 +482,27 @@ class Note extends Model
         return $this->assignment_date ?? $this->visit_date;
     }
 
+    /**
+     * Filtra por el día de negocio (Europe/Madrid), aunque assignment_date esté guardado en UTC.
+     */
     public function scopeWhereEffectiveAssignmentDate($query, Carbon|string $date)
     {
         $dateString = $date instanceof Carbon
-            ? $date->toDateString()
+            ? $date->timezone(self::businessTimezone())->toDateString()
             : Carbon::parse($date, self::businessTimezone())->toDateString();
 
-        return $query->where(function ($q) use ($dateString) {
-            $q->whereDate('assignment_date', $dateString)
-                ->orWhere(function ($q2) use ($dateString) {
+        // Convertir el día de negocio a instantes en TZ de la app (p. ej. UTC),
+        // porque el query binder serializa Carbon con su offset local sin convertir.
+        $appTz = config('app.timezone', 'UTC');
+        $start = Carbon::parse($dateString, self::businessTimezone())->startOfDay()->timezone($appTz);
+        $end = Carbon::parse($dateString, self::businessTimezone())->endOfDay()->timezone($appTz);
+
+        return $query->where(function ($q) use ($start, $end) {
+            $q->whereBetween('assignment_date', [$start, $end])
+                ->orWhere(function ($q2) use ($start, $end) {
                     $q2->whereNull('assignment_date')
                         ->whereNotNull('visit_date')
-                        ->whereDate('visit_date', $dateString);
+                        ->whereBetween('visit_date', [$start, $end]);
                 });
         });
     }

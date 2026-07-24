@@ -204,6 +204,29 @@ class ListNotes extends ListRecords
                         ->where('printed', false)
                 ),
 
+            'asignadas_hoy' => Tab::make('Asignadas hoy')
+                ->icon('heroicon-o-user-plus')
+                ->badge(
+                    Note::query()
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate(Note::businessToday())
+                        ->where(function (Builder $q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
+                                ->orWhereIn('estado_terminal', [
+                                    EstadoTerminal::SIN_ESTADO->value,
+                                    EstadoTerminal::SALA->value,
+                                ]);
+                        })
+                        ->count()
+                )
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate(Note::businessToday())
+                ),
+
             'se' => Tab::make('SE')
                 ->icon('heroicon-o-question-mark-circle')
                 ->badge(

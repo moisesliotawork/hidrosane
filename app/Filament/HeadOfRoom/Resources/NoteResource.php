@@ -700,6 +700,9 @@ class NoteResource extends Resource
                         $fields[] = Forms\Components\DatePicker::make('assignment_date')
                                 ->label('Fecha de asignación')
                                 ->hint('Si se deja vacío, se usará la fecha actual')
+                                ->timezone('Europe/Madrid')
+                                ->native(false)
+                                ->displayFormat('d/m/Y')
                                 ->required(false);
 
                         $fields[] = Forms\Components\Hidden::make('force_despite_restriction')
@@ -843,86 +846,6 @@ class NoteResource extends Resource
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),
 
-                Action::make('forceAssignBulkDespiteRestriction')
-                    ->label('Forzar asignación masiva')
-                    ->icon('heroicon-o-exclamation-triangle')
-                    ->color('warning')
-                    ->hidden()
-                    ->modalHeading('Asignación restringida')
-                    ->modalWidth('3xl')
-                    ->modalContent(function (): HtmlString {
-                        $pending = session(NoteAssignRestriction::SESSION_PENDING_BULK, []);
-                        $items = collect($pending['blocked_items'] ?? []);
-                        $cleanCount = (int) ($pending['clean_count'] ?? 0);
-                        $content = NoteAssignRestriction::bulkModalContent($items);
-
-                        if ($cleanCount > 0) {
-                            return new HtmlString(
-                                $content->toHtml()
-                                .'<p style="margin-top:10px;color:#15803d;font-weight:600;">✅ '
-                                .$cleanCount
-                                .' nota(s) ya asignadas correctamente (sin restricción).</p>'
-                            );
-                        }
-
-                        return $content;
-                    })
-                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
-                    ->modalCancelActionLabel('Cancelar')
-                    ->action(function (): void {
-                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_BULK);
-
-                        if (! is_array($pending) || empty($pending['blocked_ids'])) {
-                            Notification::make()
-                                ->title('No hay asignación pendiente')
-                                ->warning()
-                                ->send();
-
-                            return;
-                        }
-
-                        try {
-                            $sendToReten = (bool) ($pending['send_to_reten'] ?? false);
-                            $blockedIds = $pending['blocked_ids'];
-                            $data = $pending['data'] ?? [];
-                            $fromComercials = $pending['from_comercials'] ?? [];
-
-                            $toResetIds = NoteAssignRestriction::applyBulk($blockedIds, $data, $sendToReten);
-
-                            if ($sendToReten) {
-                                $batch = NoteReassignmentBatch::create([
-                                    'author_id' => auth()->id(),
-                                    'to_comercial_id' => ! empty($data['comercial_id'] ?? null) ? $data['comercial_id'] : null,
-                                    'to_reten' => true,
-                                    'reassigned_at' => now(),
-                                ]);
-
-                                foreach ($blockedIds as $noteId) {
-                                    NoteReassignmentLog::create([
-                                        'batch_id' => $batch->id,
-                                        'note_id' => $noteId,
-                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
-                                    ]);
-                                }
-                            }
-
-                            Notification::make()
-                                ->title('Asignación forzada completada')
-                                ->body(
-                                    count($blockedIds).' nota(s) asignadas ignorando restricciones'
-                                    .($sendToReten ? ' • Enviadas a RETEN' : '')
-                                    .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
-                                )
-                                ->warning()
-                                ->send();
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('Error al forzar asignación')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    }),
                 //Tables\Actions\Action::make('buscarTelefono')
                 //    ->label('Buscar teléfono')
                 //    ->icon('heroicon-o-magnifying-glass')
@@ -1098,6 +1021,89 @@ class NoteResource extends Resource
                     ->modalDescription('¿Estás seguro de que quieres eliminar las notas seleccionadas? Esta acción no se puede deshacer.')
                     ->modalSubmitActionLabel('Sí, eliminar')
                     ->successNotificationTitle('Notas eliminadas correctamente'),
+
+                // Modal de forzado tras bulk (debe ser BulkAction para replaceMountedTableAction).
+                Tables\Actions\BulkAction::make('forceAssignBulkDespiteRestriction')
+                    ->label('Forzar asignación masiva')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->hidden()
+                    ->modalHeading('Asignación restringida')
+                    ->modalWidth('3xl')
+                    ->modalContent(function (): HtmlString {
+                        $pending = session(NoteAssignRestriction::SESSION_PENDING_BULK, []);
+                        $items = collect($pending['blocked_items'] ?? []);
+                        $cleanCount = (int) ($pending['clean_count'] ?? 0);
+                        $content = NoteAssignRestriction::bulkModalContent($items);
+
+                        if ($cleanCount > 0) {
+                            return new HtmlString(
+                                $content->toHtml()
+                                .'<p style="margin-top:10px;color:#15803d;font-weight:600;">✅ '
+                                .$cleanCount
+                                .' nota(s) ya asignadas correctamente (sin restricción).</p>'
+                            );
+                        }
+
+                        return $content;
+                    })
+                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
+                    ->modalCancelActionLabel('Cancelar')
+                    ->action(function (): void {
+                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_BULK);
+
+                        if (! is_array($pending) || empty($pending['blocked_ids'])) {
+                            Notification::make()
+                                ->title('No hay asignación pendiente')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            $sendToReten = (bool) ($pending['send_to_reten'] ?? false);
+                            $blockedIds = $pending['blocked_ids'];
+                            $data = $pending['data'] ?? [];
+                            $fromComercials = $pending['from_comercials'] ?? [];
+
+                            $toResetIds = NoteAssignRestriction::applyBulk($blockedIds, $data, $sendToReten);
+
+                            if ($sendToReten) {
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => ! empty($data['comercial_id'] ?? null) ? $data['comercial_id'] : null,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+
+                                foreach ($blockedIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Asignación forzada completada')
+                                ->body(
+                                    count($blockedIds).' nota(s) asignadas ignorando restricciones'
+                                    .($sendToReten ? ' • Enviadas a RETEN' : '')
+                                    .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                )
+                                ->warning()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al forzar asignación')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
                 Tables\Actions\BulkAction::make('assignCommercialBulk')
                     ->label('Asig. Com.')
                     ->icon('heroicon-s-user-plus')
@@ -1155,6 +1161,9 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha de asignación')
                             ->hint('Si se deja vacío, se usará la fecha actual')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
                             ->required(false),
                     ])
                     ->action(function (iterable $records, array $data, HasTable $livewire): void {
@@ -1210,6 +1219,19 @@ class NoteResource extends Resource
                                 'send_to_reten' => false,
                             ]);
 
+                            Notification::make()
+                                ->title('Notas con restricción')
+                                ->body(
+                                    count($blockedIds).' nota(s) requieren confirmación. '
+                                    .(count($cleanIds) > 0
+                                        ? count($cleanIds).' nota(s) ya asignadas.'
+                                        : 'Ninguna se asignó aún.')
+                                )
+                                ->warning()
+                                ->persistent()
+                                ->send();
+
+                            // Es BulkAction oculta: replaceMountedTableAction (no mountAction de header).
                             $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
@@ -1338,8 +1360,10 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha de asignación')
                             ->hint('Si se deja vacío, se usará la fecha actual (solo si asignas comercial)')
+                            ->timezone('Europe/Madrid')
                             ->required(false)
-                            ->native(false),
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
                     ])
                     ->action(function (iterable $records, array $data, HasTable $livewire): void {
                         try {
@@ -1421,6 +1445,18 @@ class NoteResource extends Resource
                                 'send_to_reten' => true,
                                 'from_comercials' => $fromComercials,
                             ]);
+
+                            Notification::make()
+                                ->title('Notas con restricción')
+                                ->body(
+                                    count($blockedIds).' nota(s) requieren confirmación para asignar + RETEN. '
+                                    .(count($cleanIds) > 0
+                                        ? count($cleanIds).' nota(s) ya procesadas.'
+                                        : 'Ninguna se procesó aún.')
+                                )
+                                ->warning()
+                                ->persistent()
+                                ->send();
 
                             $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
