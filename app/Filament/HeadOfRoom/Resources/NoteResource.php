@@ -37,6 +37,8 @@ use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\HeadOfRoom\NoteAssignRestriction;
+use Filament\Tables\Contracts\HasTable;
 
 class NoteResource extends Resource
 {
@@ -618,8 +620,17 @@ class NoteResource extends Resource
                     ->label('')
                     ->icon('heroicon-s-user-plus')
                     ->form(function (Note $record) {
-                        return [
-                            Forms\Components\Select::make('comercial_id')
+                        $restriction = NoteAssignRestriction::forNote($record);
+
+                        $fields = [];
+
+                        if ($restriction !== null) {
+                            $fields[] = Forms\Components\Placeholder::make('assign_restriction_banner')
+                                ->label('')
+                                ->content(NoteAssignRestriction::singleModalContent($restriction));
+                        }
+
+                        $fields[] = Forms\Components\Select::make('comercial_id')
                                 ->label('Seleccionar Comercial')
                                 ->options(function () use ($record) {
                                     $users = User::query()
@@ -684,45 +695,43 @@ class NoteResource extends Resource
                                             }
                                         };
                                     },
-                                ]),
+                                ]);
 
-                            Forms\Components\DatePicker::make('assignment_date')
+                        $fields[] = Forms\Components\DatePicker::make('assignment_date')
                                 ->label('Fecha de asignación')
                                 ->hint('Si se deja vacío, se usará la fecha actual')
-                                ->required(false),
-                        ];
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirmar asignación')
-                    ->modalDescription(function (Note $record, array $data): string {
-                        $comercialId = $data['comercial_id'] ?? null;
+                                ->required(false);
 
-                        if ($comercialId === '__RETEN__') {
-                            return "¿Confirmas enviar la nota #{$record->nro_nota} a COMERCIAL RETEN?";
+                        $fields[] = Forms\Components\Hidden::make('force_despite_restriction')
+                            ->default($restriction !== null ? '1' : '0');
+
+                        return $fields;
+                    })
+                    ->modalHeading(function (Note $record): string {
+                        return NoteAssignRestriction::forNote($record) !== null
+                            ? 'Asignación restringida'
+                            : 'Confirmar asignación';
+                    })
+                    ->modalDescription(function (Note $record): ?string {
+                        if (NoteAssignRestriction::forNote($record) !== null) {
+                            return 'Este cliente tiene una restricción. Revisa el detalle y, si procede, asigna de todos modos.';
                         }
 
-                        if (blank($comercialId)) {
-                            return "¿Confirmas quitar el comercial asignado de la nota #{$record->nro_nota}?";
-                        }
-
-                        $user = User::find($comercialId);
-                        $label = $user
-                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
-                            : 'el comercial seleccionado';
-
-                        $fecha = filled($data['assignment_date'] ?? null)
-                            ? Carbon::parse($data['assignment_date'])->format('d/m/Y')
-                            : now()->format('d/m/Y');
-
-                        return "¿Confirmas asignar la nota #{$record->nro_nota} al comercial {$label} con fecha {$fecha}?";
+                        return 'Selecciona el comercial y confirma la asignación de la nota #'.$record->nro_nota.'.';
                     })
-                    ->modalSubmitActionLabel('Sí, confirmar')
-
+                    ->modalSubmitActionLabel(function (Note $record): string {
+                        return NoteAssignRestriction::forNote($record) !== null
+                            ? 'ASIGNAR DE TODOS MODOS'
+                            : 'Sí, confirmar';
+                    })
+                    ->color(fn (Note $record): string => NoteAssignRestriction::forNote($record) !== null
+                        ? 'warning'
+                        : 'primary')
+                    ->modalWidth('2xl')
                     ->action(function (Note $record, array $data): void {
                         try {
-                            // Se mantiene tu lógica existente
                             if (($data['comercial_id'] ?? null) === '__RETEN__') {
-                                $record->update(['reten' => true]);
+                                NoteAssignRestriction::applyAssignment($record, $data);
 
                                 Notification::make()
                                     ->title('Marcada como COMERCIAL RETEN')
@@ -732,130 +741,94 @@ class NoteResource extends Resource
                                 return;
                             }
 
-                            // ── Verificación venta reciente ────────────────────────────────
-                            if (!is_null($data['comercial_id'] ?? null)) {
-                                $customer = $record->customer;
+                            $restriction = NoteAssignRestriction::forNote($record);
+                            $force = ($data['force_despite_restriction'] ?? '0') === '1'
+                                || ($data['force_despite_restriction'] ?? false) === true;
 
-                                if ($customer) {
-                                    $phones = collect([
-                                        $customer->phone,
-                                        $customer->secondary_phone,
-                                        $customer->third_phone,
-                                        $customer->phone1_commercial,
-                                        $customer->phone2_commercial,
-                                    ])->filter()->values();
+                            // Si hay restricción al asignar comercial y no viene marcado el forzado, bloquear.
+                            // (El modal ya ofrece ASIGNAR DE TODOS MODOS con force=1.)
+                            if (
+                                ! blank($data['comercial_id'] ?? null)
+                                && $restriction !== null
+                                && ! $force
+                            ) {
+                                Notification::make()
+                                    ->title('⛔ Asignación bloqueada')
+                                    ->body($restriction['message'])
+                                    ->danger()
+                                    ->persistent()
+                                    ->send();
 
-                                    $nameWords = collect(
-                                        preg_split('/\s+/u', mb_strtolower(trim(
-                                            ($customer->first_names ?? '') . ' ' . ($customer->last_names ?? '')
-                                        )))
-                                    )->filter(fn($w) => mb_strlen($w) > 2)->values();
-
-                                    if ($phones->isNotEmpty() && $nameWords->isNotEmpty()) {
-                                        $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
-
-                                        $matchingCustomer = Customer::query()
-                                            ->where(function ($q) use ($nameWords) {
-                                                foreach ($nameWords as $word) {
-                                                    $q->orWhere(DB::raw('LOWER(first_names)'), 'like', "%{$word}%")
-                                                      ->orWhere(DB::raw('LOWER(last_names)'), 'like', "%{$word}%");
-                                                }
-                                            })
-                                            ->where(function ($q) use ($phones) {
-                                                foreach ($phones as $phone) {
-                                                    $q->orWhere('phone', $phone)
-                                                      ->orWhere('secondary_phone', $phone)
-                                                      ->orWhere('third_phone', $phone)
-                                                      ->orWhere('phone1_commercial', $phone)
-                                                      ->orWhere('phone2_commercial', $phone);
-                                                }
-                                            })
-                                            ->whereHas('ventas', fn($q) => $q->where('fecha_venta', '>=', $cutoff))
-                                            ->first();
-
-                                        if ($matchingCustomer) {
-                                            $recentVenta = Venta::where('customer_id', $matchingCustomer->id)
-                                                ->where('fecha_venta', '>=', $cutoff)
-                                                ->with('comercial:id,empleado_id')
-                                                ->latest('fecha_venta')
-                                                ->first();
-
-                                            $clientName  = mb_strtoupper(trim(
-                                                ($matchingCustomer->first_names ?? '') . ' ' . ($matchingCustomer->last_names ?? '')
-                                            ));
-                                            $fechaVenta  = $recentVenta
-                                                ? Carbon::parse($recentVenta->fecha_venta)->format('d/m/Y H:i')
-                                                : '—';
-                                            $comercialId = $recentVenta?->comercial?->empleado_id ?? '—';
-
-                                            Notification::make()
-                                                ->title('⛔ Asignación bloqueada')
-                                                ->body(
-                                                    "NO PUEDES REASIGNAR AL CLIENTE: {$clientName}, "
-                                                    . "tiene una venta reciente con fecha {$fechaVenta}, "
-                                                    . "declarada por: {$comercialId}"
-                                                )
-                                                ->danger()
-                                                ->persistent()
-                                                ->send();
-
-                                            return;
-                                        }
-                                    }
-                                }
+                                return;
                             }
-                            // ── Fin verificación ──────────────────────────────────────────
+
+                            NoteAssignRestriction::applyAssignment($record, $data);
 
                             $comercialId = $data['comercial_id'] ?? null;
+                            $forced = $restriction !== null && ! blank($comercialId);
 
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja')
-                                    ->whereHas(
-                                        'roles',
-                                        fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager'])
-                                    )
-                                    ->exists();
-
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
-                                }
-                            }
-
-                            $assignmentDate = !empty($comercialId)
-                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
-                                : null;
-
-                            $updates = [
-                                'comercial_id' => $comercialId ?: null,
-                                'assignment_date' => $assignmentDate,
-                                'reten' => false,
-                            ];
-
-                            if (!empty($comercialId) && $assignmentDate) {
-                                $updates['visit_date'] = $assignmentDate;
-                            }
-
-                            if ($record->estado_terminal === EstadoTerminal::SALA) {
-                                $updates['estado_terminal'] = EstadoTerminal::SIN_ESTADO->value;
-                                $updates['sent_to_sala_at'] = null;
-                            }
-
-                            $record->update($updates);
-
-                            $message = is_null($comercialId)
+                            $message = blank($comercialId)
                                 ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . User::find($comercialId)?->name;
+                                : (
+                                    $forced
+                                        ? 'Asignación forzada: '.User::find($comercialId)?->name
+                                        : 'Comercial asignado correctamente: '.User::find($comercialId)?->name
+                                );
 
                             Notification::make()
                                 ->title($message)
                                 ->success()
                                 ->send();
-
                         } catch (\Exception $e) {
                             Notification::make()
                                 ->title('Error al actualizar comercial')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
+                // Acción oculta de respaldo (por si se monta desde flujos antiguos)
+                Tables\Actions\Action::make('forceAssignDespiteRestriction')
+                    ->label('Forzar asignación')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->hidden()
+                    ->modalHeading(fn (): string => session(NoteAssignRestriction::SESSION_PENDING_SINGLE.'.restriction.title')
+                        ?? 'Asignación restringida')
+                    ->modalContent(fn (): HtmlString => NoteAssignRestriction::singleModalContent(
+                        session(NoteAssignRestriction::SESSION_PENDING_SINGLE.'.restriction')
+                    ))
+                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
+                    ->modalCancelActionLabel('Cancelar')
+                    ->action(function (Note $record): void {
+                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_SINGLE);
+
+                        if (! is_array($pending) || (int) ($pending['note_id'] ?? 0) !== (int) $record->id) {
+                            Notification::make()
+                                ->title('No hay una asignación pendiente')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            NoteAssignRestriction::applyAssignment($record, $pending['data'] ?? []);
+
+                            $comercialId = $pending['data']['comercial_id'] ?? null;
+                            Notification::make()
+                                ->title('Asignación forzada completada')
+                                ->body(
+                                    blank($comercialId)
+                                        ? 'Comercial removido'
+                                        : 'Comercial asignado (sin aplicar restricción): '.User::find($comercialId)?->name
+                                )
+                                ->warning()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al forzar asignación')
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->send();
@@ -869,6 +842,87 @@ class NoteResource extends Resource
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),
+
+                Action::make('forceAssignBulkDespiteRestriction')
+                    ->label('Forzar asignación masiva')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->hidden()
+                    ->modalHeading('Asignación restringida')
+                    ->modalWidth('3xl')
+                    ->modalContent(function (): HtmlString {
+                        $pending = session(NoteAssignRestriction::SESSION_PENDING_BULK, []);
+                        $items = collect($pending['blocked_items'] ?? []);
+                        $cleanCount = (int) ($pending['clean_count'] ?? 0);
+                        $content = NoteAssignRestriction::bulkModalContent($items);
+
+                        if ($cleanCount > 0) {
+                            return new HtmlString(
+                                $content->toHtml()
+                                .'<p style="margin-top:10px;color:#15803d;font-weight:600;">✅ '
+                                .$cleanCount
+                                .' nota(s) ya asignadas correctamente (sin restricción).</p>'
+                            );
+                        }
+
+                        return $content;
+                    })
+                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
+                    ->modalCancelActionLabel('Cancelar')
+                    ->action(function (): void {
+                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_BULK);
+
+                        if (! is_array($pending) || empty($pending['blocked_ids'])) {
+                            Notification::make()
+                                ->title('No hay asignación pendiente')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            $sendToReten = (bool) ($pending['send_to_reten'] ?? false);
+                            $blockedIds = $pending['blocked_ids'];
+                            $data = $pending['data'] ?? [];
+                            $fromComercials = $pending['from_comercials'] ?? [];
+
+                            $toResetIds = NoteAssignRestriction::applyBulk($blockedIds, $data, $sendToReten);
+
+                            if ($sendToReten) {
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => ! empty($data['comercial_id'] ?? null) ? $data['comercial_id'] : null,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+
+                                foreach ($blockedIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Asignación forzada completada')
+                                ->body(
+                                    count($blockedIds).' nota(s) asignadas ignorando restricciones'
+                                    .($sendToReten ? ' • Enviadas a RETEN' : '')
+                                    .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                )
+                                ->warning()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al forzar asignación')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 //Tables\Actions\Action::make('buscarTelefono')
                 //    ->label('Buscar teléfono')
                 //    ->icon('heroicon-o-magnifying-glass')
@@ -1103,207 +1157,60 @@ class NoteResource extends Resource
                             ->hint('Si se deja vacío, se usará la fecha actual')
                             ->required(false),
                     ])
-                    ->action(function (iterable $records, array $data): void {
+                    ->action(function (iterable $records, array $data, HasTable $livewire): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            $allRecords = collect($records);
 
-                            // Doble verificación en runtime
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja')
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
-                                    ->exists();
+                            if (empty($comercialId)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk(
+                                    $allRecords->pluck('id')->all(),
+                                    $data,
+                                );
 
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
-                                }
+                                Notification::make()
+                                    ->title('Asignación masiva completada')
+                                    ->body(
+                                        'Comercial removido'
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
+
+                                return;
                             }
 
-                            $assignmentDate = !empty($comercialId)
-                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
-                                : null;
+                            $blockedItems = NoteAssignRestriction::collectBlocked($allRecords);
+                            $blockedIds = $blockedItems->pluck('note_id')->all();
+                            $cleanIds = $allRecords->pluck('id')->diff($blockedIds)->values()->all();
 
-                            $allRecords  = collect($records);
-                            $blockedItems = collect();
-                            $cleanIds    = [];
-                            $toResetIds  = [];
-
-                            // ── Verificar ventas recientes (solo al asignar) ───────────────
-                            if (!empty($comercialId)) {
-                                $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
-
-                                foreach ($allRecords as $note) {
-                                    $customer  = $note->customer;
-                                    $isBlocked = false;
-
-                                    if ($customer) {
-                                        $phones = collect([
-                                            $customer->phone,
-                                            $customer->secondary_phone,
-                                            $customer->third_phone,
-                                            $customer->phone1_commercial,
-                                            $customer->phone2_commercial,
-                                        ])->filter()->values();
-
-                                        $nameWords = collect(
-                                            preg_split('/\s+/u', mb_strtolower(trim(
-                                                ($customer->first_names ?? '') . ' ' . ($customer->last_names ?? '')
-                                            )))
-                                        )->filter(fn($w) => mb_strlen($w) > 2)->values();
-
-                                        if ($phones->isNotEmpty() && $nameWords->isNotEmpty()) {
-                                            $matchingCustomer = Customer::query()
-                                                ->where(function ($q) use ($nameWords) {
-                                                    foreach ($nameWords as $word) {
-                                                        $q->orWhere(DB::raw('LOWER(first_names)'), 'like', "%{$word}%")
-                                                          ->orWhere(DB::raw('LOWER(last_names)'), 'like', "%{$word}%");
-                                                    }
-                                                })
-                                                ->where(function ($q) use ($phones) {
-                                                    foreach ($phones as $phone) {
-                                                        $q->orWhere('phone', $phone)
-                                                          ->orWhere('secondary_phone', $phone)
-                                                          ->orWhere('third_phone', $phone)
-                                                          ->orWhere('phone1_commercial', $phone)
-                                                          ->orWhere('phone2_commercial', $phone);
-                                                    }
-                                                })
-                                                ->whereHas('ventas', fn($q) => $q->where('fecha_venta', '>=', $cutoff))
-                                                ->first();
-
-                                            if ($matchingCustomer) {
-                                                $recentVenta = Venta::where('customer_id', $matchingCustomer->id)
-                                                    ->where('fecha_venta', '>=', $cutoff)
-                                                    ->with('comercial:id,empleado_id')
-                                                    ->latest('fecha_venta')
-                                                    ->first();
-
-                                                $blockedItems->push([
-                                                    'note_id'       => $note->id,
-                                                    'nro_nota'      => $note->nro_nota,
-                                                    'customer_name' => mb_strtoupper(trim(
-                                                        ($matchingCustomer->first_names ?? '') . ' ' . ($matchingCustomer->last_names ?? '')
-                                                    )),
-                                                    'fecha_venta'   => $recentVenta
-                                                        ? Carbon::parse($recentVenta->fecha_venta)->format('d/m/Y H:i')
-                                                        : '—',
-                                                    'comercial_emp' => $recentVenta?->comercial?->empleado_id ?? '—',
-                                                ]);
-                                                $isBlocked = true;
-                                            }
-                                        }
-                                    }
-
-                                    if (!$isBlocked) {
-                                        $cleanIds[] = $note->id;
-                                    }
-                                }
-                            } else {
-                                // Desasignación: procesar todas
-                                $cleanIds = $allRecords->pluck('id')->all();
-                            }
-                            // ── Fin verificación ─────────────────────────────────────────
-
-                            // 1) Asignar las notas limpias
-                            if (!empty($cleanIds)) {
-                                $bulkUpdates = [
-                                    'comercial_id'    => (!empty($comercialId) ? $comercialId : null),
-                                    'assignment_date' => $assignmentDate,
-                                    'reten'           => false,
-                                ];
-
-                                if (!empty($comercialId) && $assignmentDate) {
-                                    $bulkUpdates['visit_date'] = $assignmentDate;
-                                }
-
-                                Note::whereIn('id', $cleanIds)->update($bulkUpdates);
-
-                                // 2) Resetear TN a S/E para las que estén en SALA
-                                $toResetIds = Note::whereIn('id', $cleanIds)
-                                    ->where('estado_terminal', EstadoTerminal::SALA->value)
-                                    ->pluck('id')
-                                    ->all();
-
-                                if (!empty($toResetIds)) {
-                                    Note::whereIn('id', $toResetIds)->update([
-                                        'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
-                                        'sent_to_sala_at' => null,
-                                    ]);
-                                }
+                            $toResetIds = [];
+                            if (! empty($cleanIds)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data);
                             }
 
-                            // Sin bloqueadas → notificación normal
                             if ($blockedItems->isEmpty()) {
                                 Notification::make()
                                     ->title('Asignación masiva completada')
                                     ->body(
-                                        (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
-                                        . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                        'Comercial asignado'
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
                                     )
                                     ->success()
                                     ->send();
+
                                 return;
                             }
 
-                            // Guardar IDs bloqueados en sesión
-                            $blockedNoteIds = $blockedItems->pluck('note_id')->all();
-                            session()->put('hor_blocked_note_ids', $blockedNoteIds);
+                            session()->put(NoteAssignRestriction::SESSION_PENDING_BULK, [
+                                'blocked_items' => $blockedItems->values()->all(),
+                                'blocked_ids' => $blockedIds,
+                                'clean_count' => count($cleanIds),
+                                'data' => $data,
+                                'send_to_reten' => false,
+                            ]);
 
-                            // Construir tabla HTML
-                            $rows = $blockedItems->map(fn($b) =>
-                                "<tr style='border-bottom:1px solid #374151;'>"
-                                . "<td style='padding:4px 8px;color:#fca5a5;font-weight:700;'>{$b['nro_nota']}</td>"
-                                . "<td style='padding:4px 8px;color:#fff;font-weight:600;'>{$b['customer_name']}</td>"
-                                . "<td style='padding:4px 8px;color:#fcd34d;'>{$b['fecha_venta']}</td>"
-                                . "<td style='padding:4px 8px;color:#6ee7b7;'>ID: {$b['comercial_emp']}</td>"
-                                . "</tr>"
-                            )->join('');
-
-                            $cleanMsg = !empty($cleanIds)
-                                ? '<p style="margin-top:10px;color:#6ee7b7;font-weight:600;">✅ ' . count($cleanIds) . ' nota(s) asignadas correctamente.</p>'
-                                : '';
-
-                            $bodyHtml =
-                                '<div style="font-size:13px;">'
-                                . '<p style="margin-bottom:8px;color:#fca5a5;font-weight:600;">Clientes con venta en los últimos 4 meses:</p>'
-                                . '<table style="width:100%;border-collapse:collapse;">'
-                                . '<thead><tr style="background:#1f2937;">'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Nota</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Cliente</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Fecha Venta</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Declarada por</th>'
-                                . '</tr></thead>'
-                                . "<tbody>{$rows}</tbody>"
-                                . '</table>'
-                                . $cleanMsg
-                                . '</div>';
-
-                            Notification::make()
-                                ->title('⚠️ ' . $blockedItems->count() . ' nota(s) con ventas recientes detectadas')
-                                ->body(new HtmlString($bodyHtml))
-                                ->danger()
-                                ->persistent()
-                                ->actions([
-                                    NotificationAction::make('delete_blocked')
-                                        ->label('ELIMINAR NOTAS CON VENTAS RECIENTES')
-                                        ->color('danger')
-                                        ->action(function () {
-                                            $ids = session()->pull('hor_blocked_note_ids', []);
-                                            if (!empty($ids)) {
-                                                Note::whereIn('id', $ids)->delete();
-                                            }
-                                            Notification::make()
-                                                ->title('✅ Notas eliminadas: ' . count($ids))
-                                                ->success()
-                                                ->send();
-                                        }),
-                                    NotificationAction::make('cerrar')
-                                        ->label('Salir')
-                                        ->close(),
-                                ])
-                                ->send();
-
+                            $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en asignación masiva')
@@ -1434,224 +1341,88 @@ class NoteResource extends Resource
                             ->required(false)
                             ->native(false),
                     ])
-                    ->action(function (iterable $records, array $data): void {
+                    ->action(function (iterable $records, array $data, HasTable $livewire): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            $fromComercials = collect($records)->pluck('comercial_id', 'id')->all();
+                            $allRecords = collect($records);
 
-                            // Validación runtime
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja')
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
-                                    ->exists();
-
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
-                                }
-                            }
-
-                            $assignmentDate = !empty($comercialId)
-                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
-                                : null;
-
-                            // Capturar from_comercial_id ANTES del update
-                            $fromComercials = collect($records)->pluck('comercial_id', 'id');
-                            $allRecords     = collect($records);
-                            $blockedItems   = collect();
-                            $cleanIds       = [];
-                            $toResetIds     = [];
-
-                            // ── Verificar ventas recientes (solo al asignar) ───────────────
-                            if (!empty($comercialId)) {
-                                $cutoff = now()->startOfMonth()->subMonthsNoOverflow(4);
-
-                                foreach ($allRecords as $note) {
-                                    $customer  = $note->customer;
-                                    $isBlocked = false;
-
-                                    if ($customer) {
-                                        $phones = collect([
-                                            $customer->phone,
-                                            $customer->secondary_phone,
-                                            $customer->third_phone,
-                                            $customer->phone1_commercial,
-                                            $customer->phone2_commercial,
-                                        ])->filter()->values();
-
-                                        $nameWords = collect(
-                                            preg_split('/\s+/u', mb_strtolower(trim(
-                                                ($customer->first_names ?? '') . ' ' . ($customer->last_names ?? '')
-                                            )))
-                                        )->filter(fn($w) => mb_strlen($w) > 2)->values();
-
-                                        if ($phones->isNotEmpty() && $nameWords->isNotEmpty()) {
-                                            $matchingCustomer = Customer::query()
-                                                ->where(function ($q) use ($nameWords) {
-                                                    foreach ($nameWords as $word) {
-                                                        $q->orWhere(DB::raw('LOWER(first_names)'), 'like', "%{$word}%")
-                                                          ->orWhere(DB::raw('LOWER(last_names)'), 'like', "%{$word}%");
-                                                    }
-                                                })
-                                                ->where(function ($q) use ($phones) {
-                                                    foreach ($phones as $phone) {
-                                                        $q->orWhere('phone', $phone)
-                                                          ->orWhere('secondary_phone', $phone)
-                                                          ->orWhere('third_phone', $phone)
-                                                          ->orWhere('phone1_commercial', $phone)
-                                                          ->orWhere('phone2_commercial', $phone);
-                                                    }
-                                                })
-                                                ->whereHas('ventas', fn($q) => $q->where('fecha_venta', '>=', $cutoff))
-                                                ->first();
-
-                                            if ($matchingCustomer) {
-                                                $recentVenta = Venta::where('customer_id', $matchingCustomer->id)
-                                                    ->where('fecha_venta', '>=', $cutoff)
-                                                    ->with('comercial:id,empleado_id')
-                                                    ->latest('fecha_venta')
-                                                    ->first();
-
-                                                $blockedItems->push([
-                                                    'note_id'       => $note->id,
-                                                    'nro_nota'      => $note->nro_nota,
-                                                    'customer_name' => mb_strtoupper(trim(
-                                                        ($matchingCustomer->first_names ?? '') . ' ' . ($matchingCustomer->last_names ?? '')
-                                                    )),
-                                                    'fecha_venta'   => $recentVenta
-                                                        ? Carbon::parse($recentVenta->fecha_venta)->format('d/m/Y H:i')
-                                                        : '—',
-                                                    'comercial_emp' => $recentVenta?->comercial?->empleado_id ?? '—',
-                                                ]);
-                                                $isBlocked = true;
-                                            }
-                                        }
-                                    }
-
-                                    if (!$isBlocked) {
-                                        $cleanIds[] = $note->id;
-                                    }
-                                }
-                            } else {
+                            if (empty($comercialId)) {
                                 $cleanIds = $allRecords->pluck('id')->all();
-                            }
-                            // ── Fin verificación ─────────────────────────────────────────
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data, true);
 
-                            // 1) Asignar + reten en notas limpias
-                            if (!empty($cleanIds)) {
-                                $retenUpdates = [
-                                    'comercial_id'    => (!empty($comercialId) ? $comercialId : null),
-                                    'assignment_date' => $assignmentDate,
-                                    'reten'           => true,
-                                ];
-
-                                if (!empty($comercialId) && $assignmentDate) {
-                                    $retenUpdates['visit_date'] = $assignmentDate;
-                                }
-
-                                Note::whereIn('id', $cleanIds)->update($retenUpdates);
-
-                                // 2) Resetear TN a S/E para las que estén en SALA
-                                $toResetIds = Note::whereIn('id', $cleanIds)
-                                    ->where('estado_terminal', EstadoTerminal::SALA->value)
-                                    ->pluck('id')
-                                    ->all();
-
-                                if (!empty($toResetIds)) {
-                                    Note::whereIn('id', $toResetIds)->update([
-                                        'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
-                                        'sent_to_sala_at' => null,
-                                    ]);
-                                }
-
-                                // Log de reasignación (solo notas limpias)
                                 $batch = NoteReassignmentBatch::create([
-                                    'author_id'       => auth()->id(),
-                                    'to_comercial_id' => !empty($comercialId) ? $comercialId : null,
-                                    'to_reten'        => true,
-                                    'reassigned_at'   => now(),
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => null,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
                                 ]);
                                 foreach ($cleanIds as $noteId) {
                                     NoteReassignmentLog::create([
-                                        'batch_id'          => $batch->id,
-                                        'note_id'           => $noteId,
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
+                                }
+
+                                Notification::make()
+                                    ->title('Acción masiva completada')
+                                    ->body(
+                                        'Comercial removido • Enviadas a RETEN: '.count($cleanIds)
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $blockedItems = NoteAssignRestriction::collectBlocked($allRecords);
+                            $blockedIds = $blockedItems->pluck('note_id')->all();
+                            $cleanIds = $allRecords->pluck('id')->diff($blockedIds)->values()->all();
+                            $toResetIds = [];
+
+                            if (! empty($cleanIds)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data, true);
+
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => $comercialId,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+                                foreach ($cleanIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
                                         'from_comercial_id' => $fromComercials[$noteId] ?? null,
                                     ]);
                                 }
                             }
 
-                            // Sin bloqueadas → notificación normal
                             if ($blockedItems->isEmpty()) {
                                 Notification::make()
                                     ->title('Acción masiva completada')
                                     ->body(
-                                        (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
-                                        . ' • Enviadas a RETEN: ' . count($cleanIds)
-                                        . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                        'Comercial asignado • Enviadas a RETEN: '.count($cleanIds)
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
                                     )
                                     ->success()
                                     ->send();
+
                                 return;
                             }
 
-                            // Guardar IDs bloqueados en sesión
-                            $blockedNoteIds = $blockedItems->pluck('note_id')->all();
-                            session()->put('hor_blocked_note_ids', $blockedNoteIds);
+                            session()->put(NoteAssignRestriction::SESSION_PENDING_BULK, [
+                                'blocked_items' => $blockedItems->values()->all(),
+                                'blocked_ids' => $blockedIds,
+                                'clean_count' => count($cleanIds),
+                                'data' => $data,
+                                'send_to_reten' => true,
+                                'from_comercials' => $fromComercials,
+                            ]);
 
-                            // Construir tabla HTML
-                            $rows = $blockedItems->map(fn($b) =>
-                                "<tr style='border-bottom:1px solid #374151;'>"
-                                . "<td style='padding:4px 8px;color:#fca5a5;font-weight:700;'>{$b['nro_nota']}</td>"
-                                . "<td style='padding:4px 8px;color:#fff;font-weight:600;'>{$b['customer_name']}</td>"
-                                . "<td style='padding:4px 8px;color:#fcd34d;'>{$b['fecha_venta']}</td>"
-                                . "<td style='padding:4px 8px;color:#6ee7b7;'>ID: {$b['comercial_emp']}</td>"
-                                . "</tr>"
-                            )->join('');
-
-                            $cleanMsg = !empty($cleanIds)
-                                ? '<p style="margin-top:10px;color:#6ee7b7;font-weight:600;">✅ ' . count($cleanIds) . ' nota(s) asignadas y enviadas a RETEN.</p>'
-                                : '';
-
-                            $bodyHtml =
-                                '<div style="font-size:13px;">'
-                                . '<p style="margin-bottom:8px;color:#fca5a5;font-weight:600;">Clientes con venta en los últimos 4 meses:</p>'
-                                . '<table style="width:100%;border-collapse:collapse;">'
-                                . '<thead><tr style="background:#1f2937;">'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Nota</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Cliente</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Fecha Venta</th>'
-                                . '<th style="padding:4px 8px;text-align:left;color:#9ca3af;font-size:11px;text-transform:uppercase;">Declarada por</th>'
-                                . '</tr></thead>'
-                                . "<tbody>{$rows}</tbody>"
-                                . '</table>'
-                                . $cleanMsg
-                                . '</div>';
-
-                            Notification::make()
-                                ->title('⚠️ ' . $blockedItems->count() . ' nota(s) con ventas recientes detectadas')
-                                ->body(new HtmlString($bodyHtml))
-                                ->danger()
-                                ->persistent()
-                                ->actions([
-                                    NotificationAction::make('delete_blocked_reten')
-                                        ->label('ELIMINAR NOTAS CON VENTAS RECIENTES')
-                                        ->color('danger')
-                                        ->action(function () {
-                                            $ids = session()->pull('hor_blocked_note_ids', []);
-                                            if (!empty($ids)) {
-                                                Note::whereIn('id', $ids)->delete();
-                                            }
-                                            Notification::make()
-                                                ->title('✅ Notas eliminadas: ' . count($ids))
-                                                ->success()
-                                                ->send();
-                                        }),
-                                    NotificationAction::make('cerrar_reten')
-                                        ->label('Salir')
-                                        ->close(),
-                                ])
-                                ->send();
-
+                            $livewire->replaceMountedTableAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en acción masiva')
