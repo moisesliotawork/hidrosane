@@ -84,6 +84,7 @@ class Note extends Model
         'user_id',
         'customer_id',
         'comercial_id',
+        'assigned_by_user_id',
         'fuente',
         'nro_nota',
         'status',
@@ -204,6 +205,12 @@ class Note extends Model
         return $this->belongsTo(User::class, 'comercial_id')->withDefault([
             'name' => 'Sin Asignar'
         ]);
+    }
+
+    /** Usuario (Jefe de Sala / etc.) que asignó la nota al comercial. */
+    public function assignedBy()
+    {
+        return $this->belongsTo(User::class, 'assigned_by_user_id');
     }
 
     public function customer()

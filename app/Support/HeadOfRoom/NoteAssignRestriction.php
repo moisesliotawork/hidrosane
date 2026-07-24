@@ -273,6 +273,7 @@ HTML;
             'comercial_id' => $comercialId ?: null,
             'assignment_date' => $assignmentDate,
             'reten' => $sendToReten,
+            'assigned_by_user_id' => ! empty($comercialId) ? auth()->id() : null,
         ];
 
         if (! empty($comercialId) && $assignmentDate) {
@@ -314,6 +315,7 @@ HTML;
             'comercial_id' => (! empty($comercialId) ? $comercialId : null),
             'assignment_date' => $assignmentDate,
             'reten' => $sendToReten,
+            'assigned_by_user_id' => ! empty($comercialId) ? auth()->id() : null,
         ];
 
         if (! empty($comercialId) && $assignmentDate) {
