@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\HeadOfRoom\Resources;
+namespace App\Filament\SuperAdmin\Resources;
 
-use App\Filament\HeadOfRoom\Resources\AsignadoResource\Pages;
+use App\Filament\SuperAdmin\Resources\AsignadoResource\Pages;
 use App\Models\Note;
 use App\Models\User;
 use Carbon\Carbon;

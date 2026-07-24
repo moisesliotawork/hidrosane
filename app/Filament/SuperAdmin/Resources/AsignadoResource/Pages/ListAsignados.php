@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\HeadOfRoom\Resources\AsignadoResource\Pages;
+namespace App\Filament\SuperAdmin\Resources\AsignadoResource\Pages;
 
-use App\Filament\HeadOfRoom\Resources\AsignadoResource;
+use App\Filament\SuperAdmin\Resources\AsignadoResource;
 use App\Models\Note;
 use Carbon\Carbon;
 use Filament\Resources\Components\Tab;
@@ -25,7 +25,7 @@ class ListAsignados extends ListRecords
     public function getSubheading(): string|Htmlable|null
     {
         return new HtmlString(
-            view('filament.head-of-room.resources.asignado.weekday-badges', [
+            view('filament.superAdmin.resources.asignado.weekday-badges', [
                 'badges' => $this->weekdayBadges(),
                 'activeDate' => data_get($this->tableFilters, 'buscar_fecha.date'),
             ])->render()
@@ -33,21 +33,19 @@ class ListAsignados extends ListRecords
     }
 
     /**
-     * Mini badges: próximos días (futuro), uno por cada día de la semana.
-     *
-     * @return array<int, array{date: string, label: string, short: string, color: string, count: int}>
+     * @return array<int, array{date: string, label: string, short: string, bg: string, text: string, count: int}>
      */
     public function weekdayBadges(): array
     {
         $today = Note::businessToday();
         $colors = [
-            Carbon::MONDAY => ['bg' => '#dbeafe', 'text' => '#1e40af'],      // azul suave
-            Carbon::TUESDAY => ['bg' => '#d1fae5', 'text' => '#065f46'],     // verde suave
-            Carbon::WEDNESDAY => ['bg' => '#fef3c7', 'text' => '#92400e'],   // ámbar suave
-            Carbon::THURSDAY => ['bg' => '#ede9fe', 'text' => '#5b21b6'],    // violeta suave
-            Carbon::FRIDAY => ['bg' => '#fce7f3', 'text' => '#9d174d'],      // rosa suave
-            Carbon::SATURDAY => ['bg' => '#ccfbf1', 'text' => '#0f766e'],    // teal suave
-            Carbon::SUNDAY => ['bg' => '#ffedd5', 'text' => '#9a3412'],      // naranja suave
+            Carbon::MONDAY => ['bg' => '#dbeafe', 'text' => '#1e40af'],
+            Carbon::TUESDAY => ['bg' => '#d1fae5', 'text' => '#065f46'],
+            Carbon::WEDNESDAY => ['bg' => '#fef3c7', 'text' => '#92400e'],
+            Carbon::THURSDAY => ['bg' => '#ede9fe', 'text' => '#5b21b6'],
+            Carbon::FRIDAY => ['bg' => '#fce7f3', 'text' => '#9d174d'],
+            Carbon::SATURDAY => ['bg' => '#ccfbf1', 'text' => '#0f766e'],
+            Carbon::SUNDAY => ['bg' => '#ffedd5', 'text' => '#9a3412'],
         ];
 
         $names = [
@@ -62,15 +60,13 @@ class ListAsignados extends ListRecords
 
         $badges = [];
 
-        // Próximos 7 días a partir de mañana (días futuros de la semana)
         for ($i = 1; $i <= 7; $i++) {
             $day = $today->copy()->addDays($i);
             $dow = $day->dayOfWeek;
-            $dateString = $day->toDateString();
             $palette = $colors[$dow];
 
             $badges[] = [
-                'date' => $dateString,
+                'date' => $day->toDateString(),
                 'label' => $names[$dow],
                 'short' => $day->format('d/m'),
                 'bg' => $palette['bg'],

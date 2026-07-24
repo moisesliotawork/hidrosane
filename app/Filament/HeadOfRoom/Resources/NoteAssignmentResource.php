@@ -25,12 +25,6 @@ class NoteAssignmentResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Asign.Comercial';
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Sustituido por AsignadoResource (ASIGNADO).
-        return false;
-    }
-
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
