@@ -58,6 +58,7 @@ class AsignadoResource extends Resource
                     ->badge()
                     ->color('danger')
                     ->weight('bold')
+                    ->toggleable()
                     ->formatStateUsing(
                         fn (Note $record): string => $record->effectiveAssignmentDate()
                             ? $record->effectiveAssignmentDate()->timezone(Note::businessTimezone())->format('d/m/Y')
@@ -73,11 +74,13 @@ class AsignadoResource extends Resource
                     ->label('ID empleado')
                     ->badge()
                     ->color('info')
+                    ->toggleable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('comercial.name')
                     ->label('Comercial')
                     ->weight('bold')
+                    ->toggleable()
                     ->formatStateUsing(function ($state, Note $record): string {
                         $u = $record->comercial;
                         if (! $u || ! $u->id) {
@@ -99,6 +102,7 @@ class AsignadoResource extends Resource
                     ->label('Asignado por')
                     ->badge()
                     ->color('warning')
+                    ->toggleable()
                     ->formatStateUsing(function ($state, Note $record): string {
                         $by = $record->assignedBy;
                         if (! $by) {
@@ -113,11 +117,13 @@ class AsignadoResource extends Resource
                     ->badge()
                     ->color('yellow')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Cliente')
                     ->weight('bold')
+                    ->toggleable()
                     ->formatStateUsing(fn ($state) => strtoupper((string) ($state ?? '—')))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function (Builder $q) use ($search) {

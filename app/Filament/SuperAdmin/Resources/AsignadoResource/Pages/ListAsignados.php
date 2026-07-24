@@ -49,6 +49,16 @@ class ListAsignados extends ListRecords
         ];
 
         $names = [
+            Carbon::MONDAY => 'Lun',
+            Carbon::TUESDAY => 'Mar',
+            Carbon::WEDNESDAY => 'Mié',
+            Carbon::THURSDAY => 'Jue',
+            Carbon::FRIDAY => 'Vie',
+            Carbon::SATURDAY => 'Sáb',
+            Carbon::SUNDAY => 'Dom',
+        ];
+
+        $fullNames = [
             Carbon::MONDAY => 'Lunes',
             Carbon::TUESDAY => 'Martes',
             Carbon::WEDNESDAY => 'Miércoles',
@@ -68,6 +78,7 @@ class ListAsignados extends ListRecords
             $badges[] = [
                 'date' => $day->toDateString(),
                 'label' => $names[$dow],
+                'full' => $fullNames[$dow],
                 'short' => $day->format('d/m'),
                 'bg' => $palette['bg'],
                 'text' => $palette['text'],
