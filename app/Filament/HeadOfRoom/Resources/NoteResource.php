@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -55,7 +54,6 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [

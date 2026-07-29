@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Models\Note;
 use App\Filament\Support\CustomerPhoneForm;
 use App\Enums\NoteStatus;
@@ -44,7 +43,6 @@ class NoteJVResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [

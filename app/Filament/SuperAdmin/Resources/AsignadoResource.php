@@ -11,7 +11,6 @@ use Filament\Tables;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class AsignadoResource extends Resource
 {
@@ -32,7 +31,6 @@ class AsignadoResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->assignedToCommercial()
             ->whereHas('comercial', function (Builder $q) {
                 $q->whereNull('baja')

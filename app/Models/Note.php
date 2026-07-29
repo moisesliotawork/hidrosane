@@ -10,11 +10,13 @@ use App\Enums\EstadoTerminal;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\NoteSalaEvent;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\NoteNullReason;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\NoteSalaObservation;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -73,7 +75,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class Note extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -104,6 +106,7 @@ class Note extends Model
         'printed',
         'reten',
         'fecha_declaracion',
+        'deleted_by_user_id',
     ];
 
     /**
@@ -142,8 +145,8 @@ class Note extends Model
 
         static::creating(function ($note) {
             if (empty($note->nro_nota)) {
-                // Buscar el nro_nota más alto
-                $max = self::max('nro_nota');
+                // Incluir soft-deleted para no reutilizar números
+                $max = self::withTrashed()->max('nro_nota');
 
                 if ($max) {
                     // Si ya hay notas en BD, tomamos el último +1
@@ -188,6 +191,31 @@ class Note extends Model
                 }
             }
         });
+
+        // Soft-delete: registrar quién borra y archivar contratos activos.
+        static::deleting(function (Note $note) {
+            if ($note->isForceDeleting()) {
+                return false;
+            }
+
+            if (blank($note->deleted_by_user_id)) {
+                $note->forceFill([
+                    'deleted_by_user_id' => auth()->id(),
+                ])->saveQuietly();
+            }
+
+            $ventas = \App\Models\Venta::query()
+                ->where('note_id', $note->id)
+                ->get();
+
+            foreach ($ventas as $venta) {
+                \App\Support\VentaSoftDelete::delete($venta);
+            }
+        });
+
+        static::forceDeleting(function () {
+            return false;
+        });
     }
 
 
@@ -198,6 +226,11 @@ class Note extends Model
     public function user()
     {
         return $this->belongsTo(User::class, "user_id");
+    }
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
     }
 
     public function comercial()

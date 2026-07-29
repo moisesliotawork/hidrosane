@@ -347,6 +347,22 @@ class Venta extends Model
             // Solo cuando se CREA la venta
             $venta->registerCreamDelivery();
         });
+
+        static::deleting(function (Venta $venta) {
+            if ($venta->isForceDeleting()) {
+                return false;
+            }
+
+            if (blank($venta->deleted_by_user_id)) {
+                $venta->forceFill([
+                    'deleted_by_user_id' => auth()->id(),
+                ])->saveQuietly();
+            }
+        });
+
+        static::forceDeleting(function () {
+            return false;
+        });
     }
 
 

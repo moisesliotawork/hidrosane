@@ -179,8 +179,9 @@ class EditVenta extends EditRecord
                 )
                 ->requiresConfirmation()
                 ->modalHeading('Eliminar contrato -B')
-                ->modalDescription('Esta acción eliminará el contrato -B y sus datos relacionados. ¿Deseas continuar?')
-                ->successNotificationTitle('Contrato -B eliminado'),
+                ->modalDescription('El contrato -B se archivará (soft-delete) y aparecerá en Contratos borrados. ¿Deseas continuar?')
+                ->successNotificationTitle('Contrato -B archivado')
+                ->action(fn (Venta $record) => \App\Support\VentaSoftDelete::delete($record)),
         ];
     }
 

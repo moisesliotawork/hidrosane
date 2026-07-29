@@ -6,7 +6,6 @@ use App\Filament\HeadOfRoom\Resources\NoteAssignmentResource\Pages;
 use App\Models\Note;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\ActionGroup;
@@ -28,7 +27,6 @@ class NoteAssignmentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->assignedToCommercial()
             ->with(['comercial', 'customer']);
     }

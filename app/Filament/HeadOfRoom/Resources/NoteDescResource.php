@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Filament\Support\Colors\Color;
@@ -46,7 +45,6 @@ class NoteDescResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with(['observations.author', 'nullReasons.comercial'])
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,
