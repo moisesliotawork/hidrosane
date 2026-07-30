@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             NoteSeeder::class,
             //VentaSeeder::class
+            // BorradosDemoSeeder::class, // php artisan db:seed --class=BorradosDemoSeeder
         ]);
     }
 }

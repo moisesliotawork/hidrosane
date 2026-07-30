@@ -3,6 +3,7 @@
 namespace App\Support\Filament;
 
 use App\Models\Venta;
+use App\Support\VentaSoftRestore;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -14,6 +15,13 @@ final class ContratosBorradosTable
     public static function columns(): array
     {
         return [
+            BorradosRestoreColumn::make(
+                modalHeading: 'Restaurar contrato',
+                modalDescription: 'El contrato volverá a aparecer en Contratos.',
+                successNotificationTitle: 'Contrato restaurado',
+                using: fn (Venta $record) => VentaSoftRestore::restore($record),
+            ),
+
             TextColumn::make('deleted_at')
                 ->label('Fecha borrado')
                 ->date('d/m/Y')

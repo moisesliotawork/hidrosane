@@ -16,7 +16,7 @@ class PuntoComercialPage extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-map-pin';
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationLabel = 'Punto/Comercial';
 
@@ -34,7 +34,7 @@ class PuntoComercialPage extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('team_leader') ?? false;
+        return auth()->user()?->hasAnyRole(['team_leader', 'commercial']) ?? false;
     }
 
     public function mount(): void

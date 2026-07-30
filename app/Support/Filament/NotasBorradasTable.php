@@ -5,6 +5,7 @@ namespace App\Support\Filament;
 use App\Enums\EstadoTerminal;
 use App\Enums\NoteStatus;
 use App\Models\Note;
+use App\Support\NoteSoftRestore;
 use Filament\Support\Colors\Color;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,13 @@ final class NotasBorradasTable
     public static function columns(): array
     {
         return [
+            BorradosRestoreColumn::make(
+                modalHeading: 'Restaurar nota',
+                modalDescription: 'La nota volverá a aparecer en los listados activos. Los contratos asociados, si fueron archivados, permanecen en Contratos borrados.',
+                successNotificationTitle: 'Nota restaurada',
+                using: fn (Note $record) => NoteSoftRestore::restore($record),
+            ),
+
             TextColumn::make('deleted_at')
                 ->label('Fecha borrado')
                 ->date('d/m/Y')

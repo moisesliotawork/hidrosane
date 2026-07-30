@@ -6,9 +6,7 @@ use App\Filament\SuperAdmin\Resources\NotasBorradasResource\Pages;
 use App\Models\Note;
 use App\Models\Scopes\NotMergedScope;
 use App\Support\Filament\NotasBorradasTable;
-use App\Support\NoteSoftRestore;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -49,15 +47,7 @@ class NotasBorradasResource extends Resource
         return $table
             ->defaultSort('deleted_at', 'desc')
             ->columns(NotasBorradasTable::columns())
-            ->actions([
-                Tables\Actions\RestoreAction::make()
-                    ->label('Restaurar nota')
-                    ->modalHeading('Restaurar nota')
-                    ->modalDescription('La nota volverá a aparecer en los listados activos. Los contratos asociados, si fueron archivados, permanecen en Contratos borrados.')
-                    ->modalSubmitActionLabel('Sí, restaurar')
-                    ->successNotificationTitle('Nota restaurada')
-                    ->using(fn (Note $record) => NoteSoftRestore::restore($record)),
-            ])
+            ->actions([])
             ->bulkActions([]);
     }
 

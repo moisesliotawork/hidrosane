@@ -472,7 +472,7 @@
                     </div>
 
                     <div>
-                        <p class="pc-label">Jefe/Equipo</p>
+                        <p class="pc-label">COM / JE</p>
                         <p class="pc-jefe">{{ mb_strtoupper($leaderLabel) }}</p>
                     </div>
 

@@ -3,6 +3,7 @@
 namespace App\Support\Filament;
 
 use App\Models\Customer;
+use App\Support\CustomerSoftRestore;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -14,6 +15,13 @@ final class ClientesBorradosTable
     public static function columns(): array
     {
         return [
+            BorradosRestoreColumn::make(
+                modalHeading: 'Restaurar cliente',
+                modalDescription: 'El cliente volverá a aparecer en Posición Global y demás listados.',
+                successNotificationTitle: 'Cliente restaurado',
+                using: fn (Customer $record) => CustomerSoftRestore::restore($record),
+            ),
+
             TextColumn::make('deleted_at')
                 ->label('Fecha')
                 ->date('d/m/Y')

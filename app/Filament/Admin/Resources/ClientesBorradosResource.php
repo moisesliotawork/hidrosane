@@ -5,10 +5,8 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\ClientesBorradosResource\Pages;
 use App\Models\Customer;
 use App\Models\Scopes\NotMergedScope;
-use App\Support\CustomerSoftRestore;
 use App\Support\Filament\ClientesBorradosTable;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -41,15 +39,7 @@ class ClientesBorradosResource extends Resource
         return $table
             ->defaultSort('deleted_at', 'desc')
             ->columns(ClientesBorradosTable::columns())
-            ->actions([
-                Tables\Actions\RestoreAction::make()
-                    ->label('Restaurar cliente')
-                    ->modalHeading('Restaurar cliente')
-                    ->modalDescription('El cliente volverá a aparecer en los listados activos.')
-                    ->modalSubmitActionLabel('Sí, restaurar')
-                    ->successNotificationTitle('Cliente restaurado')
-                    ->using(fn (Customer $record) => CustomerSoftRestore::restore($record)),
-            ])
+            ->actions([])
             ->bulkActions([]);
     }
 

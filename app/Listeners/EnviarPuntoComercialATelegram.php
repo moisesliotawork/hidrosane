@@ -17,10 +17,10 @@ class EnviarPuntoComercialATelegram implements ShouldQueue
     public function handle(PuntoComercialEnviado $event): void
     {
         $report = $event->report->loadMissing('teamLeader');
-        $leader = $report->teamLeader;
+        $author = $report->teamLeader;
 
-        if (! $leader) {
-            Log::warning('EnviarPuntoComercialATelegram: reporte sin jefe de equipo', [
+        if (! $author) {
+            Log::warning('EnviarPuntoComercialATelegram: reporte sin autor', [
                 'report_id' => $report->id,
             ]);
 
@@ -29,9 +29,9 @@ class EnviarPuntoComercialATelegram implements ShouldQueue
 
         $fechaHora = $report->submitted_at?->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i');
         $texto = $this->escapeMarkdown($report->texto);
-        $leaderLabel = trim("{$leader->empleado_id} {$leader->name} {$leader->last_name}");
+        $authorLabel = trim("{$author->empleado_id} {$author->name} {$author->last_name}");
 
-        $mensaje = "*Punto Comercial de:* {$this->escapeMarkdown($leaderLabel)}\n"
+        $mensaje = "*Punto Comercial de:* {$this->escapeMarkdown($authorLabel)}\n"
             . "Fecha: *{$fechaHora}*\n\n"
             . "*Escrito:*\n{$texto}";
 
@@ -50,7 +50,7 @@ class EnviarPuntoComercialATelegram implements ShouldQueue
 
         Log::info('EnviarPuntoComercialATelegram: envío solicitado', [
             'report_id' => $report->id,
-            'team_leader_id' => $leader->id,
+            'author_id' => $author->id,
         ]);
     }
 

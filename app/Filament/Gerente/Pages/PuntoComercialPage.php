@@ -12,7 +12,7 @@ class PuntoComercialPage extends Page
 {
     use WithPagination;
 
-    protected static ?string $navigationIcon = 'heroicon-o-map-pin';
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationLabel = 'PUNTO COMERCIAL';
 
