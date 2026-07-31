@@ -163,6 +163,8 @@ class Venta extends Model
         'mes_contr',
         'nro_contr_adm',
         'nro_cliente_adm',
+        'en_app',
+        'list_descripcion',
         'origen_venta',
         'seguimiento',
         'financieras_reparto',
@@ -180,6 +182,7 @@ class Venta extends Model
     protected $casts = [
         'contrato_firmado_at' => 'datetime',
         'fecha_venta' => 'datetime',
+        'en_app' => 'boolean',
         'importe_total' => 'decimal:2',
         'num_cuotas' => 'integer',
         'interes_art' => 'boolean',
