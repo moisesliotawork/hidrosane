@@ -5,8 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Facades\FilamentColor;
-use Filament\Support\Assets\Css;
-use Filament\Support\Facades\FilamentAsset;
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use App\Observers\VentaOfertaObserver;
 
 
@@ -25,10 +25,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-
-
-
-
         \App\Models\Venta::observe(\App\Observers\VentaObserver::class);
         // \App\Models\VentaOferta::observe(VentaOfertaObserver::class);
 
@@ -48,10 +44,10 @@ class AppServiceProvider extends ServiceProvider
             'gray_light' => Color::hex('#737373'),
         ]);
 
-        // Aplicar Tailwind a toda la app
-        //FilamentAsset::register([
-        //    Css::make('custom-stylesheet', __DIR__ . '/../../resources/css/app.css'),
-        //]);
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn (): string => view('filament.hooks.venta-document-upload-confirm')->render(),
+        );
     }
 
 }

@@ -23,6 +23,7 @@ use Filament\Forms\Components\{
     Textarea
 };
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
@@ -580,44 +581,16 @@ class VentaDesdeCeroResource extends Resource
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                null,
+                $soloCamara,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
         ])->columns(1);
     }

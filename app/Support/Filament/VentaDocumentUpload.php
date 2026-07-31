@@ -101,8 +101,18 @@ class VentaDocumentUpload
         string $field,
         bool $required = false,
         ?bool $allowPdf = null,
+        bool $soloCamara = false,
     ): FileUpload {
         $allowPdf ??= self::fieldAllowsPdf($field, auth()->user());
+
+        $extraInputAttributes = [
+            // Sin capture por defecto: en muchos móviles bloquea la galería.
+            'accept' => self::acceptAttribute($allowPdf),
+        ];
+
+        if ($soloCamara) {
+            $extraInputAttributes['capture'] = 'environment';
+        }
 
         return $upload
             ->label('')
@@ -114,14 +124,14 @@ class VentaDocumentUpload
             ->openable()
             ->downloadable()
             ->required($required)
+            // Solo desvincula del registro; el fichero permanece en storage.
+            ->deleteUploadedFileUsing(static function (): void {})
             // Sin ->live(): en móvil provoca re-render y corta la subida Livewire.
             // Sin ->image(): la regla image de Laravel rechaza HEIC en iPhone.
-            ->extraInputAttributes([
-                // Sin capture=: en muchos móviles bloquea la galería y el input no abre.
-                'accept' => self::acceptAttribute($allowPdf),
-            ])
+            ->extraInputAttributes($extraInputAttributes)
             ->extraAttributes([
-                'class' => 'border-2 border-dashed py-16',
+                'class' => 'border-2 border-dashed py-16 venta-document-upload',
+                'data-venta-document-upload' => '1',
             ])
             ->getUploadedFileNameForStorageUsing(
                 function (TemporaryUploadedFile $file) use ($field): string {
