@@ -41,7 +41,7 @@ class VentaDocumentUploadTest extends TestCase
 
     public function test_precontractual_and_foto_sorteo_allow_pdf(): void
     {
-        foreach (['precontractual', 'foto_sorteo'] as $field) {
+        foreach (['precontractual', 'foto_sorteo', 'contrato_firmado', 'otros_documentos'] as $field) {
             $this->assertTrue(VentaDocumentUpload::fieldAllowsPdf($field));
 
             $types = VentaDocumentUpload::acceptedDocumentMimeTypes(true);
@@ -55,6 +55,8 @@ class VentaDocumentUploadTest extends TestCase
 
     public function test_other_document_fields_do_not_allow_pdf_by_default(): void
     {
+        filament()->setCurrentPanel(filament()->getPanel('comercial'));
+
         $this->assertFalse(VentaDocumentUpload::fieldAllowsPdf('dni_anverso', $this->mockCommercialUser('123', 'comercial@example.com')));
         $this->assertNotContains(
             'application/pdf',
@@ -81,5 +83,20 @@ class VentaDocumentUploadTest extends TestCase
                 "El comercial 911 debería poder subir PDF en {$field}",
             );
         }
+    }
+
+    public function test_office_panels_allow_pdf_on_any_document_field(): void
+    {
+        foreach (['admin', 'gerente', 'superAdmin'] as $panelId) {
+            filament()->setCurrentPanel(filament()->getPanel($panelId));
+
+            $this->assertTrue(VentaDocumentUpload::isOfficeContractsPanel());
+            $this->assertTrue(VentaDocumentUpload::fieldAllowsPdf('dni_anverso'));
+            $this->assertTrue(VentaDocumentUpload::fieldAllowsPdf('otros_documentos'));
+            $this->assertTrue(VentaDocumentUpload::fieldAllowsPdf('nomina'));
+        }
+
+        filament()->setCurrentPanel(filament()->getPanel('comercial'));
+        $this->assertFalse(VentaDocumentUpload::isOfficeContractsPanel());
     }
 }

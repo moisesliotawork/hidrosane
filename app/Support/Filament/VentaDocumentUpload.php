@@ -58,6 +58,12 @@ class VentaDocumentUpload
         return [
             'precontractual',
             'foto_sorteo',
+            'contrato_firmado',
+            'documento_titularidad',
+            'nomina',
+            'pension',
+            'otros_documentos',
+            'albaran',
         ];
     }
 
@@ -69,7 +75,22 @@ class VentaDocumentUpload
             return true;
         }
 
+        // Admin / Gerente / SuperAdmin adjuntan PDF desde escritorio (nóminas, contratos, etc.).
+        if (self::isOfficeContractsPanel()) {
+            return true;
+        }
+
         return in_array($field, self::fieldsAllowingPdf(), true);
+    }
+
+    /**
+     * Paneles de oficina: no forzar cámara (rompe el selector de archivos en PC).
+     */
+    public static function isOfficeContractsPanel(): bool
+    {
+        $panelId = filament()->getCurrentPanel()?->getId();
+
+        return in_array($panelId, ['admin', 'gerente', 'superAdmin'], true);
     }
 
     public static function acceptAttribute(bool $allowPdf = false): string
@@ -110,7 +131,8 @@ class VentaDocumentUpload
             'accept' => self::acceptAttribute($allowPdf),
         ];
 
-        if ($soloCamara) {
+        // Nunca capture en paneles de oficina: en escritorio impide adjuntar desde el disco.
+        if ($soloCamara && ! self::isOfficeContractsPanel()) {
             $extraInputAttributes['capture'] = 'environment';
         }
 

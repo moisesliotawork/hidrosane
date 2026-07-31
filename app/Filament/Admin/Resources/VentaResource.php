@@ -1621,8 +1621,8 @@ class VentaResource extends Resource
                 FileUpload::make($field),
                 $field,
                 false,
-                null,
-                $soloCamara,
+                true,  // Admin: PDF en cualquier documento (p. ej. contrato firmado)
+                false, // sin capture: en PC bloquea el selector de archivos
             )
                 ->required(
                     fn(?Venta $record) =>

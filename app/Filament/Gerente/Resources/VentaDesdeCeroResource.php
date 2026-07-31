@@ -585,8 +585,8 @@ class VentaDesdeCeroResource extends Resource
                 FileUpload::make($field),
                 $field,
                 $required,
-                null,
-                $soloCamara,
+                true,
+                false,
             )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
