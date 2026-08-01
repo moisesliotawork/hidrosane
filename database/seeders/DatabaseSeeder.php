@@ -27,6 +27,8 @@ class DatabaseSeeder extends Seeder
             NoteSeeder::class,
             //VentaSeeder::class
             // BorradosDemoSeeder::class, // php artisan db:seed --class=BorradosDemoSeeder
+            // ListContractDemoSeeder::class, // php artisan db:seed --class=ListContractDemoSeeder
+            // ContratosMesAlertaDemoSeeder::class, // php artisan db:seed --class=ContratosMesAlertaDemoSeeder
         ]);
     }
 }

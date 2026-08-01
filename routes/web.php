@@ -5,6 +5,7 @@ use App\Http\Controllers\ContratoPreviewController;
 use App\Http\Controllers\ContratoPreviewBController;
 use App\Http\Controllers\NotasSalaPdfController;
 use App\Models\PickingDiario;
+use App\Support\ContratosPorMesStats;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\CreamTransferController;
@@ -62,6 +63,139 @@ Route::get('/picking-diario/pdf/{date}', function (string $date) {
     // Mostrar en navegador en vez de descargar
     return $pdf->stream($filename);
 })->name('picking-diario.pdf');
+
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/contratos-por-mes/pdf', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $mes = $request->query('mes');
+        $showAll = blank($mes) || $request->boolean('todos');
+
+        if (! $showAll) {
+            try {
+                \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes);
+            } catch (\Throwable) {
+                $showAll = true;
+                $mes = null;
+            }
+        }
+
+        $rows = ContratosPorMesStats::rows();
+        if (! $showAll && filled($mes)) {
+            $rows = $rows
+                ->filter(fn ($row) => (string) $row->mes_key === (string) $mes)
+                ->values();
+        }
+
+        $items = ContratosPorMesStats::variationDetailItems();
+        if (! $showAll && filled($mes)) {
+            $items = $items
+                ->filter(fn ($item) => $item->mes_key === $mes)
+                ->values();
+        }
+
+        $quitados = $items->filter(fn ($item) => in_array($item->estado, [
+            \App\Models\ContratoMesVariacionItem::ESTADO_SOFT_DELETE,
+            \App\Models\ContratoMesVariacionItem::ESTADO_BORRADO,
+        ], true))->values();
+
+        $agregados = $items->filter(fn ($item) => in_array($item->estado, [
+            \App\Models\ContratoMesVariacionItem::ESTADO_NUEVO,
+            \App\Models\ContratoMesVariacionItem::ESTADO_RESTAURADO,
+        ], true))->values();
+
+        $periodoLabel = $showAll || blank($mes)
+            ? 'Todos los meses'
+            : ContratosPorMesStats::labelForMonthKey((string) $mes);
+
+        $pdf = Pdf::loadView('pdf.contratos-por-mes', [
+            'rows' => $rows,
+            'quitados' => $quitados,
+            'agregados' => $agregados,
+            'fechaReporte' => now()->format('d/m/Y H:i:s'),
+            'periodoVariaciones' => $periodoLabel,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('contratos-por-mes.pdf');
+    })->name('contratos-por-mes.pdf');
+
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/contratos-por-mes/numeros/pdf', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $mes = $request->query('mes');
+        $showAll = blank($mes) || $request->boolean('todos');
+
+        if (! $showAll) {
+            try {
+                \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes);
+            } catch (\Throwable) {
+                $showAll = true;
+                $mes = null;
+            }
+        }
+
+        $grupos = ContratosPorMesStats::adminContractNumbersByMonth(
+            $showAll ? null : (string) $mes
+        );
+
+        $periodoLabel = $showAll || blank($mes)
+            ? 'Todos los meses'
+            : ContratosPorMesStats::labelForMonthKey((string) $mes);
+
+        $pdf = Pdf::loadView('pdf.contratos-por-mes-numeros', [
+            'grupos' => $grupos,
+            'fechaReporte' => now()->format('d/m/Y H:i:s'),
+            'periodoLabel' => $periodoLabel,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('contratos-por-mes-numeros-admin.pdf');
+    })->name('contratos-por-mes.numeros.pdf');
+
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/contratos-por-mes/solo-numeros/pdf', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $mes = $request->query('mes');
+        $showAll = blank($mes) || $request->boolean('todos');
+
+        if (! $showAll) {
+            try {
+                \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes);
+            } catch (\Throwable) {
+                $showAll = true;
+                $mes = null;
+            }
+        }
+
+        $numeros = ContratosPorMesStats::adminContractNumbersOnly(
+            $showAll ? null : (string) $mes
+        );
+
+        $periodoLabel = $showAll || blank($mes)
+            ? 'Todos los meses'
+            : ContratosPorMesStats::labelForMonthKey((string) $mes);
+
+        $pdf = Pdf::loadView('pdf.contratos-por-mes-solo-numeros', [
+            'numeros' => $numeros,
+            'fechaReporte' => now()->format('d/m/Y H:i:s'),
+            'periodoLabel' => $periodoLabel,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('contratos-por-mes-solo-numeros.pdf');
+    })->name('contratos-por-mes.solo-numeros.pdf');
 
 // Logout global de Laravel (solo POST: CSRF). GET → login para evitar 405 en barra/atrás.
 Route::get('/logout', fn () => redirect('/admin/login'));

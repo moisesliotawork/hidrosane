@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ContratoMesVariacionItem;
 use App\Models\Venta;
 
 final class VentaSoftDelete
@@ -13,5 +14,13 @@ final class VentaSoftDelete
         ])->saveQuietly();
 
         $venta->delete();
+
+        $archived = Venta::withTrashed()->find($venta->id) ?? $venta;
+
+        ContratosPorMesStats::recordVariationItem(
+            $archived,
+            ContratoMesVariacionItem::ESTADO_SOFT_DELETE,
+            $deletedByUserId ?? auth()->id(),
+        );
     }
 }

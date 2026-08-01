@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ContratoMesVariacionItem;
 use App\Models\Venta;
 
 final class VentaSoftRestore
@@ -13,5 +14,11 @@ final class VentaSoftRestore
         $venta->forceFill([
             'deleted_by_user_id' => null,
         ])->saveQuietly();
+
+        ContratosPorMesStats::recordVariationItem(
+            $venta->fresh() ?? $venta,
+            ContratoMesVariacionItem::ESTADO_RESTAURADO,
+            auth()->id(),
+        );
     }
 }

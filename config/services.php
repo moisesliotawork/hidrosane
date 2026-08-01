@@ -42,4 +42,13 @@ return [
         'chat_id_accion_ohana' => env('TELEGRAM_CHAT_ID_ACCION_OHANA'),
     ],
 
+    /*
+    | Solo SuperAdmin: recuperación de contratos desde imagen.
+    | No afecta flujos comerciales.
+    */
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o-mini'),
+    ],
+
 ];
