@@ -1,9 +1,54 @@
 <x-filament-panels::page>
+    <style>
+        .recovery-field-label,
+        .recovery-datos-infolist .fi-in-entry-wrp-label,
+        .recovery-datos-entry-wrp .fi-in-entry-wrp-label {
+            font-weight: 800 !important;
+            text-decoration: underline !important;
+            text-underline-offset: 2px;
+            white-space: nowrap !important;
+            color: #111827;
+        }
+        html.dark .recovery-field-label,
+        html.dark .recovery-datos-infolist .fi-in-entry-wrp-label,
+        html.dark .recovery-datos-entry-wrp .fi-in-entry-wrp-label {
+            color: #f3f4f6;
+        }
+        /* Título y valor siempre en la misma fila */
+        .recovery-datos-infolist .fi-fo-component-ctn,
+        .recovery-datos-section .fi-fo-component-ctn {
+            gap: 0.4rem 0.75rem !important;
+        }
+        .recovery-datos-entry-wrp > div {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 0.4rem 0.55rem !important;
+            grid-template-columns: none !important;
+        }
+        .recovery-datos-entry-wrp > div > div:first-child {
+            flex: 0 0 auto !important;
+            min-width: max-content;
+        }
+        .recovery-datos-entry-wrp > div > div:last-child,
+        .recovery-datos-entry-wrp .sm\:col-span-2 {
+            flex: 1 1 auto !important;
+            min-width: 0;
+            grid-column: auto !important;
+        }
+        .recovery-datos-section {
+            padding: 0.5rem 0.75rem !important;
+        }
+        .recovery-datos-entry {
+            white-space: nowrap;
+        }
+    </style>
+
     <div class="space-y-6">
         <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
             <strong>Solo SuperAdmin · recuperación.</strong>
             Este módulo no altera altas comerciales, puerta fría ni repartos.
-            Flujo: subir docs → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong> (crea la venta al cliente por DNI).
+            Flujo: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong> (crea la venta al cliente por DNI).
         </div>
 
         @if ($step === 'upload')
@@ -11,6 +56,24 @@
                 {{ $this->uploadForm }}
                 <x-filament::button type="submit" color="warning" wire:loading.attr="disabled">
                     Analizar documentos
+                </x-filament::button>
+            </form>
+
+            <div class="relative py-2">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                        o
+                    </span>
+                </div>
+            </div>
+
+            <form wire:submit.prevent="processVoiceDictation" class="space-y-4">
+                {{ $this->voiceForm }}
+                <x-filament::button type="submit" color="info" wire:loading.attr="disabled">
+                    Procesar dictado
                 </x-filament::button>
             </form>
         @else

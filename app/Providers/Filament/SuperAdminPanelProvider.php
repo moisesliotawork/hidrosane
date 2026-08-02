@@ -20,6 +20,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
+use App\Filament\SuperAdmin\Pages\RecuperarContratoImagen;
 use App\Filament\SuperAdmin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
@@ -74,6 +75,7 @@ class SuperAdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/SuperAdmin/Pages'), for: 'App\\Filament\\SuperAdmin\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+                RecuperarContratoImagen::class,
             ])
             ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\\Filament\\SuperAdmin\\Widgets')
             ->widgets([

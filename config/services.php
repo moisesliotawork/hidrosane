@@ -49,6 +49,7 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o-mini'),
+        'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
     ],
 
 ];

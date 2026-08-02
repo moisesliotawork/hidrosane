@@ -62,4 +62,25 @@ class ContractImageExtractorMergeTest extends TestCase
         $this->assertSame('ES3620805118313000000892', $merged['iban']);
         $this->assertSame('laser espalda', $merged['productos_texto']);
     }
+
+    public function test_normalize_maps_contrato_header_fields(): void
+    {
+        $extractor = new ContractImageExtractor;
+
+        $normalized = $extractor->normalizeExtracted(array_merge($extractor->emptyPayload(), [
+            'nro_contr_adm' => 'Cod.Contrato 1189',
+            'fecha_venta' => '02-10-2025',
+            'fecha_entrega' => '03/10/2025',
+            'comercial_codes' => '008 - 004',
+            'repartidor_code' => 'Rep. 005',
+            'horario_entrega' => 'td',
+        ]));
+
+        $this->assertSame('1189', $normalized['nro_contr_adm']);
+        $this->assertSame('2025-10-02', $normalized['fecha_venta']);
+        $this->assertSame('2025-10-03', $normalized['fecha_entrega']);
+        $this->assertSame('008,004', $normalized['comercial_codes']);
+        $this->assertSame('005', $normalized['repartidor_code']);
+        $this->assertSame('TD', $normalized['horario_entrega']);
+    }
 }

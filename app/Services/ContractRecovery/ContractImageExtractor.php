@@ -120,7 +120,105 @@ final class ContractImageExtractor
             throw new \RuntimeException('La IA no devolvió JSON válido.');
         }
 
-        return array_merge($this->emptyPayload(), Arr::only($decoded, array_keys($this->emptyPayload())));
+        return $this->normalizeExtracted(
+            array_merge($this->emptyPayload(), Arr::only($decoded, array_keys($this->emptyPayload())))
+        );
+    }
+
+    /**
+     * Normaliza fechas europeas, nº contrato y códigos Com. del encabezado del contrato.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function normalizeExtracted(array $data): array
+    {
+        $data['nro_contr_adm'] = $this->normalizeNroContrato($data['nro_contr_adm'] ?? null);
+        $data['fecha_venta'] = $this->normalizeDate($data['fecha_venta'] ?? null);
+        $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null);
+        $data['comercial_codes'] = $this->normalizeComercialCodes($data['comercial_codes'] ?? null);
+        $data['repartidor_code'] = $this->normalizeEmpleadoCode($data['repartidor_code'] ?? null);
+        $data['horario_entrega'] = $this->normalizeHorario($data['horario_entrega'] ?? null);
+
+        return $data;
+    }
+
+    public function normalizeNroContrato(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value);
+
+        return $digits !== '' ? ltrim($digits, '0') ?: '0' : null;
+    }
+
+    public function normalizeDate(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        foreach (['d-m-Y', 'd/m/Y', 'd-m-y', 'd/m/y', 'Y-m-d'] as $fmt) {
+            try {
+                $dt = \Illuminate\Support\Carbon::createFromFormat($fmt, $raw);
+
+                return $dt->format('Y-m-d');
+            } catch (Throwable) {
+            }
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($raw)->format('Y-m-d');
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function normalizeComercialCodes(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $parts = is_array($value)
+            ? $value
+            : (preg_split('/[^0-9A-Za-z]+/', (string) $value) ?: []);
+
+        $codes = [];
+        foreach ($parts as $part) {
+            $part = trim((string) $part);
+            if ($part === '' || ! preg_match('/^\d+$/', $part)) {
+                continue;
+            }
+            $codes[] = str_pad(ltrim($part, '0') ?: '0', 3, '0', STR_PAD_LEFT);
+        }
+
+        $codes = array_values(array_unique($codes));
+
+        return $codes === [] ? null : implode(',', $codes);
+    }
+
+    /** Un solo código de empleado (ej. Rep. 005 → 005). */
+    public function normalizeEmpleadoCode(mixed $value): ?string
+    {
+        $codes = $this->normalizeComercialCodes($value);
+        if ($codes === null) {
+            return null;
+        }
+
+        return explode(',', $codes)[0] ?? null;
+    }
+
+    protected function normalizeHorario(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        return mb_strtoupper(trim((string) $value));
     }
 
     /**
@@ -158,6 +256,7 @@ final class ContractImageExtractor
             }
         }
 
+        $merged = $this->normalizeExtracted($merged);
         $merged['_sources'] = $sources;
         $merged['_conflicts'] = $conflicts;
 
@@ -178,6 +277,7 @@ final class ContractImageExtractor
             'fecha_entrega' => null,
             'horario_entrega' => null,
             'comercial_codes' => null,
+            'repartidor_code' => null,
             'importe_total' => null,
             'entrada' => null,
             'cuota_mensual' => null,
@@ -194,10 +294,22 @@ final class ContractImageExtractor
     {
         $keys = implode(', ', array_keys($this->emptyPayload()));
 
+        $headerMap = <<<'TXT'
+Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
+- "Cod.Contrato" / "Cod. Contrato" → nro_contr_adm (número del contrato admin; ej. 1189). Solo el número.
+- "Fec.Promo." / "Fec. Promo." → fecha_venta (fecha del contrato admin / promo). Formato YYYY-MM-DD. Ej. 02-10-2025 → 2025-10-02.
+- "Fec.Entr." / "Fec. Entr." → fecha_entrega. Formato YYYY-MM-DD. Ej. 03-10-2025 → 2025-10-03.
+- "Com." / "Com:" → comercial_codes: los 1 o 2 códigos de comercial del contrato, separados por coma.
+  Ej. "008 - 004" → "008,004". No confundir con "Rep." (repartidor).
+- "Rep." / "Rep:" → repartidor_code: id de empleado del repartidor del contrato (ej. 005). Un solo código. No es comercial.
+- "Hora Entr." → horario_entrega (ej. TD, TM).
+- "Cód.Cliente" NO es nro_contr_adm.
+TXT;
+
         return match ($type) {
-            self::TYPE_APP => "Documento: contrato impreso de la app Ohana. Extrae JSON con claves: {$keys}. nro_contr_adm = Cod. Contrato. fecha_venta = Fec. Promo. fecha_entrega = Fec. Entr. comercial_codes = códigos Com. separados por coma.",
-            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento. productos_texto = lista de artículos. comercial_codes = códigos de comerciales.",
-            default => "Documento relacionado con un contrato Ohana. Extrae JSON con claves: {$keys}. Prioriza DNI, nº contrato, IBAN e importes si aparecen.",
+            self::TYPE_APP => "Documento: contrato impreso Ohana (app). Extrae JSON con claves: {$keys}.\n{$headerMap}",
+            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento. productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato.",
+            default => "Documento relacionado con un contrato Ohana. Extrae JSON con claves: {$keys}.\n{$headerMap}\nPrioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.",
         };
     }
 
