@@ -127,8 +127,8 @@ class ListOrphanPrecontractuals extends Command
             if ($doOcr) {
                 try {
                     $absolute = $disk->path(preg_replace('#^public/#', '', $rel));
-                    // extractOne espera path relativo usable; pasamos path absoluto vía resolve
-                    $data = $extractor->extractOne(ContractImageExtractor::TYPE_ALBARAN, $absolute);
+                    // PDF → JPG (1ª página) dentro de extractOne
+                    $data = $this->extractWithRateLimitRetry($extractor, $absolute);
                     $row[4] = (string) ($data['cliente_nombre'] ?? '');
                     $row[5] = (string) ($data['dni'] ?? '');
                     $row[6] = (string) ($data['fecha_venta'] ?? '');
@@ -136,10 +136,11 @@ class ListOrphanPrecontractuals extends Command
                     $row[8] = (string) ($data['nro_albaran'] ?? '');
                     $row[9] = (string) ($data['comercial_codes'] ?? '');
                     $row[10] = '1';
-                    usleep(250_000);
+                    usleep(800_000);
                 } catch (Throwable $e) {
                     $row[10] = '0';
                     $row[11] = mb_strimwidth($e->getMessage(), 0, 180, '…');
+                    usleep(400_000);
                 }
             }
 
@@ -216,5 +217,27 @@ class ListOrphanPrecontractuals extends Command
             'empleado_id' => '',
             'uploader_slug' => '',
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function extractWithRateLimitRetry(ContractImageExtractor $extractor, string $absolute): array
+    {
+        $attempts = 0;
+        while (true) {
+            try {
+                return $extractor->extractOne(ContractImageExtractor::TYPE_ALBARAN, $absolute);
+            } catch (Throwable $e) {
+                $attempts++;
+                $msg = $e->getMessage();
+                $is429 = str_contains($msg, 'HTTP 429') || str_contains($msg, 'Rate limit');
+                if (! $is429 || $attempts >= 3) {
+                    throw $e;
+                }
+                $this->warn("Rate limit; espera 45s (intento {$attempts}/3)…");
+                sleep(45);
+            }
+        }
     }
 }

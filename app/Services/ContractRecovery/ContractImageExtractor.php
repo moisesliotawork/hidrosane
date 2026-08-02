@@ -81,34 +81,38 @@ final class ContractImageExtractor
             throw new \RuntimeException("No se encuentra el archivo: {$relativePath}");
         }
 
-        $mime = mime_content_type($absolute) ?: 'image/jpeg';
-        $b64 = base64_encode((string) file_get_contents($absolute));
-        $dataUrl = "data:{$mime};base64,{$b64}";
+        [$dataUrl, $tempImage] = $this->buildVisionDataUrl($absolute);
 
-        $prompt = $this->promptFor($type);
+        try {
+            $prompt = $this->promptFor($type);
 
-        $model = (string) config('services.openai.vision_model', 'gpt-4o-mini');
+            $model = (string) config('services.openai.vision_model', 'gpt-4o-mini');
 
-        $response = Http::withToken($apiKey)
-            ->timeout(90)
-            ->post('https://api.openai.com/v1/chat/completions', [
-                'model' => $model,
-                'temperature' => 0.1,
-                'response_format' => ['type' => 'json_object'],
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'Eres un extractor de datos de contratos Ohana. Devuelves SOLO JSON válido con las claves pedidas. Si un dato no se lee, usa null. No inventes DNI ni IBAN.',
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => [
-                            ['type' => 'text', 'text' => $prompt],
-                            ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]],
+            $response = Http::withToken($apiKey)
+                ->timeout(90)
+                ->post('https://api.openai.com/v1/chat/completions', [
+                    'model' => $model,
+                    'temperature' => 0.1,
+                    'response_format' => ['type' => 'json_object'],
+                    'messages' => [
+                        [
+                            'role' => 'system',
+                            'content' => 'Eres un extractor de datos de contratos Ohana. Devuelves SOLO JSON válido con las claves pedidas. Si un dato no se lee, usa null. No inventes DNI ni IBAN.',
+                        ],
+                        [
+                            'role' => 'user',
+                            'content' => [
+                                ['type' => 'text', 'text' => $prompt],
+                                ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]],
+                            ],
                         ],
                     ],
-                ],
-            ]);
+                ]);
+        } finally {
+            if ($tempImage !== null && is_file($tempImage)) {
+                @unlink($tempImage);
+            }
+        }
 
         if (! $response->successful()) {
             throw new \RuntimeException('OpenAI HTTP '.$response->status().': '.$response->body());
@@ -327,5 +331,162 @@ TXT;
         }
 
         return storage_path('app/'.$relativePath);
+    }
+
+    /**
+     * Vision solo acepta imágenes. PDF → primera página JPG (Imagick / pdftoppm / gs).
+     *
+     * @return array{0: string, 1: string|null} [dataUrl, tempPathToCleanup]
+     */
+    protected function buildVisionDataUrl(string $absolute): array
+    {
+        $mime = mime_content_type($absolute) ?: '';
+        $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
+
+        if ($this->isSupportedImageMime($mime, $ext)) {
+            $mime = $mime !== '' && str_starts_with($mime, 'image/') ? $mime : $this->mimeFromExtension($ext);
+            $b64 = base64_encode((string) file_get_contents($absolute));
+
+            return ["data:{$mime};base64,{$b64}", null];
+        }
+
+        if ($this->isPdf($mime, $ext)) {
+            $jpg = $this->convertPdfFirstPageToJpeg($absolute);
+            $b64 = base64_encode((string) file_get_contents($jpg));
+
+            return ['data:image/jpeg;base64,'.$b64, $jpg];
+        }
+
+        throw new \RuntimeException(
+            "Tipo no soportado para OCR ({$mime}/.{$ext}). Solo imágenes o PDF."
+        );
+    }
+
+    protected function isSupportedImageMime(string $mime, string $ext): bool
+    {
+        if (in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+            return true;
+        }
+
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)
+            && ($mime === '' || str_starts_with($mime, 'image/') || $mime === 'application/octet-stream');
+    }
+
+    protected function isPdf(string $mime, string $ext): bool
+    {
+        return $mime === 'application/pdf' || $ext === 'pdf';
+    }
+
+    protected function mimeFromExtension(string $ext): string
+    {
+        return match ($ext) {
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            default => 'image/jpeg',
+        };
+    }
+
+    /**
+     * Primera página del PDF a JPEG temporal (~200 DPI).
+     */
+    protected function convertPdfFirstPageToJpeg(string $pdfPath): string
+    {
+        if (extension_loaded('imagick') && class_exists(\Imagick::class)) {
+            return $this->convertPdfWithImagick($pdfPath);
+        }
+
+        $pdftoppm = $this->findBinary('pdftoppm');
+        if ($pdftoppm !== null) {
+            return $this->convertPdfWithPdftoppm($pdfPath, $pdftoppm);
+        }
+
+        $gs = $this->findBinary('gs');
+        if ($gs !== null) {
+            return $this->convertPdfWithGhostscript($pdfPath, $gs);
+        }
+
+        throw new \RuntimeException(
+            'PDF detectado pero falta conversor (instala poppler-utils: pdftoppm, o Imagick/Ghostscript).'
+        );
+    }
+
+    protected function convertPdfWithImagick(string $pdfPath): string
+    {
+        $out = $this->tempJpegPath();
+        $im = new \Imagick;
+        try {
+            $im->setResolution(200, 200);
+            $im->readImage($pdfPath.'[0]');
+            $im->setImageBackgroundColor('white');
+            $flattened = $im->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            $flattened->setImageFormat('jpeg');
+            $flattened->setImageCompressionQuality(85);
+            if (! $flattened->writeImage($out)) {
+                throw new \RuntimeException('Imagick no pudo escribir el JPEG.');
+            }
+            $flattened->clear();
+            $flattened->destroy();
+        } finally {
+            $im->clear();
+            $im->destroy();
+        }
+
+        if (! is_file($out) || filesize($out) === 0) {
+            @unlink($out);
+            throw new \RuntimeException('Imagick generó un JPEG vacío.');
+        }
+
+        return $out;
+    }
+
+    protected function convertPdfWithPdftoppm(string $pdfPath, string $binary): string
+    {
+        $prefix = sys_get_temp_dir().'/ohana_pdf_'.uniqid('', true);
+        $cmd = sprintf(
+            '%s -jpeg -r 200 -singlefile -f 1 -l 1 %s %s 2>&1',
+            escapeshellarg($binary),
+            escapeshellarg($pdfPath),
+            escapeshellarg($prefix)
+        );
+        exec($cmd, $output, $code);
+        $out = $prefix.'.jpg';
+        if ($code !== 0 || ! is_file($out) || filesize($out) === 0) {
+            @unlink($out);
+            throw new \RuntimeException('pdftoppm falló: '.mb_strimwidth(implode(' ', $output), 0, 120, '…'));
+        }
+
+        return $out;
+    }
+
+    protected function convertPdfWithGhostscript(string $pdfPath, string $binary): string
+    {
+        $out = $this->tempJpegPath();
+        $cmd = sprintf(
+            '%s -dSAFER -dBATCH -dNOPAUSE -dFirstPage=1 -dLastPage=1 -sDEVICE=jpeg -r200 -dJPEGQ=85 -sOutputFile=%s %s 2>&1',
+            escapeshellarg($binary),
+            escapeshellarg($out),
+            escapeshellarg($pdfPath)
+        );
+        exec($cmd, $output, $code);
+        if ($code !== 0 || ! is_file($out) || filesize($out) === 0) {
+            @unlink($out);
+            throw new \RuntimeException('Ghostscript falló: '.mb_strimwidth(implode(' ', $output), 0, 120, '…'));
+        }
+
+        return $out;
+    }
+
+    protected function tempJpegPath(): string
+    {
+        return sys_get_temp_dir().'/ohana_pdf_'.uniqid('', true).'.jpg';
+    }
+
+    protected function findBinary(string $name): ?string
+    {
+        $cmd = 'command -v '.escapeshellarg($name).' 2>/dev/null';
+        $path = trim((string) shell_exec($cmd));
+
+        return $path !== '' && is_executable($path) ? $path : null;
     }
 }
