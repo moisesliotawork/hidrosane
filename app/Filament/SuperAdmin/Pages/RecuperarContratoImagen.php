@@ -139,10 +139,15 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return $form
             ->schema([
                 Forms\Components\Section::make('DATOS POR VOZ')
-                    ->description('Dicta o sube un audio con los datos del contrato (DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., etc.). Usa la misma API OpenAI (Whisper + extracción).')
+                    ->description('Dicta con el micrófono (Mac/navegador), pega texto o sube un audio. Revisa el escrito y luego Procesar dictado (OpenAI).')
                     ->schema([
+                        Forms\Components\View::make('filament.superAdmin.pages.partials.voice-dictation')
+                            ->viewData(fn (): array => [
+                                'initialTranscript' => (string) ($this->voiceData['transcript_manual'] ?? ''),
+                            ])
+                            ->columnSpanFull(),
                         Forms\Components\FileUpload::make('audio')
-                            ->label('Audio del dictado')
+                            ->label('Opcional: subir archivo de audio')
                             ->disk('local')
                             ->directory('contract-recovery/tmp-audio')
                             ->visibility('private')
@@ -157,12 +162,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 'video/webm',
                             ])
                             ->maxSize(25600)
-                            ->helperText('Formatos: mp3, m4a, wav, webm, ogg. Máx. ~25 MB.'),
-                        Forms\Components\Textarea::make('transcript_manual')
-                            ->label('O pega el texto del dictado (sin audio)')
-                            ->rows(4)
-                            ->placeholder('Ej.: Cliente José Entenza DNI 52490318V contrato 1189 fecha promo 2 de octubre 2025 entrega 3 de octubre comerciales 8 y 4 repartidor 5...')
-                            ->columnSpanFull(),
+                            ->helperText('Si dictas con el micrófono no hace falta. Whisper solo se usa si subes audio.'),
+                        Forms\Components\Hidden::make('transcript_manual'),
                     ])
                     ->columns(1),
             ])
@@ -291,8 +292,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $manual = trim((string) ($state['transcript_manual'] ?? ''));
 
         if (! filled($audio) && $manual === '') {
-            Notification::make()
-                ->title('Sube un audio o pega el texto del dictado')
+                Notification::make()
+                ->title('Sube un audio, dicta con el micrófono o escribe el texto')
                 ->warning()
                 ->send();
 
