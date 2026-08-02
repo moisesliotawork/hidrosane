@@ -7,22 +7,23 @@
         <div>
             <p class="text-sm font-bold text-sky-950 dark:text-sky-100">Dictar con el micrófono</p>
             <p class="text-xs text-sky-800/80 dark:text-sky-200/80">
-                Usa <strong>REANUDAR DICTADO</strong> para hablar, <strong>DETENER DICTADO</strong> para pausar,
-                revisa el texto y luego «Procesar dictado». Mejor en Chrome o Safari (macOS).
+                <strong>INICIAR DICTADO</strong> → habla → <strong>DETENER DICTADO</strong> → revisa →
+                <strong>REANUDAR DICTADO</strong> si hace falta → «Procesar dictado». Mejor en Chrome o Safari.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <button
                 type="button"
-                x-show="!listening"
+                x-show="!listening && !hasStarted"
                 x-cloak
-                x-on:click="resume()"
+                x-on:click="start()"
                 x-bind:disabled="!supported"
-                class="fi-btn relative inline-flex items-center justify-center gap-1 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow-sm outline-none transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                class="fi-btn relative inline-flex items-center justify-center gap-1 rounded-lg bg-success-600 px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow-sm outline-none transition hover:bg-success-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
                 <x-filament::icon icon="heroicon-m-microphone" class="h-4 w-4" />
-                REANUDAR DICTADO
+                INICIAR DICTADO
             </button>
+
             <button
                 type="button"
                 x-show="listening"
@@ -36,6 +37,19 @@
                 </span>
                 DETENER DICTADO
             </button>
+
+            <button
+                type="button"
+                x-show="!listening && hasStarted"
+                x-cloak
+                x-on:click="resume()"
+                x-bind:disabled="!supported"
+                class="fi-btn relative inline-flex items-center justify-center gap-1 rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white shadow-sm outline-none transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                <x-filament::icon icon="heroicon-m-play" class="h-4 w-4" />
+                REANUDAR DICTADO
+            </button>
+
             <button
                 type="button"
                 x-on:click="clearText()"
@@ -66,7 +80,7 @@
         x-model="draft"
         x-on:input="sync()"
         rows="5"
-        placeholder="Aquí aparecerá lo que digas… Ej.: Cliente José Entenza DNI 52490318V contrato 1189 fecha promo 2 de octubre…"
+        placeholder="Aquí aparecerá lo que digas… Ej.: Cliente José Entenza DNI 52490318V. Cod.Contrato 1189. Fec.Promo 2 de octubre de 2025…"
         class="block w-full rounded-lg border-none bg-white px-3 py-2 text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
     ></textarea>
 </div>
@@ -75,12 +89,12 @@
     function recoveryVoiceDictation() {
         return {
             listening: false,
-            hasPaused: false,
+            hasStarted: false,
             supported: false,
             recognition: null,
             draft: '',
             baseText: '',
-            status: 'Listo. Pulsa REANUDAR DICTADO para empezar.',
+            status: 'Listo. Pulsa INICIAR DICTADO.',
             init() {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 this.supported = !!SpeechRecognition;
@@ -115,7 +129,7 @@
                         return;
                     }
                     this.listening = false;
-                    this.hasPaused = true;
+                    this.hasStarted = true;
                     this.status = 'Error de micrófono: ' + (event.error || 'desconocido') + '. Puedes REANUDAR DICTADO.';
                 };
                 this.recognition.onend = () => {
@@ -124,7 +138,7 @@
                             this.recognition.start();
                         } catch (e) {
                             this.listening = false;
-                            this.hasPaused = true;
+                            this.hasStarted = true;
                             this.status = 'Dictado detenido. Pulsa REANUDAR DICTADO o Procesar dictado.';
                             this.sync();
                         }
@@ -134,22 +148,30 @@
                     }
                 };
             },
+            start() {
+                this.beginListening(false);
+            },
             resume() {
+                this.beginListening(true);
+            },
+            beginListening(isResume) {
                 if (!this.recognition) return;
                 this.baseText = (this.draft || '').trim();
                 this.listening = true;
-                this.status = 'Escuchando… habla los datos del contrato. Pulsa DETENER DICTADO para pausar.';
+                this.hasStarted = true;
+                this.status = isResume
+                    ? 'Reanudado. Escuchando… Pulsa DETENER DICTADO para pausar.'
+                    : 'Escuchando… habla los datos del contrato. Pulsa DETENER DICTADO para pausar.';
                 try {
                     this.recognition.start();
                 } catch (e) {
                     this.listening = false;
-                    this.hasPaused = true;
                     this.status = 'No se pudo iniciar el micrófono. Revisa permisos del Mac/navegador.';
                 }
             },
             stop() {
                 this.listening = false;
-                this.hasPaused = true;
+                this.hasStarted = true;
                 try {
                     this.recognition && this.recognition.stop();
                 } catch (e) {}
@@ -159,9 +181,13 @@
             clearText() {
                 this.draft = '';
                 this.baseText = '';
-                this.hasPaused = false;
+                this.hasStarted = false;
+                this.listening = false;
+                try {
+                    this.recognition && this.recognition.stop();
+                } catch (e) {}
                 this.sync();
-                this.status = 'Texto limpiado. Pulsa REANUDAR DICTADO para empezar.';
+                this.status = 'Texto limpiado. Pulsa INICIAR DICTADO.';
             },
             sync() {
                 $wire.set('voiceData.transcript_manual', this.draft || '');
