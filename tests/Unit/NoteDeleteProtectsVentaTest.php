@@ -19,7 +19,7 @@ class NoteDeleteProtectsVentaTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_deleting_note_soft_deletes_venta_instead_of_hard_delete(): void
+    public function test_deleting_note_does_not_soft_delete_venta(): void
     {
         $user = User::factory()->create([
             'name' => 'Test',
@@ -61,12 +61,12 @@ class NoteDeleteProtectsVentaTest extends TestCase
         $this->assertNotNull($archivedNote->deleted_at);
         $this->assertSame($user->id, $archivedNote->deleted_by_user_id);
 
-        $archived = Venta::onlyTrashed()->find($ventaId);
-        $this->assertNotNull($archived);
-        $this->assertNotNull($archived->deleted_at);
-        $this->assertSame($user->id, $archived->deleted_by_user_id);
-        $this->assertSame($nro, $archived->nro_contr_adm);
-        $this->assertSame($noteId, $archived->note_id);
+        $alive = Venta::find($ventaId);
+        $this->assertNotNull($alive);
+        $this->assertNull($alive->deleted_at);
+        $this->assertSame($nro, $alive->nro_contr_adm);
+        $this->assertSame($noteId, $alive->note_id);
+        $this->assertNull(Venta::onlyTrashed()->find($ventaId));
     }
 
     public function test_plain_venta_delete_is_soft_and_sets_deleted_by_user(): void

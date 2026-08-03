@@ -192,7 +192,7 @@ class Note extends Model
             }
         });
 
-        // Soft-delete: registrar quién borra y archivar contratos activos.
+        // Soft-delete: registrar quién borra. Nunca archivar contratos/ventas.
         static::deleting(function (Note $note) {
             if ($note->isForceDeleting()) {
                 return false;
@@ -202,14 +202,6 @@ class Note extends Model
                 $note->forceFill([
                     'deleted_by_user_id' => auth()->id(),
                 ])->saveQuietly();
-            }
-
-            $ventas = \App\Models\Venta::query()
-                ->where('note_id', $note->id)
-                ->get();
-
-            foreach ($ventas as $venta) {
-                \App\Support\VentaSoftDelete::delete($venta);
             }
         });
 

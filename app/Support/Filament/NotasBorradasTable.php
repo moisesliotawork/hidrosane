@@ -20,7 +20,7 @@ final class NotasBorradasTable
         return [
             BorradosRestoreColumn::make(
                 modalHeading: 'Restaurar nota',
-                modalDescription: 'La nota volverá a aparecer en los listados activos. Los contratos asociados, si fueron archivados, permanecen en Contratos borrados.',
+                modalDescription: 'La nota volverá a aparecer en los listados activos. Los contratos no se restauran ni se archivan al borrar/restaurar una nota.',
                 successNotificationTitle: 'Nota restaurada',
                 using: fn (Note $record) => NoteSoftRestore::restore($record),
             ),
