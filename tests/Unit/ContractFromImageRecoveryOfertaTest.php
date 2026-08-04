@@ -183,6 +183,10 @@ class ContractFromImageRecoveryOfertaTest extends TestCase
         $this->assertCount(1, $venta->ventaOfertas->first()->productos);
         $this->assertSame($producto->id, $venta->ventaOfertas->first()->productos->first()->producto_id);
         $this->assertSame(['TV a mano'], $venta->productos_externos);
+        $this->assertSame(
+            ContractFromImageRecovery::OBSERVACION_RECUPERADO,
+            $venta->observaciones_repartidor
+        );
     }
 
     public function test_normalize_productos_externos_prefers_structured_list(): void

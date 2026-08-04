@@ -70,4 +70,20 @@ class ContractFromImageRecoverySafetyTest extends TestCase
             ])
         );
     }
+
+    public function test_recovery_observaciones_tag(): void
+    {
+        $svc = new ContractFromImageRecovery;
+        $m = new ReflectionMethod(ContractFromImageRecovery::class, 'recoveryObservaciones');
+        $m->setAccessible(true);
+
+        $this->assertSame(
+            ContractFromImageRecovery::OBSERVACION_RECUPERADO,
+            $m->invoke($svc, null)
+        );
+        $this->assertSame(
+            ContractFromImageRecovery::OBSERVACION_RECUPERADO."\nNota OCR",
+            $m->invoke($svc, 'Nota OCR')
+        );
+    }
 }

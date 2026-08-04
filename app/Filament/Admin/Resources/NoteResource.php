@@ -474,11 +474,15 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
+                            $assignmentDate = ! empty($comercialId)
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
+                                : null;
 
                             $updates = [
                                 'comercial_id' => $comercialId ?: null,
                                 'assignment_date' => $assignmentDate,
+                                // Commercial NOTAS solo muestra reten=false (igual que Super_Asignar).
+                                'reten' => false,
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
@@ -608,16 +612,17 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
+                            $assignmentDate = ! empty($comercialId)
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
                                 : null;
 
                             $recordIds = collect($records)->pluck('id')->all();
 
-                            // 1) Reasignar comercial/fecha
+                            // 1) Reasignar comercial/fecha y sacar de retén (visible en Commercial NOTAS)
                             Note::whereIn('id', $recordIds)->update([
-                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
+                                'comercial_id' => (! empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
+                                'reten' => false,
                             ]);
 
                             // 2) Resetear TN a S/E para las que estén en SALA

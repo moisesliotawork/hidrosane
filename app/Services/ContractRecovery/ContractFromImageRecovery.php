@@ -438,7 +438,7 @@ final class ContractFromImageRecovery
                 'en_app' => false,
                 'estado_venta' => EstadoVenta::EN_REVISION,
                 'nro_cliente_adm' => $customer->nro_cliente,
-                'observaciones_repartidor' => $data['observaciones'] ?? null,
+                'observaciones_repartidor' => $this->recoveryObservaciones($data['observaciones'] ?? null),
             ]);
 
             return;
@@ -447,6 +447,10 @@ final class ContractFromImageRecovery
         // Restore path: NUNCA cambia nro_contr_adm ni customer_id si ya hay uno distinto
         $patch = [
             'list_descripcion' => $venta->list_descripcion ?: 'Recuperado desde imagen (SuperAdmin)',
+            'observaciones_repartidor' => $this->mergeRecoveryObservaciones(
+                $venta->observaciones_repartidor,
+                $data['observaciones'] ?? null,
+            ),
         ];
 
         if (! $venta->customer_id) {
@@ -495,15 +499,39 @@ final class ContractFromImageRecovery
             $patch['productos_externos'] = $productos;
         }
 
-        if (blank($venta->observaciones_repartidor) && filled($data['observaciones'] ?? null)) {
-            $patch['observaciones_repartidor'] = $data['observaciones'];
-        }
-
         $venta->forceFill($patch);
     }
 
+    public const OBSERVACION_RECUPERADO = 'CONTRATO RECUPERADO (Soporte - Rafael)';
+
+    protected function recoveryObservaciones(mixed $extra): string
+    {
+        $extra = trim((string) ($extra ?? ''));
+        if ($extra === '' || str_contains($extra, 'CONTRATO RECUPERADO')) {
+            return self::OBSERVACION_RECUPERADO;
+        }
+
+        return self::OBSERVACION_RECUPERADO."\n".$extra;
+    }
+
+    protected function mergeRecoveryObservaciones(mixed $current, mixed $extra): string
+    {
+        $current = trim((string) ($current ?? ''));
+        if ($current !== '' && str_contains($current, 'CONTRATO RECUPERADO')) {
+            return $current;
+        }
+
+        $recovered = $this->recoveryObservaciones($extra);
+        if ($current === '') {
+            return $recovered;
+        }
+
+        return $recovered."\n".$current;
+    }
+
     /**
-     * Solo rellena campos de documento VACÍOS. Nunca pisa un archivo ya guardado.
+     * Anexa documentos de recovery. Prioridad: contrato_firmado (el papel recuperado).
+     * No sobrescribe rutas ya existentes en la venta.
      *
      * @param  list<array{type?: string, path?: string}>|null  $documents
      */
@@ -513,9 +541,19 @@ final class ContractFromImageRecovery
             return;
         }
 
+        // Preferir contrato app; el resto después (albarán / otro).
+        $ordered = collect($documents)
+            ->sortBy(fn ($doc) => match ((string) ($doc['type'] ?? '')) {
+                ContractImageExtractor::TYPE_APP => 0,
+                ContractImageExtractor::TYPE_ALBARAN => 1,
+                default => 2,
+            })
+            ->values()
+            ->all();
+
         $updates = [];
 
-        foreach ($documents as $doc) {
+        foreach ($ordered as $doc) {
             $path = (string) ($doc['path'] ?? '');
             $type = (string) ($doc['type'] ?? 'other');
             if ($path === '' || ! Storage::disk('local')->exists($path)) {
@@ -526,9 +564,18 @@ final class ContractFromImageRecovery
             $dest = 'ventas/'.now()->format('YmdHis').'_recovery_'.$venta->id.'_'.Str::random(6).'.'.$ext;
             Storage::disk('public')->put($dest, Storage::disk('local')->get($path));
 
-            if ($type === ContractImageExtractor::TYPE_APP && blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
+            // Siempre anexar primero en contrato firmado (documento recuperado).
+            if (blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
                 $updates['contrato_firmado'] = $dest;
-            } elseif ($type === ContractImageExtractor::TYPE_ALBARAN && blank($venta->precontractual) && empty($updates['precontractual'])) {
+
+                continue;
+            }
+
+            if ($type === ContractImageExtractor::TYPE_ALBARAN
+                && blank($venta->precontractual)
+                && empty($updates['precontractual'])) {
+                $updates['precontractual'] = $dest;
+            } elseif (blank($venta->precontractual) && empty($updates['precontractual'])) {
                 $updates['precontractual'] = $dest;
             } elseif (blank($venta->otros_documentos) && empty($updates['otros_documentos'])) {
                 $updates['otros_documentos'] = $dest;
