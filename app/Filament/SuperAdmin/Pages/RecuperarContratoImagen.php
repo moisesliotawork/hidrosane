@@ -2,9 +2,12 @@
 
 namespace App\Filament\SuperAdmin\Pages;
 
+use App\Enums\VendidoPor;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecoveryItem;
 use App\Models\Customer;
+use App\Models\Oferta;
+use App\Models\Producto;
 use App\Models\User;
 use App\Services\ContractRecovery\ContractFromImageRecovery;
 use App\Services\ContractRecovery\ContractImageExtractor;
@@ -13,6 +16,8 @@ use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
@@ -202,7 +207,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('cuota_mensual')->label('Cuota mensual')->numeric(),
                         Forms\Components\TextInput::make('num_cuotas')->label('Nº cuotas')->numeric()->integer(),
                         Forms\Components\TextInput::make('iban')->label('IBAN'),
-                        Forms\Components\Textarea::make('productos_texto')->label('Productos')->rows(3)->columnSpanFull(),
+                        Forms\Components\Textarea::make('productos_texto')
+                            ->label('Texto OCR / manuscrito (pista)')
+                            ->helperText('Úsalo para mapear al catálogo en Oferta y productos (obligatorio al Agregar Contrato).')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                        ...$this->ofertaProductosFormSchema(),
                         Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2),
                         Forms\Components\TextInput::make('telefonos')->label('Teléfonos'),
                         Forms\Components\Textarea::make('observaciones')->label('Observaciones')->rows(2)->columnSpanFull(),
@@ -602,7 +612,19 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             ->default(false),
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
-                        $result = app(ContractFromImageRecovery::class)->addContract(
+                        $svc = app(ContractFromImageRecovery::class);
+                        $ofertaError = $svc->validateOfertaProductos($record->reviewedData());
+                        if ($ofertaError !== null) {
+                            Notification::make()
+                                ->title('Falta oferta / productos')
+                                ->body($ofertaError)
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $result = $svc->addContract(
                             $record,
                             (bool) ($data['update_iban'] ?? false),
                         );
@@ -676,10 +698,194 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             Forms\Components\TextInput::make('cuota_mensual')->label('Cuota mensual')->numeric(),
             Forms\Components\TextInput::make('num_cuotas')->label('Nº cuotas')->numeric()->integer(),
             Forms\Components\TextInput::make('iban')->label('IBAN'),
-            Forms\Components\Textarea::make('productos_texto')->label('Productos')->rows(3)->columnSpanFull(),
+            Forms\Components\Textarea::make('productos_texto')
+                ->label('Texto OCR / manuscrito (pista)')
+                ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
+                ->rows(3)
+                ->columnSpanFull(),
+            ...$this->ofertaProductosFormSchema(),
             Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2),
             Forms\Components\TextInput::make('telefonos')->label('Teléfonos'),
             Forms\Components\Textarea::make('observaciones')->label('Observaciones')->rows(2)->columnSpanFull(),
+        ];
+    }
+
+    /**
+     * Oferta + productos (sin relationship: aún no hay Venta).
+     *
+     * @return array<int, Forms\Components\Component>
+     */
+    protected function ofertaProductosFormSchema(): array
+    {
+        return [
+            Forms\Components\Section::make('Oferta y productos')
+                ->description('Obligatorio antes de «Agregar Contrato». El texto OCR arriba es solo pista (a menudo manuscrito).')
+                ->schema([
+                    Forms\Components\Repeater::make('ventaOfertas')
+                        ->label(false)
+                        ->defaultItems(1)
+                        ->addActionLabel('Agregar oferta')
+                        ->collapsible()
+                        ->itemLabel(function (array $state): string {
+                            if (blank($state['oferta_id'] ?? null)) {
+                                return 'Nueva oferta';
+                            }
+
+                            return (string) (Oferta::query()->whereKey($state['oferta_id'])->value('nombre') ?? 'Oferta');
+                        })
+                        ->schema([
+                            Forms\Components\Grid::make(3)->schema([
+                                Forms\Components\Select::make('oferta_id')
+                                    ->label('Oferta')
+                                    ->options(fn () => Oferta::query()
+                                        ->orderBy('nombre')
+                                        ->pluck('nombre', 'id')
+                                        ->all())
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                        $oferta = Oferta::query()->find($state);
+                                        if (! $oferta) {
+                                            return;
+                                        }
+
+                                        $set('puntos', (int) $oferta->puntos_base);
+
+                                        $currentImporte = $get('../../importe_total');
+                                        if (! filled($currentImporte) || (float) $currentImporte <= 0) {
+                                            $set('../../importe_total', $oferta->precio_base);
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('puntos')
+                                    ->label('Puntos')
+                                    ->numeric()
+                                    ->dehydrated()
+                                    ->default(0),
+                            ]),
+                            Forms\Components\Repeater::make('productos')
+                                ->label('Productos')
+                                ->defaultItems(1)
+                                ->minItems(1)
+                                ->addActionLabel('Agregar producto')
+                                ->live()
+                                ->afterStateUpdated(function (Get $get, Set $set): void {
+                                    $set(
+                                        'puntos',
+                                        collect($get('productos') ?? [])
+                                            ->sum(fn ($l) => (int) ($l['puntos_linea'] ?? 0))
+                                    );
+                                })
+                                ->schema([
+                                    Forms\Components\Grid::make(4)->schema([
+                                        Forms\Components\Select::make('producto_id')
+                                            ->label('Producto')
+                                            ->options(fn () => Producto::query()
+                                                ->where('delete', false)
+                                                ->orderBy('nombre')
+                                                ->pluck('nombre', 'id')
+                                                ->all())
+                                            ->searchable()
+                                            ->preload()
+                                            ->required()
+                                            ->live()
+                                            ->afterStateUpdated(function (Set $set, Get $get, $state): void {
+                                                $producto = Producto::query()->find($state);
+                                                $cantidad = max(1, (int) ($get('cantidad') ?? 1));
+                                                if ($producto && $producto->nombre === 'Producto Externo') {
+                                                    $set('cantidad', 1);
+                                                    $cantidad = 1;
+                                                }
+                                                if ($producto && $producto->nombre !== 'Producto Externo') {
+                                                    $set('puntos_linea', $cantidad * (int) ($producto->puntos ?? 0));
+                                                }
+                                                $set(
+                                                    '../../puntos',
+                                                    collect($get('../../productos') ?? [])
+                                                        ->sum(fn ($l) => (int) ($l['puntos_linea'] ?? 0))
+                                                );
+                                            }),
+                                        Forms\Components\TextInput::make('cantidad')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->default(1)
+                                            ->required()
+                                            ->live()
+                                            ->afterStateUpdated(function (Get $get, Set $set, $state): void {
+                                                $nombre = Producto::query()
+                                                    ->whereKey($get('producto_id'))
+                                                    ->value('nombre');
+                                                $puntosUnidad = (int) Producto::query()
+                                                    ->whereKey($get('producto_id'))
+                                                    ->value('puntos');
+                                                $cantidad = $nombre === 'Producto Externo'
+                                                    ? 1
+                                                    : max((int) $state, 1);
+                                                $set('cantidad', $cantidad);
+                                                if ($nombre !== 'Producto Externo') {
+                                                    $set('puntos_linea', $cantidad * $puntosUnidad);
+                                                }
+                                                $set(
+                                                    '../../puntos',
+                                                    collect($get('../../productos') ?? [])
+                                                        ->sum(fn ($l) => (int) ($l['puntos_linea'] ?? 0))
+                                                );
+                                            }),
+                                        Forms\Components\TextInput::make('puntos_linea')
+                                            ->label('Pts línea')
+                                            ->numeric()
+                                            ->required()
+                                            ->dehydrated()
+                                            ->live()
+                                            ->afterStateUpdated(function (Get $get, Set $set): void {
+                                                $set(
+                                                    '../../puntos',
+                                                    collect($get('../../productos') ?? [])
+                                                        ->sum(fn ($l) => (int) ($l['puntos_linea'] ?? 0))
+                                                );
+                                            }),
+                                        Forms\Components\Select::make('vendido_por')
+                                            ->label('Vendido por')
+                                            ->options(VendidoPor::options())
+                                            ->default(VendidoPor::Comercial->value)
+                                            ->required(),
+                                    ]),
+                                ]),
+                        ])
+                        ->columnSpanFull(),
+                    Forms\Components\Section::make('Productos externos')
+                        ->visible(function (Get $get): bool {
+                            $ids = collect($get('ventaOfertas') ?? [])
+                                ->flatMap(fn ($oferta) => $oferta['productos'] ?? [])
+                                ->pluck('producto_id')
+                                ->filter()
+                                ->all();
+
+                            if ($ids === []) {
+                                return false;
+                            }
+
+                            return Producto::query()
+                                ->whereIn('id', $ids)
+                                ->where('nombre', 'Producto Externo')
+                                ->exists();
+                        })
+                        ->schema([
+                            Forms\Components\Repeater::make('productos_externos')
+                                ->label(false)
+                                ->simple(
+                                    Forms\Components\TextInput::make('value')
+                                        ->label('Nombre producto externo')
+                                        ->required()
+                                )
+                                ->minItems(1)
+                                ->dehydrated(),
+                        ])
+                        ->columnSpanFull(),
+                ])
+                ->columns(1)
+                ->columnSpanFull(),
         ];
     }
 
@@ -789,7 +995,32 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         return collect($docs)->map(fn ($d) => $d['type'] ?? '?')->implode(' · ');
                     }, ['badge' => true, 'color' => 'gray', 'span' => 2]),
 
-                    $entry('productos_texto', 'Productos', $val('productos_texto'), ['span' => 'full']),
+                    $entry('productos_texto', 'OCR / manuscrito', $val('productos_texto'), ['span' => 'full']),
+                    $entry('oferta_productos', 'Oferta / productos', function (ContratoRecoveryItem $r): string {
+                        $rows = data_get($r->reviewedData(), 'ventaOfertas', []);
+                        if (! is_array($rows) || $rows === []) {
+                            return '— sin oferta (obligatoria al Agregar)';
+                        }
+
+                        return collect($rows)->map(function ($row) {
+                            $ofertaId = (int) ($row['oferta_id'] ?? 0);
+                            $nombre = $ofertaId
+                                ? (Oferta::query()->whereKey($ofertaId)->value('nombre') ?? "#{$ofertaId}")
+                                : 'sin oferta';
+                            $prods = collect($row['productos'] ?? [])->map(function ($line) {
+                                $pid = (int) ($line['producto_id'] ?? 0);
+                                if ($pid <= 0) {
+                                    return null;
+                                }
+                                $pn = Producto::query()->whereKey($pid)->value('nombre') ?? "#{$pid}";
+                                $qty = (int) ($line['cantidad'] ?? 1);
+
+                                return "{$pn} ×{$qty}";
+                            })->filter()->implode(', ');
+
+                            return $prods !== '' ? "{$nombre}: {$prods}" : $nombre;
+                        })->filter()->implode(' | ') ?: '—';
+                    }, ['span' => 'full']),
                     $entry('observaciones', 'Obs.', $val('observaciones'), ['span' => 'full']),
                 ]),
         ];
@@ -810,6 +1041,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return app(ContractImageExtractor::class)->emptyPayload() + [
             'comercial_id' => null,
             'repartidor_id' => null,
+            'ventaOfertas' => [],
+            'productos_externos' => [],
             '_conflicts' => [],
         ];
     }

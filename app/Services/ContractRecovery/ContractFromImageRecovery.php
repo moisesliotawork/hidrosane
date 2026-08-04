@@ -3,10 +3,13 @@
 namespace App\Services\ContractRecovery;
 
 use App\Enums\EstadoVenta;
+use App\Enums\VendidoPor;
 use App\Models\ContratoMesVariacionItem;
 use App\Models\ContratoRecuperado;
 use App\Models\ContratoRecoveryItem;
 use App\Models\Customer;
+use App\Models\Oferta;
+use App\Models\Producto;
 use App\Models\User;
 use App\Models\Venta;
 use App\Support\ContratosPorMesStats;
@@ -73,6 +76,11 @@ final class ContractFromImageRecovery
             return ['ok' => false, 'message' => 'Indica un comercial (obligatorio en ventas). Selecciónalo en Editar.'];
         }
 
+        $ofertaError = $this->validateOfertaProductos($data);
+        if ($ofertaError !== null) {
+            return ['ok' => false, 'message' => $ofertaError];
+        }
+
         try {
             $venta = DB::transaction(function () use ($item, $customer, $nro, $data, $comercialId, $updateCustomerIban, $dni) {
                 // Bloqueo pesimista: evita carreras que dupliquen / pisen contratos
@@ -123,6 +131,7 @@ final class ContractFromImageRecovery
                     }
                 }
 
+                $this->attachOfertaProductos($venta, $data, $createdNew);
                 $this->attachDocumentsWithoutOverwrite($venta, $item->documents ?? []);
 
                 if ($updateCustomerIban && filled($data['iban'] ?? null)) {
@@ -238,6 +247,159 @@ final class ContractFromImageRecovery
     }
 
     /**
+     * Valida oferta + productos en reviewed_json antes de Agregar Contrato.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function validateOfertaProductos(array $data): ?string
+    {
+        $rows = $data['ventaOfertas'] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return 'Indica al menos una oferta con productos (Editar → Oferta y productos).';
+        }
+
+        $hasValid = false;
+        $productoIds = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row) || (int) ($row['oferta_id'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $products = $row['productos'] ?? [];
+            if (! is_array($products) || $products === []) {
+                return 'Cada oferta debe tener al menos un producto.';
+            }
+
+            $anyProduct = false;
+            foreach ($products as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+                $pid = (int) ($line['producto_id'] ?? 0);
+                if ($pid <= 0) {
+                    continue;
+                }
+                $anyProduct = true;
+                $hasValid = true;
+                $productoIds[] = $pid;
+            }
+
+            if (! $anyProduct) {
+                return 'Cada oferta debe tener al menos un producto.';
+            }
+        }
+
+        if (! $hasValid) {
+            return 'Indica al menos una oferta con productos (Editar → Oferta y productos).';
+        }
+
+        $needsExternos = Producto::query()
+            ->whereIn('id', array_values(array_unique($productoIds)))
+            ->where('nombre', 'Producto Externo')
+            ->exists();
+
+        if ($needsExternos && $this->normalizeProductosExternos($data) === []) {
+            return 'Hay «Producto Externo»: indica el nombre en Productos externos.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function attachOfertaProductos(Venta $venta, array $data, bool $isNew): void
+    {
+        $rows = $data['ventaOfertas'] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return;
+        }
+
+        if (! $isNew) {
+            $venta->loadMissing('ventaOfertas');
+            if ($venta->ventaOfertas->isNotEmpty()) {
+                return;
+            }
+        }
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $ofertaId = (int) ($row['oferta_id'] ?? 0);
+            if ($ofertaId <= 0) {
+                continue;
+            }
+
+            $puntos = isset($row['puntos'])
+                ? (int) $row['puntos']
+                : (int) (Oferta::query()->whereKey($ofertaId)->value('puntos_base') ?? 0);
+
+            $vo = $venta->ventaOfertas()->create([
+                'oferta_id' => $ofertaId,
+                'puntos' => $puntos,
+            ]);
+
+            foreach ($row['productos'] ?? [] as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+
+                $productoId = (int) ($line['producto_id'] ?? 0);
+                if ($productoId <= 0) {
+                    continue;
+                }
+
+                $vendidoPor = $line['vendido_por'] ?? VendidoPor::Comercial->value;
+                if ($vendidoPor instanceof VendidoPor) {
+                    $vendidoPor = $vendidoPor->value;
+                }
+
+                $vo->productos()->create([
+                    'producto_id' => $productoId,
+                    'cantidad' => max(1, (int) ($line['cantidad'] ?? 1)),
+                    'puntos_linea' => (int) ($line['puntos_linea'] ?? 0),
+                    'vendido_por' => (string) $vendidoPor,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    protected function normalizeProductosExternos(array $data): array
+    {
+        $fromForm = collect($data['productos_externos'] ?? [])
+            ->map(function ($row) {
+                if (is_string($row) || is_numeric($row)) {
+                    return trim((string) $row);
+                }
+                if (is_array($row)) {
+                    return trim((string) ($row['value'] ?? $row['descripcion'] ?? ''));
+                }
+
+                return '';
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($fromForm !== []) {
+            return $fromForm;
+        }
+
+        if (filled($data['productos_texto'] ?? null)) {
+            return [trim((string) $data['productos_texto'])];
+        }
+
+        return [];
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     protected function applyFieldsSafely(
@@ -250,12 +412,8 @@ final class ContractFromImageRecovery
         $fechaVenta = $this->parseDate($data['fecha_venta'] ?? null) ?? ($isNew ? now() : $venta->fecha_venta);
         $fechaEntrega = $this->parseDate($data['fecha_entrega'] ?? null);
 
-        $productos = null;
-        if (filled($data['productos_texto'] ?? null)) {
-            $productos = [
-                ['descripcion' => (string) $data['productos_texto']],
-            ];
-        }
+        $productosExternos = $this->normalizeProductosExternos($data);
+        $productos = $productosExternos !== [] ? $productosExternos : null;
 
         $repartidorId = (int) ($data['repartidor_id'] ?? 0);
         if ($repartidorId <= 0) {
