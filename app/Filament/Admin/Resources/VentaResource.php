@@ -71,9 +71,36 @@ class VentaResource extends Resource
         return $form->schema([
 
             Placeholder::make('nro_nota')
-                ->label('Nº Nota')
-                ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
-                ->extraAttributes(['class' => 'text-2xl font-bold'])   // tamaño y peso
+                ->label(fn (): string => self::isSuperAdminPanel() ? '' : 'Nº Nota')
+                ->content(function (?Venta $record) {
+                    if (! self::isSuperAdminPanel()) {
+                        return $record?->note?->nro_nota ?? '-';
+                    }
+
+                    $record?->loadMissing(['note', 'customer']);
+                    $nota = $record?->note?->nro_nota ?? '-';
+                    $nroAdm = filled($record?->nro_contr_adm) ? (string) $record->nro_contr_adm : '—';
+                    $nombre = trim(implode(' ', array_filter([
+                        $record?->customer?->first_names,
+                        $record?->customer?->last_names,
+                    ])));
+                    if ($nombre === '') {
+                        $nombre = '—';
+                    }
+
+                    return new HtmlString(
+                        '<div class="flex w-full flex-wrap items-center justify-between gap-3">'
+                        .'<div class="flex flex-wrap items-baseline gap-3">'
+                        .'<span class="text-2xl font-bold text-gray-950 dark:text-white">Nº Nota: '.e((string) $nota).'</span>'
+                        .'<span style="color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;">'.e($nroAdm).'</span>'
+                        .'</div>'
+                        .'<span style="color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;text-align:right;">'.e($nombre).'</span>'
+                        .'</div>'
+                    );
+                })
+                ->extraAttributes([
+                    'class' => self::isSuperAdminPanel() ? 'w-full' : 'text-2xl font-bold',
+                ])
                 ->columnSpanFull(),
 
 
