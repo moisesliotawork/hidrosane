@@ -36,6 +36,33 @@ class ContractImageExtractorMergeTest extends TestCase
         $this->assertNotEmpty($conflicts);
     }
 
+    public function test_normalize_spanish_id_from_mrz_and_label(): void
+    {
+        $extractor = new ContractImageExtractor;
+
+        $this->assertSame(
+            '36026170M',
+            $extractor->normalizeSpanishId('IDESPBCJ151164436026170M<<<<<<'),
+        );
+        $this->assertSame('36026170M', $extractor->normalizeSpanishId('DNI 36026170M'));
+        $this->assertSame('36026170M', $extractor->normalizeSpanishId('36026170M'));
+        $this->assertSame('dni_anverso', $extractor->normalizeDocumentoTipo('DNI anverso con foto'));
+        $this->assertSame('dni_reverso', $extractor->normalizeDocumentoTipo('reverso MRZ'));
+    }
+
+    public function test_normalize_extracted_pulls_dni_from_mrz_raw(): void
+    {
+        $extractor = new ContractImageExtractor;
+        $data = $extractor->normalizeExtracted(array_merge($extractor->emptyPayload(), [
+            'dni' => null,
+            'mrz_raw' => "IDESPBCJ151164436026170M<<<<<<\n5807167M2611033ESP<<<<<<<<<<<9\nSANTOS<GIRALDEZ<<EMILIO<MANUEL",
+            'documento_tipo' => 'dni_reverso',
+        ]));
+
+        $this->assertSame('36026170M', $data['dni']);
+        $this->assertSame('dni_reverso', $data['documento_tipo']);
+    }
+
     public function test_merge_fills_gaps_from_lower_priority(): void
     {
         $extractor = new ContractImageExtractor;

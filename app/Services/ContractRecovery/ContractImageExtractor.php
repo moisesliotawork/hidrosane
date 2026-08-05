@@ -20,6 +20,9 @@ final class ContractImageExtractor
 
     public const TYPE_OTHER = 'other';
 
+    /** DNI / NIE español (anverso o reverso físico). */
+    public const TYPE_DNI_CARD = 'dni_card';
+
     /**
      * @param  list<array{type: string, path: string, label?: string|null}>  $documents
      * @return array{merged: array<string, mixed>, per_document: list<array<string, mixed>>, conflicts: list<string>, errors: list<string>}
@@ -143,8 +146,62 @@ final class ContractImageExtractor
         $data['comercial_codes'] = $this->normalizeComercialCodes($data['comercial_codes'] ?? null);
         $data['repartidor_code'] = $this->normalizeEmpleadoCode($data['repartidor_code'] ?? null);
         $data['horario_entrega'] = $this->normalizeHorario($data['horario_entrega'] ?? null);
+        $data['dni'] = $this->normalizeSpanishId($data['dni'] ?? null)
+            ?? $this->normalizeSpanishId($data['mrz_raw'] ?? null)
+            ?? $this->normalizeSpanishId($data['observaciones'] ?? null);
+        $data['documento_tipo'] = $this->normalizeDocumentoTipo($data['documento_tipo'] ?? null);
 
         return $data;
+    }
+
+    /**
+     * Extrae DNI (8 dígitos + letra) o NIE (X/Y/Z + 7 dígitos + letra) de un texto,
+     * incluida la zona MRZ (IDESP…36026170M…).
+     */
+    public function normalizeSpanishId(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = mb_strtoupper(trim((string) $value));
+        $raw = str_replace(["\n", "\r", '<', ' ', '-'], '', $raw);
+        $raw = preg_replace('/^DNI/', '', $raw) ?? $raw;
+
+        // MRZ línea 1 típica: IDESPBCJ151164436026170M<<<<<<
+        if (preg_match('/IDESP[A-Z0-9]*?(\d{8}[A-Z])/', $raw, $m)) {
+            return $m[1];
+        }
+
+        // 36026170M (con o sin prefijo DNI ya quitado)
+        if (preg_match('/(\d{8}[A-Z])/', $raw, $m)) {
+            return $m[1];
+        }
+
+        // NIE
+        if (preg_match('/([XYZ]\d{7}[A-Z])/', $raw, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    public function normalizeDocumentoTipo(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $v = mb_strtolower(trim((string) $value));
+
+        return match (true) {
+            str_contains($v, 'anverso') || $v === 'dni_anverso' || $v === 'front' => 'dni_anverso',
+            str_contains($v, 'reverso') || $v === 'dni_reverso' || $v === 'back' || str_contains($v, 'mrz') => 'dni_reverso',
+            str_contains($v, 'precontract') || str_contains($v, 'albaran') => 'precontractual',
+            str_contains($v, 'contrato') => 'contrato_firmado',
+            str_contains($v, 'titular') => 'documento_titularidad',
+            default => null,
+        };
     }
 
     public function normalizeNroContrato(mixed $value): ?string
@@ -274,6 +331,8 @@ final class ContractImageExtractor
     {
         return [
             'dni' => null,
+            'documento_tipo' => null,
+            'mrz_raw' => null,
             'nro_contr_adm' => null,
             'nro_albaran' => null,
             'cliente_nombre' => null,
@@ -310,10 +369,27 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Cód.Cliente" NO es nro_contr_adm.
 TXT;
 
+        $dniCard = <<<'TXT'
+Documento: DNI o NIE español (tarjeta física), anverso O reverso.
+Devuelve JSON con claves: {$keys}.
+
+REGLAS DNI (OBLIGATORIO):
+- dni: el número de documento español. Formato típico 8 dígitos + letra (ej. 36026170M) o NIE (X1234567L).
+  Busca: etiqueta "DNI" en anverso (abajo), o en la zona MRZ del reverso (líneas IDESP… / SANTOS<…).
+  En MRZ el DNI va embebido, ej. IDESPBCJ151164436026170M<<<<<< → dni=36026170M.
+- mrz_raw: copia literal de las 3 líneas MRZ si aparecen (reverso). Si no hay MRZ, null.
+- documento_tipo:
+  - "dni_anverso" si se ve foto del titular, apellidos/nombre grandes, "DOCUMENTO NACIONAL DE IDENTIDAD".
+  - "dni_reverso" si se ve domicilio, chip, o zona MRZ (IDESP… / fechas / apellido<<nombre).
+- cliente_nombre: nombre completo si se lee.
+No inventes el DNI: solo si lo ves claramente en foto o MRZ.
+TXT;
+
         return match ($type) {
             self::TYPE_APP => "Documento: contrato impreso Ohana (app). Extrae JSON con claves: {$keys}.\n{$headerMap}",
             self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento. productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato.",
-            default => "Documento relacionado con un contrato Ohana. Extrae JSON con claves: {$keys}.\n{$headerMap}\nPrioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.",
+            self::TYPE_DNI_CARD => str_replace('{$keys}', $keys, $dniCard),
+            default => "Documento relacionado con un contrato Ohana (puede ser DNI, precontractual, contrato, titularidad…). Extrae JSON con claves: {$keys}.\n{$headerMap}\nSi es DNI/NIE: rellena dni (8 dígitos+letra o NIE), documento_tipo (dni_anverso|dni_reverso) y mrz_raw si hay MRZ. Prioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.",
         };
     }
 

@@ -121,11 +121,24 @@ final class OrphanDocumentMatcher
      * @param  list<string>  $emptySlots
      * @return array<string, string> field => path
      */
-    public function mapClusterToEmptySlots(array $cluster, array $emptySlots): array
+    public function mapClusterToEmptySlots(array $cluster, array $emptySlots, array $fieldHints = []): array
     {
         $assignments = [];
         $usedPaths = [];
         $remaining = array_values($emptySlots);
+
+        // 1) Hints de OCR (dni_anverso / dni_reverso / …)
+        foreach ($fieldHints as $path => $field) {
+            if (! is_string($field) || $field === '' || ! in_array($field, $remaining, true)) {
+                continue;
+            }
+            if (isset($assignments[$field]) || isset($usedPaths[$path])) {
+                continue;
+            }
+            $assignments[$field] = $path;
+            $usedPaths[$path] = true;
+            $remaining = array_values(array_diff($remaining, [$field]));
+        }
 
         foreach ($cluster as $orphan) {
             $field = $orphan['field'] ?? null;
@@ -149,9 +162,9 @@ final class OrphanDocumentMatcher
             'documento_titularidad',
             'foto_sorteo',
             'contrato_firmado',
+            'otros_documentos',
             'nomina',
             'pension',
-            'otros_documentos',
         ];
 
         foreach ($priority as $field) {
@@ -215,35 +228,76 @@ final class OrphanDocumentMatcher
             $ocr = [];
             $anchor = null;
             $lastOcrError = null;
+            $fieldHints = [];
 
             if ($withOcr) {
                 foreach ($this->packAnchorCandidates($cluster) as $candidate) {
                     try {
-                        $type = $this->extractorTypeForField((string) ($candidate['field'] ?? 'precontractual'));
-                        $ocr = $this->extractWithRetry($type, $candidate['path']);
-                        $anchor = $candidate;
-                        break;
+                        $ocr = $this->extractWithRetry(
+                            $this->ocrTypeForPackCandidate($candidate),
+                            $candidate['path'],
+                        );
+                        $hint = $this->documentoTipoToSlot($ocr['documento_tipo'] ?? null)
+                            ?? (($candidate['field'] ?? null) ?: null);
+                        if (is_string($hint) && $hint !== '') {
+                            $fieldHints[$candidate['path']] = $hint;
+                        }
+
+                        $scoreTry = $this->scoreMatch($venta, $candidate, $ocr);
+                        if ($scoreTry > 0) {
+                            $anchor = $candidate;
+                            break;
+                        }
+                        // Sigue probando otras imágenes del pack (p.ej. DNI en otro fichero)
                     } catch (Throwable $e) {
                         $lastOcrError = $e;
                     }
                 }
 
                 if ($anchor === null) {
-                    $failed = $this->pickPackAnchor($cluster) ?? $cluster[0];
-                    $proposals[] = [
-                        'venta_id' => $venta->id,
-                        'nro_contr_adm' => $venta->nro_contr_adm,
-                        'path' => $failed['path'],
-                        'field' => (string) ($failed['field'] ?? 'precontractual'),
-                        'score' => 0,
-                        'ocr_dni' => '',
-                        'ocr_fecha' => '',
-                        'action' => 'skip',
-                        'reason' => 'OCR error en ancla del pack: '.($lastOcrError?->getMessage() ?? 'sin ancla usable'),
-                        'pack_key' => $packKey,
-                    ];
+                    if ($lastOcrError !== null && $fieldHints === []) {
+                        $failed = $this->pickPackAnchor($cluster) ?? $cluster[0];
+                        $proposals[] = [
+                            'venta_id' => $venta->id,
+                            'nro_contr_adm' => $venta->nro_contr_adm,
+                            'path' => $failed['path'],
+                            'field' => (string) ($failed['field'] ?? 'precontractual'),
+                            'score' => 0,
+                            'ocr_dni' => '',
+                            'ocr_fecha' => '',
+                            'action' => 'skip',
+                            'reason' => 'OCR error en ancla del pack: '.$lastOcrError->getMessage(),
+                            'pack_key' => $packKey,
+                        ];
+                    }
 
                     continue;
+                }
+
+                // Clasificar el resto del pack (máx. 5 OCR extra) para asignar anverso/reverso.
+                $extra = 0;
+                foreach ($cluster as $member) {
+                    if ($member['path'] === $anchor['path'] || isset($fieldHints[$member['path']])) {
+                        continue;
+                    }
+                    if ($extra >= 5) {
+                        break;
+                    }
+                    try {
+                        $memberOcr = $this->extractWithRetry(
+                            $this->ocrTypeForPackCandidate($member),
+                            $member['path'],
+                        );
+                        $hint = $this->documentoTipoToSlot($memberOcr['documento_tipo'] ?? null)
+                            ?? (($member['field'] ?? null) ?: null);
+                        if (is_string($hint) && $hint !== '') {
+                            $fieldHints[$member['path']] = $hint;
+                        }
+                        $extra++;
+                        usleep(200_000);
+                    } catch (Throwable) {
+                        // ignore
+                    }
                 }
             } else {
                 $anchor = $this->pickPackAnchor($cluster);
@@ -257,7 +311,7 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
-            $assignments = $this->mapClusterToEmptySlots($cluster, $emptySlots);
+            $assignments = $this->mapClusterToEmptySlots($cluster, $emptySlots, $fieldHints);
             if ($assignments === []) {
                 continue;
             }
@@ -453,7 +507,37 @@ final class OrphanDocumentMatcher
 
     public function normalizeDni(?string $dni): string
     {
-        return mb_strtoupper(trim((string) $dni));
+        $fromExtractor = app(ContractImageExtractor::class)->normalizeSpanishId($dni);
+        if ($fromExtractor !== null) {
+            return $fromExtractor;
+        }
+
+        return mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) $dni) ?? '');
+    }
+
+    /**
+     * @param  array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}  $candidate
+     */
+    protected function ocrTypeForPackCandidate(array $candidate): string
+    {
+        $field = $candidate['field'] ?? null;
+
+        return match ($field) {
+            'precontractual' => ContractImageExtractor::TYPE_ALBARAN,
+            'contrato_firmado' => ContractImageExtractor::TYPE_APP,
+            'dni_anverso', 'dni_reverso' => ContractImageExtractor::TYPE_DNI_CARD,
+            // UUID / sin tipo: priorizar lectura de DNI (anverso/reverso/MRZ)
+            null, '' => ContractImageExtractor::TYPE_DNI_CARD,
+            default => ContractImageExtractor::TYPE_DNI_CARD,
+        };
+    }
+
+    protected function documentoTipoToSlot(?string $documentoTipo): ?string
+    {
+        return match ($documentoTipo) {
+            'dni_anverso', 'dni_reverso', 'precontractual', 'contrato_firmado', 'documento_titularidad' => $documentoTipo,
+            default => null,
+        };
     }
 
     /**
@@ -467,6 +551,9 @@ final class OrphanDocumentMatcher
         $venta->loadMissing('customer');
         $customerDni = $this->normalizeDni($venta->customer?->dni);
         $ocrDni = $this->normalizeDni($ocr['dni'] ?? null);
+        if ($ocrDni === '' && filled($ocr['mrz_raw'] ?? null)) {
+            $ocrDni = $this->normalizeDni((string) $ocr['mrz_raw']);
+        }
 
         if ($customerDni === '' || $ocrDni === '' || $customerDni !== $ocrDni) {
             return 0;
@@ -814,6 +901,7 @@ final class OrphanDocumentMatcher
         return match ($field) {
             'precontractual' => ContractImageExtractor::TYPE_ALBARAN,
             'contrato_firmado' => ContractImageExtractor::TYPE_APP,
+            'dni_anverso', 'dni_reverso' => ContractImageExtractor::TYPE_DNI_CARD,
             default => ContractImageExtractor::TYPE_OTHER,
         };
     }
