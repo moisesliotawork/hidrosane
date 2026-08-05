@@ -15,6 +15,9 @@ use App\Enums\EstadoEntrega;
 use App\Services\VentaNotesCustomerSync;
 use App\Support\VentaFechaVenta;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EditVenta extends EditRecord
 {
@@ -28,6 +31,63 @@ class EditVenta extends EditRecord
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+
+    protected function getSavedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->success()
+            ->title('Contrato guardado')
+            ->body('Los cambios se han guardado correctamente.');
+    }
+
+    /**
+     * Garantiza alerta visible si falla validación/guardado, y redirect al índice si OK
+     * (vía getRedirectUrl + getSavedNotification del flujo Filament).
+     */
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        try {
+            parent::save($shouldRedirect, $shouldSendSavedNotification);
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->danger()
+                ->title('No se pudo guardar')
+                ->body(
+                    'Revisa los campos obligatorios. Algunas secciones pueden estar plegadas '
+                    .'(Gestión Documentos / Informe al repartidor). '
+                    .$this->summarizeValidationErrors($exception)
+                )
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Error al guardar el contrato')
+                ->body(str($exception->getMessage())->limit(240)->toString())
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        }
+    }
+
+    protected function summarizeValidationErrors(ValidationException $exception): string
+    {
+        $messages = collect($exception->errors())
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->take(5)
+            ->values();
+
+        if ($messages->isEmpty()) {
+            return '';
+        }
+
+        return 'Detalle: '.$messages->implode(' · ');
     }
 
     public function getTitle(): string
@@ -254,23 +314,34 @@ class EditVenta extends EditRecord
 
     protected function afterSave(): void
     {
-        $venta = $this->record->fresh(['customer', 'note']);
+        try {
+            $venta = $this->record->fresh(['customer', 'note']);
 
-        VentaNotesCustomerSync::syncFromVenta($venta);
+            VentaNotesCustomerSync::syncFromVenta($venta);
 
-        // Por si algo externo cambió el repeater, aunque el hook saved ya lo hace:
-        $venta->recomputarImportesDesdeOfertas(false)
-            ->calcularComisiones(false)
-            ->recomputarVtasRepYEsp(false)
-            ->recalcularVtasAcumuladas(false);
+            // Por si algo externo cambió el repeater, aunque el hook saved ya lo hace:
+            $venta->recomputarImportesDesdeOfertas(false)
+                ->calcularComisiones(false)
+                ->recomputarVtasRepYEsp(false)
+                ->recalcularVtasAcumuladas(false);
 
-        $venta->saveQuietly();
+            $venta->saveQuietly();
 
-        if (!Reparto::where('venta_id', $venta->id)->exists()) {
-            Reparto::create(['venta_id' => $venta->id, 'estado_entrega' => EstadoEntrega::NO_ENTREGADO]);
+            if (! Reparto::where('venta_id', $venta->id)->exists()) {
+                Reparto::create(['venta_id' => $venta->id, 'estado_entrega' => EstadoEntrega::NO_ENTREGADO]);
+            }
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title('Guardado parcial')
+                ->body(
+                    'El contrato se actualizó, pero falló un paso posterior: '
+                    .str($exception->getMessage())->limit(200)->toString()
+                )
+                ->persistent()
+                ->send();
+
+            throw $exception;
         }
     }
-
-
-
 }

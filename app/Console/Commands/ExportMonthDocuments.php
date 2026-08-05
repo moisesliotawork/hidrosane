@@ -7,18 +7,21 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Exporta a tar.gz los documentos enlazados en BD a ventas de un mes (fecha_venta).
- * Uso típico: bajar al Mac todo lo de octubre 2025 referenciado en ventas.
+ * Exporta a tar.gz los documentos enlazados en BD a ventas de un mes o un día (fecha_venta).
+ *
+ *   php artisan recovery:export-month-documents --month=202509
+ *   php artisan recovery:export-month-documents --date=2025-09-09
  */
 class ExportMonthDocuments extends Command
 {
     protected $signature = 'recovery:export-month-documents
-        {--month= : Mes YYYYMM (ej. 202510)}
-        {--output= : Ruta del .tar.gz (default /tmp/docs_YYYYMM.tar.gz)}
-        {--list= : Ruta del listado de paths (default /tmp/docs_YYYYMM.txt)}
+        {--month= : Mes YYYYMM (ej. 202509)}
+        {--date= : Día concreto YYYY-MM-DD (ej. 2025-09-09); tiene prioridad sobre --month}
+        {--output= : Ruta del .tar.gz}
+        {--list= : Ruta del listado de paths}
         {--only= : Campos documento separados por coma (default todos)}';
 
-    protected $description = 'Empaqueta documentos de ventas de un mes (paths en BD) para descargar.';
+    protected $description = 'Empaqueta documentos de ventas de un mes o un día (paths en BD) para descargar.';
 
     /** @var list<string> */
     protected array $defaultDocColumns = [
@@ -35,28 +38,40 @@ class ExportMonthDocuments extends Command
 
     public function handle(): int
     {
+        $dateOpt = $this->option('date');
         $month = preg_replace('/\D+/', '', (string) $this->option('month'));
-        if (strlen($month) !== 6) {
-            $this->error('Usa --month=YYYYMM (ej. 202510 para octubre 2025).');
+
+        if (filled($dateOpt)) {
+            $day = trim((string) $dateOpt);
+            if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                $this->error('Usa --date=YYYY-MM-DD (ej. 2025-09-09).');
+
+                return self::FAILURE;
+            }
+            $from = "{$day} 00:00:00";
+            $to = "{$day} 23:59:59";
+            $label = str_replace('-', '', $day);
+        } elseif (strlen($month) === 6) {
+            $year = (int) substr($month, 0, 4);
+            $mon = (int) substr($month, 4, 2);
+            if ($mon < 1 || $mon > 12) {
+                $this->error("Mes inválido: {$month}");
+
+                return self::FAILURE;
+            }
+            $from = sprintf('%04d-%02d-01 00:00:00', $year, $mon);
+            $to = sprintf(
+                '%04d-%02d-%02d 23:59:59',
+                $year,
+                $mon,
+                (int) date('t', mktime(0, 0, 0, $mon, 1, $year))
+            );
+            $label = $month;
+        } else {
+            $this->error('Indica --date=YYYY-MM-DD o --month=YYYYMM.');
 
             return self::FAILURE;
         }
-
-        $year = (int) substr($month, 0, 4);
-        $mon = (int) substr($month, 4, 2);
-        if ($mon < 1 || $mon > 12) {
-            $this->error("Mes inválido: {$month}");
-
-            return self::FAILURE;
-        }
-
-        $from = sprintf('%04d-%02d-01 00:00:00', $year, $mon);
-        $to = sprintf(
-            '%04d-%02d-%02d 23:59:59',
-            $year,
-            $mon,
-            (int) date('t', mktime(0, 0, 0, $mon, 1, $year))
-        );
 
         $only = $this->option('only');
         $cols = $this->defaultDocColumns;
@@ -71,7 +86,7 @@ class ExportMonthDocuments extends Command
             ->whereBetween('fecha_venta', [$from, $to])
             ->get(array_values(array_unique(array_merge(['id', 'nro_contr_adm', 'fecha_venta'], $cols))));
 
-        $this->info('Ventas del mes: '.$ventas->count());
+        $this->info('Ventas del periodo: '.$ventas->count());
 
         $publicRoot = Storage::disk('public')->path('');
         $entries = [];
@@ -105,8 +120,8 @@ class ExportMonthDocuments extends Command
         $paths = array_keys($entries);
         sort($paths);
 
-        $listPath = (string) ($this->option('list') ?: "/tmp/docs_{$month}.txt");
-        $tarPath = (string) ($this->option('output') ?: "/tmp/docs_{$month}.tar.gz");
+        $listPath = (string) ($this->option('list') ?: "/tmp/docs_{$label}.txt");
+        $tarPath = (string) ($this->option('output') ?: "/tmp/docs_{$label}.tar.gz");
 
         file_put_contents($listPath, implode(PHP_EOL, $paths).(count($paths) ? PHP_EOL : ''));
 
@@ -136,10 +151,10 @@ class ExportMonthDocuments extends Command
             return self::FAILURE;
         }
 
-        $this->info('Paquete: '.$tarPath.' ('. $this->humanSize(filesize($tarPath)).')');
+        $this->info('Paquete: '.$tarPath.' ('.$this->humanSize(filesize($tarPath)).')');
         $this->line('En el Mac:');
-        $this->line("  mkdir -p ~/Desktop/docs_{$month}_bd && cd ~/Desktop/docs_{$month}_bd");
-        $this->line("  scp forge@SERVIDOR:{$tarPath} . && tar -xzf ".basename($tarPath)." && open .");
+        $this->line("  mkdir -p ~/Desktop/docs_{$label}_bd && cd ~/Desktop/docs_{$label}_bd");
+        $this->line("  scp forge@SERVIDOR:{$tarPath} . && tar -xzf ".basename($tarPath).' && open .');
 
         return self::SUCCESS;
     }

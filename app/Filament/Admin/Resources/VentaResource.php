@@ -1024,7 +1024,8 @@ class VentaResource extends Resource
                 ])
                 ->columns(1)
                 ->collapsible()
-                ->collapsed()
+                // Si falta precontractual, abrir la sección para que se vea el error al guardar
+                ->collapsed(fn (?Venta $record): bool => filled($record?->precontractual) || self::isContratoB($record))
                 ->columnSpanFull(),
         ]);
     }

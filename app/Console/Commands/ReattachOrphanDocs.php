@@ -24,6 +24,7 @@ class ReattachOrphanDocs extends Command
         {--from-recovered : Todas las ventas recuperadas (items added + etiqueta observación)}
         {--month= : Filtrar huérfanos por YYYYMM del nombre de archivo}
         {--ocr : Extraer DNI/Fec.Promo con visión (necesario para auto-match)}
+        {--packs : Packs mismo minuto (−5/+4 días); OCR solo del ancla precontractual}
         {--apply : Escribir paths en slots vacíos (solo action=auto)}
         {--output= : CSV de propuestas (default storage/app/recovery/reattach-proposals.csv)}';
 
@@ -36,6 +37,7 @@ class ReattachOrphanDocs extends Command
         $fromRecovered = (bool) $this->option('from-recovered');
         $month = $this->option('month') ? (string) $this->option('month') : null;
         $withOcr = (bool) $this->option('ocr');
+        $usePacks = (bool) $this->option('packs');
         $apply = (bool) $this->option('apply');
 
         if (! $ventaId && blank($nro) && ! $fromRecovered) {
@@ -68,8 +70,18 @@ class ReattachOrphanDocs extends Command
         $orphans = $matcher->listOrphans($month);
         $this->info('Huérfanos candidatos: '.count($orphans));
 
-        $this->info($withOcr ? 'Generando propuestas con OCR…' : 'Generando propuestas (solo ventana de carga)…');
-        $proposals = $matcher->propose($ventas, $orphans, $withOcr);
+        if ($usePacks) {
+            $this->info($withOcr
+                ? 'Generando packs (−5/+4, OCR ancla precontractual)…'
+                : 'Generando packs (−5/+4, sin OCR)…');
+            $proposals = [];
+            foreach ($ventas as $venta) {
+                $proposals = array_merge($proposals, $matcher->proposePacks($venta, $orphans, $withOcr));
+            }
+        } else {
+            $this->info($withOcr ? 'Generando propuestas con OCR…' : 'Generando propuestas (solo ventana de carga)…');
+            $proposals = $matcher->propose($ventas, $orphans, $withOcr);
+        }
 
         $out = (string) ($this->option('output')
             ?: storage_path('app/recovery/reattach-proposals-'.now()->format('Ymd-His').'.csv'));

@@ -22,6 +22,12 @@ final class OrphanDocumentMatcher
 
     public const FECHA_PROMO_TOLERANCE_DAYS = 1;
 
+    /** Días antes de fecha_venta para aceptar fecha de carga del pack. */
+    public const RECOVERY_WINDOW_BEFORE_DAYS = 5;
+
+    /** Días después de fecha_venta para aceptar fecha de carga del pack. */
+    public const RECOVERY_WINDOW_AFTER_DAYS = 4;
+
     /**
      * Slots del formulario de creación + contrato_firmado.
      *
@@ -37,6 +43,232 @@ final class OrphanDocumentMatcher
         /** @var (callable(string $type, string $path): array<string, mixed>)|null */
         protected $ocrExtractor = null,
     ) {}
+
+    /**
+     * Ventana de recuperación: carga entre fecha_venta−before y fecha_venta+after (inclusive).
+     */
+    public function isWithinRecoveryUploadWindow(
+        Carbon $fechaVenta,
+        Carbon $uploadedAt,
+        ?int $beforeDays = null,
+        ?int $afterDays = null,
+    ): bool {
+        $beforeDays ??= self::RECOVERY_WINDOW_BEFORE_DAYS;
+        $afterDays ??= self::RECOVERY_WINDOW_AFTER_DAYS;
+
+        $ventaDay = $fechaVenta->copy()->startOfDay();
+        $uploadDay = $uploadedAt->copy()->startOfDay();
+
+        return $uploadDay->betweenIncluded(
+            $ventaDay->copy()->subDays($beforeDays),
+            $ventaDay->copy()->addDays($afterDays),
+        );
+    }
+
+    /**
+     * Clave de pack: mismo minuto de carga (+ empleado si existe en el nombre).
+     *
+     * @param  array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}  $orphan
+     */
+    public function minuteClusterKey(array $orphan): string
+    {
+        if (! ($orphan['uploaded_at'] instanceof Carbon)) {
+            return 'unknown|'.$orphan['path'];
+        }
+
+        $empleado = trim((string) ($orphan['empleado_id'] ?? ''));
+
+        return $orphan['uploaded_at']->format('Ymd_Hi').'|'.$empleado;
+    }
+
+    /**
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $orphans
+     * @return array<string, list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>>
+     */
+    public function clusterByMinute(array $orphans): array
+    {
+        $clusters = [];
+        foreach ($orphans as $orphan) {
+            $clusters[$this->minuteClusterKey($orphan)][] = $orphan;
+        }
+
+        return $clusters;
+    }
+
+    /**
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $orphans
+     * @return list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>
+     */
+    public function filterOrphansInRecoveryWindow(array $orphans, Carbon $fechaVenta): array
+    {
+        return array_values(array_filter(
+            $orphans,
+            function (array $orphan) use ($fechaVenta): bool {
+                if (! ($orphan['uploaded_at'] instanceof Carbon)) {
+                    return false;
+                }
+
+                return $this->isWithinRecoveryUploadWindow($fechaVenta, $orphan['uploaded_at']);
+            }
+        ));
+    }
+
+    /**
+     * Asigna ficheros de un pack a slots vacíos del formulario.
+     * Campos tipados tienen prioridad; sobrantes / sin tipo → otros_documentos (si vacío).
+     *
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $cluster
+     * @param  list<string>  $emptySlots
+     * @return array<string, string> field => path
+     */
+    public function mapClusterToEmptySlots(array $cluster, array $emptySlots): array
+    {
+        $assignments = [];
+        $usedPaths = [];
+        $remaining = array_values($emptySlots);
+
+        foreach ($cluster as $orphan) {
+            $field = $orphan['field'] ?? null;
+            if (! is_string($field) || $field === '') {
+                continue;
+            }
+            if (! in_array($field, $remaining, true) || isset($assignments[$field])) {
+                continue;
+            }
+
+            $assignments[$field] = $orphan['path'];
+            $usedPaths[$orphan['path']] = true;
+            $remaining = array_values(array_diff($remaining, [$field]));
+        }
+
+        if (in_array('otros_documentos', $remaining, true)) {
+            foreach ($cluster as $orphan) {
+                if (isset($usedPaths[$orphan['path']])) {
+                    continue;
+                }
+                $assignments['otros_documentos'] = $orphan['path'];
+                break;
+            }
+        }
+
+        return $assignments;
+    }
+
+    /**
+     * Propone re-enganche por packs (mismo minuto): OCR solo del ancla precontractual.
+     * Si el DNI del ancla cuadra, asigna todo el pack a slots vacíos del formulario.
+     *
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $orphans
+     * @return list<array{
+     *     venta_id: int,
+     *     nro_contr_adm: ?string,
+     *     path: string,
+     *     field: string,
+     *     score: int,
+     *     ocr_dni: string,
+     *     ocr_fecha: string,
+     *     action: 'auto'|'review'|'skip',
+     *     reason: string,
+     *     pack_key: string
+     * }>
+     */
+    public function proposePacks(Venta $venta, array $orphans, bool $withOcr = true): array
+    {
+        $venta->loadMissing(['customer', 'comercial']);
+        $emptySlots = $this->emptySlots($venta);
+        if ($emptySlots === [] || ! $venta->fecha_venta) {
+            return [];
+        }
+
+        $fechaVenta = Carbon::parse($venta->fecha_venta)->startOfDay();
+        $inWindow = $this->filterOrphansInRecoveryWindow($orphans, $fechaVenta);
+        $clusters = $this->clusterByMinute($inWindow);
+        $proposals = [];
+
+        foreach ($clusters as $packKey => $cluster) {
+            $anchor = $this->pickPackAnchor($cluster);
+            if ($anchor === null) {
+                continue;
+            }
+
+            $ocr = [];
+            if ($withOcr) {
+                try {
+                    $type = $this->extractorTypeForField((string) ($anchor['field'] ?? 'precontractual'));
+                    $ocr = $this->extractWithRetry($type, $anchor['path']);
+                } catch (Throwable $e) {
+                    $proposals[] = [
+                        'venta_id' => $venta->id,
+                        'nro_contr_adm' => $venta->nro_contr_adm,
+                        'path' => $anchor['path'],
+                        'field' => (string) ($anchor['field'] ?? 'precontractual'),
+                        'score' => 0,
+                        'ocr_dni' => '',
+                        'ocr_fecha' => '',
+                        'action' => 'skip',
+                        'reason' => 'OCR error en ancla del pack: '.$e->getMessage(),
+                        'pack_key' => $packKey,
+                    ];
+
+                    continue;
+                }
+            }
+
+            $score = $withOcr ? $this->scoreMatch($venta, $anchor, $ocr) : 0;
+            if ($withOcr && $score <= 0) {
+                continue;
+            }
+
+            $assignments = $this->mapClusterToEmptySlots($cluster, $emptySlots);
+            if ($assignments === []) {
+                continue;
+            }
+
+            $clear = $withOcr && $this->isClearAutoMatch($score, uniqueForSlot: true);
+            $action = ! $withOcr ? 'review' : ($clear ? 'auto' : 'review');
+            $ocrDni = $this->normalizeDni($ocr['dni'] ?? null);
+            $ocrFecha = (string) ($ocr['fecha_venta'] ?? '');
+
+            foreach ($assignments as $field => $path) {
+                $proposals[] = [
+                    'venta_id' => $venta->id,
+                    'nro_contr_adm' => $venta->nro_contr_adm,
+                    'path' => $path,
+                    'field' => $field,
+                    'score' => $score,
+                    'ocr_dni' => $ocrDni,
+                    'ocr_fecha' => $ocrFecha,
+                    'action' => $action,
+                    'reason' => $withOcr
+                        ? ('Pack '.$packKey.': ancla DNI'.($clear ? ' claro' : ' débil').'; slots formulario')
+                        : ('Pack '.$packKey.' en ventana −5/+4 (sin OCR).'),
+                    'pack_key' => $packKey,
+                ];
+            }
+
+            $emptySlots = array_values(array_diff($emptySlots, array_keys($assignments)));
+            if ($emptySlots === []) {
+                break;
+            }
+        }
+
+        return $proposals;
+    }
+
+    /**
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $cluster
+     * @return array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}|null
+     */
+    public function pickPackAnchor(array $cluster): ?array
+    {
+        foreach ($cluster as $orphan) {
+            if (($orphan['field'] ?? null) === 'precontractual') {
+                return $orphan;
+            }
+        }
+
+        return $cluster[0] ?? null;
+    }
 
     /**
      * Paths en public/ventas no referenciados por ninguna venta (incl. soft-deleted).
@@ -193,8 +425,7 @@ final class OrphanDocumentMatcher
                 return 0; // DNI ok pero Fec.Promo lejos → no auto
             }
         } elseif ($fechaVenta && $orphan['uploaded_at'] instanceof Carbon) {
-            $diffUpload = abs($fechaVenta->diffInDays($orphan['uploaded_at']->copy()->startOfDay()));
-            if ($diffUpload > self::UPLOAD_WINDOW_DAYS) {
+            if (! $this->isWithinRecoveryUploadWindow($fechaVenta, $orphan['uploaded_at'])) {
                 return 0;
             }
             $score += 10; // solo ventana de carga (más débil)
@@ -264,11 +495,9 @@ final class OrphanDocumentMatcher
                     continue;
                 }
 
-                if ($fechaVenta && $orphan['uploaded_at'] instanceof Carbon) {
-                    $diffUpload = abs($fechaVenta->diffInDays($orphan['uploaded_at']->copy()->startOfDay()));
-                    if ($diffUpload > self::UPLOAD_WINDOW_DAYS) {
-                        continue;
-                    }
+                if ($fechaVenta && $orphan['uploaded_at'] instanceof Carbon
+                    && ! $this->isWithinRecoveryUploadWindow($fechaVenta, $orphan['uploaded_at'])) {
+                    continue;
                 }
 
                 $ocr = [];

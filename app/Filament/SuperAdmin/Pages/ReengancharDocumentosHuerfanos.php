@@ -137,6 +137,10 @@ class ReengancharDocumentosHuerfanos extends Page implements HasForms
                             ->label('Usar OCR (DNI + Fec.Promo)')
                             ->helperText('Necesario para marcar matches “auto”. Sin OCR solo verás candidatos por ventana de carga.')
                             ->default(false),
+                        Forms\Components\Toggle::make('use_packs')
+                            ->label('Modo packs (mismo minuto)')
+                            ->helperText('Ventana fecha_venta −5/+4 días. Agrupa ficheros subidos el mismo minuto; OCR solo del precontractual y rellena DNI/otros slots vacíos.')
+                            ->default(true),
                     ])
                     ->columns(2),
             ])
@@ -154,6 +158,7 @@ class ReengancharDocumentosHuerfanos extends Page implements HasForms
         $data = $this->filterForm->getState();
         $scope = (string) ($data['scope'] ?? 'from_recovered');
         $withOcr = (bool) ($data['with_ocr'] ?? false);
+        $usePacks = (bool) ($data['use_packs'] ?? true);
         $month = filled($data['month'] ?? null) ? (string) $data['month'] : null;
 
         if ($withOcr && ! filled(config('services.openai.api_key'))) {
@@ -186,7 +191,15 @@ class ReengancharDocumentosHuerfanos extends Page implements HasForms
             $this->targetVentaCount = count($ventas);
             $orphans = $matcher->listOrphans($month);
             $this->orphanCount = count($orphans);
-            $this->proposals = $matcher->propose($ventas, $orphans, $withOcr);
+            if ($usePacks) {
+                $proposals = [];
+                foreach ($ventas as $venta) {
+                    $proposals = array_merge($proposals, $matcher->proposePacks($venta, $orphans, $withOcr));
+                }
+                $this->proposals = $proposals;
+            } else {
+                $this->proposals = $matcher->propose($ventas, $orphans, $withOcr);
+            }
             $this->searched = true;
 
             $auto = collect($this->proposals)->where('action', 'auto')->count();
