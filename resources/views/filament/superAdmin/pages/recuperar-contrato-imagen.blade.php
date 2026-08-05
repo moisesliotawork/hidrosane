@@ -46,9 +46,11 @@
 
     <div class="space-y-6">
         <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-            <strong>Solo SuperAdmin · recuperación.</strong>
+            <strong>Paso 1 · Solo SuperAdmin · recuperar contrato.</strong>
             Este módulo no altera altas comerciales, puerta fría ni repartos.
-            Flujo: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong> (crea la venta al cliente por DNI).
+            Flujo de este paso: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong>.
+            El re-enganche de documentos huérfanos <strong>no</strong> se hace aquí: usa el
+            <strong>Paso 2 · Docs huérfanos</strong> cuando el contrato ya esté creado.
         </div>
 
         @if ($step === 'upload')

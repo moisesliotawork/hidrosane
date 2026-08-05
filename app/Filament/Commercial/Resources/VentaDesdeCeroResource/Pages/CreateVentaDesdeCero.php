@@ -21,6 +21,7 @@ use App\Events\VentaCreada;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\Filament\GpsActionForm;
+use App\Support\Filament\VentaDocumentUpload;
 use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
 use Filament\Actions\Action;
 use App\Enums\OrigenVenta;
@@ -102,10 +103,7 @@ class CreateVentaDesdeCero extends CreateRecord
 
     private function fileFields(): array
     {
-        return [
-            'precontractual', 'foto_sorteo', 'dni_anverso', 'dni_reverso',
-            'documento_titularidad', 'nomina', 'pension', 'otros_documentos',
-        ];
+        return VentaDocumentUpload::creationFormDocumentFields();
     }
 
     public function mount(): void

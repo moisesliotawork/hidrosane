@@ -2,23 +2,20 @@
 
 namespace App\Livewire\HeadOfRoom;
 
-use Livewire\Component;
-
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Concerns\InteractsWithForms;
-
-use Filament\Actions\Contracts\HasActions;
-use Filament\Actions\Concerns\InteractsWithActions;
-
-use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Filament\HeadOfRoom\Pages\NotasDireccionPage;
-use App\Support\TeleoperatorCustomerNoteGuard;
+use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Filament\Support\CustomerPhoneForm;
-
+use App\Models\Customer;
+use App\Support\TeleoperatorCustomerNoteGuard;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Forms;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Livewire\Component;
 
 class BuscarCliente extends Component implements HasForms, HasActions
 {
@@ -26,7 +23,13 @@ class BuscarCliente extends Component implements HasForms, HasActions
     use InteractsWithActions;
 
     public ?array $data = [];
+
     public bool $phoneNotFound = false;
+
+    /** @var list<array{id:int,label:string,phones:string}> */
+    public array $customerChoices = [];
+
+    public ?string $searchedDigits = null;
 
     public function mount(): void
     {
@@ -106,7 +109,36 @@ class BuscarCliente extends Component implements HasForms, HasActions
     protected function handleCustomersFound(Collection $customers, ?string $digits = null): void
     {
         $guard = app(TeleoperatorCustomerNoteGuard::class);
-        $customers = $guard->expandBySharedPhones($customers);
+        $customers = $guard->expandBySharedPhones($customers)->unique('id')->values();
+
+        // Varios clientes con el mismo teléfono: HOR debe elegir a cuál crear la nota.
+        if ($customers->count() > 1) {
+            $this->searchedDigits = $digits;
+            $this->customerChoices = $customers->map(function (Customer $customer) {
+                $name = trim(($customer->first_names ?? '').' '.($customer->last_names ?? ''));
+                $phones = collect([
+                    $customer->phone,
+                    $customer->secondary_phone,
+                    $customer->third_phone,
+                ])->filter()->unique()->implode(' / ');
+
+                return [
+                    'id' => $customer->id,
+                    'label' => trim($name) !== '' ? $name : ('Cliente #'.$customer->id),
+                    'phones' => $phones,
+                ];
+            })->all();
+
+            Notification::make()
+                ->title('Varios clientes con este teléfono')
+                ->body('Elige el cliente correcto para crear la nota. Un teléfono puede pertenecer a más de un cliente.')
+                ->warning()
+                ->persistent()
+                ->send();
+
+            return;
+        }
+
         $evaluation = $guard->evaluate($customers);
 
         if (! $evaluation->allowed) {
@@ -125,8 +157,50 @@ class BuscarCliente extends Component implements HasForms, HasActions
         $this->redirectToCreate($evaluation->customerId ?? $customers->first()?->id, $digits);
     }
 
+    public function chooseCustomer(int $customerId): void
+    {
+        $customer = Customer::query()->find($customerId);
+
+        if (! $customer) {
+            Notification::make()
+                ->title('Cliente no encontrado')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $guard = app(TeleoperatorCustomerNoteGuard::class);
+        $evaluation = $guard->evaluate(collect([$customer]));
+
+        if (! $evaluation->allowed) {
+            $this->notifyNoSePuedeLlamar($evaluation->message);
+
+            return;
+        }
+
+        if ($evaluation->outcome === 'allowed_new') {
+            $this->notifySePuedeLlamar($evaluation->message);
+        } else {
+            $this->notifyClienteExistePeroAntiguo($evaluation->message);
+        }
+
+        $this->redirectToCreate($customer->id, $this->searchedDigits);
+    }
+
+    public function createNoteForNewCustomerWithSamePhone(): void
+    {
+        redirect()->to(NoteResource::getUrl('create', [
+            'phone' => $this->searchedDigits,
+            'emergency' => 1,
+        ]));
+    }
+
     public function buscarTelefono(): void
     {
+        $this->customerChoices = [];
+        $this->searchedDigits = null;
+
         $state = $this->form->getState();
         $digits = TeleoperatorCustomerNoteGuard::normalizePhoneDigits($state['phone_query'] ?? '');
 
@@ -156,6 +230,6 @@ class BuscarCliente extends Component implements HasForms, HasActions
 
     public function render()
     {
-        return view('livewire.teleoperator.buscar-cliente');
+        return view('livewire.head-of-room.buscar-cliente');
     }
 }

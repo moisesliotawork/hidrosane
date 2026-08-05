@@ -37,6 +37,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
 use App\Filament\Support\CustomerPhoneForm;
 use App\Support\HeadOfRoom\NoteAssignRestriction;
+use App\Support\NoteVentaDeclarationGuard;
 use Filament\Tables\Contracts\HasTable;
 
 class NoteResource extends Resource
@@ -350,6 +351,17 @@ class NoteResource extends Resource
                     ->alignCenter()
                     ->action(function (Note $record): void {
                         $next = EstadoTerminal::nextFromRaw($record->getRawOriginal('estado_terminal'));
+
+                        if (NoteVentaDeclarationGuard::wouldBecomeVenta($next)) {
+                            Notification::make()
+                                ->title('No se puede marcar como VENTA')
+                                ->body(NoteVentaDeclarationGuard::blockReasonForManualTerminalVenta($record))
+                                ->warning()
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
 
                         $record->update(['estado_terminal' => $next->value]);
 

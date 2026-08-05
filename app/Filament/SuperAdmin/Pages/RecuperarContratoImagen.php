@@ -2,6 +2,7 @@
 
 namespace App\Filament\SuperAdmin\Pages;
 
+use App\Exports\RecoveredContractsExport;
 use App\Enums\VendidoPor;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecoveryItem;
@@ -12,6 +13,7 @@ use App\Models\User;
 use App\Services\ContractRecovery\ContractFromImageRecovery;
 use App\Services\ContractRecovery\ContractImageExtractor;
 use App\Services\ContractRecovery\ContractVoiceExtractor;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -30,9 +32,13 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Recuperación de contratos extraviados desde imagen (aislado del flujo comercial).
+ * Paso 1: recuperación de contratos extraviados desde imagen/voz.
+ * El re-enganche de documentos huérfanos es un paso aparte
+ * ({@see ReengancharDocumentosHuerfanos}).
  */
 class RecuperarContratoImagen extends Page implements HasForms, HasTable
 {
@@ -41,9 +47,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     protected static ?string $navigationIcon = 'heroicon-o-document-magnifying-glass';
 
-    protected static ?string $navigationLabel = 'Recuperar por imagen';
+    protected static ?string $navigationLabel = '1. Recuperar contrato';
 
-    protected static ?string $title = 'Recuperar contrato por imagen';
+    protected static ?string $navigationGroup = 'Recuperación';
+
+    protected static ?string $title = 'Paso 1 · Recuperar contrato';
 
     protected static ?string $slug = 'recuperar-contrato-imagen';
 
@@ -60,6 +68,28 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     public static function canAccess(): bool
     {
         return auth()->check();
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('goToOrphanReattach')
+                ->label('Paso 2 · Docs huérfanos')
+                ->icon('heroicon-o-link')
+                ->color('warning')
+                ->url(fn (): string => ReengancharDocumentosHuerfanos::getUrl())
+                ->tooltip('Tras recuperar el contrato, re-engancha documentos huérfanos en un paso aparte'),
+            Action::make('exportRecoveredExcel')
+                ->label('Excel recuperados')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->tooltip('Registro de contratos recuperados (sin inventariar huérfanos)')
+                ->action(function (): BinaryFileResponse {
+                    $filename = 'contratos-recuperados-'.now()->format('Ymd-His').'.xlsx';
+
+                    return Excel::download(new RecoveredContractsExport(includeOrphanHints: false), $filename);
+                }),
+        ];
     }
 
     /** @var array<string, mixed>|null */

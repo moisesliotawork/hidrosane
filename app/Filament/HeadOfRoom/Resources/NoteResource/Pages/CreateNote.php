@@ -6,10 +6,10 @@ use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Models\Customer;
 use App\Models\Observation;
 use App\Support\TeleoperatorCustomerNoteGuard;
-use Carbon\Carbon;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -92,7 +92,10 @@ class CreateNote extends CreateRecord
         }
 
         if (! empty($prefill)) {
-            $this->form->fill($prefill);
+            $this->form->fill(array_merge(
+                ['customer_id' => request()->query('customer_id')],
+                $prefill,
+            ));
         }
     }
 
@@ -130,59 +133,26 @@ class CreateNote extends CreateRecord
         $data['secondary_phone'] = $sec === '' ? null : $sec;
         $data['third_phone'] = $thr === '' ? null : $thr;
 
-        if (! $this->isEmergencyCreate) {
-            $this->assertNoteCreationAllowed($data);
-        }
-
-        $customer = app(TeleoperatorCustomerNoteGuard::class)
-            ->resolveCustomersForPhone($data['phone'])
-            ->first();
+        $customer = $this->resolveTargetCustomer($data);
 
         if (! $this->isEmergencyCreate) {
-            $this->assertNoDuplicatePhones($data, $customer);
-
-            if ($customer && $customer->inhabilitado) {
-                Notification::make()
-                    ->title('☠️ Cliente inhabilitado')
-                    ->body('Este cliente ya no puede ser contactado por la empresa, está descartado.')
-                    ->danger()
-                    ->persistent()
-                    ->send();
-
-                throw ValidationException::withMessages([
-                    'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
-                ]);
-            }
+            // Solo se evalúa EL cliente elegido; otro cliente con el mismo
+            // teléfono no debe bloquear ni “secuestrar” la nota.
+            $this->assertNoteCreationAllowedForCustomer($customer);
         }
 
-        if ($customer) {
+        if ($customer->wasRecentlyCreated === false && $customer->exists) {
             $customer->update([
                 'secondary_phone' => $data['secondary_phone'] ?? $customer->secondary_phone,
                 'email' => $data['email'] ?? $customer->email,
-                'postal_code' => $data['postal_code'],
-                'ciudad' => $data['ciudad'],
-                'nro_piso' => $data['nro_piso'],
-                'provincia' => $data['provincia'],
+                'postal_code' => $data['postal_code'] ?? $customer->postal_code,
+                'ciudad' => $data['ciudad'] ?? $customer->ciudad,
+                'nro_piso' => $data['nro_piso'] ?? $customer->nro_piso,
+                'provincia' => $data['provincia'] ?? $customer->provincia,
                 'primary_address' => $data['primary_address'] ?? $customer->primary_address,
                 'secondary_address' => $data['secondary_address'] ?? $customer->secondary_address,
                 'parish' => $data['parish'] ?? $customer->parish,
                 'edadTelOp' => $data['edadTelOp'] ?? $customer->edadTelOp,
-            ]);
-        } else {
-            $customer = Customer::create([
-                'first_names' => $data['first_names'],
-                'last_names' => $data['last_names'],
-                'phone' => $data['phone'],
-                'secondary_phone' => $data['secondary_phone'] ?? null,
-                'email' => $data['email'] ?? null,
-                'postal_code' => $data['postal_code'],
-                'ciudad' => $data['ciudad'],
-                'nro_piso' => $data['nro_piso'],
-                'provincia' => $data['provincia'],
-                'primary_address' => $data['primary_address'] ?? null,
-                'secondary_address' => $data['secondary_address'] ?? null,
-                'parish' => $data['parish'] ?? null,
-                'edadTelOp' => $data['edadTelOp'] ?? null,
             ]);
         }
 
@@ -193,6 +163,111 @@ class CreateNote extends CreateRecord
         unset($data['edadTelOp']);
 
         return $data;
+    }
+
+    /**
+     * Resuelve el cliente de la nota respetando teléfono compartido entre varios.
+     * Prioridad: customer_id del formulario → coincidencia de nombre → único match → crear nuevo.
+     */
+    protected function resolveTargetCustomer(array $data): Customer
+    {
+        $guard = app(TeleoperatorCustomerNoteGuard::class);
+        $phoneMatches = $guard->resolveCustomersForPhone((string) ($data['phone'] ?? ''));
+
+        $requestedId = (int) ($data['customer_id'] ?? 0);
+        if ($requestedId > 0) {
+            $requested = Customer::query()->find($requestedId);
+            if ($requested) {
+                return $requested;
+            }
+        }
+
+        $byName = $this->matchCustomerByName($phoneMatches, $data);
+        if ($byName) {
+            return $byName;
+        }
+
+        $first = trim((string) ($data['first_names'] ?? ''));
+        $last = trim((string) ($data['last_names'] ?? ''));
+        $hasName = $first !== '' || $last !== '';
+
+        if ($phoneMatches->count() === 1) {
+            $only = $phoneMatches->first();
+            // Mismo teléfono, nombre distinto → otro cliente (permitido).
+            if ($hasName && ! $this->matchCustomerByName(collect([$only]), $data)) {
+                return $this->createCustomerFromNoteData($data);
+            }
+
+            return $only;
+        }
+
+        if ($phoneMatches->isEmpty()) {
+            return $this->createCustomerFromNoteData($data);
+        }
+
+        // Varios clientes con el mismo teléfono y sin customer_id/nombre claro:
+        // crear uno nuevo (política: un teléfono puede tener más de un cliente).
+        return $this->createCustomerFromNoteData($data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function createCustomerFromNoteData(array $data): Customer
+    {
+        return Customer::create([
+            'first_names' => $data['first_names'],
+            'last_names' => $data['last_names'],
+            'phone' => $data['phone'],
+            'secondary_phone' => $data['secondary_phone'] ?? null,
+            'email' => $data['email'] ?? null,
+            'postal_code' => $data['postal_code'] ?? null,
+            'ciudad' => $data['ciudad'] ?? null,
+            'nro_piso' => $data['nro_piso'] ?? null,
+            'provincia' => $data['provincia'] ?? null,
+            'primary_address' => $data['primary_address'] ?? null,
+            'secondary_address' => $data['secondary_address'] ?? null,
+            'parish' => $data['parish'] ?? null,
+            'edadTelOp' => $data['edadTelOp'] ?? null,
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, Customer>  $candidates
+     */
+    protected function matchCustomerByName(Collection $candidates, array $data): ?Customer
+    {
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $first = mb_strtoupper(trim((string) ($data['first_names'] ?? '')));
+        $last = mb_strtoupper(trim((string) ($data['last_names'] ?? '')));
+
+        if ($first === '' && $last === '') {
+            return null;
+        }
+
+        $exact = $candidates->first(function (Customer $customer) use ($first, $last) {
+            return mb_strtoupper(trim((string) $customer->first_names)) === $first
+                && mb_strtoupper(trim((string) $customer->last_names)) === $last;
+        });
+
+        if ($exact) {
+            return $exact;
+        }
+
+        // Coincidencia parcial por apellidos + primer nombre (typos leves de tipografía)
+        return $candidates->first(function (Customer $customer) use ($first, $last) {
+            $cFirst = mb_strtoupper(trim((string) $customer->first_names));
+            $cLast = mb_strtoupper(trim((string) $customer->last_names));
+
+            if ($last !== '' && $cLast === $last && $first !== '' && str_contains($cFirst, explode(' ', $first)[0])) {
+                return true;
+            }
+
+            return false;
+        });
     }
 
     protected function afterCreate(): void
@@ -210,16 +285,23 @@ class CreateNote extends CreateRecord
         }
     }
 
-    protected function assertNoteCreationAllowed(array $data): void
+    protected function assertNoteCreationAllowedForCustomer(Customer $customer): void
     {
-        $guard = app(TeleoperatorCustomerNoteGuard::class);
-        $customers = $guard->resolveCustomersForPhones([
-            $data['phone'] ?? null,
-            $data['secondary_phone'] ?? null,
-            $data['third_phone'] ?? null,
-        ]);
+        if ($customer->inhabilitado) {
+            Notification::make()
+                ->title('☠️ Cliente inhabilitado')
+                ->body('Este cliente ya no puede ser contactado por la empresa, está descartado.')
+                ->danger()
+                ->persistent()
+                ->send();
 
-        $evaluation = $guard->evaluate($customers);
+            throw ValidationException::withMessages([
+                'phone' => 'Este cliente está inhabilitado y no puede ser contactado.',
+            ]);
+        }
+
+        $guard = app(TeleoperatorCustomerNoteGuard::class);
+        $evaluation = $guard->evaluate(collect([$customer]));
 
         if ($evaluation->allowed) {
             return;
@@ -234,53 +316,6 @@ class CreateNote extends CreateRecord
 
         throw ValidationException::withMessages([
             'phone' => $evaluation->message,
-        ]);
-    }
-
-    protected function assertNoDuplicatePhones(array $data, ?Customer $customer): void
-    {
-        $numerosAValidar = collect([
-            $data['phone'] ?? null,
-            $data['secondary_phone'] ?? null,
-            $data['third_phone'] ?? null,
-        ])->filter()->unique()->values();
-
-        $duplicados = [];
-
-        foreach ($numerosAValidar as $numero) {
-            $existe = Customer::query()
-                ->when($customer, fn ($q) => $q->where('id', '!=', $customer->id))
-                ->where(function ($q) use ($numero) {
-                    $q->where('phone', $numero)
-                        ->orWhere('secondary_phone', $numero)
-                        ->orWhere('third_phone', $numero)
-                        ->orWhere('phone1_commercial', $numero)
-                        ->orWhere('phone2_commercial', $numero);
-                })
-                ->exists();
-
-            if ($existe) {
-                $duplicados[] = $numero;
-            }
-        }
-
-        if ($duplicados === []) {
-            return;
-        }
-
-        Notification::make()
-            ->title('Teléfono(s) ya registrado(s)')
-            ->body(
-                'Los siguientes números ya están registrados en la base de datos: ' .
-                implode(', ', $duplicados) .
-                '. No se puede crear la nota con teléfonos duplicados.'
-            )
-            ->danger()
-            ->persistent()
-            ->send();
-
-        throw ValidationException::withMessages([
-            'phone' => 'Números de teléfono duplicados: ' . implode(', ', $duplicados),
         ]);
     }
 }

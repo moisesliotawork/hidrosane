@@ -21,6 +21,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
 use App\Filament\SuperAdmin\Pages\RecuperarContratoImagen;
+use App\Filament\SuperAdmin\Pages\ReengancharDocumentosHuerfanos;
 use App\Filament\SuperAdmin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
@@ -76,6 +77,7 @@ class SuperAdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
                 RecuperarContratoImagen::class,
+                ReengancharDocumentosHuerfanos::class,
             ])
             ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\\Filament\\SuperAdmin\\Widgets')
             ->widgets([

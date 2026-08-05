@@ -11,6 +11,100 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 class VentaDocumentUpload
 {
     /**
+     * Campos de documento del wizard comercial de creación (venta / Puerta Fría).
+     * Debe coincidir con VentaResource / VentaDesdeCeroResource step documentos
+     * y con CreateVenta::fileFields().
+     *
+     * @return list<string>
+     */
+    public static function creationFormDocumentFields(): array
+    {
+        return [
+            'precontractual',
+            'foto_sorteo',
+            'dni_anverso',
+            'dni_reverso',
+            'documento_titularidad',
+            'nomina',
+            'pension',
+            'otros_documentos',
+        ];
+    }
+
+    /**
+     * Slots de documento a re-enganchar (formulario de creación + contrato firmado
+     * del panel Admin / recuperación por imagen).
+     *
+     * @return list<string>
+     */
+    public static function recoveryDocumentSlots(): array
+    {
+        return array_values(array_unique(array_merge(
+            self::creationFormDocumentFields(),
+            ['contrato_firmado'],
+        )));
+    }
+
+    /**
+     * Sufijos de fichero en disco que mapean a un slot de venta.
+     * p.ej. *_albaran.* → columna precontractual (otros paneles).
+     *
+     * @return array<string, string> filename_token => venta_column
+     */
+    public static function filenameFieldAliases(): array
+    {
+        return [
+            'albaran' => 'precontractual',
+        ];
+    }
+
+    /**
+     * Tokens reconocibles en el nombre de fichero (slots + aliases),
+     * ordenados de más largo a más corto para el regex.
+     *
+     * @return list<string>
+     */
+    public static function filenameFieldTokens(): array
+    {
+        $tokens = array_values(array_unique(array_merge(
+            self::recoveryDocumentSlots(),
+            array_keys(self::filenameFieldAliases()),
+        )));
+
+        usort($tokens, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+        return $tokens;
+    }
+
+    public static function resolveFilenameFieldToSlot(string $token): string
+    {
+        $token = mb_strtolower(trim($token));
+        $aliases = self::filenameFieldAliases();
+
+        return $aliases[$token] ?? $token;
+    }
+
+    /**
+     * Etiquetas cortas para Excel / CLI.
+     *
+     * @return array<string, string>
+     */
+    public static function documentFieldLabels(): array
+    {
+        return [
+            'precontractual' => 'Precontractual',
+            'foto_sorteo' => 'Foto sorteo',
+            'dni_anverso' => 'DNI anverso',
+            'dni_reverso' => 'DNI reverso',
+            'documento_titularidad' => 'Titularidad',
+            'nomina' => 'Nómina',
+            'pension' => 'Pensión',
+            'otros_documentos' => 'Otros docs',
+            'contrato_firmado' => 'Contrato firmado',
+        ];
+    }
+
+    /**
      * Formatos de imagen permitidos en documentos de venta (incl. PNG y HEIC iPhone).
      *
      * @return array<int, string>

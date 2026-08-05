@@ -30,6 +30,7 @@ use App\Support\ActionGps;
 use App\Support\NoteRouteGps;
 use App\Support\NoteSalaActions;
 use App\Support\Filament\GpsActionForm;
+use App\Support\NoteVentaDeclarationGuard;
 use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 
 class EditNote extends EditRecord
@@ -365,9 +366,22 @@ class EditNote extends EditRecord
                 ->modalDescription('¿Estás seguro de marcar esta nota como VENTA?')
                 ->modalSubmitActionLabel('Sí, confirmar')
                 ->action(function () {
+                    $blockReason = NoteVentaDeclarationGuard::blockReasonForStartingVentaFromNote($this->record);
+
+                    if ($blockReason !== null) {
+                        Notification::make()
+                            ->title('No se puede declarar la venta')
+                            ->body($blockReason)
+                            ->warning()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
 
                     Notification::make()
-                        ->title('Nota marcada como VENTA')
+                        ->title('Continúa con el contrato')
+                        ->body('Completa el wizard para registrar la venta. El TN solo pasará a VENTA al guardar el contrato.')
                         ->success()
                         ->send();
 

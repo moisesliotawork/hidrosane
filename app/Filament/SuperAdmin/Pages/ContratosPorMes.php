@@ -33,7 +33,7 @@ class ContratosPorMes extends Page implements HasTable
 
     protected static string $view = 'filament.superAdmin.pages.contratos-por-mes';
 
-    protected static ?int $navigationSort = 96;
+    protected static ?int $navigationSort = 97;
 
     public bool $variacionesOpen = false;
 

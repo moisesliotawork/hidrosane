@@ -17,8 +17,10 @@ use App\Events\VentaCreada;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\ActionGps;
+use App\Support\NoteVentaDeclarationGuard;
 use App\Support\Filament\GpsActionForm;
 use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
 use Filament\Actions\Action;
 
@@ -42,10 +44,7 @@ class CreateVenta extends CreateRecord
 
     private function fileFields(): array
     {
-        return [
-            'precontractual', 'foto_sorteo', 'dni_anverso', 'dni_reverso',
-            'documento_titularidad', 'nomina', 'pension', 'otros_documentos',
-        ];
+        return VentaDocumentUpload::creationFormDocumentFields();
     }
 
     public function updated(string $name): void
@@ -162,6 +161,21 @@ class CreateVenta extends CreateRecord
         abort_if(!$this->noteId, 404, 'Nota no especificada');
 
         $note = Note::with('customer')->findOrFail($this->noteId);
+
+        $blockReason = NoteVentaDeclarationGuard::blockReasonForStartingVentaFromNote($note);
+        if ($blockReason !== null) {
+            Notification::make()
+                ->title('No se puede declarar la venta')
+                ->body($blockReason)
+                ->warning()
+                ->persistent()
+                ->send();
+
+            $this->redirect(\App\Filament\Commercial\Resources\NoteResource::getUrl('index', panel: 'comercial'));
+
+            return;
+        }
+
         $customer = $note->customer;
 
         $fechaNac = $customer->safeFechaNac();

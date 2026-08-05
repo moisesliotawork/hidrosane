@@ -243,7 +243,12 @@ HTML;
     public static function applyAssignment(Note $note, array $data, bool $sendToReten = false): void
     {
         if (($data['comercial_id'] ?? null) === '__RETEN__') {
-            $note->update(['reten' => true]);
+            $assignmentDate = Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null);
+
+            $note->update([
+                'reten' => true,
+                'assignment_date' => $assignmentDate,
+            ]);
 
             return;
         }
@@ -272,7 +277,9 @@ HTML;
         $updates = [
             'comercial_id' => $comercialId ?: null,
             'assignment_date' => $assignmentDate,
-            'reten' => $sendToReten,
+            // Al asignar a un comercial desde HOR, la nota debe salir de retén
+            // para que aparezca en Commercial → NOTAS (misma regla de siempre).
+            'reten' => $sendToReten ? true : false,
             'assigned_by_user_id' => ! empty($comercialId) ? auth()->id() : null,
         ];
 
