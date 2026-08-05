@@ -214,6 +214,77 @@ class OrphanDocumentPackRecoveryTest extends TestCase
         $this->assertSame('ventas/pack_unknown.pdf', $byField['documento_titularidad']['path']);
     }
 
+    public function test_propose_packs_excludes_same_minute_files_with_wrong_dni(): void
+    {
+        $venta = $this->makeInMemoryVenta('36026170M', '2025-09-09');
+        $t = Carbon::parse('2025-09-10 15:24:00');
+
+        $orphans = [
+            $this->orphanMeta('ventas/good_precontractual.pdf', 'precontractual', $t, '010'),
+            $this->orphanMeta('ventas/wrong_dni_anverso.jpg', 'dni_anverso', $t->copy()->addSeconds(3), '010'),
+            $this->orphanMeta('ventas/wrong_bankbook.jpg', null, $t->copy()->addSeconds(6), '010'),
+            $this->orphanMeta('ventas/good_dni_reverso.jpg', 'dni_reverso', $t->copy()->addSeconds(9), '010'),
+        ];
+
+        $matcher = new OrphanDocumentMatcher(
+            app(ContractImageExtractor::class),
+            function (string $type, string $path): array {
+                return match (true) {
+                    str_contains($path, 'good_precontractual') => [
+                        'dni' => '36026170M',
+                        'fecha_venta' => '2025-09-09',
+                        'documento_tipo' => 'precontractual',
+                    ],
+                    str_contains($path, 'wrong_dni') => [
+                        'dni' => '36009804S',
+                        'fecha_venta' => null,
+                        'documento_tipo' => 'dni_anverso',
+                    ],
+                    str_contains($path, 'wrong_bankbook') => [
+                        'dni' => null,
+                        'fecha_venta' => null,
+                        'documento_tipo' => null,
+                    ],
+                    str_contains($path, 'good_dni_reverso') => [
+                        'dni' => '36026170M',
+                        'fecha_venta' => null,
+                        'documento_tipo' => 'dni_reverso',
+                    ],
+                    default => ['dni' => null],
+                };
+            },
+        );
+
+        $proposals = $matcher->proposePacks($venta, $orphans, withOcr: true);
+        $paths = collect($proposals)->pluck('path')->all();
+
+        $this->assertContains('ventas/good_precontractual.pdf', $paths);
+        $this->assertContains('ventas/good_dni_reverso.jpg', $paths);
+        $this->assertNotContains('ventas/wrong_dni_anverso.jpg', $paths);
+        $this->assertNotContains('ventas/wrong_bankbook.jpg', $paths);
+    }
+
+    public function test_map_cluster_only_hinted_skips_priority_fill(): void
+    {
+        $matcher = app(OrphanDocumentMatcher::class);
+        $t = Carbon::parse('2025-09-05 17:52:00');
+
+        $cluster = [
+            $this->orphanMeta('ventas/aaa.jpeg', null, $t),
+            $this->orphanMeta('ventas/bbb.jpeg', null, $t),
+        ];
+
+        $map = $matcher->mapClusterToEmptySlots(
+            $cluster,
+            ['precontractual', 'dni_anverso'],
+            ['ventas/aaa.jpeg' => 'dni_anverso'],
+            onlyHintedOrTyped: true,
+        );
+
+        $this->assertSame(['dni_anverso' => 'ventas/aaa.jpeg'], $map);
+        $this->assertArrayNotHasKey('precontractual', $map);
+    }
+
     public function test_propose_packs_ignores_files_outside_window(): void
     {
         $venta = $this->makeInMemoryVenta('44444444D', '2026-07-15');

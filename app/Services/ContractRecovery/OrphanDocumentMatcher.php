@@ -121,8 +121,19 @@ final class OrphanDocumentMatcher
      * @param  list<string>  $emptySlots
      * @return array<string, string> field => path
      */
-    public function mapClusterToEmptySlots(array $cluster, array $emptySlots, array $fieldHints = []): array
-    {
+    /**
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $cluster
+     * @param  list<string>  $emptySlots
+     * @param  array<string, string>  $fieldHints  path => slot
+     * @param  bool  $onlyHintedOrTyped  si true (OCR), no rellenar slots con ficheros sin tipo/hint
+     * @return array<string, string> field => path
+     */
+    public function mapClusterToEmptySlots(
+        array $cluster,
+        array $emptySlots,
+        array $fieldHints = [],
+        bool $onlyHintedOrTyped = false,
+    ): array {
         $assignments = [];
         $usedPaths = [];
         $remaining = array_values($emptySlots);
@@ -152,6 +163,10 @@ final class OrphanDocumentMatcher
             $assignments[$field] = $orphan['path'];
             $usedPaths[$orphan['path']] = true;
             $remaining = array_values(array_diff($remaining, [$field]));
+        }
+
+        if ($onlyHintedOrTyped) {
+            return $assignments;
         }
 
         // Ficheros sin tipo (UUID, IMG_*): rellenar slots vacíos por prioridad del formulario.
@@ -228,34 +243,50 @@ final class OrphanDocumentMatcher
             $ocr = [];
             $anchor = null;
             $lastOcrError = null;
+            /** @var array<string, string> path => slot */
             $fieldHints = [];
+            /** @var array<string, true> paths cuyo OCR DNI cuadra con el cliente */
+            $verifiedPaths = [];
+            $verifiedCluster = [];
 
             if ($withOcr) {
+                $customerDni = $this->normalizeDni($venta->customer?->dni);
+
                 foreach ($this->packAnchorCandidates($cluster) as $candidate) {
                     try {
-                        $ocr = $this->extractWithRetry(
+                        $candidateOcr = $this->extractWithRetry(
                             $this->ocrTypeForPackCandidate($candidate),
                             $candidate['path'],
                         );
-                        $hint = $this->documentoTipoToSlot($ocr['documento_tipo'] ?? null)
+                        $scoreTry = $this->scoreMatch($venta, $candidate, $candidateOcr);
+                        $hint = $this->documentoTipoToSlot($candidateOcr['documento_tipo'] ?? null)
                             ?? (($candidate['field'] ?? null) ?: null);
+
+                        // Solo conservar ficheros cuyo DNI OCR = DNI del contrato
+                        if ($scoreTry <= 0) {
+                            usleep(150_000);
+
+                            continue;
+                        }
+
+                        $verifiedPaths[$candidate['path']] = true;
+                        $verifiedCluster[] = $candidate;
                         if (is_string($hint) && $hint !== '') {
                             $fieldHints[$candidate['path']] = $hint;
                         }
 
-                        $scoreTry = $this->scoreMatch($venta, $candidate, $ocr);
-                        if ($scoreTry > 0) {
+                        if ($anchor === null) {
                             $anchor = $candidate;
-                            break;
+                            $ocr = $candidateOcr;
                         }
-                        // Sigue probando otras imágenes del pack (p.ej. DNI en otro fichero)
+                        usleep(150_000);
                     } catch (Throwable $e) {
                         $lastOcrError = $e;
                     }
                 }
 
-                if ($anchor === null) {
-                    if ($lastOcrError !== null && $fieldHints === []) {
+                if ($anchor === null || $verifiedCluster === []) {
+                    if ($lastOcrError !== null) {
                         $failed = $this->pickPackAnchor($cluster) ?? $cluster[0];
                         $proposals[] = [
                             'venta_id' => $venta->id,
@@ -263,10 +294,10 @@ final class OrphanDocumentMatcher
                             'path' => $failed['path'],
                             'field' => (string) ($failed['field'] ?? 'precontractual'),
                             'score' => 0,
-                            'ocr_dni' => '',
+                            'ocr_dni' => $customerDni,
                             'ocr_fecha' => '',
                             'action' => 'skip',
-                            'reason' => 'OCR error en ancla del pack: '.$lastOcrError->getMessage(),
+                            'reason' => 'OCR error / sin DNI coincidente en el pack: '.$lastOcrError->getMessage(),
                             'pack_key' => $packKey,
                         ];
                     }
@@ -274,31 +305,9 @@ final class OrphanDocumentMatcher
                     continue;
                 }
 
-                // Clasificar el resto del pack (máx. 5 OCR extra) para asignar anverso/reverso.
-                $extra = 0;
-                foreach ($cluster as $member) {
-                    if ($member['path'] === $anchor['path'] || isset($fieldHints[$member['path']])) {
-                        continue;
-                    }
-                    if ($extra >= 5) {
-                        break;
-                    }
-                    try {
-                        $memberOcr = $this->extractWithRetry(
-                            $this->ocrTypeForPackCandidate($member),
-                            $member['path'],
-                        );
-                        $hint = $this->documentoTipoToSlot($memberOcr['documento_tipo'] ?? null)
-                            ?? (($member['field'] ?? null) ?: null);
-                        if (is_string($hint) && $hint !== '') {
-                            $fieldHints[$member['path']] = $hint;
-                        }
-                        $extra++;
-                        usleep(200_000);
-                    } catch (Throwable) {
-                        // ignore
-                    }
-                }
+                // No mezclar ficheros del mismo minuto de OTRO cliente:
+                // solo asignamos paths verificados por OCR+DNI.
+                $cluster = $verifiedCluster;
             } else {
                 $anchor = $this->pickPackAnchor($cluster);
                 if ($anchor === null) {
@@ -311,6 +320,8 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
+            // El cluster ya está filtrado a paths con DNI OCR = cliente;
+            // el relleno por prioridad solo toca esos ficheros verificados.
             $assignments = $this->mapClusterToEmptySlots($cluster, $emptySlots, $fieldHints);
             if ($assignments === []) {
                 continue;
@@ -322,6 +333,11 @@ final class OrphanDocumentMatcher
             $ocrFecha = (string) ($ocr['fecha_venta'] ?? '');
 
             foreach ($assignments as $field => $path) {
+                // Defensa extra: con OCR no proponer path no verificado
+                if ($withOcr && ! isset($verifiedPaths[$path])) {
+                    continue;
+                }
+
                 $proposals[] = [
                     'venta_id' => $venta->id,
                     'nro_contr_adm' => $venta->nro_contr_adm,
@@ -332,13 +348,22 @@ final class OrphanDocumentMatcher
                     'ocr_fecha' => $ocrFecha,
                     'action' => $action,
                     'reason' => $withOcr
-                        ? ('Pack '.$packKey.': ancla DNI'.($clear ? ' claro' : ' débil').'; slots formulario')
+                        ? ('Pack '.$packKey.': DNI verificado por OCR en cada fichero')
                         : ('Pack '.$packKey.' en ventana −5/+4 (sin OCR).'),
                     'pack_key' => $packKey,
                 ];
             }
 
-            $emptySlots = array_values(array_diff($emptySlots, array_keys($assignments)));
+            $assignedFields = array_keys($assignments);
+            if ($withOcr) {
+                $assignedFields = [];
+                foreach ($assignments as $field => $path) {
+                    if (isset($verifiedPaths[$path])) {
+                        $assignedFields[] = $field;
+                    }
+                }
+            }
+            $emptySlots = array_values(array_diff($emptySlots, $assignedFields));
             if ($emptySlots === []) {
                 break;
             }

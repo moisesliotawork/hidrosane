@@ -100,7 +100,7 @@ final class ContractImageExtractor
                     'messages' => [
                         [
                             'role' => 'system',
-                            'content' => 'Eres un extractor de datos de contratos Ohana. Devuelves SOLO JSON válido con las claves pedidas. Si un dato no se lee, usa null. No inventes DNI ni IBAN.',
+                            'content' => 'Eres un extractor de datos de contratos Ohana. Devuelves SOLO JSON válido con las claves pedidas. Si un dato no se lee, usa null. No inventes DNI ni IBAN. El DNI debe leerse ÚNICAMENTE de lo visible en la imagen (foto o MRZ); nunca inventes ni completes un DNI a partir de suposiciones.',
                         ],
                         [
                             'role' => 'user',
