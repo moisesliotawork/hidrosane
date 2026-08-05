@@ -77,10 +77,15 @@ class EditVenta extends EditRecord
     protected function summarizeValidationErrors(ValidationException $exception): string
     {
         $messages = collect($exception->errors())
+            ->map(function ($msgs, $field) {
+                $label = is_string($field) ? str_replace('_', ' ', $field).': ' : '';
+
+                return collect($msgs)->filter()->map(fn ($m) => $label.$m)->all();
+            })
             ->flatten()
             ->filter()
             ->unique()
-            ->take(5)
+            ->take(8)
             ->values();
 
         if ($messages->isEmpty()) {

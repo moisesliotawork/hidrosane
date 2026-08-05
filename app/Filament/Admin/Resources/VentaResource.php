@@ -178,8 +178,8 @@ class VentaResource extends Resource
 
 
             Section::make('Informe al repartidor')
-                ->collapsed()
-
+                ->collapsible()
+                ->collapsed(false)
                 ->compact()
                 ->schema([
 
@@ -209,7 +209,7 @@ class VentaResource extends Resource
 
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->timezone('Europe/Madrid')
                         ->native(false)
                         ->columnSpan(1),
@@ -218,7 +218,7 @@ class VentaResource extends Resource
                         ->options(HorarioNotas::options())
                         ->native(false)
                         ->searchable()
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->columnSpan(1),
                     Select::make('horario_entrega_2')
                         ->label('Horario de entrega 2')
@@ -237,7 +237,7 @@ class VentaResource extends Resource
                             'Me compró el cliente' => 'Me compró el cliente',
                             'Muy rebatido de objeciones' => 'Muy rebatido de objeciones',
                         ])
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->native(false),
 
                     Select::make('motivo_horario')
@@ -248,7 +248,7 @@ class VentaResource extends Resource
                             'Se lo dije y marqué cuando firmó' => 'Se lo dije y marqué cuando firmó',
                             'No va a estar a otra hora en casa' => 'No va a estar a otra hora en casa',
                         ])
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->native(false),
                     Toggle::make('interes_art')
                         ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
@@ -261,7 +261,7 @@ class VentaResource extends Resource
                         ->rows(3)
                         ->columnSpan(1)
                         ->visible(fn(Get $get) => (bool) $get('interes_art'))
-                        ->required(fn(Get $get) => (bool) $get('interes_art'))
+                        ->required(fn(Get $get) => (bool) $get('interes_art') && ! self::isSuperAdminPanel())
                         ->maxLength(500),
 
                     Forms\Components\Textarea::make('observaciones_repartidor')
@@ -1012,7 +1012,7 @@ class VentaResource extends Resource
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
-                    self::docCard('precontractual', 'Precontractual', true, true),
+                    self::docCard('precontractual', 'Precontractual', ! self::isSuperAdminPanel(), true),
                     self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
