@@ -633,6 +633,352 @@ final class OrphanDocumentMatcher
     }
 
     /**
+     * Empareja por DNI OCR → cliente (incluye UUID sin tipo en filename).
+     * Con $withReclaim: libera paths enlazados en otra venta cuyo OCR DNI es de una venta objetivo.
+     *
+     * @param  list<Venta>  $ventas
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $orphans
+     * @return list<array{
+     *     venta_id: int,
+     *     nro_contr_adm: ?string,
+     *     path: string,
+     *     field: string,
+     *     score: int,
+     *     ocr_dni: string,
+     *     ocr_fecha: string,
+     *     action: 'auto'|'review'|'skip'|'clear',
+     *     reason: string
+     * }>
+     */
+    public function proposeByDni(
+        array $ventas,
+        array $orphans,
+        bool $withReclaim = false,
+        ?array $linkedRows = null,
+    ): array {
+        /** @var array<string, mixed> */
+        $ocrCache = [];
+        $proposals = [];
+        /** @var array<string, true> paths liberados por reclaim (disponibles para attach) */
+        $reclaimedPaths = [];
+        /** @var array<string, Carbon> */
+        $reclaimedUploadedAt = [];
+
+        if ($withReclaim) {
+            $reclaim = $this->proposeReclaimForTargets($ventas, $ocrCache, $linkedRows);
+            foreach ($reclaim as $row) {
+                $proposals[] = $row;
+                if (($row['action'] ?? '') === 'clear' && filled($row['path'] ?? null)) {
+                    $path = (string) $row['path'];
+                    $reclaimedPaths[$path] = true;
+                    if (isset($row['_uploaded_at']) && $row['_uploaded_at'] instanceof Carbon) {
+                        $reclaimedUploadedAt[$path] = $row['_uploaded_at'];
+                    }
+                }
+            }
+        }
+
+        /** @var array<string, list<Venta>> */
+        $ventasByDni = [];
+        foreach ($ventas as $venta) {
+            $venta->loadMissing(['customer', 'comercial']);
+            $dni = $this->normalizeDni($venta->customer?->dni);
+            if ($dni === '') {
+                continue;
+            }
+            $ventasByDni[$dni][] = $venta;
+        }
+
+        if ($ventasByDni === []) {
+            return $proposals;
+        }
+
+        $pool = [];
+        $seen = [];
+        foreach ($orphans as $orphan) {
+            $path = (string) ($orphan['path'] ?? '');
+            if ($path === '' || isset($seen[$path]) || ! $this->isOcrableOrphanPath($path)) {
+                continue;
+            }
+            $seen[$path] = true;
+            $pool[] = $orphan;
+        }
+
+        foreach (array_keys($reclaimedPaths) as $path) {
+            if (isset($seen[$path]) || ! $this->isOcrableOrphanPath($path)) {
+                continue;
+            }
+            $seen[$path] = true;
+            $meta = $this->orphanMetaFromPath($path);
+            if (isset($reclaimedUploadedAt[$path])) {
+                $meta['uploaded_at'] = $reclaimedUploadedAt[$path];
+            }
+            $pool[] = $meta;
+        }
+
+        /** @var array<int, array<string, list<array{orphan: array, ocr: array, score: int, field: string}>>> */
+        $candidates = [];
+
+        foreach ($pool as $orphan) {
+            $path = (string) $orphan['path'];
+            try {
+                $ocr = $this->cachedOcr($ocrCache, $this->ocrTypeForPackCandidate($orphan), $path);
+            } catch (Throwable $e) {
+                $proposals[] = [
+                    'venta_id' => $ventas[0]->id,
+                    'nro_contr_adm' => $ventas[0]->nro_contr_adm,
+                    'path' => $path,
+                    'field' => (string) ($orphan['field'] ?? 'otros_documentos'),
+                    'score' => 0,
+                    'ocr_dni' => '',
+                    'ocr_fecha' => '',
+                    'action' => 'skip',
+                    'reason' => 'OCR error: '.$e->getMessage(),
+                ];
+
+                continue;
+            }
+
+            $ocrDni = $this->normalizeDni($ocr['dni'] ?? null);
+            if ($ocrDni === '' && filled($ocr['mrz_raw'] ?? null)) {
+                $ocrDni = $this->normalizeDni((string) $ocr['mrz_raw']);
+            }
+            if ($ocrDni === '' || ! isset($ventasByDni[$ocrDni])) {
+                continue;
+            }
+
+            foreach ($ventasByDni[$ocrDni] as $venta) {
+                $score = $this->scoreMatch($venta, $orphan, $ocr);
+                if ($score <= 0) {
+                    continue;
+                }
+
+                $empty = $this->emptySlots($venta);
+                // Tras reclaim, esos slots aún figuran llenos en el modelo en memoria:
+                // si el path reclaimed va a este cliente, tratamos el slot destino como vacío.
+                if ($withReclaim && isset($reclaimedPaths[$path])) {
+                    // emptySlots ya refleja BD; el clear aún no se aplicó.
+                }
+
+                $field = $this->documentoTipoToSlot($ocr['documento_tipo'] ?? null)
+                    ?? (($orphan['field'] ?? null) ?: null);
+
+                if (! is_string($field) || $field === '') {
+                    $field = $this->firstPreferredEmptySlot($empty);
+                }
+
+                if (! is_string($field) || $field === '') {
+                    continue;
+                }
+
+                // Slot debe estar vacío, o ser el mismo path que vamos a clear de otra venta
+                // (attach a este cliente en slot tipado aunque emptySlots no lo tenga si está vacío).
+                $current = $venta->{$field} ?? null;
+                if (filled($current) && (string) $current !== $path) {
+                    // Buscar otro slot vacío compatible
+                    $alt = $this->firstPreferredEmptySlot($empty);
+                    if ($alt === null) {
+                        continue;
+                    }
+                    $field = $alt;
+                } elseif (filled($current) && (string) $current === $path) {
+                    continue; // ya enlazado bien
+                } elseif (! in_array($field, $empty, true)) {
+                    $alt = $this->firstPreferredEmptySlot($empty);
+                    if ($alt === null) {
+                        continue;
+                    }
+                    $field = $alt;
+                }
+
+                $candidates[$venta->id][$field][] = [
+                    'orphan' => $orphan,
+                    'ocr' => $ocr,
+                    'score' => $score,
+                    'field' => $field,
+                ];
+            }
+        }
+
+        foreach ($candidates as $ventaId => $byField) {
+            $venta = collect($ventas)->first(fn (Venta $v) => (int) $v->id === (int) $ventaId);
+            if (! $venta) {
+                continue;
+            }
+
+            foreach ($byField as $field => $list) {
+                usort($list, fn ($a, $b) => $b['score'] <=> $a['score']);
+                $unique = count($list) === 1;
+                $best = $list[0];
+                $clear = $this->isClearAutoMatch($best['score'], $unique);
+
+                if (! $unique && $best['score'] < 90) {
+                    foreach ($list as $c) {
+                        $proposals[] = [
+                            'venta_id' => $venta->id,
+                            'nro_contr_adm' => $venta->nro_contr_adm,
+                            'path' => $c['orphan']['path'],
+                            'field' => $field,
+                            'score' => $c['score'],
+                            'ocr_dni' => $this->normalizeDni($c['ocr']['dni'] ?? null),
+                            'ocr_fecha' => (string) ($c['ocr']['fecha_venta'] ?? ''),
+                            'action' => 'review',
+                            'reason' => 'Varios candidatos DNI para el slot; revisión manual.',
+                        ];
+                    }
+
+                    continue;
+                }
+
+                $proposals[] = [
+                    'venta_id' => $venta->id,
+                    'nro_contr_adm' => $venta->nro_contr_adm,
+                    'path' => $best['orphan']['path'],
+                    'field' => $field,
+                    'score' => $best['score'],
+                    'ocr_dni' => $this->normalizeDni($best['ocr']['dni'] ?? null),
+                    'ocr_fecha' => (string) ($best['ocr']['fecha_venta'] ?? ''),
+                    'action' => $clear ? 'auto' : 'review',
+                    'reason' => $clear
+                        ? 'Match DNI OCR'.($best['score'] >= 90 ? '+fecha' : '+ventana').'.'
+                        : 'Match DNI débil; revisar.',
+                ];
+            }
+        }
+
+        return $proposals;
+    }
+
+    /**
+     * Libera docs enlazados en ventas cuyo OCR DNI pertenece a una venta objetivo distinta.
+     *
+     * @param  list<Venta>  $targetVentas
+     * @param  array<string, mixed>  $ocrCache
+     * @return list<array{
+     *     venta_id: int,
+     *     nro_contr_adm: ?string,
+     *     path: string,
+     *     field: string,
+     *     score: int,
+     *     ocr_dni: string,
+     *     ocr_fecha: string,
+     *     action: 'clear',
+     *     reason: string
+     * }>
+     */
+    public function proposeReclaimForTargets(
+        array $targetVentas,
+        array &$ocrCache = [],
+        ?array $linkedRows = null,
+    ): array {
+        /** @var array<string, Venta> */
+        $ownerByDni = [];
+        $windows = [];
+        foreach ($targetVentas as $venta) {
+            $venta->loadMissing('customer');
+            $dni = $this->normalizeDni($venta->customer?->dni);
+            if ($dni === '' || ! $venta->fecha_venta) {
+                continue;
+            }
+            $ownerByDni[$dni] = $venta;
+            $windows[] = [
+                'dni' => $dni,
+                'venta' => $venta,
+                'fecha' => Carbon::parse($venta->fecha_venta)->startOfDay(),
+            ];
+        }
+
+        if ($ownerByDni === []) {
+            return [];
+        }
+
+        $proposals = [];
+        $targetIds = array_map(fn (Venta $v) => (int) $v->id, $targetVentas);
+
+        foreach ($linkedRows ?? $this->listLinkedDocumentRows() as $row) {
+            $path = $row['path'];
+            $holderId = (int) $row['venta_id'];
+            if (in_array($holderId, $targetIds, true)) {
+                // En la propia venta objetivo: solo clear si el OCR DNI es de OTRO cliente objetivo
+                // (contaminación interna). Si no hay DNI o es el propio, no tocar.
+            }
+
+            $uploadedAt = null;
+            if (isset($row['uploaded_at']) && $row['uploaded_at'] instanceof Carbon) {
+                $uploadedAt = $row['uploaded_at'];
+            } else {
+                $uploadedAt = $this->uploadedAtForPath($path);
+            }
+            if ($uploadedAt === null) {
+                continue;
+            }
+
+            $inAnyWindow = false;
+            foreach ($windows as $w) {
+                if ($this->isWithinRecoveryUploadWindow($w['fecha'], $uploadedAt)) {
+                    $inAnyWindow = true;
+                    break;
+                }
+            }
+            if (! $inAnyWindow) {
+                continue;
+            }
+
+            if (! $this->isOcrableOrphanPath($path)) {
+                continue;
+            }
+
+            try {
+                $ocr = $this->cachedOcr(
+                    $ocrCache,
+                    ContractImageExtractor::TYPE_DNI_CARD,
+                    $path,
+                );
+            } catch (Throwable) {
+                continue;
+            }
+
+            $ocrDni = $this->normalizeDni($ocr['dni'] ?? null);
+            if ($ocrDni === '' && filled($ocr['mrz_raw'] ?? null)) {
+                $ocrDni = $this->normalizeDni((string) $ocr['mrz_raw']);
+            }
+            if ($ocrDni === '' || ! isset($ownerByDni[$ocrDni])) {
+                continue;
+            }
+
+            $rightOwner = $ownerByDni[$ocrDni];
+            $holderDni = $this->normalizeDni($row['customer_dni'] ?? null);
+
+            // Path muestra el DNI del cliente objetivo, pero está en otra venta (u otra identidad).
+            if ($holderId === (int) $rightOwner->id && $holderDni === $ocrDni) {
+                continue; // ya bien colocado
+            }
+
+            if ($holderDni === $ocrDni && $holderId !== (int) $rightOwner->id) {
+                // Mismo DNI en dos ventas: no reclaim automático
+                continue;
+            }
+
+            $proposals[] = [
+                'venta_id' => $holderId,
+                'nro_contr_adm' => $row['nro_contr_adm'],
+                'path' => $path,
+                'field' => $row['field'],
+                'score' => 100,
+                'ocr_dni' => $ocrDni,
+                'ocr_fecha' => (string) ($ocr['fecha_venta'] ?? ''),
+                'action' => 'clear',
+                'reason' => 'DNI OCR='.$ocrDni.' pertenece a contrato '
+                    .($rightOwner->nro_contr_adm ?? $rightOwner->id)
+                    .'; liberar de venta '.$holderId,
+                '_uploaded_at' => $uploadedAt,
+            ];
+        }
+
+        return $proposals;
+    }
+
+    /**
      * @param  list<Venta>  $ventas
      * @param  list<array{path: string, field: string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $orphans
      * @return list<array{
@@ -783,16 +1129,52 @@ final class OrphanDocumentMatcher
 
     /**
      * @param  list<array{venta_id: int, path: string, field: string, action: string}>  $proposals
-     * @return array{applied: int, skipped: int}
+     * @return array{applied: int, skipped: int, cleared: int}
      */
     public function apply(array $proposals): array
     {
         $applied = 0;
         $skipped = 0;
+        $cleared = 0;
 
+        // 1) Liberar mismatches antes de enganchar
+        foreach ($proposals as $proposal) {
+            if (($proposal['action'] ?? '') !== 'clear') {
+                continue;
+            }
+
+            $venta = Venta::query()->find($proposal['venta_id']);
+            if (! $venta) {
+                $skipped++;
+
+                continue;
+            }
+
+            $field = (string) ($proposal['field'] ?? '');
+            $path = ltrim((string) ($proposal['path'] ?? ''), '/');
+            if (! in_array($field, self::documentFields(), true)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $current = ltrim((string) ($venta->{$field} ?? ''), '/');
+            if ($current === '' || ($path !== '' && $current !== $path)) {
+                $skipped++;
+
+                continue;
+            }
+
+            $venta->forceFill([$field => null])->saveQuietly();
+            $cleared++;
+        }
+
+        // 2) Auto-attach en slots vacíos
         foreach ($proposals as $proposal) {
             if (($proposal['action'] ?? '') !== 'auto') {
-                $skipped++;
+                if (($proposal['action'] ?? '') !== 'clear') {
+                    $skipped++;
+                }
 
                 continue;
             }
@@ -813,6 +1195,9 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
+            // Recargar por si un clear liberó el slot en esta misma pasada
+            $venta->refresh();
+
             if (filled($venta->{$field})) {
                 $skipped++;
 
@@ -825,12 +1210,123 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
-            // El path huérfano ya está en public/ventas: enlazar sin copiar.
             $venta->forceFill([$field => ltrim($path, '/')])->saveQuietly();
             $applied++;
         }
 
-        return ['applied' => $applied, 'skipped' => $skipped];
+        return ['applied' => $applied, 'skipped' => $skipped, 'cleared' => $cleared];
+    }
+
+    /**
+     * @param  array<string, mixed>  $ocrCache
+     * @return array<string, mixed>
+     */
+    protected function cachedOcr(array &$ocrCache, string $type, string $path): array
+    {
+        if (! array_key_exists($path, $ocrCache)) {
+            $ocrCache[$path] = $this->extractWithRetry($type, $path);
+            usleep(200_000);
+        }
+
+        $ocr = $ocrCache[$path];
+        if (! is_array($ocr)) {
+            return [];
+        }
+
+        return $ocr;
+    }
+
+    /**
+     * @return array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}
+     */
+    protected function orphanMetaFromPath(string $path): array
+    {
+        $basename = basename($path);
+        $meta = $this->parseFilename($basename);
+        $uploadedAt = $meta['uploaded_at'];
+        if ($uploadedAt === null) {
+            $uploadedAt = $this->uploadedAtForPath($path);
+        }
+
+        return [
+            'path' => $path,
+            'field' => $meta['field'],
+            'uploaded_at' => $uploadedAt,
+            'empleado_id' => $meta['empleado_id'],
+            'uploader_slug' => $meta['uploader_slug'],
+        ];
+    }
+
+    protected function uploadedAtForPath(string $path): ?Carbon
+    {
+        $disk = Storage::disk('public');
+        $rel = preg_replace('#^public/#', '', $path) ?? $path;
+        if (! $disk->exists($rel)) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromTimestamp($disk->lastModified($rel));
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  list<string>  $emptySlots
+     */
+    protected function firstPreferredEmptySlot(array $emptySlots): ?string
+    {
+        $priority = [
+            'dni_anverso',
+            'dni_reverso',
+            'precontractual',
+            'documento_titularidad',
+            'contrato_firmado',
+            'foto_sorteo',
+            'otros_documentos',
+            'nomina',
+            'pension',
+        ];
+
+        foreach ($priority as $field) {
+            if (in_array($field, $emptySlots, true)) {
+                return $field;
+            }
+        }
+
+        return $emptySlots[0] ?? null;
+    }
+
+    /**
+     * @return list<array{venta_id: int, nro_contr_adm: ?string, customer_dni: ?string, field: string, path: string}>
+     */
+    protected function listLinkedDocumentRows(): array
+    {
+        $fields = self::documentFields();
+        $rows = [];
+
+        $query = Venta::query()
+            ->with('customer:id,dni')
+            ->select(array_merge(['id', 'nro_contr_adm', 'customer_id'], $fields));
+
+        foreach ($query->cursor() as $venta) {
+            foreach ($fields as $field) {
+                $path = ltrim((string) ($venta->{$field} ?? ''), '/');
+                if ($path === '') {
+                    continue;
+                }
+                $rows[] = [
+                    'venta_id' => (int) $venta->id,
+                    'nro_contr_adm' => $venta->nro_contr_adm,
+                    'customer_dni' => $venta->customer?->dni,
+                    'field' => $field,
+                    'path' => $path,
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     /**

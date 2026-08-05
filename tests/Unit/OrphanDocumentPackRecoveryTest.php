@@ -395,6 +395,153 @@ class OrphanDocumentPackRecoveryTest extends TestCase
         $this->assertSame('ventas/pack_extra.pdf', $fresh->otros_documentos);
     }
 
+    public function test_propose_by_dni_matches_uuid_orphan_to_slot(): void
+    {
+        $venta = $this->makeInMemoryVenta('36026170M', '2025-09-09');
+        $t = Carbon::parse('2025-09-05 17:52:00');
+        $orphans = [
+            $this->orphanMeta('ventas/2fc10a01-e815-477e-92b4-c934ce20ce35.jpeg', null, $t),
+            $this->orphanMeta('ventas/5b5cac46-95b1-49ae-9ed5-e80f275d2eaf.jpeg', null, $t),
+            $this->orphanMeta('ventas/other-person.jpeg', null, $t),
+        ];
+
+        $matcher = new OrphanDocumentMatcher(
+            app(ContractImageExtractor::class),
+            function (string $type, string $path): array {
+                return match (true) {
+                    str_contains($path, '2fc10a01') => [
+                        'dni' => '36026170M',
+                        'documento_tipo' => 'dni_anverso',
+                    ],
+                    str_contains($path, '5b5cac46') => [
+                        'dni' => '36026170M',
+                        'documento_tipo' => 'dni_reverso',
+                    ],
+                    default => [
+                        'dni' => '36009804S',
+                        'documento_tipo' => 'dni_anverso',
+                    ],
+                };
+            },
+        );
+
+        $proposals = $matcher->proposeByDni([$venta], $orphans, withReclaim: false);
+        $byField = collect($proposals)->keyBy('field');
+
+        $this->assertCount(2, $proposals);
+        $this->assertSame('auto', $byField['dni_anverso']['action']);
+        $this->assertSame('ventas/2fc10a01-e815-477e-92b4-c934ce20ce35.jpeg', $byField['dni_anverso']['path']);
+        $this->assertSame('ventas/5b5cac46-95b1-49ae-9ed5-e80f275d2eaf.jpeg', $byField['dni_reverso']['path']);
+        $this->assertTrue(collect($proposals)->every(fn ($p) => $p['ocr_dni'] === '36026170M'));
+    }
+
+    public function test_propose_reclaim_clears_wrong_venta_and_by_dni_reattaches(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('ventas/2fc10a01-good.jpeg', 'anverso');
+        Storage::disk('public')->put('ventas/5b5cac46-good.jpeg', 'reverso');
+
+        $venta1078 = $this->makeInMemoryVenta('36026170M', '2025-09-09');
+        $venta1078->id = 2149;
+        $venta1078->nro_contr_adm = '1078';
+
+        $t = Carbon::parse('2025-09-05 17:52:00');
+        $linkedRows = [
+            [
+                'venta_id' => 48,
+                'nro_contr_adm' => '1069',
+                'customer_dni' => '35810174W',
+                'field' => 'documento_titularidad',
+                'path' => 'ventas/2fc10a01-good.jpeg',
+                'uploaded_at' => $t,
+            ],
+            [
+                'venta_id' => 48,
+                'nro_contr_adm' => '1069',
+                'customer_dni' => '35810174W',
+                'field' => 'pension',
+                'path' => 'ventas/5b5cac46-good.jpeg',
+                'uploaded_at' => $t,
+            ],
+        ];
+
+        $matcher = new OrphanDocumentMatcher(
+            app(ContractImageExtractor::class),
+            function (string $type, string $path): array {
+                return match (true) {
+                    str_contains($path, '2fc10a01') => [
+                        'dni' => '36026170M',
+                        'documento_tipo' => 'dni_anverso',
+                    ],
+                    str_contains($path, '5b5cac46') => [
+                        'dni' => '36026170M',
+                        'documento_tipo' => 'dni_reverso',
+                    ],
+                    default => ['dni' => null],
+                };
+            },
+        );
+
+        $proposals = $matcher->proposeByDni([$venta1078], orphans: [], withReclaim: true, linkedRows: $linkedRows);
+
+        $clears = collect($proposals)->where('action', 'clear');
+        $autos = collect($proposals)->where('action', 'auto');
+
+        $this->assertCount(2, $clears);
+        $this->assertTrue($clears->every(fn ($p) => (int) $p['venta_id'] === 48));
+        $this->assertCount(2, $autos);
+        $this->assertTrue($autos->every(fn ($p) => (int) $p['venta_id'] === 2149));
+        $this->assertSame(
+            'ventas/2fc10a01-good.jpeg',
+            $autos->firstWhere('field', 'dni_anverso')['path'] ?? null,
+        );
+        $this->assertSame(
+            'ventas/5b5cac46-good.jpeg',
+            $autos->firstWhere('field', 'dni_reverso')['path'] ?? null,
+        );
+    }
+
+    public function test_apply_clears_before_attach(): void
+    {
+        if (config('database.default') === 'sqlite') {
+            $this->markTestSkipped('apply() requiere MySQL (DB_CONNECTION=mysql).');
+        }
+
+        $holder = $this->seedPersistedVenta('35810174W', '2025-09-05');
+        $target = $this->seedPersistedVenta('36026170M', '2025-09-09');
+
+        Storage::fake('public');
+        Storage::disk('public')->put('ventas/emilio_anverso.jpeg', 'a');
+
+        $holder->forceFill([
+            'documento_titularidad' => 'ventas/emilio_anverso.jpeg',
+        ])->saveQuietly();
+        $target->forceFill([
+            'dni_anverso' => null,
+        ])->saveQuietly();
+
+        $matcher = app(OrphanDocumentMatcher::class);
+        $result = $matcher->apply([
+            [
+                'venta_id' => $holder->id,
+                'path' => 'ventas/emilio_anverso.jpeg',
+                'field' => 'documento_titularidad',
+                'action' => 'clear',
+            ],
+            [
+                'venta_id' => $target->id,
+                'path' => 'ventas/emilio_anverso.jpeg',
+                'field' => 'dni_anverso',
+                'action' => 'auto',
+            ],
+        ]);
+
+        $this->assertSame(1, $result['cleared']);
+        $this->assertSame(1, $result['applied']);
+        $this->assertNull($holder->fresh()->documento_titularidad);
+        $this->assertSame('ventas/emilio_anverso.jpeg', $target->fresh()->dni_anverso);
+    }
+
     /**
      * @return array{path: string, field: ?string, uploaded_at: Carbon, empleado_id: string, uploader_slug: string}
      */

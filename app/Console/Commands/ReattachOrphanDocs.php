@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Venta;
 use App\Services\ContractRecovery\OrphanDocumentMatcher;
 use Illuminate\Console\Command;
 
@@ -10,11 +9,11 @@ use Illuminate\Console\Command;
  * Propone / aplica re-enganche de docs huérfanos a ventas recuperadas.
  *
  * Dry-run (default):
- *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr
- *   php artisan recovery:reattach-orphan-docs --from-recovered --month=202601
+ *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni --reclaim
+ *   php artisan recovery:reattach-orphan-docs --from-recovered --ocr --by-dni --reclaim
  *
- * Aplicar matches claros:
- *   php artisan recovery:reattach-orphan-docs --venta=99 --ocr --apply
+ * Aplicar matches claros (+ clears de reclaim):
+ *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni --reclaim --apply
  */
 class ReattachOrphanDocs extends Command
 {
@@ -24,8 +23,10 @@ class ReattachOrphanDocs extends Command
         {--from-recovered : Todas las ventas recuperadas (items added + etiqueta observación)}
         {--month= : Filtrar huérfanos por YYYYMM del nombre de archivo}
         {--ocr : Extraer DNI/Fec.Promo con visión (necesario para auto-match)}
-        {--packs : Packs mismo minuto (−5/+4 días); OCR solo del ancla precontractual}
-        {--apply : Escribir paths en slots vacíos (solo action=auto)}
+        {--by-dni : Emparejar por DNI OCR (UUID incluidos); recomendado}
+        {--reclaim : Liberar docs enlazados en otra venta si el OCR DNI es del cliente objetivo}
+        {--packs : Packs mismo minuto (−5/+4 días); legacy}
+        {--apply : Escribir clears + paths en slots vacíos (solo action=auto/clear)}
         {--output= : CSV de propuestas (default storage/app/recovery/reattach-proposals.csv)}';
 
     protected $description = 'Re-asocia documentos huérfanos a ventas recuperadas (dry-run por defecto)';
@@ -37,6 +38,8 @@ class ReattachOrphanDocs extends Command
         $fromRecovered = (bool) $this->option('from-recovered');
         $month = $this->option('month') ? (string) $this->option('month') : null;
         $withOcr = (bool) $this->option('ocr');
+        $byDni = (bool) $this->option('by-dni');
+        $reclaim = (bool) $this->option('reclaim');
         $usePacks = (bool) $this->option('packs');
         $apply = (bool) $this->option('apply');
 
@@ -48,6 +51,18 @@ class ReattachOrphanDocs extends Command
 
         if ($apply && ! $withOcr) {
             $this->error('--apply requiere --ocr para no enlazar a ciegas.');
+
+            return self::FAILURE;
+        }
+
+        if ($byDni && ! $withOcr) {
+            $this->error('--by-dni requiere --ocr.');
+
+            return self::FAILURE;
+        }
+
+        if ($reclaim && ! $withOcr) {
+            $this->error('--reclaim requiere --ocr.');
 
             return self::FAILURE;
         }
@@ -70,9 +85,14 @@ class ReattachOrphanDocs extends Command
         $orphans = $matcher->listOrphans($month);
         $this->info('Huérfanos candidatos: '.count($orphans));
 
-        if ($usePacks) {
+        if ($byDni) {
+            $this->info($reclaim
+                ? 'Generando propuestas por DNI OCR (+ reclaim)…'
+                : 'Generando propuestas por DNI OCR…');
+            $proposals = $matcher->proposeByDni($ventas, $orphans, $reclaim);
+        } elseif ($usePacks) {
             $this->info($withOcr
-                ? 'Generando packs (−5/+4, OCR ancla precontractual)…'
+                ? 'Generando packs (−5/+4, OCR por fichero)…'
                 : 'Generando packs (−5/+4, sin OCR)…');
             $proposals = [];
             foreach ($ventas as $venta) {
@@ -112,6 +132,7 @@ class ReattachOrphanDocs extends Command
         $auto = 0;
         $review = 0;
         $skip = 0;
+        $clear = 0;
         foreach ($proposals as $p) {
             fputcsv($fh, [
                 $p['venta_id'],
@@ -127,20 +148,24 @@ class ReattachOrphanDocs extends Command
             match ($p['action']) {
                 'auto' => $auto++,
                 'review' => $review++,
+                'clear' => $clear++,
                 default => $skip++,
             };
         }
         fclose($fh);
 
         $this->table(
-            ['auto', 'review', 'skip', 'total'],
-            [[$auto, $review, $skip, count($proposals)]]
+            ['auto', 'review', 'clear', 'skip', 'total'],
+            [[$auto, $review, $clear, $skip, count($proposals)]]
         );
         $this->info("CSV: {$out}");
 
         if ($apply) {
             $result = $matcher->apply($proposals);
-            $this->info("Aplicados: {$result['applied']} · Omitidos: {$result['skipped']}");
+            $this->info(
+                "Aplicados: {$result['applied']} · Liberados: ".($result['cleared'] ?? 0)
+                .' · Omitidos: '.$result['skipped']
+            );
         } else {
             $this->comment('Dry-run: no se escribió en BD. Usa --ocr --apply para enlazar matches claros.');
         }
