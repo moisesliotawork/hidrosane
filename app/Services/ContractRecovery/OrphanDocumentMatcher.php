@@ -141,12 +141,30 @@ final class OrphanDocumentMatcher
             $remaining = array_values(array_diff($remaining, [$field]));
         }
 
-        if (in_array('otros_documentos', $remaining, true)) {
+        // Ficheros sin tipo (UUID, IMG_*): rellenar slots vacíos por prioridad del formulario.
+        $priority = [
+            'precontractual',
+            'dni_anverso',
+            'dni_reverso',
+            'documento_titularidad',
+            'foto_sorteo',
+            'contrato_firmado',
+            'nomina',
+            'pension',
+            'otros_documentos',
+        ];
+
+        foreach ($priority as $field) {
+            if (! in_array($field, $remaining, true) || isset($assignments[$field])) {
+                continue;
+            }
             foreach ($cluster as $orphan) {
                 if (isset($usedPaths[$orphan['path']])) {
                     continue;
                 }
-                $assignments['otros_documentos'] = $orphan['path'];
+                $assignments[$field] = $orphan['path'];
+                $usedPaths[$orphan['path']] = true;
+                $remaining = array_values(array_diff($remaining, [$field]));
                 break;
             }
         }
@@ -307,10 +325,6 @@ final class OrphanDocumentMatcher
             }
 
             $meta = $this->parseFilename($name);
-            if ($meta['field'] === null) {
-                continue;
-            }
-
             $full = $file->getPathname();
             $rel = 'ventas/'.ltrim(str_replace($ventasDir, '', $full), DIRECTORY_SEPARATOR);
             $rel = str_replace('\\', '/', $rel);
@@ -319,9 +333,13 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
+            // UUID / nombres sin patrón comercial: usar mtime como fecha de carga.
+            $uploadedAt = $meta['uploaded_at']
+                ?? Carbon::createFromTimestamp($file->getMTime());
+
             if ($monthYyyymm !== null && $monthYyyymm !== '') {
                 $month = preg_replace('/\D+/', '', $monthYyyymm);
-                $uploadYmd = $meta['uploaded_at']?->format('Ymd') ?? '';
+                $uploadYmd = $uploadedAt->format('Ymd');
                 if ($uploadYmd === '' || ! str_starts_with($uploadYmd, $month)) {
                     continue;
                 }
@@ -329,8 +347,8 @@ final class OrphanDocumentMatcher
 
             $orphans[] = [
                 'path' => $rel,
-                'field' => $meta['field'],
-                'uploaded_at' => $meta['uploaded_at'],
+                'field' => $meta['field'], // puede ser null (UUID, IMG_*, etc.)
+                'uploaded_at' => $uploadedAt,
                 'empleado_id' => $meta['empleado_id'],
                 'uploader_slug' => $meta['uploader_slug'],
             ];

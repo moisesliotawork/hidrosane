@@ -94,6 +94,28 @@ class OrphanDocumentPackRecoveryTest extends TestCase
         $this->assertArrayNotHasKey('nomina', $map);
     }
 
+    public function test_map_cluster_fills_priority_slots_for_uuid_pack_without_field(): void
+    {
+        $matcher = app(OrphanDocumentMatcher::class);
+        $t = Carbon::parse('2025-09-05 17:52:00');
+
+        $cluster = [
+            $this->orphanMeta('ventas/aaa.jpeg', null, $t),
+            $this->orphanMeta('ventas/bbb.jpeg', null, $t),
+            $this->orphanMeta('ventas/ccc.jpeg', null, $t),
+            $this->orphanMeta('ventas/ddd.jpeg', null, $t),
+        ];
+
+        $empty = ['precontractual', 'dni_anverso', 'dni_reverso', 'documento_titularidad', 'contrato_firmado'];
+        $map = $matcher->mapClusterToEmptySlots($cluster, $empty);
+
+        $this->assertSame('ventas/aaa.jpeg', $map['precontractual']);
+        $this->assertSame('ventas/bbb.jpeg', $map['dni_anverso']);
+        $this->assertSame('ventas/ccc.jpeg', $map['dni_reverso']);
+        $this->assertSame('ventas/ddd.jpeg', $map['documento_titularidad']);
+        $this->assertArrayNotHasKey('contrato_firmado', $map);
+    }
+
     public function test_map_cluster_skips_already_filled_slots(): void
     {
         $matcher = app(OrphanDocumentMatcher::class);
