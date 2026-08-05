@@ -88,13 +88,25 @@ class VentaResource extends Resource
                         $nombre = '—';
                     }
 
+                    $fechaContrato = '—';
+                    if ($record?->fecha_venta) {
+                        $fechaContrato = \Illuminate\Support\Carbon::parse($record->fecha_venta)
+                            ->timezone('Europe/Madrid')
+                            ->format('d/m/Y');
+                    }
+
+                    $green = 'color:#16a34a;font-size:22px;font-weight:700;line-height:1.2;';
+                    $red = 'color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;';
+
                     return new HtmlString(
                         '<div class="flex w-full flex-wrap items-center justify-between gap-3">'
-                        .'<div class="flex flex-wrap items-baseline gap-3">'
-                        .'<span class="text-2xl font-bold text-gray-950 dark:text-white">Nº Nota: '.e((string) $nota).'</span>'
-                        .'<span style="color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;">'.e($nroAdm).'</span>'
+                        .'<div class="flex flex-wrap items-baseline" style="gap:0.35rem;">'
+                        .'<span class="text-2xl font-bold text-gray-950 dark:text-white">Nº&nbsp;Nota:</span>'
+                        .'<span style="'.$green.'">'.e((string) $nota).'</span>'
+                        .'<span style="'.$red.'">'.e($nroAdm).'</span>'
+                        .'<span style="'.$green.'">'.e($fechaContrato).'</span>'
                         .'</div>'
-                        .'<span style="color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;text-align:right;">'.e($nombre).'</span>'
+                        .'<span style="'.$red.'text-align:right;">'.e($nombre).'</span>'
                         .'</div>'
                     );
                 })
