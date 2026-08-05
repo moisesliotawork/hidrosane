@@ -1612,6 +1612,7 @@ class VentaResource extends Resource
                 ->visible(
                     fn(Get $get, ?Venta $record) =>
                     $required
+                    && ! self::isSuperAdminPanel()
                     && !request()->routeIs('filament.*.resources.ventas*.create-b')
                     && !self::isContratoB($record)
                     && blank($get($field))
@@ -1628,6 +1629,7 @@ class VentaResource extends Resource
                 ->required(
                     fn(?Venta $record) =>
                     $required
+                    && ! self::isSuperAdminPanel() // SuperAdmin Contratos: precontractual opcional
                     && filled($record)           // solo en EDIT
                     && !self::isContratoB($record) // y que NO sea contrato -B
                 )
@@ -1641,6 +1643,12 @@ class VentaResource extends Resource
     protected static function isContratoB(?Venta $record): bool
     {
         return filled($record?->nro_contr_adm) && str_contains($record->nro_contr_adm, '-B');
+    }
+
+    /** SuperAdmin → Contratos reutiliza este form; ahí precontractual no es obligatorio. */
+    protected static function isSuperAdminPanel(): bool
+    {
+        return filament()->getCurrentPanel()?->getId() === 'superAdmin';
     }
 
     /** Resuelve los 3 productos prioritarios en orden fijo. */
