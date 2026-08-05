@@ -240,8 +240,6 @@ class VentaDocumentUpload
             // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).
             ->fetchFileInformation(false)
             ->imagePreviewHeight('200')
-            ->loadingIndicatorPosition('left')
-            ->panelLayout('integrated')
             ->openable()
             ->downloadable()
             ->required($required)
@@ -255,15 +253,31 @@ class VentaDocumentUpload
                 'data-venta-document-upload' => '1',
             ])
             ->afterStateHydrated(function (FileUpload $component, mixed $state) use ($field): void {
-                if (filled($state)) {
+                // Filament itera el state con foreach: debe ser array, nunca string suelto.
+                if (is_string($state) && $state !== '') {
+                    $component->state([$state]);
+
+                    return;
+                }
+
+                if (is_array($state) && $state !== []) {
                     return;
                 }
 
                 $record = $component->getRecord();
                 $path = is_object($record) ? ($record->{$field} ?? null) : null;
                 if (filled($path) && is_string($path)) {
-                    $component->state($path);
+                    $component->state([$path]);
                 }
+            })
+            ->dehydrateStateUsing(function (mixed $state): ?string {
+                if (is_array($state)) {
+                    $first = array_values(array_filter($state, fn ($v) => filled($v)))[0] ?? null;
+
+                    return is_string($first) ? $first : null;
+                }
+
+                return filled($state) && is_string($state) ? $state : null;
             })
             ->getUploadedFileNameForStorageUsing(
                 function (TemporaryUploadedFile $file) use ($field): string {
