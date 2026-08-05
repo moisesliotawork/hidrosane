@@ -204,30 +204,50 @@ final class OrphanDocumentMatcher
         $proposals = [];
 
         foreach ($clusters as $packKey => $cluster) {
-            $anchor = $this->pickPackAnchor($cluster);
-            if ($anchor === null) {
+            $cluster = array_values(array_filter(
+                $cluster,
+                fn (array $o): bool => $this->isOcrableOrphanPath($o['path'] ?? ''),
+            ));
+            if ($cluster === []) {
                 continue;
             }
 
             $ocr = [];
+            $anchor = null;
+            $lastOcrError = null;
+
             if ($withOcr) {
-                try {
-                    $type = $this->extractorTypeForField((string) ($anchor['field'] ?? 'precontractual'));
-                    $ocr = $this->extractWithRetry($type, $anchor['path']);
-                } catch (Throwable $e) {
+                foreach ($this->packAnchorCandidates($cluster) as $candidate) {
+                    try {
+                        $type = $this->extractorTypeForField((string) ($candidate['field'] ?? 'precontractual'));
+                        $ocr = $this->extractWithRetry($type, $candidate['path']);
+                        $anchor = $candidate;
+                        break;
+                    } catch (Throwable $e) {
+                        $lastOcrError = $e;
+                    }
+                }
+
+                if ($anchor === null) {
+                    $failed = $this->pickPackAnchor($cluster) ?? $cluster[0];
                     $proposals[] = [
                         'venta_id' => $venta->id,
                         'nro_contr_adm' => $venta->nro_contr_adm,
-                        'path' => $anchor['path'],
-                        'field' => (string) ($anchor['field'] ?? 'precontractual'),
+                        'path' => $failed['path'],
+                        'field' => (string) ($failed['field'] ?? 'precontractual'),
                         'score' => 0,
                         'ocr_dni' => '',
                         'ocr_fecha' => '',
                         'action' => 'skip',
-                        'reason' => 'OCR error en ancla del pack: '.$e->getMessage(),
+                        'reason' => 'OCR error en ancla del pack: '.($lastOcrError?->getMessage() ?? 'sin ancla usable'),
                         'pack_key' => $packKey,
                     ];
 
+                    continue;
+                }
+            } else {
+                $anchor = $this->pickPackAnchor($cluster);
+                if ($anchor === null) {
                     continue;
                 }
             }
@@ -275,17 +295,38 @@ final class OrphanDocumentMatcher
 
     /**
      * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $cluster
+     * @return list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>
+     */
+    public function packAnchorCandidates(array $cluster): array
+    {
+        $preferred = [];
+        $rest = [];
+        foreach ($cluster as $orphan) {
+            if (! $this->isOcrableOrphanPath($orphan['path'] ?? '')) {
+                continue;
+            }
+            if (($orphan['field'] ?? null) === 'precontractual') {
+                $preferred[] = $orphan;
+            } else {
+                $rest[] = $orphan;
+            }
+        }
+
+        return array_values(array_merge($preferred, $rest));
+    }
+
+    public function isOcrableOrphanPath(string $path): bool
+    {
+        return (bool) preg_match('/\.(jpe?g|png|webp|gif|heic|heif|pdf)$/i', $path);
+    }
+
+    /**
+     * @param  list<array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}>  $cluster
      * @return array{path: string, field: ?string, uploaded_at: ?Carbon, empleado_id: string, uploader_slug: string}|null
      */
     public function pickPackAnchor(array $cluster): ?array
     {
-        foreach ($cluster as $orphan) {
-            if (($orphan['field'] ?? null) === 'precontractual') {
-                return $orphan;
-            }
-        }
-
-        return $cluster[0] ?? null;
+        return $this->packAnchorCandidates($cluster)[0] ?? null;
     }
 
     /**
@@ -320,7 +361,12 @@ final class OrphanDocumentMatcher
             }
 
             $name = $file->getFilename();
-            if (str_ends_with(mb_strtolower($name), '.pages')) {
+            $lowerName = mb_strtolower($name);
+            // Solo docs recuperables por OCR / formulario (no .numbers, .zip, etc.)
+            if (! preg_match('/\.(jpe?g|png|webp|gif|heic|heif|pdf)$/i', $lowerName)) {
+                continue;
+            }
+            if (str_ends_with($lowerName, '.pages')) {
                 continue;
             }
 
