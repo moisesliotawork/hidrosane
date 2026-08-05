@@ -1621,8 +1621,53 @@ class VentaResource extends Resource
                     && !request()->routeIs('filament.*.resources.ventas*.create-b')
                     && !self::isContratoB($record)
                     && blank($get($field))
+                    && blank($record?->{$field})
                 ),
 
+            Placeholder::make("{$field}_linked_preview")
+                ->label('')
+                ->content(function (Get $get, ?Venta $record) use ($field): HtmlString {
+                    $path = $get($field) ?: $record?->{$field};
+                    if (is_array($path)) {
+                        $path = $path[0] ?? null;
+                    }
+                    if (! is_string($path) || $path === '') {
+                        return new HtmlString('');
+                    }
+
+                    $path = ltrim($path, '/');
+                    if (! Storage::disk('public')->exists($path)) {
+                        return new HtmlString(
+                            '<div class="text-sm text-warning-600">Ruta en BD sin fichero en disco: '
+                            .e($path).'</div>'
+                        );
+                    }
+
+                    $url = Storage::disk('public')->url($path);
+                    $name = basename($path);
+                    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                    $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true);
+
+                    $preview = $isImage
+                        ? '<img src="'.e($url).'" alt="'.e($name).'" class="mt-2 max-h-48 rounded border border-gray-600 object-contain" />'
+                        : '';
+
+                    return new HtmlString(
+                        '<div class="mb-3 rounded-lg bg-gray-800 text-gray-100 p-3 text-sm">'
+                        .'<div class="font-semibold">Archivo actual: '.e($name).'</div>'
+                        .'<a class="text-primary-400 underline" href="'.e($url).'" target="_blank" rel="noopener">Abrir / descargar</a>'
+                        .$preview
+                        .'</div>'
+                    );
+                })
+                ->visible(function (Get $get, ?Venta $record) use ($field): bool {
+                    $path = $get($field) ?: $record?->{$field};
+                    if (is_array($path)) {
+                        $path = $path[0] ?? null;
+                    }
+
+                    return filled($path);
+                }),
 
             VentaDocumentUpload::configure(
                 FileUpload::make($field),

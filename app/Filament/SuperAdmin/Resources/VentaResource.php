@@ -41,7 +41,11 @@ class VentaResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 VentaSoftDeleteTableAction::make(),
-            ]);
+            ])
+            ->persistSearchInSession()
+            ->persistColumnSearchesInSession()
+            ->persistFiltersInSession()
+            ->persistSortInSession();
     }
 
     public static function getRelations(): array

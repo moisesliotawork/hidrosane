@@ -236,7 +236,12 @@ class VentaDocumentUpload
             ->directory('ventas')
             ->visibility('public')
             ->acceptedFileTypes(self::acceptedDocumentMimeTypes($allowPdf))
+            // Evita que Filament “pierda” ficheros existentes al fallar el probe de mime/size
+            // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).
+            ->fetchFileInformation(false)
             ->imagePreviewHeight('200')
+            ->loadingIndicatorPosition('left')
+            ->panelLayout('integrated')
             ->openable()
             ->downloadable()
             ->required($required)
@@ -246,9 +251,20 @@ class VentaDocumentUpload
             // Sin ->image(): la regla image de Laravel rechaza HEIC en iPhone.
             ->extraInputAttributes($extraInputAttributes)
             ->extraAttributes([
-                'class' => 'border-2 border-dashed py-16 venta-document-upload',
+                'class' => 'border-2 border-dashed py-8 venta-document-upload',
                 'data-venta-document-upload' => '1',
             ])
+            ->afterStateHydrated(function (FileUpload $component, mixed $state) use ($field): void {
+                if (filled($state)) {
+                    return;
+                }
+
+                $record = $component->getRecord();
+                $path = is_object($record) ? ($record->{$field} ?? null) : null;
+                if (filled($path) && is_string($path)) {
+                    $component->state($path);
+                }
+            })
             ->getUploadedFileNameForStorageUsing(
                 function (TemporaryUploadedFile $file) use ($field): string {
                     $user = auth()->user();
