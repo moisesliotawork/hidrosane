@@ -92,8 +92,13 @@ class VentaResource extends Resource
                 ->columns(5),
 
 
-            /* guarda la relación con la nota; no se muestra */
-            Hidden::make('note_id')->required(),
+            /* guarda la relación con la nota; no se muestra.
+             * En SuperAdmin (contratos recuperados) puede no existir nota. */
+            Hidden::make('note_id')
+                ->required(fn (): bool => ! self::isSuperAdminPanel())
+                ->validationMessages([
+                    'required' => 'Falta la nota asociada al contrato (note_id). Este contrato no tiene nota vinculada.',
+                ]),
 
             TextInput::make('seguimiento')
                 ->label('Seguimiento'),

@@ -53,11 +53,7 @@ class EditVenta extends EditRecord
             Notification::make()
                 ->danger()
                 ->title('No se pudo guardar')
-                ->body(
-                    'Revisa los campos obligatorios. Algunas secciones pueden estar plegadas '
-                    .'(Gestión Documentos / Informe al repartidor). '
-                    .$this->summarizeValidationErrors($exception)
-                )
+                ->body($this->formatValidationFailureBody($exception))
                 ->persistent()
                 ->send();
 
@@ -74,25 +70,107 @@ class EditVenta extends EditRecord
         }
     }
 
+    protected function formatValidationFailureBody(ValidationException $exception): string
+    {
+        $lines = $this->humanValidationErrorLines($exception);
+
+        if ($lines === []) {
+            return 'Revisa los campos obligatorios. Algunas secciones pueden estar plegadas '
+                .'(Gestión Documentos / Informe al repartidor).';
+        }
+
+        $list = collect($lines)
+            ->take(8)
+            ->map(fn (string $line) => '• '.$line)
+            ->implode("\n");
+
+        return "Completa estos campos para poder guardar:\n".$list;
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function humanValidationErrorLines(ValidationException $exception): array
+    {
+        $labels = $this->ventaFormFieldLabels();
+        $lines = [];
+
+        foreach ($exception->errors() as $field => $messages) {
+            $key = str_replace(['data.', 'data/'], '', (string) $field);
+            $key = trim(str_replace(['/', '.'], '.', $key), '.');
+            // "note id" accidental por espacios
+            $normalized = str_replace(' ', '_', $key);
+            $base = explode('.', $normalized)[0] ?? $normalized;
+
+            $label = $labels[$normalized]
+                ?? $labels[$base]
+                ?? $labels[str_replace(' ', '_', $base)]
+                ?? null;
+
+            if ($label === null) {
+                $label = str($base)->replace('_', ' ')->title()->toString();
+            }
+
+            foreach ((array) $messages as $message) {
+                $msg = (string) $message;
+                if ($msg === 'validation.required' || str_contains($msg, 'validation.required')) {
+                    $msg = 'es obligatorio';
+                } elseif (str_starts_with($msg, 'validation.')) {
+                    $msg = trans($msg);
+                }
+
+                $lines[] = "{$label}: {$msg}";
+            }
+        }
+
+        return array_values(array_unique($lines));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function ventaFormFieldLabels(): array
+    {
+        return [
+            'note_id' => 'Nota asociada (note_id)',
+            'estado_venta' => 'Estado de la venta',
+            'precontractual' => 'Precontractual',
+            'foto_sorteo' => 'Foto sorteo',
+            'dni_anverso' => 'DNI anverso',
+            'dni_reverso' => 'DNI reverso',
+            'documento_titularidad' => 'Documento de titularidad',
+            'nomina' => 'Nómina',
+            'pension' => 'Pensión',
+            'contrato_firmado' => 'Contrato firmado',
+            'otros_documentos' => 'Otros documentos',
+            'fecha_entrega' => 'Fecha de entrega (Informe al repartidor)',
+            'horario_entrega' => 'Horario de entrega (Informe al repartidor)',
+            'horario_entrega_2' => 'Horario de entrega 2 (Informe al repartidor)',
+            'motivo_venta' => 'Motivo de venta (Informe al repartidor)',
+            'motivo_horario' => 'Motivo del horario (Informe al repartidor)',
+            'interes_art_detalle' => 'Detalle de otros artículos (Informe al repartidor)',
+            'fecha_venta' => 'Fecha de la venta',
+            'modalidad_pago' => 'Modalidad de pago',
+            'num_cuotas' => 'Nº de cuotas',
+            'forma_pago' => 'Forma de pago',
+            'oferta_id' => 'Oferta',
+            'comercial_id' => 'Comercial',
+            'repartidor_id' => 'Repartidor',
+            'customer_id' => 'Cliente',
+            'importe_total' => 'Importe total',
+            'importe_comercial' => 'Importe comercial',
+        ];
+    }
+
     protected function summarizeValidationErrors(ValidationException $exception): string
     {
-        $messages = collect($exception->errors())
-            ->map(function ($msgs, $field) {
-                $label = is_string($field) ? str_replace('_', ' ', $field).': ' : '';
+        $lines = $this->humanValidationErrorLines($exception);
 
-                return collect($msgs)->filter()->map(fn ($m) => $label.$m)->all();
-            })
-            ->flatten()
-            ->filter()
-            ->unique()
-            ->take(8)
-            ->values();
-
-        if ($messages->isEmpty()) {
+        if ($lines === []) {
             return '';
         }
 
-        return 'Detalle: '.$messages->implode(' · ');
+        return 'Detalle: '.implode(' · ', array_slice($lines, 0, 8));
     }
 
     public function getTitle(): string
