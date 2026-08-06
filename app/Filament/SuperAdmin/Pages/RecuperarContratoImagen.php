@@ -939,15 +939,36 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         };
 
         $entry = function (string $name, string $label, callable $state, array $opts = []) {
+            $highlight = (bool) ($opts['highlight'] ?? false);
             $e = Infolists\Components\TextEntry::make($name)
-                ->label($this->boldUnderlinedLabel($label))
+                ->label($highlight
+                    ? new HtmlString(
+                        '<span class="recovery-datos-highlight-label">'.e(mb_strtoupper($label)).'</span>'
+                    )
+                    : $this->boldUnderlinedLabel($label))
                 ->state($state)
                 ->inlineLabel()
                 ->weight('bold')
-                ->extraAttributes(['class' => 'recovery-datos-entry'])
-                ->extraEntryWrapperAttributes(['class' => 'recovery-datos-entry-wrp']);
+                ->extraAttributes([
+                    'class' => $highlight
+                        ? 'recovery-datos-entry recovery-datos-highlight'
+                        : 'recovery-datos-entry',
+                ])
+                ->extraEntryWrapperAttributes([
+                    'class' => $highlight
+                        ? 'recovery-datos-entry-wrp recovery-datos-highlight-wrp'
+                        : 'recovery-datos-entry-wrp',
+                ]);
 
-            if ($opts['badge'] ?? false) {
+            if ($highlight) {
+                $e->formatStateUsing(function ($value): string {
+                    $text = filled($value) && (string) $value !== '—'
+                        ? (string) $value
+                        : '—';
+
+                    return mb_strtoupper($text);
+                });
+            } elseif ($opts['badge'] ?? false) {
                 $e->badge()->color($opts['color'] ?? 'gray');
             }
             if (isset($opts['span'])) {
@@ -957,28 +978,47 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             return $e;
         };
 
+        $fechaContrato = $val('fecha_venta');
+
         return [
+            Infolists\Components\Section::make()
+                ->compact()
+                ->columns(1)
+                ->extraAttributes(['class' => 'recovery-datos-section recovery-datos-highlight-section'])
+                ->schema([
+                    $entry(
+                        'cliente_nombre_hl',
+                        'Nombre de cliente',
+                        $val('cliente_nombre', fn (ContratoRecoveryItem $r) => $r->cliente_nombre),
+                        ['highlight' => true],
+                    ),
+                    $entry(
+                        'dni_hl',
+                        'DNI',
+                        $val('dni', fn (ContratoRecoveryItem $r) => $r->dni),
+                        ['highlight' => true],
+                    ),
+                    $entry('fecha_contrato_hl', 'Fecha de contrato', $fechaContrato, ['highlight' => true]),
+                    $entry('fecha_promo_hl', 'Fecha promo', $fechaContrato, ['highlight' => true]),
+                    $entry('fecha_entrega_hl', 'Fecha entrega', $val('fecha_entrega'), ['highlight' => true]),
+                ]),
+
             Infolists\Components\Section::make()
                 ->compact()
                 ->columns(4)
                 ->extraAttributes(['class' => 'recovery-datos-section'])
                 ->schema([
-                    $entry('dni', 'DNI', $val('dni', fn (ContratoRecoveryItem $r) => $r->dni), ['badge' => true, 'color' => 'primary']),
                     $entry('nro_contr_adm', 'Cod.Contrato', $val('nro_contr_adm', fn (ContratoRecoveryItem $r) => $r->nro_contr_adm), ['badge' => true, 'color' => 'success']),
                     $entry('status', 'Estado', fn (ContratoRecoveryItem $r) => $r->statusLabel(), ['badge' => true, 'color' => 'warning']),
                     $entry('nro_albaran', 'Albarán', $val('nro_albaran'), ['badge' => true, 'color' => 'gray']),
-
-                    $entry('cliente_nombre', 'Nombre', $val('cliente_nombre', fn (ContratoRecoveryItem $r) => $r->cliente_nombre), ['span' => 2]),
                     $entry('customer_match', 'Cliente app', function (ContratoRecoveryItem $r): string {
                         if ($r->customer) {
                             return "#{$r->customer->id} {$r->customer->first_names} {$r->customer->last_names}";
                         }
 
                         return $r->customer_id ? "#{$r->customer_id}" : 'sin match';
-                    }, ['badge' => true, 'color' => 'info', 'span' => 2]),
+                    }, ['badge' => true, 'color' => 'info']),
 
-                    $entry('fecha_venta', 'Fec.Promo.', $val('fecha_venta'), ['badge' => true, 'color' => 'warning']),
-                    $entry('fecha_entrega', 'Fec.Entr.', $val('fecha_entrega'), ['badge' => true, 'color' => 'warning']),
                     $entry('horario_entrega', 'Hora Entr.', $val('horario_entrega')),
                     $entry('comercial', 'Com.', function (ContratoRecoveryItem $r): string {
                         $codes = data_get($r->reviewedData(), 'comercial_codes');

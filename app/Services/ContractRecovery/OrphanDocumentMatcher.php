@@ -850,10 +850,12 @@ final class OrphanDocumentMatcher
     }
 
     /**
-     * Libera docs enlazados en ventas cuyo OCR DNI pertenece a una venta objetivo distinta.
+     * Solo en ventas OBJETIVO: liberar slots cuyo OCR DNI no coincide con el cliente
+     * de ESA venta. Nunca modifica contratos ajenos.
      *
      * @param  list<Venta>  $targetVentas
      * @param  array<string, mixed>  $ocrCache
+     * @param  list<array{venta_id: int, nro_contr_adm: ?string, customer_dni: ?string, field: string, path: string, uploaded_at?: ?Carbon}>|null  $linkedRows
      * @return list<array{
      *     venta_id: int,
      *     nro_contr_adm: ?string,
@@ -871,60 +873,33 @@ final class OrphanDocumentMatcher
         array &$ocrCache = [],
         ?array $linkedRows = null,
     ): array {
-        /** @var array<string, Venta> */
-        $ownerByDni = [];
-        $windows = [];
+        /** @var array<int, Venta> */
+        $targetsById = [];
         foreach ($targetVentas as $venta) {
             $venta->loadMissing('customer');
-            $dni = $this->normalizeDni($venta->customer?->dni);
-            if ($dni === '' || ! $venta->fecha_venta) {
-                continue;
-            }
-            $ownerByDni[$dni] = $venta;
-            $windows[] = [
-                'dni' => $dni,
-                'venta' => $venta,
-                'fecha' => Carbon::parse($venta->fecha_venta)->startOfDay(),
-            ];
+            $targetsById[(int) $venta->id] = $venta;
         }
 
-        if ($ownerByDni === []) {
+        if ($targetsById === []) {
             return [];
         }
 
         $proposals = [];
-        $targetIds = array_map(fn (Venta $v) => (int) $v->id, $targetVentas);
 
         foreach ($linkedRows ?? $this->listLinkedDocumentRows() as $row) {
-            $path = $row['path'];
             $holderId = (int) $row['venta_id'];
-            if (in_array($holderId, $targetIds, true)) {
-                // En la propia venta objetivo: solo clear si el OCR DNI es de OTRO cliente objetivo
-                // (contaminación interna). Si no hay DNI o es el propio, no tocar.
+            if (! isset($targetsById[$holderId])) {
+                continue; // Nunca tocar contratos que no son el objetivo
             }
 
-            $uploadedAt = null;
-            if (isset($row['uploaded_at']) && $row['uploaded_at'] instanceof Carbon) {
-                $uploadedAt = $row['uploaded_at'];
-            } else {
-                $uploadedAt = $this->uploadedAtForPath($path);
-            }
-            if ($uploadedAt === null) {
-                continue;
-            }
-
-            $inAnyWindow = false;
-            foreach ($windows as $w) {
-                if ($this->isWithinRecoveryUploadWindow($w['fecha'], $uploadedAt)) {
-                    $inAnyWindow = true;
-                    break;
-                }
-            }
-            if (! $inAnyWindow) {
-                continue;
-            }
-
+            $path = (string) $row['path'];
             if (! $this->isOcrableOrphanPath($path)) {
+                continue;
+            }
+
+            $venta = $targetsById[$holderId];
+            $holderDni = $this->normalizeDni($venta->customer?->dni ?: ($row['customer_dni'] ?? null));
+            if ($holderDni === '') {
                 continue;
             }
 
@@ -942,35 +917,35 @@ final class OrphanDocumentMatcher
             if ($ocrDni === '' && filled($ocr['mrz_raw'] ?? null)) {
                 $ocrDni = $this->normalizeDni((string) $ocr['mrz_raw']);
             }
-            if ($ocrDni === '' || ! isset($ownerByDni[$ocrDni])) {
+
+            // Sin DNI legible no borramos (cartilla, foto, etc.)
+            if ($ocrDni === '') {
                 continue;
             }
 
-            $rightOwner = $ownerByDni[$ocrDni];
-            $holderDni = $this->normalizeDni($row['customer_dni'] ?? null);
-
-            // Path muestra el DNI del cliente objetivo, pero está en otra venta (u otra identidad).
-            if ($holderId === (int) $rightOwner->id && $holderDni === $ocrDni) {
-                continue; // ya bien colocado
+            // DNI del documento = cliente del contrato → correcto
+            if ($ocrDni === $holderDni) {
+                continue;
             }
 
-            if ($holderDni === $ocrDni && $holderId !== (int) $rightOwner->id) {
-                // Mismo DNI en dos ventas: no reclaim automático
-                continue;
+            $uploadedAt = null;
+            if (isset($row['uploaded_at']) && $row['uploaded_at'] instanceof Carbon) {
+                $uploadedAt = $row['uploaded_at'];
+            } else {
+                $uploadedAt = $this->uploadedAtForPath($path);
             }
 
             $proposals[] = [
                 'venta_id' => $holderId,
-                'nro_contr_adm' => $row['nro_contr_adm'],
+                'nro_contr_adm' => $row['nro_contr_adm'] ?? $venta->nro_contr_adm,
                 'path' => $path,
                 'field' => $row['field'],
                 'score' => 100,
                 'ocr_dni' => $ocrDni,
                 'ocr_fecha' => (string) ($ocr['fecha_venta'] ?? ''),
                 'action' => 'clear',
-                'reason' => 'DNI OCR='.$ocrDni.' pertenece a contrato '
-                    .($rightOwner->nro_contr_adm ?? $rightOwner->id)
-                    .'; liberar de venta '.$holderId,
+                'reason' => 'En contrato objetivo: OCR DNI='.$ocrDni
+                    .' ≠ cliente '.$holderDni.'; liberar slot '.$row['field'],
                 '_uploaded_at' => $uploadedAt,
             ];
         }

@@ -9,11 +9,11 @@ use Illuminate\Console\Command;
  * Propone / aplica re-enganche de docs huérfanos a ventas recuperadas.
  *
  * Dry-run (default):
+ *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni
  *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni --reclaim
- *   php artisan recovery:reattach-orphan-docs --from-recovered --ocr --by-dni --reclaim
  *
- * Aplicar matches claros (+ clears de reclaim):
- *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni --reclaim --apply
+ * Aplicar matches claros:
+ *   php artisan recovery:reattach-orphan-docs --nro=1234 --ocr --by-dni --apply
  */
 class ReattachOrphanDocs extends Command
 {
@@ -24,7 +24,7 @@ class ReattachOrphanDocs extends Command
         {--month= : Filtrar huérfanos por YYYYMM del nombre de archivo}
         {--ocr : Extraer DNI/Fec.Promo con visión (necesario para auto-match)}
         {--by-dni : Emparejar por DNI OCR (UUID incluidos); recomendado}
-        {--reclaim : Liberar docs enlazados en otra venta si el OCR DNI es del cliente objetivo}
+        {--reclaim : Solo en el contrato objetivo: quitar slots cuyo OCR DNI ≠ cliente (nunca toca otros contratos)}
         {--packs : Packs mismo minuto (−5/+4 días); legacy}
         {--apply : Escribir clears + paths en slots vacíos (solo action=auto/clear)}
         {--output= : CSV de propuestas (default storage/app/recovery/reattach-proposals.csv)}';

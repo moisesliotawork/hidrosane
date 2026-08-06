@@ -435,11 +435,11 @@ class OrphanDocumentPackRecoveryTest extends TestCase
         $this->assertTrue(collect($proposals)->every(fn ($p) => $p['ocr_dni'] === '36026170M'));
     }
 
-    public function test_propose_reclaim_clears_wrong_venta_and_by_dni_reattaches(): void
+    public function test_propose_reclaim_only_clears_mismatches_on_target_venta(): void
     {
         Storage::fake('public');
-        Storage::disk('public')->put('ventas/2fc10a01-good.jpeg', 'anverso');
-        Storage::disk('public')->put('ventas/5b5cac46-good.jpeg', 'reverso');
+        Storage::disk('public')->put('ventas/wrong_on_1078.jpeg', 'x');
+        Storage::disk('public')->put('ventas/emilio_on_1069.jpeg', 'y');
 
         $venta1078 = $this->makeInMemoryVenta('36026170M', '2025-09-09');
         $venta1078->id = 2149;
@@ -447,20 +447,22 @@ class OrphanDocumentPackRecoveryTest extends TestCase
 
         $t = Carbon::parse('2025-09-05 17:52:00');
         $linkedRows = [
+            // Contaminación EN el objetivo → sí clear
+            [
+                'venta_id' => 2149,
+                'nro_contr_adm' => '1078',
+                'customer_dni' => '36026170M',
+                'field' => 'dni_anverso',
+                'path' => 'ventas/wrong_on_1078.jpeg',
+                'uploaded_at' => $t,
+            ],
+            // Mismo DNI de Emilio pero en OTRO contrato → no tocar
             [
                 'venta_id' => 48,
                 'nro_contr_adm' => '1069',
                 'customer_dni' => '35810174W',
                 'field' => 'documento_titularidad',
-                'path' => 'ventas/2fc10a01-good.jpeg',
-                'uploaded_at' => $t,
-            ],
-            [
-                'venta_id' => 48,
-                'nro_contr_adm' => '1069',
-                'customer_dni' => '35810174W',
-                'field' => 'pension',
-                'path' => 'ventas/5b5cac46-good.jpeg',
+                'path' => 'ventas/emilio_on_1069.jpeg',
                 'uploaded_at' => $t,
             ],
         ];
@@ -469,13 +471,13 @@ class OrphanDocumentPackRecoveryTest extends TestCase
             app(ContractImageExtractor::class),
             function (string $type, string $path): array {
                 return match (true) {
-                    str_contains($path, '2fc10a01') => [
-                        'dni' => '36026170M',
+                    str_contains($path, 'wrong_on_1078') => [
+                        'dni' => '36009804S',
                         'documento_tipo' => 'dni_anverso',
                     ],
-                    str_contains($path, '5b5cac46') => [
+                    str_contains($path, 'emilio_on_1069') => [
                         'dni' => '36026170M',
-                        'documento_tipo' => 'dni_reverso',
+                        'documento_tipo' => 'dni_anverso',
                     ],
                     default => ['dni' => null],
                 };
@@ -483,22 +485,13 @@ class OrphanDocumentPackRecoveryTest extends TestCase
         );
 
         $proposals = $matcher->proposeByDni([$venta1078], orphans: [], withReclaim: true, linkedRows: $linkedRows);
-
         $clears = collect($proposals)->where('action', 'clear');
-        $autos = collect($proposals)->where('action', 'auto');
 
-        $this->assertCount(2, $clears);
-        $this->assertTrue($clears->every(fn ($p) => (int) $p['venta_id'] === 48));
-        $this->assertCount(2, $autos);
-        $this->assertTrue($autos->every(fn ($p) => (int) $p['venta_id'] === 2149));
-        $this->assertSame(
-            'ventas/2fc10a01-good.jpeg',
-            $autos->firstWhere('field', 'dni_anverso')['path'] ?? null,
-        );
-        $this->assertSame(
-            'ventas/5b5cac46-good.jpeg',
-            $autos->firstWhere('field', 'dni_reverso')['path'] ?? null,
-        );
+        $this->assertCount(1, $clears);
+        $this->assertSame(2149, (int) $clears->first()['venta_id']);
+        $this->assertSame('ventas/wrong_on_1078.jpeg', $clears->first()['path']);
+        $this->assertTrue($clears->every(fn ($p) => (int) $p['venta_id'] !== 48));
+        $this->assertSame([], collect($proposals)->where('action', 'auto')->all());
     }
 
     public function test_apply_clears_before_attach(): void
@@ -507,25 +500,23 @@ class OrphanDocumentPackRecoveryTest extends TestCase
             $this->markTestSkipped('apply() requiere MySQL (DB_CONNECTION=mysql).');
         }
 
-        $holder = $this->seedPersistedVenta('35810174W', '2025-09-05');
         $target = $this->seedPersistedVenta('36026170M', '2025-09-09');
 
         Storage::fake('public');
-        Storage::disk('public')->put('ventas/emilio_anverso.jpeg', 'a');
+        Storage::disk('public')->put('ventas/wrong_dni.jpeg', 'a');
+        Storage::disk('public')->put('ventas/emilio_anverso.jpeg', 'b');
 
-        $holder->forceFill([
-            'documento_titularidad' => 'ventas/emilio_anverso.jpeg',
-        ])->saveQuietly();
         $target->forceFill([
-            'dni_anverso' => null,
+            'dni_anverso' => 'ventas/wrong_dni.jpeg',
+            'dni_reverso' => null,
         ])->saveQuietly();
 
         $matcher = app(OrphanDocumentMatcher::class);
         $result = $matcher->apply([
             [
-                'venta_id' => $holder->id,
-                'path' => 'ventas/emilio_anverso.jpeg',
-                'field' => 'documento_titularidad',
+                'venta_id' => $target->id,
+                'path' => 'ventas/wrong_dni.jpeg',
+                'field' => 'dni_anverso',
                 'action' => 'clear',
             ],
             [
@@ -538,7 +529,6 @@ class OrphanDocumentPackRecoveryTest extends TestCase
 
         $this->assertSame(1, $result['cleared']);
         $this->assertSame(1, $result['applied']);
-        $this->assertNull($holder->fresh()->documento_titularidad);
         $this->assertSame('ventas/emilio_anverso.jpeg', $target->fresh()->dni_anverso);
     }
 

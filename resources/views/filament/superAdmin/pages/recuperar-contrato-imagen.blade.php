@@ -42,6 +42,33 @@
         .recovery-datos-entry {
             white-space: nowrap;
         }
+        /* Cabecera VER DATOS: nombre, DNI, fechas — azul, negrita, mayúsculas, sin badge */
+        .recovery-datos-highlight-section {
+            margin-bottom: 0.75rem !important;
+            max-width: 42rem;
+        }
+        .recovery-datos-highlight-label {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+        }
+        html.dark .recovery-datos-highlight-label {
+            color: #60a5fa !important;
+        }
+        .recovery-datos-highlight,
+        .recovery-datos-highlight .fi-in-text-item,
+        .recovery-datos-highlight-wrp .fi-in-text-item {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+        }
+        html.dark .recovery-datos-highlight,
+        html.dark .recovery-datos-highlight .fi-in-text-item,
+        html.dark .recovery-datos-highlight-wrp .fi-in-text-item {
+            color: #60a5fa !important;
+        }
     </style>
 
     <div class="space-y-6">
