@@ -940,6 +940,19 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
         $entry = function (string $name, string $label, callable $state, array $opts = []) {
             $highlight = (bool) ($opts['highlight'] ?? false);
+
+            if ($highlight && $state instanceof \Closure) {
+                $inner = $state;
+                $state = static function (ContratoRecoveryItem $r) use ($inner): string {
+                    $raw = $inner($r);
+                    $text = filled($raw) && (string) $raw !== '—'
+                        ? (string) $raw
+                        : '—';
+
+                    return mb_strtoupper($text);
+                };
+            }
+
             $e = Infolists\Components\TextEntry::make($name)
                 ->label($highlight
                     ? new HtmlString(
@@ -960,15 +973,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         : 'recovery-datos-entry-wrp',
                 ]);
 
-            if ($highlight) {
-                $e->formatStateUsing(function ($value): string {
-                    $text = filled($value) && (string) $value !== '—'
-                        ? (string) $value
-                        : '—';
-
-                    return mb_strtoupper($text);
-                });
-            } elseif ($opts['badge'] ?? false) {
+            if (! $highlight && ($opts['badge'] ?? false)) {
                 $e->badge()->color($opts['color'] ?? 'gray');
             }
             if (isset($opts['span'])) {
