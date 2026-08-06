@@ -86,9 +86,9 @@
                     <button
                         type="button"
                         wire:click="selectCalendarMonth({{ $monthNum }})"
-                        title="{{ $hasActivity ? 'Hay actividad de «'.$clienteQ.'» en '.$badge['label'].' '.$this->selectedYear : 'Filtrar por '.$badge['label'].' '.$this->selectedYear }}"
+                        title="{{ $hasActivity ? 'Hay actividad de «'.$clienteQ.'» en '.($badge['full'] ?? $badge['label']).' '.$this->selectedYear : 'Filtrar por '.($badge['full'] ?? $badge['label']).' '.$this->selectedYear }}"
                         class="{{ $hasActivity ? 'lista-amano-has-activity' : '' }}"
-                        style="flex: 0 0 auto; height: 1.85rem; padding: 0 0.55rem; border-radius: 999px; font-size: 0.68rem; letter-spacing: 0.01em; cursor: pointer; line-height: 1; white-space: nowrap; {{ $badgeStyle }}"
+                        style="flex: 0 0 auto; height: 1.55rem; min-width: 2.35rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.62rem; letter-spacing: 0.02em; cursor: pointer; line-height: 1; white-space: nowrap; {{ $badgeStyle }}"
                     >
                         {{ $badge['label'] }}
                     </button>
@@ -121,7 +121,7 @@
                             · Actividad en:
                             <strong style="color:#15803d;">
                                 @foreach ($monthsWithActivity as $m)
-                                    {{ $monthBadges[$m]['label'] ?? $m }}@if (! $loop->last), @endif
+                                    {{ $monthBadges[$m]['full'] ?? $monthBadges[$m]['label'] ?? $m }}@if (! $loop->last), @endif
                                 @endforeach
                                 {{ $this->selectedYear }}
                             </strong>

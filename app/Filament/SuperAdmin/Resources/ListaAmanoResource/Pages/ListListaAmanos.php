@@ -143,18 +143,18 @@ class ListListaAmanos extends ListRecords
     public function monthBadges(): array
     {
         return [
-            1 => ['label' => 'ENERO', 'bg' => '#fde8e8', 'border' => '#f5c2c2', 'text' => '#9f1239'],
-            2 => ['label' => 'FEBRERO', 'bg' => '#fce7f3', 'border' => '#f0abcf', 'text' => '#9d174d'],
-            3 => ['label' => 'MARZO', 'bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
-            4 => ['label' => 'ABRIL', 'bg' => '#ede9fe', 'border' => '#c4b5fd', 'text' => '#5b21b6'],
-            5 => ['label' => 'MAYO', 'bg' => '#e0e7ff', 'border' => '#a5b4fc', 'text' => '#3730a3'],
-            6 => ['label' => 'JUNIO', 'bg' => '#e0f2fe', 'border' => '#7dd3fc', 'text' => '#075985'],
-            7 => ['label' => 'JULIO', 'bg' => '#ccfbf1', 'border' => '#5eead4', 'text' => '#115e59'],
-            8 => ['label' => 'AGOSTO', 'bg' => '#d1fae5', 'border' => '#6ee7b7', 'text' => '#065f46'],
-            9 => ['label' => 'SEPTIEMBRE', 'bg' => '#ecfccb', 'border' => '#bef264', 'text' => '#3f6212'],
-            10 => ['label' => 'OCTUBRE', 'bg' => '#fef9c3', 'border' => '#fde047', 'text' => '#854d0e'],
-            11 => ['label' => 'NOVIEMBRE', 'bg' => '#ffedd5', 'border' => '#fdba74', 'text' => '#9a3412'],
-            12 => ['label' => 'DICIEMBRE', 'bg' => '#fee2e2', 'border' => '#fca5a5', 'text' => '#991b1b'],
+            1 => ['label' => 'ENE', 'full' => 'Enero', 'bg' => '#fde8e8', 'border' => '#f5c2c2', 'text' => '#9f1239'],
+            2 => ['label' => 'FEB', 'full' => 'Febrero', 'bg' => '#fce7f3', 'border' => '#f0abcf', 'text' => '#9d174d'],
+            3 => ['label' => 'MAR', 'full' => 'Marzo', 'bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
+            4 => ['label' => 'ABR', 'full' => 'Abril', 'bg' => '#ede9fe', 'border' => '#c4b5fd', 'text' => '#5b21b6'],
+            5 => ['label' => 'MAY', 'full' => 'Mayo', 'bg' => '#e0e7ff', 'border' => '#a5b4fc', 'text' => '#3730a3'],
+            6 => ['label' => 'JUN', 'full' => 'Junio', 'bg' => '#e0f2fe', 'border' => '#7dd3fc', 'text' => '#075985'],
+            7 => ['label' => 'JUL', 'full' => 'Julio', 'bg' => '#ccfbf1', 'border' => '#5eead4', 'text' => '#115e59'],
+            8 => ['label' => 'AGO', 'full' => 'Agosto', 'bg' => '#d1fae5', 'border' => '#6ee7b7', 'text' => '#065f46'],
+            9 => ['label' => 'SEP', 'full' => 'Septiembre', 'bg' => '#ecfccb', 'border' => '#bef264', 'text' => '#3f6212'],
+            10 => ['label' => 'OCT', 'full' => 'Octubre', 'bg' => '#fef9c3', 'border' => '#fde047', 'text' => '#854d0e'],
+            11 => ['label' => 'NOV', 'full' => 'Noviembre', 'bg' => '#ffedd5', 'border' => '#fdba74', 'text' => '#9a3412'],
+            12 => ['label' => 'DIC', 'full' => 'Diciembre', 'bg' => '#fee2e2', 'border' => '#fca5a5', 'text' => '#991b1b'],
         ];
     }
 
@@ -209,7 +209,7 @@ class ListListaAmanos extends ListRecords
 
         $badges = $this->monthBadges();
         $month = $this->selectedBadgeMonth();
-        $label = $badges[$month]['label'] ?? 'MES';
+        $label = $badges[$month]['full'] ?? ($badges[$month]['label'] ?? 'MES');
 
         return $label.' '.$this->selectedYear;
     }
