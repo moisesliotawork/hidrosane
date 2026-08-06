@@ -28,32 +28,53 @@ class ListUsers extends ListRecords
                 ->badge(User::count())
                 ->badgeColor('gray'),
 
-            'comerciales' => Tab::make('Comerciales')
-                ->icon('heroicon-o-briefcase')
-                ->badge(User::whereHas('roles', fn(Builder $q) => $q->where('name', 'commercial'))->whereNull('baja')->count())
+            'de_alta' => Tab::make('De Alta')
+                ->icon('heroicon-o-check-circle')
+                ->badge(User::whereNull('baja')->count())
                 ->badgeColor('success')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->whereHas('roles', fn(Builder $q) => $q->where('name', 'commercial'))
+                    fn (Builder $query) => $query
+                        ->whereNull('baja')
+                        ->orderBy('empleado_id', 'asc')
+                ),
+
+            'de_baja' => Tab::make('De Baja')
+                ->icon('heroicon-o-x-circle')
+                ->badge(User::whereNotNull('baja')->count())
+                ->badgeColor('danger')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query
+                        ->whereNotNull('baja')
+                        ->orderByDesc('baja')
+                        ->orderBy('empleado_id', 'asc')
+                ),
+
+            'comerciales' => Tab::make('Comerciales')
+                ->icon('heroicon-o-briefcase')
+                ->badge(User::whereHas('roles', fn (Builder $q) => $q->where('name', 'commercial'))->whereNull('baja')->count())
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'commercial'))
                         ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
 
             'jefes_equipo' => Tab::make('Jefes de Equipo')
                 ->icon('heroicon-o-star')
-                ->badge(User::whereHas('roles', fn(Builder $q) => $q->where('name', 'team_leader'))->whereNull('baja')->count())
+                ->badge(User::whereHas('roles', fn (Builder $q) => $q->where('name', 'team_leader'))->whereNull('baja')->count())
                 ->badgeColor('warning')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->whereHas('roles', fn(Builder $q) => $q->where('name', 'team_leader'))
+                    fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'team_leader'))
                         ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
 
             'teleoperadoras' => Tab::make('Teleoperadoras')
                 ->icon('heroicon-o-phone')
-                ->badge(User::whereHas('roles', fn(Builder $q) => $q->where('name', 'teleoperator'))->whereNull('baja')->count())
+                ->badge(User::whereHas('roles', fn (Builder $q) => $q->where('name', 'teleoperator'))->whereNull('baja')->count())
                 ->badgeColor('info')
                 ->modifyQueryUsing(
-                    fn(Builder $query) => $query->whereHas('roles', fn(Builder $q) => $q->where('name', 'teleoperator'))
+                    fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'teleoperator'))
                         ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
@@ -62,6 +83,6 @@ class ListUsers extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'todos';
+        return 'de_alta';
     }
 }
