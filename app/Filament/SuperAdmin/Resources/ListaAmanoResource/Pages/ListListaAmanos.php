@@ -1,0 +1,163 @@
+<?php
+
+namespace App\Filament\SuperAdmin\Resources\ListaAmanoResource\Pages;
+
+use App\Filament\SuperAdmin\Resources\ListaAmanoResource;
+use App\Models\ListaAmano;
+use Filament\Actions;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Enums\MaxWidth;
+use Illuminate\Database\Eloquent\Builder;
+
+class ListListaAmanos extends ListRecords
+{
+    protected static string $resource = ListaAmanoResource::class;
+
+    protected static string $view = 'filament.super-admin.resources.lista-amano.list-lista-amanos';
+
+    /** Mes seleccionado (Y-m). Null + showAllMonths = Todos. */
+    public ?string $selectedYearMonth = null;
+
+    public bool $showAllMonths = true;
+
+    public int $selectedYear;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $this->selectedYear = (int) now()->year;
+        $this->selectedYearMonth = null;
+        $this->showAllMonths = true;
+    }
+
+    public function getMaxContentWidth(): MaxWidth|string|null
+    {
+        return MaxWidth::Full;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\CreateAction::make()
+                ->label('Nuevo registro'),
+        ];
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        $query = parent::getTableQuery();
+
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return $query;
+        }
+
+        try {
+            [$year, $month] = array_map('intval', explode('-', $this->selectedYearMonth));
+        } catch (\Throwable) {
+            return $query;
+        }
+
+        return $query
+            ->where('anio', $year)
+            ->where('mes', $month);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function availableYears(): array
+    {
+        $current = (int) now()->year;
+        $years = ListaAmano::query()
+            ->distinct()
+            ->orderByDesc('anio')
+            ->pluck('anio')
+            ->map(fn ($y) => (int) $y)
+            ->all();
+
+        if ($years === []) {
+            return [$current, $current - 1];
+        }
+
+        if (! in_array($current, $years, true)) {
+            array_unshift($years, $current);
+        }
+
+        return $years;
+    }
+
+    /**
+     * @return array<int, array{label: string, bg: string, border: string, text: string}>
+     */
+    public function monthBadges(): array
+    {
+        return [
+            1 => ['label' => 'ENERO', 'bg' => '#fde8e8', 'border' => '#f5c2c2', 'text' => '#9f1239'],
+            2 => ['label' => 'FEBRERO', 'bg' => '#fce7f3', 'border' => '#f0abcf', 'text' => '#9d174d'],
+            3 => ['label' => 'MARZO', 'bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
+            4 => ['label' => 'ABRIL', 'bg' => '#ede9fe', 'border' => '#c4b5fd', 'text' => '#5b21b6'],
+            5 => ['label' => 'MAYO', 'bg' => '#e0e7ff', 'border' => '#a5b4fc', 'text' => '#3730a3'],
+            6 => ['label' => 'JUNIO', 'bg' => '#e0f2fe', 'border' => '#7dd3fc', 'text' => '#075985'],
+            7 => ['label' => 'JULIO', 'bg' => '#ccfbf1', 'border' => '#5eead4', 'text' => '#115e59'],
+            8 => ['label' => 'AGOSTO', 'bg' => '#d1fae5', 'border' => '#6ee7b7', 'text' => '#065f46'],
+            9 => ['label' => 'SEPTIEMBRE', 'bg' => '#ecfccb', 'border' => '#bef264', 'text' => '#3f6212'],
+            10 => ['label' => 'OCTUBRE', 'bg' => '#fef9c3', 'border' => '#fde047', 'text' => '#854d0e'],
+            11 => ['label' => 'NOVIEMBRE', 'bg' => '#ffedd5', 'border' => '#fdba74', 'text' => '#9a3412'],
+            12 => ['label' => 'DICIEMBRE', 'bg' => '#fee2e2', 'border' => '#fca5a5', 'text' => '#991b1b'],
+        ];
+    }
+
+    public function selectedBadgeMonth(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[1];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectCalendarMonth(int $month): void
+    {
+        $month = max(1, min(12, $month));
+        $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
+        $this->showAllMonths = false;
+        $this->resetTable();
+    }
+
+    public function showAllPayments(): void
+    {
+        $this->showAllMonths = true;
+        $this->selectedYearMonth = null;
+        $this->resetTable();
+    }
+
+    public function updatedSelectedYear(mixed $value): void
+    {
+        $this->selectedYear = (int) $value;
+
+        if (! $this->showAllMonths && filled($this->selectedYearMonth)) {
+            $month = $this->selectedBadgeMonth() ?? (int) now()->month;
+            $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
+        }
+
+        $this->resetTable();
+    }
+
+    public function selectedPeriodLabel(): ?string
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return 'Todos los registros';
+        }
+
+        $badges = $this->monthBadges();
+        $month = $this->selectedBadgeMonth();
+        $label = $badges[$month]['label'] ?? 'MES';
+
+        return $label.' '.$this->selectedYear;
+    }
+}

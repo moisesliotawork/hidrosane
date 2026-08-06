@@ -567,11 +567,16 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             $this->emptyReview(),
                             $record->reviewedData(),
                             [
-                                'dni' => data_get($record->reviewedData(), 'dni') ?: $record->dni,
+                                'dni' => $this->formatDniGrouped(
+                                    data_get($record->reviewedData(), 'dni') ?: $record->dni
+                                ),
                                 'nro_contr_adm' => data_get($record->reviewedData(), 'nro_contr_adm')
                                     ?: $record->nro_contr_adm,
-                                'cliente_nombre' => data_get($record->reviewedData(), 'cliente_nombre')
-                                    ?: $record->cliente_nombre,
+                                'cliente_nombre' => mb_strtoupper(trim((string) (
+                                    data_get($record->reviewedData(), 'cliente_nombre')
+                                    ?: $record->cliente_nombre
+                                    ?: ''
+                                ))),
                                 'comercial_id' => $record->comercial_id
                                     ?? data_get($record->reviewedData(), 'comercial_id'),
                                 'repartidor_id' => data_get($record->reviewedData(), 'repartidor_id'),
@@ -585,7 +590,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     })
                     ->form($this->recoveredDataFormSchema())
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
-                        $dni = mb_strtoupper(trim((string) ($data['dni'] ?? '')));
+                        $dni = $this->normalizeDniInput($data['dni'] ?? '');
                         $nro = trim((string) ($data['nro_contr_adm'] ?? ''));
 
                         if ($dni === '' || $nro === '') {
@@ -597,6 +602,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             return;
                         }
 
+                        $data['dni'] = $dni;
+                        $data['cliente_nombre'] = mb_strtoupper(trim((string) ($data['cliente_nombre'] ?? ''))) ?: null;
                         $data['fecha_venta'] = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
                         $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
                         unset($data['fecha_promo']);
@@ -784,18 +791,25 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return [
             Forms\Components\Section::make()
                 ->compact()
-                ->columns(1)
-                ->extraAttributes(['class' => 'recovery-datos-highlight-form'])
+                ->columns(4)
+                ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-form-4col'])
                 ->schema([
-                    Forms\Components\TextInput::make('cliente_nombre')
-                        ->label('NOMBRE DE CLIENTE')
-                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
-                    Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
+                    Forms\Components\TextInput::make('nro_contr_adm')
+                        ->label('Nº CONTRATO')
                         ->required()
-                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                        ->inlineLabel()
+                        ->extraInputAttributes(['class' => 'recovery-nro-contrato-input'])
+                        ->columnSpan(1),
+                    Forms\Components\TextInput::make('cliente_nombre')
+                        ->label('CLIENTE')
+                        ->inlineLabel()
+                        ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
+                        ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
+                        ->extraInputAttributes(['class' => 'recovery-cliente-nombre-input'])
+                        ->columnSpan(2),
                     Forms\Components\DatePicker::make('fecha_venta')
-                        ->label('FECHA DE CONTRATO')
+                        ->label('FEC. PROMO')
+                        ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
@@ -803,9 +817,24 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->afterStateUpdated(function (Set $set, mixed $state): void {
                             $set('fecha_promo', $state);
                         })
-                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
+                        ->columnSpan(1),
+
+                    Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->required()
+                        ->inlineLabel()
+                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
+                        })
+                        ->extraInputAttributes(['class' => 'recovery-dni-input'])
+                        ->columnSpan(1),
                     Forms\Components\DatePicker::make('fecha_promo')
-                        ->label('FECHA PROMO')
+                        ->label('FECHA CONTRATO')
+                        ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
@@ -814,53 +843,86 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->afterStateUpdated(function (Set $set, mixed $state): void {
                             $set('fecha_venta', $state);
                         })
-                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
+                        ->columnSpan(1),
                     Forms\Components\DatePicker::make('fecha_entrega')
                         ->label('FECHA ENTREGA')
+                        ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
-                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                        ->extraInputAttributes(['class' => 'recovery-fecha-bold-input'])
+                        ->columnSpan(1),
+                    Forms\Components\TextInput::make('nro_albaran')
+                        ->label('ALBARÁN')
+                        ->inlineLabel()
+                        ->columnSpan(1),
                 ]),
 
             Forms\Components\Section::make('Resto de datos')
                 ->compact()
-                ->columns(2)
+                ->columns(4)
+                ->extraAttributes(['class' => 'recovery-datos-form-4col'])
                 ->schema([
-                    Forms\Components\TextInput::make('nro_contr_adm')
-                        ->label('Cod.Contrato (nº contrato admin)')
-                        ->required(),
-                    Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
-                    Forms\Components\TextInput::make('horario_entrega')->label('Hora Entr.'),
+                    Forms\Components\TextInput::make('horario_entrega')
+                        ->label('Hora Entr.')
+                        ->inlineLabel(),
                     Forms\Components\TextInput::make('comercial_codes')
-                        ->label('Com. (códigos comerciales, ej. 008,004)'),
+                        ->label('Com. (códigos)')
+                        ->inlineLabel(),
                     Forms\Components\Select::make('comercial_id')
-                        ->label('Comercial principal')
+                        ->label('Comercial')
+                        ->inlineLabel()
                         ->options(fn () => $this->empleadoOptions())
                         ->searchable()
                         ->preload(),
                     Forms\Components\TextInput::make('repartidor_code')
-                        ->label('Rep. (id empleado repartidor)'),
+                        ->label('Rep. código')
+                        ->inlineLabel(),
                     Forms\Components\Select::make('repartidor_id')
                         ->label('Repartidor')
+                        ->inlineLabel()
                         ->options(fn () => $this->empleadoOptions())
                         ->searchable()
                         ->preload(),
-                    Forms\Components\TextInput::make('importe_total')->label('Importe total')->numeric(),
-                    Forms\Components\TextInput::make('entrada')->label('Entrada')->numeric(),
-                    Forms\Components\TextInput::make('cuota_mensual')->label('Cuota mensual')->numeric(),
-                    Forms\Components\TextInput::make('num_cuotas')->label('Nº cuotas')->numeric()->integer(),
-                    Forms\Components\TextInput::make('iban')->label('IBAN'),
+                    Forms\Components\TextInput::make('importe_total')
+                        ->label('Total')
+                        ->inlineLabel()
+                        ->numeric(),
+                    Forms\Components\TextInput::make('entrada')
+                        ->label('Entrada')
+                        ->inlineLabel()
+                        ->numeric(),
+                    Forms\Components\TextInput::make('cuota_mensual')
+                        ->label('Cuota')
+                        ->inlineLabel()
+                        ->numeric(),
+                    Forms\Components\TextInput::make('num_cuotas')
+                        ->label('Nº cuotas')
+                        ->inlineLabel()
+                        ->numeric()
+                        ->integer(),
+                    Forms\Components\TextInput::make('iban')
+                        ->label('IBAN')
+                        ->inlineLabel()
+                        ->extraInputAttributes(['class' => 'recovery-iban-input'])
+                        ->columnSpan(2),
+                    Forms\Components\TextInput::make('telefonos')
+                        ->label('Teléfonos')
+                        ->inlineLabel()
+                        ->columnSpan(2),
+                    Forms\Components\Textarea::make('direccion')
+                        ->label('Dirección')
+                        ->rows(2)
+                        ->columnSpan(2),
+                    Forms\Components\Textarea::make('observaciones')
+                        ->label('Observaciones')
+                        ->rows(2)
+                        ->columnSpan(2),
                     Forms\Components\Textarea::make('productos_texto')
                         ->label('Texto OCR / manuscrito (pista)')
                         ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
                         ->rows(3)
-                        ->columnSpanFull(),
-                    Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2)->columnSpanFull(),
-                    Forms\Components\TextInput::make('telefonos')->label('Teléfonos')->columnSpanFull(),
-                    Forms\Components\Textarea::make('observaciones')
-                        ->label('Observaciones')
-                        ->rows(2)
                         ->columnSpanFull(),
                 ]),
 
@@ -1325,6 +1387,30 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         }
 
         return null;
+    }
+
+    protected function formatDniGrouped(?string $dni): string
+    {
+        $raw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) $dni) ?? '');
+        if ($raw === '') {
+            return '';
+        }
+
+        $letter = '';
+        if (preg_match('/[A-Z]$/', $raw) === 1) {
+            $letter = substr($raw, -1);
+            $raw = substr($raw, 0, -1);
+        }
+
+        $chunks = $raw === '' ? [] : str_split($raw, 3);
+        $grouped = implode(' ', $chunks);
+
+        return trim($grouped.($letter !== '' ? ' '.$letter : ''));
+    }
+
+    protected function normalizeDniInput(?string $dni): string
+    {
+        return mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) $dni) ?? '');
     }
 
     protected function normalizeDateForPicker(mixed $value): ?string

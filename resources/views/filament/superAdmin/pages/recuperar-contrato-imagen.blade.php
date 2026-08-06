@@ -70,22 +70,67 @@
             color: #60a5fa !important;
         }
         .recovery-datos-highlight-form {
-            max-width: 42rem;
             margin-bottom: 0.75rem;
+            max-width: none !important;
+        }
+        .recovery-datos-form-4col .fi-fo-field-wrp {
+            gap: 0.35rem 0.5rem;
+        }
+        /* Etiquetas al lado del valor */
+        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
         }
         .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         .recovery-datos-highlight-form label {
             font-weight: 800 !important;
             text-transform: uppercase !important;
             color: #1d4ed8 !important;
+            white-space: nowrap;
         }
         html.dark .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         html.dark .recovery-datos-highlight-form label {
             color: #60a5fa !important;
         }
-        .recovery-datos-highlight-input {
-            font-weight: 700 !important;
+        .recovery-nro-contrato-input {
+            font-size: 1.65rem !important;
+            font-weight: 900 !important;
+            line-height: 1.2 !important;
+            color: #111827 !important;
+        }
+        html.dark .recovery-nro-contrato-input {
+            color: #f9fafb !important;
+        }
+        .recovery-cliente-nombre-input {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
             color: #1d4ed8 !important;
+            font-size: 1.05rem !important;
+        }
+        html.dark .recovery-cliente-nombre-input {
+            color: #60a5fa !important;
+        }
+        .recovery-fecha-verde-input {
+            font-weight: 800 !important;
+            color: #14532d !important;
+        }
+        html.dark .recovery-fecha-verde-input {
+            color: #86efac !important;
+        }
+        .recovery-fecha-bold-input {
+            font-weight: 800 !important;
+        }
+        .recovery-dni-input {
+            font-weight: 700 !important;
+            letter-spacing: 0.04em;
+            font-variant-numeric: tabular-nums;
+        }
+        .recovery-iban-input {
+            font-weight: 800 !important;
+            letter-spacing: 0.03em;
+            font-variant-numeric: tabular-nums;
         }
     </style>
 
