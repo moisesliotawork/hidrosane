@@ -99,6 +99,7 @@ class ListaAmanoResource extends Resource
                     Tables\Columns\Layout\Split::make([
                         Tables\Columns\TextColumn::make('id')
                             ->label('ID')
+                            ->description('ID', position: 'above')
                             ->sortable()
                             ->grow(false)
                             ->weight(FontWeight::SemiBold)
@@ -106,45 +107,55 @@ class ListaAmanoResource extends Resource
 
                         Tables\Columns\TextColumn::make('cliente')
                             ->label('Cliente')
+                            ->description('Cliente', position: 'above')
                             ->sortable()
                             ->searchable()
                             ->weight(FontWeight::Bold)
                             ->wrap()
                             ->grow(),
 
-                        Tables\Columns\TextColumn::make('comercial_1')
-                            ->label('Com.1')
-                            ->placeholder('—')
-                            ->grow(false),
+                        Tables\Columns\TextColumn::make('comerciales')
+                            ->label('Comerciales')
+                            ->description('Comerciales', position: 'above')
+                            ->getStateUsing(function (ListaAmano $record): ?string {
+                                $parts = array_values(array_filter([
+                                    $record->comercial_1,
+                                    $record->comercial_2,
+                                ], fn ($v) => filled($v)));
 
-                        Tables\Columns\TextColumn::make('comercial_2')
-                            ->label('Com.2')
+                                return $parts === [] ? null : implode(' · ', $parts);
+                            })
                             ->placeholder('—')
                             ->grow(false),
 
                         Tables\Columns\TextColumn::make('nro')
                             ->label('Nº')
+                            ->description('Nº', position: 'above')
                             ->sortable()
                             ->grow(false),
 
                         Tables\Columns\TextColumn::make('pagina')
                             ->label('Pág.')
+                            ->description('Pág.', position: 'above')
                             ->grow(false),
 
                         Tables\Columns\TextColumn::make('mes_codigo')
                             ->label('Mes')
+                            ->description('Mes', position: 'above')
                             ->badge()
                             ->grow(false),
                     ])->from('md'),
 
                     Tables\Columns\TextColumn::make('detalle')
                         ->label('Detalle')
+                        ->description('Detalle', position: 'above')
                         ->wrap()
                         ->color('gray')
                         ->placeholder('—'),
 
                     Tables\Columns\TextColumn::make('observaciones')
                         ->label('Obs.')
+                        ->description('Observaciones', position: 'above')
                         ->wrap()
                         ->color('warning')
                         ->placeholder('')
@@ -157,7 +168,8 @@ class ListaAmanoResource extends Resource
                     ->form([
                         Forms\Components\TextInput::make('q')
                             ->label('Nombre de cliente')
-                            ->placeholder('Ej. Carmen Martinez'),
+                            ->placeholder('Ej. Carmen Martinez')
+                            ->live(debounce: 400),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         $q = trim((string) ($data['q'] ?? ''));
@@ -174,6 +186,7 @@ class ListaAmanoResource extends Resource
                     }),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
+            ->persistFiltersInSession()
             ->actions([
                 Tables\Actions\EditAction::make()
                     ->label('Editar')

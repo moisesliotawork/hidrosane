@@ -26,9 +26,13 @@ class ListListaAmanos extends ListRecords
     {
         parent::mount();
 
-        $this->selectedYear = (int) now()->year;
-        $this->selectedYearMonth = null;
-        $this->showAllMonths = true;
+        $this->selectedYear = (int) (session('lista_amano.selectedYear') ?: now()->year);
+        $this->selectedYearMonth = session('lista_amano.selectedYearMonth');
+        $this->showAllMonths = (bool) session('lista_amano.showAllMonths', true);
+
+        if ($this->showAllMonths) {
+            $this->selectedYearMonth = null;
+        }
     }
 
     public function getMaxContentWidth(): MaxWidth|string|null
@@ -61,6 +65,52 @@ class ListListaAmanos extends ListRecords
         return $query
             ->where('anio', $year)
             ->where('mes', $month);
+    }
+
+    /**
+     * Recarga la tabla sin borrar el filtro de cliente.
+     */
+    protected function refreshTableKeepingFilters(): void
+    {
+        $this->resetPage();
+        $this->flushCachedTableRecords();
+    }
+
+    protected function persistMonthSelection(): void
+    {
+        session([
+            'lista_amano.selectedYear' => $this->selectedYear,
+            'lista_amano.selectedYearMonth' => $this->selectedYearMonth,
+            'lista_amano.showAllMonths' => $this->showAllMonths,
+        ]);
+    }
+
+    public function clienteSearchQuery(): string
+    {
+        return trim((string) data_get($this->tableFilters, 'cliente_nombre.q', ''));
+    }
+
+    /**
+     * Meses (1-12) del año seleccionado donde el cliente buscado tiene registros.
+     *
+     * @return list<int>
+     */
+    public function monthsWithClienteActivity(): array
+    {
+        $q = $this->clienteSearchQuery();
+        if ($q === '') {
+            return [];
+        }
+
+        return ListaAmano::query()
+            ->where('anio', $this->selectedYear)
+            ->where('cliente', 'like', '%'.$q.'%')
+            ->distinct()
+            ->orderBy('mes')
+            ->pluck('mes')
+            ->map(fn ($m) => (int) $m)
+            ->values()
+            ->all();
     }
 
     /**
@@ -126,14 +176,16 @@ class ListListaAmanos extends ListRecords
         $month = max(1, min(12, $month));
         $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
         $this->showAllMonths = false;
-        $this->resetTable();
+        $this->persistMonthSelection();
+        $this->refreshTableKeepingFilters();
     }
 
     public function showAllPayments(): void
     {
         $this->showAllMonths = true;
         $this->selectedYearMonth = null;
-        $this->resetTable();
+        $this->persistMonthSelection();
+        $this->refreshTableKeepingFilters();
     }
 
     public function updatedSelectedYear(mixed $value): void
@@ -145,7 +197,8 @@ class ListListaAmanos extends ListRecords
             $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
         }
 
-        $this->resetTable();
+        $this->persistMonthSelection();
+        $this->refreshTableKeepingFilters();
     }
 
     public function selectedPeriodLabel(): ?string

@@ -205,7 +205,12 @@ class UserResource extends Resource
                     ->onColor('success')
                     ->offColor('danger')
                     ->disabled(fn (User $record): bool => (int) $record->id === (int) auth()->id())
-                    ->sortable(),
+                    ->sortable(true, function (Builder $query, string $direction): Builder {
+                        return $query
+                            ->reorder()
+                            ->orderBy('users.can_login', $direction)
+                            ->orderBy('users.empleado_id', 'asc');
+                    }),
 
                 IconColumn::make('activo')
                     ->label('Activo')

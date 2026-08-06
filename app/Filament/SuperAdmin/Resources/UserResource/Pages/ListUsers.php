@@ -33,9 +33,7 @@ class ListUsers extends ListRecords
                 ->badge(User::whereNull('baja')->count())
                 ->badgeColor('success')
                 ->modifyQueryUsing(
-                    fn (Builder $query) => $query
-                        ->whereNull('baja')
-                        ->orderBy('empleado_id', 'asc')
+                    fn (Builder $query) => $query->whereNull('baja')
                 ),
 
             'de_baja' => Tab::make('De Baja')
@@ -43,10 +41,7 @@ class ListUsers extends ListRecords
                 ->badge(User::whereNotNull('baja')->count())
                 ->badgeColor('danger')
                 ->modifyQueryUsing(
-                    fn (Builder $query) => $query
-                        ->whereNotNull('baja')
-                        ->orderByDesc('baja')
-                        ->orderBy('empleado_id', 'asc')
+                    fn (Builder $query) => $query->whereNotNull('baja')
                 ),
 
             'comerciales' => Tab::make('Comerciales')
@@ -56,7 +51,6 @@ class ListUsers extends ListRecords
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'commercial'))
                         ->whereNull('baja')
-                        ->orderBy('empleado_id', 'asc')
                 ),
 
             'jefes_equipo' => Tab::make('Jefes de Equipo')
@@ -66,7 +60,6 @@ class ListUsers extends ListRecords
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'team_leader'))
                         ->whereNull('baja')
-                        ->orderBy('empleado_id', 'asc')
                 ),
 
             'teleoperadoras' => Tab::make('Teleoperadoras')
@@ -76,7 +69,6 @@ class ListUsers extends ListRecords
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'teleoperator'))
                         ->whereNull('baja')
-                        ->orderBy('empleado_id', 'asc')
                 ),
         ];
     }
