@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Spatie\Permission\Models\Role;
@@ -197,6 +198,14 @@ class UserResource extends Resource
                             ->orderBy('r.name', $direction)
                             ->select('users.*');
                     }),
+
+                ToggleColumn::make('can_login')
+                    ->label('Login')
+                    ->onColor('success')
+                    ->offColor('danger')
+                    ->disabled(fn (User $record): bool => (int) $record->id === (int) auth()->id())
+                    ->sortable(),
+
                 TextColumn::make('alta_empleado')
                     ->label('Fecha de alta')
                     ->date('d/m/Y')
