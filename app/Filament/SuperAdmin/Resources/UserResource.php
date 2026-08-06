@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Forms\Components\TextInput;
@@ -205,6 +206,43 @@ class UserResource extends Resource
                     ->offColor('danger')
                     ->disabled(fn (User $record): bool => (int) $record->id === (int) auth()->id())
                     ->sortable(),
+
+                IconColumn::make('activo')
+                    ->label('Activo')
+                    ->getStateUsing(fn (User $record): bool => blank($record->baja))
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->alignCenter()
+                    ->tooltip(fn (User $record): string => blank($record->baja)
+                        ? 'Activo — clic para dar de baja'
+                        : 'De baja — clic para reactivar')
+                    ->action(
+                        Tables\Actions\Action::make('toggleActivo')
+                            ->requiresConfirmation()
+                            ->modalHeading(fn (User $record): string => blank($record->baja)
+                                ? 'Dar de baja al usuario'
+                                : 'Reactivar usuario')
+                            ->modalDescription(fn (User $record): string => blank($record->baja)
+                                ? 'Se marcará la fecha de baja con la fecha de hoy ('.now('Europe/Madrid')->format('d/m/Y').'). ¿Continuar?'
+                                : 'Se eliminará la fecha de baja y el usuario quedará activo. ¿Continuar?')
+                            ->modalSubmitActionLabel(fn (User $record): string => blank($record->baja)
+                                ? 'Sí, dar de baja'
+                                : 'Sí, reactivar')
+                            ->action(function (User $record): void {
+                                if (blank($record->baja)) {
+                                    $record->update([
+                                        'baja' => now('Europe/Madrid')->startOfDay(),
+                                    ]);
+                                } else {
+                                    $record->update([
+                                        'baja' => null,
+                                    ]);
+                                }
+                            })
+                    ),
 
                 TextColumn::make('alta_empleado')
                     ->label('Fecha de alta')
