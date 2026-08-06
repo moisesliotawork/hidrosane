@@ -24,11 +24,6 @@ class ListUsers extends ListRecords
         ];
     }
 
-    protected function getTableQuery(): Builder
-    {
-        return parent::getTableQuery()->whereNull('baja');
-    }
-
     /**
      * @return Collection<int, User>
      */
@@ -58,7 +53,31 @@ class ListUsers extends ListRecords
             'todos' => Tab::make('Todos')
                 ->icon('heroicon-o-users')
                 ->badge(User::whereNull('baja')->count())
-                ->badgeColor('gray'),
+                ->badgeColor('gray')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query->whereNull('baja')
+                ),
+
+            'de_alta' => Tab::make('De Alta')
+                ->icon('heroicon-o-check-circle')
+                ->badge(User::whereNull('baja')->count())
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query
+                        ->whereNull('baja')
+                        ->orderBy('empleado_id', 'asc')
+                ),
+
+            'de_baja' => Tab::make('De Baja')
+                ->icon('heroicon-o-x-circle')
+                ->badge(User::whereNotNull('baja')->count())
+                ->badgeColor('danger')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query
+                        ->whereNotNull('baja')
+                        ->orderByDesc('baja')
+                        ->orderBy('empleado_id', 'asc')
+                ),
 
             'comerciales' => Tab::make('Comerciales')
                 ->icon('heroicon-o-briefcase')
@@ -66,6 +85,7 @@ class ListUsers extends ListRecords
                 ->badgeColor('success')
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'commercial'))
+                        ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
 
@@ -75,6 +95,7 @@ class ListUsers extends ListRecords
                 ->badgeColor('warning')
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'team_leader'))
+                        ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
 
@@ -84,6 +105,7 @@ class ListUsers extends ListRecords
                 ->badgeColor('info')
                 ->modifyQueryUsing(
                     fn (Builder $query) => $query->whereHas('roles', fn (Builder $q) => $q->where('name', 'teleoperator'))
+                        ->whereNull('baja')
                         ->orderBy('empleado_id', 'asc')
                 ),
         ];
@@ -91,6 +113,6 @@ class ListUsers extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'todos';
+        return 'de_alta';
     }
 }

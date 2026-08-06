@@ -6,6 +6,7 @@
 >
     @php
         $usuariosDeBaja = $this->getUsuariosDeBaja();
+        $mostrarSeccionBaja = ($this->activeTab ?? 'todos') !== 'de_baja';
     @endphp
 
     <div class="flex flex-col gap-y-6">
@@ -17,6 +18,7 @@
 
         {{ \Filament\Support\Facades\FilamentView::renderHook(\Filament\View\PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER, scopes: $this->getRenderHookScopes()) }}
 
+        @if ($mostrarSeccionBaja)
         <x-filament::section
             heading="USUARIOS DE BAJA"
             :description="$usuariosDeBaja->count() . ' usuario(s) con fecha de baja'"
@@ -73,5 +75,6 @@
                 </div>
             @endif
         </x-filament::section>
+        @endif
     </div>
 </x-filament-panels::page>
