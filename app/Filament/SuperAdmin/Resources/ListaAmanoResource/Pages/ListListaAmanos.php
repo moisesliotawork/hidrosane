@@ -85,60 +85,52 @@ class ListListaAmanos extends ListRecords
         ]);
     }
 
+    /**
+     * Años mostrados en las filas de tabs (arriba → abajo).
+     *
+     * @return list<int>
+     */
+    public function tabYears(): array
+    {
+        return [2025, 2026];
+    }
+
     public function clienteSearchQuery(): string
     {
         return trim((string) data_get($this->tableFilters, 'cliente_nombre.q', ''));
     }
 
     /**
-     * Meses (1-12) del año seleccionado donde el cliente buscado tiene registros.
+     * Meses (1-12) con actividad del cliente buscado, por año.
      *
-     * @return list<int>
+     * @return array<int, list<int>>
      */
-    public function monthsWithClienteActivity(): array
+    public function clienteActivityByYear(): array
     {
         $q = $this->clienteSearchQuery();
         if ($q === '') {
             return [];
         }
 
-        return ListaAmano::query()
-            ->where('anio', $this->selectedYear)
+        $rows = ListaAmano::query()
+            ->whereIn('anio', $this->tabYears())
             ->where('cliente', 'like', '%'.$q.'%')
+            ->select('anio', 'mes')
             ->distinct()
+            ->orderBy('anio')
             ->orderBy('mes')
-            ->pluck('mes')
-            ->map(fn ($m) => (int) $m)
-            ->values()
-            ->all();
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->anio][] = (int) $row->mes;
+        }
+
+        return $map;
     }
 
     /**
-     * @return list<int>
-     */
-    public function availableYears(): array
-    {
-        $current = (int) now()->year;
-        $years = ListaAmano::query()
-            ->distinct()
-            ->orderByDesc('anio')
-            ->pluck('anio')
-            ->map(fn ($y) => (int) $y)
-            ->all();
-
-        if ($years === []) {
-            return [$current, $current - 1];
-        }
-
-        if (! in_array($current, $years, true)) {
-            array_unshift($years, $current);
-        }
-
-        return $years;
-    }
-
-    /**
-     * @return array<int, array{label: string, bg: string, border: string, text: string}>
+     * @return array<int, array{label: string, full: string, bg: string, border: string, text: string}>
      */
     public function monthBadges(): array
     {
@@ -171,10 +163,24 @@ class ListListaAmanos extends ListRecords
         }
     }
 
-    public function selectCalendarMonth(int $month): void
+    public function selectedBadgeYear(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[0];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectCalendarMonth(int $year, int $month): void
     {
         $month = max(1, min(12, $month));
-        $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
+        $this->selectedYear = $year;
+        $this->selectedYearMonth = sprintf('%04d-%02d', $year, $month);
         $this->showAllMonths = false;
         $this->persistMonthSelection();
         $this->refreshTableKeepingFilters();
@@ -188,19 +194,6 @@ class ListListaAmanos extends ListRecords
         $this->refreshTableKeepingFilters();
     }
 
-    public function updatedSelectedYear(mixed $value): void
-    {
-        $this->selectedYear = (int) $value;
-
-        if (! $this->showAllMonths && filled($this->selectedYearMonth)) {
-            $month = $this->selectedBadgeMonth() ?? (int) now()->month;
-            $this->selectedYearMonth = sprintf('%04d-%02d', $this->selectedYear, $month);
-        }
-
-        $this->persistMonthSelection();
-        $this->refreshTableKeepingFilters();
-    }
-
     public function selectedPeriodLabel(): ?string
     {
         if ($this->showAllMonths || blank($this->selectedYearMonth)) {
@@ -209,8 +202,9 @@ class ListListaAmanos extends ListRecords
 
         $badges = $this->monthBadges();
         $month = $this->selectedBadgeMonth();
+        $year = $this->selectedBadgeYear() ?? $this->selectedYear;
         $label = $badges[$month]['full'] ?? ($badges[$month]['label'] ?? 'MES');
 
-        return $label.' '.$this->selectedYear;
+        return $label.' '.$year;
     }
 }
