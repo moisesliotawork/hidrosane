@@ -216,8 +216,16 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('nro_contr_adm')->label('Cod.Contrato (nº contrato admin)')->required(),
                         Forms\Components\TextInput::make('cliente_nombre')->label('Nombre (extraído)'),
                         Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
-                        Forms\Components\DatePicker::make('fecha_venta')->label('Fec.Promo. (fecha contrato admin)')->native(false),
-                        Forms\Components\DatePicker::make('fecha_entrega')->label('Fec.Entr. (fecha entrega)')->native(false),
+                        Forms\Components\DatePicker::make('fecha_venta')
+                            ->label('Fec.Promo. (fecha contrato admin)')
+                            ->native(false)
+                            ->displayFormat('d-m-Y')
+                            ->format('Y-m-d'),
+                        Forms\Components\DatePicker::make('fecha_entrega')
+                            ->label('Fec.Entr. (fecha entrega)')
+                            ->native(false)
+                            ->displayFormat('d-m-Y')
+                            ->format('Y-m-d'),
                         Forms\Components\TextInput::make('horario_entrega')->label('Hora Entr.'),
                         Forms\Components\TextInput::make('comercial_codes')->label('Com. (códigos comerciales, ej. 008,004)'),
                         Forms\Components\Select::make('comercial_id')
@@ -544,39 +552,31 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->actions([
                 Tables\Actions\Action::make('verDatos')
                     ->label('VER DATOS')
-                    ->icon('heroicon-o-eye')
-                    ->color('info')
-                    ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Datos — '.$record->nro_contr_adm)
-                    ->modalWidth(MaxWidth::FiveExtraLarge)
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Cerrar')
-                    ->infolist(fn (Infolist $infolist): Infolist => $infolist
-                        ->columns(4)
-                        ->extraAttributes(['class' => 'recovery-datos-infolist'])
-                        ->schema($this->recoveredDataInfolistSchema())),
-
-                Tables\Actions\Action::make('editar')
-                    ->label('Editar')
                     ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->visible(fn (ContratoRecoveryItem $record) => in_array($record->status, [
-                        ContratoRecoveryItem::STATUS_PENDING_ADD,
-                        ContratoRecoveryItem::STATUS_FAILED,
-                        ContratoRecoveryItem::STATUS_DRAFT,
-                    ], true))
+                    ->color('info')
                     ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Editar datos — '.$record->nro_contr_adm)
-                    ->modalWidth(MaxWidth::ThreeExtraLarge)
+                    ->modalWidth(MaxWidth::FiveExtraLarge)
+                    ->modalSubmitActionLabel('Guardar cambios')
+                    ->modalCancelActionLabel('Cerrar')
                     ->fillForm(function (ContratoRecoveryItem $record): array {
+                        $fechaVenta = $this->normalizeDateForPicker(
+                            data_get($record->reviewedData(), 'fecha_venta')
+                        );
+
                         return array_merge(
                             $this->emptyReview(),
                             $record->reviewedData(),
                             [
+                                'dni' => data_get($record->reviewedData(), 'dni') ?: $record->dni,
+                                'nro_contr_adm' => data_get($record->reviewedData(), 'nro_contr_adm')
+                                    ?: $record->nro_contr_adm,
+                                'cliente_nombre' => data_get($record->reviewedData(), 'cliente_nombre')
+                                    ?: $record->cliente_nombre,
                                 'comercial_id' => $record->comercial_id
                                     ?? data_get($record->reviewedData(), 'comercial_id'),
                                 'repartidor_id' => data_get($record->reviewedData(), 'repartidor_id'),
-                                'fecha_venta' => $this->normalizeDateForPicker(
-                                    data_get($record->reviewedData(), 'fecha_venta')
-                                ),
+                                'fecha_venta' => $fechaVenta,
+                                'fecha_promo' => $fechaVenta,
                                 'fecha_entrega' => $this->normalizeDateForPicker(
                                     data_get($record->reviewedData(), 'fecha_entrega')
                                 ),
@@ -596,6 +596,84 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
                             return;
                         }
+
+                        $data['fecha_venta'] = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+                        $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
+                        unset($data['fecha_promo']);
+
+                        $customer = Customer::query()
+                            ->whereNull('deleted_at')
+                            ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
+                            ->orderBy('id')
+                            ->first();
+
+                        $record->forceFill([
+                            'reviewed_json' => $data,
+                            'extracted_json' => $record->extracted_json ?: $data,
+                            'dni' => $dni,
+                            'nro_contr_adm' => $nro,
+                            'cliente_nombre' => $data['cliente_nombre'] ?? null,
+                            'customer_id' => $customer?->id,
+                            'comercial_id' => $data['comercial_id'] ?? null,
+                            'status' => $record->status === ContratoRecoveryItem::STATUS_FAILED
+                                ? ContratoRecoveryItem::STATUS_PENDING_ADD
+                                : $record->status,
+                            'last_error' => null,
+                        ])->save();
+
+                        Notification::make()
+                            ->title('Datos guardados')
+                            ->body('Se usarán al Agregar Contrato.')
+                            ->success()
+                            ->send();
+
+                        $this->resetTable();
+                    }),
+
+                Tables\Actions\Action::make('editar')
+                    ->label('Editar')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('warning')
+                    ->visible(false)
+                    ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Editar datos — '.$record->nro_contr_adm)
+                    ->modalWidth(MaxWidth::ThreeExtraLarge)
+                    ->fillForm(function (ContratoRecoveryItem $record): array {
+                        $fechaVenta = $this->normalizeDateForPicker(
+                            data_get($record->reviewedData(), 'fecha_venta')
+                        );
+
+                        return array_merge(
+                            $this->emptyReview(),
+                            $record->reviewedData(),
+                            [
+                                'comercial_id' => $record->comercial_id
+                                    ?? data_get($record->reviewedData(), 'comercial_id'),
+                                'repartidor_id' => data_get($record->reviewedData(), 'repartidor_id'),
+                                'fecha_venta' => $fechaVenta,
+                                'fecha_promo' => $fechaVenta,
+                                'fecha_entrega' => $this->normalizeDateForPicker(
+                                    data_get($record->reviewedData(), 'fecha_entrega')
+                                ),
+                            ],
+                        );
+                    })
+                    ->form($this->recoveredDataFormSchema())
+                    ->action(function (ContratoRecoveryItem $record, array $data): void {
+                        $dni = mb_strtoupper(trim((string) ($data['dni'] ?? '')));
+                        $nro = trim((string) ($data['nro_contr_adm'] ?? ''));
+
+                        if ($dni === '' || $nro === '') {
+                            Notification::make()
+                                ->title('DNI y nº contrato admin son obligatorios')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $data['fecha_venta'] = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+                        $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
+                        unset($data['fecha_promo']);
 
                         $customer = Customer::query()
                             ->whereNull('deleted_at')
@@ -704,39 +782,89 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     protected function recoveredDataFormSchema(): array
     {
         return [
-            Forms\Components\TextInput::make('dni')->label('DNI')->required(),
-            Forms\Components\TextInput::make('nro_contr_adm')->label('Cod.Contrato (nº contrato admin)')->required(),
-            Forms\Components\TextInput::make('cliente_nombre')->label('Nombre (extraído)'),
-            Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
-            Forms\Components\DatePicker::make('fecha_venta')->label('Fec.Promo. (fecha contrato admin)')->native(false),
-            Forms\Components\DatePicker::make('fecha_entrega')->label('Fec.Entr. (fecha entrega)')->native(false),
-            Forms\Components\TextInput::make('horario_entrega')->label('Hora Entr.'),
-            Forms\Components\TextInput::make('comercial_codes')->label('Com. (códigos comerciales, ej. 008,004)'),
-            Forms\Components\Select::make('comercial_id')
-                ->label('Comercial principal')
-                ->options(fn () => $this->empleadoOptions())
-                ->searchable()
-                ->preload(),
-            Forms\Components\TextInput::make('repartidor_code')->label('Rep. (id empleado repartidor)'),
-            Forms\Components\Select::make('repartidor_id')
-                ->label('Repartidor')
-                ->options(fn () => $this->empleadoOptions())
-                ->searchable()
-                ->preload(),
-            Forms\Components\TextInput::make('importe_total')->label('Importe total')->numeric(),
-            Forms\Components\TextInput::make('entrada')->label('Entrada')->numeric(),
-            Forms\Components\TextInput::make('cuota_mensual')->label('Cuota mensual')->numeric(),
-            Forms\Components\TextInput::make('num_cuotas')->label('Nº cuotas')->numeric()->integer(),
-            Forms\Components\TextInput::make('iban')->label('IBAN'),
-            Forms\Components\Textarea::make('productos_texto')
-                ->label('Texto OCR / manuscrito (pista)')
-                ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
-                ->rows(3)
-                ->columnSpanFull(),
+            Forms\Components\Section::make()
+                ->compact()
+                ->columns(1)
+                ->extraAttributes(['class' => 'recovery-datos-highlight-form'])
+                ->schema([
+                    Forms\Components\TextInput::make('cliente_nombre')
+                        ->label('NOMBRE DE CLIENTE')
+                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                    Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->required()
+                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                    Forms\Components\DatePicker::make('fecha_venta')
+                        ->label('FECHA DE CONTRATO')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('fecha_promo', $state);
+                        })
+                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                    Forms\Components\DatePicker::make('fecha_promo')
+                        ->label('FECHA PROMO')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->dehydrated(false)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('fecha_venta', $state);
+                        })
+                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                    Forms\Components\DatePicker::make('fecha_entrega')
+                        ->label('FECHA ENTREGA')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->extraInputAttributes(['class' => 'recovery-datos-highlight-input']),
+                ]),
+
+            Forms\Components\Section::make('Resto de datos')
+                ->compact()
+                ->columns(2)
+                ->schema([
+                    Forms\Components\TextInput::make('nro_contr_adm')
+                        ->label('Cod.Contrato (nº contrato admin)')
+                        ->required(),
+                    Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
+                    Forms\Components\TextInput::make('horario_entrega')->label('Hora Entr.'),
+                    Forms\Components\TextInput::make('comercial_codes')
+                        ->label('Com. (códigos comerciales, ej. 008,004)'),
+                    Forms\Components\Select::make('comercial_id')
+                        ->label('Comercial principal')
+                        ->options(fn () => $this->empleadoOptions())
+                        ->searchable()
+                        ->preload(),
+                    Forms\Components\TextInput::make('repartidor_code')
+                        ->label('Rep. (id empleado repartidor)'),
+                    Forms\Components\Select::make('repartidor_id')
+                        ->label('Repartidor')
+                        ->options(fn () => $this->empleadoOptions())
+                        ->searchable()
+                        ->preload(),
+                    Forms\Components\TextInput::make('importe_total')->label('Importe total')->numeric(),
+                    Forms\Components\TextInput::make('entrada')->label('Entrada')->numeric(),
+                    Forms\Components\TextInput::make('cuota_mensual')->label('Cuota mensual')->numeric(),
+                    Forms\Components\TextInput::make('num_cuotas')->label('Nº cuotas')->numeric()->integer(),
+                    Forms\Components\TextInput::make('iban')->label('IBAN'),
+                    Forms\Components\Textarea::make('productos_texto')
+                        ->label('Texto OCR / manuscrito (pista)')
+                        ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2)->columnSpanFull(),
+                    Forms\Components\TextInput::make('telefonos')->label('Teléfonos')->columnSpanFull(),
+                    Forms\Components\Textarea::make('observaciones')
+                        ->label('Observaciones')
+                        ->rows(2)
+                        ->columnSpanFull(),
+                ]),
+
             ...$this->ofertaProductosFormSchema(),
-            Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2),
-            Forms\Components\TextInput::make('telefonos')->label('Teléfonos'),
-            Forms\Components\Textarea::make('observaciones')->label('Observaciones')->rows(2)->columnSpanFull(),
         ];
     }
 
@@ -922,7 +1050,10 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     /**
      * @return array<int, Infolists\Components\Component>
      */
-    protected function recoveredDataInfolistSchema(): array
+    /**
+     * @return array<int, Infolists\Components\Component>
+     */
+    protected function recoveredDataInfolistSchema(bool $withHighlight = true): array
     {
         $val = static fn (string $key, mixed $fallback = null) => function (ContratoRecoveryItem $r) use ($key, $fallback) {
             $v = data_get($r->reviewedData(), $key);
@@ -936,6 +1067,20 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             }
 
             return '—';
+        };
+
+        $valDate = static function (string $key) use ($val): \Closure {
+            return static function (ContratoRecoveryItem $r) use ($key, $val): string {
+                $raw = $val($key)($r);
+                if ($raw === '—' || ! filled($raw)) {
+                    return '—';
+                }
+                try {
+                    return \Carbon\Carbon::parse($raw)->format('d-m-Y');
+                } catch (\Throwable) {
+                    return (string) $raw;
+                }
+            };
         };
 
         $entry = function (string $name, string $label, callable $state, array $opts = []) {
@@ -983,10 +1128,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             return $e;
         };
 
-        $fechaContrato = $val('fecha_venta');
+        $sections = [];
 
-        return [
-            Infolists\Components\Section::make()
+        if ($withHighlight) {
+            $fechaContrato = $valDate('fecha_venta');
+            $sections[] = Infolists\Components\Section::make()
                 ->compact()
                 ->columns(1)
                 ->extraAttributes(['class' => 'recovery-datos-section recovery-datos-highlight-section'])
@@ -1005,100 +1151,104 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ),
                     $entry('fecha_contrato_hl', 'Fecha de contrato', $fechaContrato, ['highlight' => true]),
                     $entry('fecha_promo_hl', 'Fecha promo', $fechaContrato, ['highlight' => true]),
-                    $entry('fecha_entrega_hl', 'Fecha entrega', $val('fecha_entrega'), ['highlight' => true]),
-                ]),
+                    $entry('fecha_entrega_hl', 'Fecha entrega', $valDate('fecha_entrega'), ['highlight' => true]),
+                ]);
+        }
 
-            Infolists\Components\Section::make()
-                ->compact()
-                ->columns(4)
-                ->extraAttributes(['class' => 'recovery-datos-section'])
-                ->schema([
-                    $entry('nro_contr_adm', 'Cod.Contrato', $val('nro_contr_adm', fn (ContratoRecoveryItem $r) => $r->nro_contr_adm), ['badge' => true, 'color' => 'success']),
-                    $entry('status', 'Estado', fn (ContratoRecoveryItem $r) => $r->statusLabel(), ['badge' => true, 'color' => 'warning']),
-                    $entry('nro_albaran', 'Albarán', $val('nro_albaran'), ['badge' => true, 'color' => 'gray']),
-                    $entry('customer_match', 'Cliente app', function (ContratoRecoveryItem $r): string {
-                        if ($r->customer) {
-                            return "#{$r->customer->id} {$r->customer->first_names} {$r->customer->last_names}";
-                        }
+        $sections[] = Infolists\Components\Section::make()
+            ->compact()
+            ->columns(4)
+            ->extraAttributes(['class' => 'recovery-datos-section'])
+            ->schema([
+                $entry('nro_contr_adm', 'Cod.Contrato', $val('nro_contr_adm', fn (ContratoRecoveryItem $r) => $r->nro_contr_adm), ['badge' => true, 'color' => 'success']),
+                $entry('status', 'Estado', fn (ContratoRecoveryItem $r) => $r->statusLabel(), ['badge' => true, 'color' => 'warning']),
+                $entry('nro_albaran', 'Albarán', $val('nro_albaran'), ['badge' => true, 'color' => 'gray']),
+                $entry('customer_match', 'Cliente app', function (ContratoRecoveryItem $r): string {
+                    if ($r->customer) {
+                        return "#{$r->customer->id} {$r->customer->first_names} {$r->customer->last_names}";
+                    }
 
-                        return $r->customer_id ? "#{$r->customer_id}" : 'sin match';
-                    }, ['badge' => true, 'color' => 'info']),
+                    return $r->customer_id ? "#{$r->customer_id}" : 'sin match';
+                }, ['badge' => true, 'color' => 'info']),
 
-                    $entry('horario_entrega', 'Hora Entr.', $val('horario_entrega')),
-                    $entry('comercial', 'Com.', function (ContratoRecoveryItem $r): string {
-                        $codes = data_get($r->reviewedData(), 'comercial_codes');
-                        $id = $r->comercial_id ?: data_get($r->reviewedData(), 'comercial_id');
-                        $name = null;
-                        if ($id) {
-                            $u = User::query()->find($id);
-                            $name = $u
-                                ? trim(($u->empleado_id ? $u->empleado_id.' - ' : '').$u->name)
-                                : "#{$id}";
-                        }
+                $entry('fecha_venta_ro', 'Fec.Promo.', $valDate('fecha_venta'), ['badge' => true, 'color' => 'warning']),
+                $entry('fecha_entrega_ro', 'Fec.Entr.', $valDate('fecha_entrega'), ['badge' => true, 'color' => 'warning']),
+                $entry('horario_entrega', 'Hora Entr.', $val('horario_entrega')),
+                $entry('comercial', 'Com.', function (ContratoRecoveryItem $r): string {
+                    $codes = data_get($r->reviewedData(), 'comercial_codes');
+                    $id = $r->comercial_id ?: data_get($r->reviewedData(), 'comercial_id');
+                    $name = null;
+                    if ($id) {
+                        $u = User::query()->find($id);
+                        $name = $u
+                            ? trim(($u->empleado_id ? $u->empleado_id.' - ' : '').$u->name)
+                            : "#{$id}";
+                    }
 
-                        return trim(collect([$codes, $name])->filter()->implode(' · ')) ?: '—';
-                    }, ['badge' => true, 'color' => 'info']),
-                    $entry('repartidor', 'Rep.', function (ContratoRecoveryItem $r): string {
-                        $code = data_get($r->reviewedData(), 'repartidor_code');
-                        $id = data_get($r->reviewedData(), 'repartidor_id');
-                        $name = null;
-                        if ($id) {
-                            $u = User::query()->find($id);
-                            $name = $u
-                                ? trim(($u->empleado_id ? $u->empleado_id.' - ' : '').$u->name)
-                                : "#{$id}";
-                        }
+                    return trim(collect([$codes, $name])->filter()->implode(' · ')) ?: '—';
+                }, ['badge' => true, 'color' => 'info']),
+                $entry('repartidor', 'Rep.', function (ContratoRecoveryItem $r): string {
+                    $code = data_get($r->reviewedData(), 'repartidor_code');
+                    $id = data_get($r->reviewedData(), 'repartidor_id');
+                    $name = null;
+                    if ($id) {
+                        $u = User::query()->find($id);
+                        $name = $u
+                            ? trim(($u->empleado_id ? $u->empleado_id.' - ' : '').$u->name)
+                            : "#{$id}";
+                    }
 
-                        return trim(collect([$code, $name])->filter()->implode(' · ')) ?: '—';
-                    }, ['badge' => true, 'color' => 'gray']),
+                    return trim(collect([$code, $name])->filter()->implode(' · ')) ?: '—';
+                }, ['badge' => true, 'color' => 'gray']),
 
-                    $entry('importe_total', 'Total', $val('importe_total'), ['badge' => true, 'color' => 'success']),
-                    $entry('entrada', 'Entrada', $val('entrada'), ['badge' => true, 'color' => 'gray']),
-                    $entry('cuota_mensual', 'Cuota', $val('cuota_mensual'), ['badge' => true, 'color' => 'success']),
-                    $entry('num_cuotas', 'Nº cuotas', $val('num_cuotas'), ['badge' => true, 'color' => 'gray']),
+                $entry('importe_total', 'Total', $val('importe_total'), ['badge' => true, 'color' => 'success']),
+                $entry('entrada', 'Entrada', $val('entrada'), ['badge' => true, 'color' => 'gray']),
+                $entry('cuota_mensual', 'Cuota', $val('cuota_mensual'), ['badge' => true, 'color' => 'success']),
+                $entry('num_cuotas', 'Nº cuotas', $val('num_cuotas'), ['badge' => true, 'color' => 'gray']),
 
-                    $entry('iban', 'IBAN', $val('iban'), ['span' => 2]),
-                    $entry('telefonos', 'Teléfonos', $val('telefonos'), ['span' => 2]),
+                $entry('iban', 'IBAN', $val('iban'), ['span' => 2]),
+                $entry('telefonos', 'Teléfonos', $val('telefonos'), ['span' => 2]),
 
-                    $entry('direccion', 'Dirección', $val('direccion'), ['span' => 2]),
-                    $entry('docs', 'Docs', function (ContratoRecoveryItem $r): string {
-                        $docs = $r->documents ?? [];
-                        if ($docs === []) {
-                            return '—';
-                        }
+                $entry('direccion', 'Dirección', $val('direccion'), ['span' => 2]),
+                $entry('docs', 'Docs', function (ContratoRecoveryItem $r): string {
+                    $docs = $r->documents ?? [];
+                    if ($docs === []) {
+                        return '—';
+                    }
 
-                        return collect($docs)->map(fn ($d) => $d['type'] ?? '?')->implode(' · ');
-                    }, ['badge' => true, 'color' => 'gray', 'span' => 2]),
+                    return collect($docs)->map(fn ($d) => $d['type'] ?? '?')->implode(' · ');
+                }, ['badge' => true, 'color' => 'gray', 'span' => 2]),
 
-                    $entry('productos_texto', 'OCR / manuscrito', $val('productos_texto'), ['span' => 'full']),
-                    $entry('oferta_productos', 'Oferta / productos', function (ContratoRecoveryItem $r): string {
-                        $rows = data_get($r->reviewedData(), 'ventaOfertas', []);
-                        if (! is_array($rows) || $rows === []) {
-                            return '— sin oferta (obligatoria al Agregar)';
-                        }
+                $entry('productos_texto', 'OCR / manuscrito', $val('productos_texto'), ['span' => 'full']),
+                $entry('oferta_productos', 'Oferta / productos', function (ContratoRecoveryItem $r): string {
+                    $rows = data_get($r->reviewedData(), 'ventaOfertas', []);
+                    if (! is_array($rows) || $rows === []) {
+                        return '— sin oferta (obligatoria al Agregar)';
+                    }
 
-                        return collect($rows)->map(function ($row) {
-                            $ofertaId = (int) ($row['oferta_id'] ?? 0);
-                            $nombre = $ofertaId
-                                ? (Oferta::query()->whereKey($ofertaId)->value('nombre') ?? "#{$ofertaId}")
-                                : 'sin oferta';
-                            $prods = collect($row['productos'] ?? [])->map(function ($line) {
-                                $pid = (int) ($line['producto_id'] ?? 0);
-                                if ($pid <= 0) {
-                                    return null;
-                                }
-                                $pn = Producto::query()->whereKey($pid)->value('nombre') ?? "#{$pid}";
-                                $qty = (int) ($line['cantidad'] ?? 1);
+                    return collect($rows)->map(function ($row) {
+                        $ofertaId = (int) ($row['oferta_id'] ?? 0);
+                        $nombre = $ofertaId
+                            ? (Oferta::query()->whereKey($ofertaId)->value('nombre') ?? "#{$ofertaId}")
+                            : 'sin oferta';
+                        $prods = collect($row['productos'] ?? [])->map(function ($line) {
+                            $pid = (int) ($line['producto_id'] ?? 0);
+                            if ($pid <= 0) {
+                                return null;
+                            }
+                            $pn = Producto::query()->whereKey($pid)->value('nombre') ?? "#{$pid}";
+                            $qty = (int) ($line['cantidad'] ?? 1);
 
-                                return "{$pn} ×{$qty}";
-                            })->filter()->implode(', ');
+                            return "{$pn} ×{$qty}";
+                        })->filter()->implode(', ');
 
-                            return $prods !== '' ? "{$nombre}: {$prods}" : $nombre;
-                        })->filter()->implode(' | ') ?: '—';
-                    }, ['span' => 'full']),
-                    $entry('observaciones', 'Obs.', $val('observaciones'), ['span' => 'full']),
-                ]),
-        ];
+                        return $prods !== '' ? "{$nombre}: {$prods}" : $nombre;
+                    })->filter()->implode(' | ') ?: '—';
+                }, ['span' => 'full']),
+                $entry('observaciones', 'Obs.', $val('observaciones'), ['span' => 'full']),
+            ]);
+
+        return $sections;
     }
 
     protected function boldUnderlinedLabel(string $text): HtmlString

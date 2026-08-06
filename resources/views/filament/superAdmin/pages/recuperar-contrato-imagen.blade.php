@@ -69,6 +69,24 @@
         html.dark .recovery-datos-highlight-wrp .fi-in-text-item {
             color: #60a5fa !important;
         }
+        .recovery-datos-highlight-form {
+            max-width: 42rem;
+            margin-bottom: 0.75rem;
+        }
+        .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
+        .recovery-datos-highlight-form label {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+        }
+        html.dark .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
+        html.dark .recovery-datos-highlight-form label {
+            color: #60a5fa !important;
+        }
+        .recovery-datos-highlight-input {
+            font-weight: 700 !important;
+            color: #1d4ed8 !important;
+        }
     </style>
 
     <div class="space-y-6">
