@@ -689,7 +689,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             ->description('JPG/PNG/WebP · máximo 4 · subir, reordenar o eliminar')
                             ->icon('heroicon-o-camera')
                             ->collapsible()
-                            ->collapsed(false)
+                            ->collapsed()
                             ->schema([
                                 Forms\Components\FileUpload::make('reference_photos')
                                     ->label('Fotos')
@@ -702,12 +702,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     ->disk('public')
                                     ->visibility('public')
                                     ->directory('contract-recovery/references/'.$record->id)
-                                    ->imagePreviewHeight('220')
+                                    ->imagePreviewHeight('96')
                                     ->openable()
                                     ->downloadable()
                                     ->deletable()
                                     ->panelLayout('grid')
-                                    ->helperText('Tras guardar, las fotos aparecen arriba para ampliarlas con un clic.'),
+                                    ->helperText('Para ver el manuscrito en grande usa las miniaturas de «Ver fotos» arriba. Aquí solo gestionas altas/bajas.'),
                             ]),
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
