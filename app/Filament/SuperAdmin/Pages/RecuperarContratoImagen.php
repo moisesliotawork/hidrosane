@@ -649,7 +649,25 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->sortable(),
                 Tables\Columns\ImageColumn::make('reference_photos')
                     ->label('Referencias')
-                    ->disk('public')
+                    ->getStateUsing(function (ContratoRecoveryItem $record): array {
+                        $base = rtrim(request()->getSchemeAndHttpHost().request()->getBasePath(), '/');
+
+                        return collect($record->reference_photos ?? [])
+                            ->filter(fn ($p) => filled($p) && is_string($p))
+                            ->map(function (string $path) use ($base): string {
+                                if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                                    return $path;
+                                }
+                                $path = ltrim(str_replace('\\', '/', $path), '/');
+                                if (str_starts_with($path, 'storage/')) {
+                                    $path = substr($path, strlen('storage/'));
+                                }
+
+                                return $base.'/storage/'.$path;
+                            })
+                            ->values()
+                            ->all();
+                    })
                     ->square()
                     ->height(36)
                     ->stacked()
@@ -686,34 +704,45 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     ]),
                             ]),
                         Forms\Components\Section::make('Fotos de referencia')
-                            ->description('JPG/PNG/WebP · máximo 4 · subir, reordenar o eliminar')
+                            ->description('JPG/PNG/WebP · máximo 4 · subir aquí y Guardar fotos')
                             ->icon('heroicon-o-camera')
                             ->collapsible()
-                            ->collapsed()
+                            ->collapsed(false)
                             ->schema([
                                 Forms\Components\FileUpload::make('reference_photos')
-                                    ->label('Fotos')
+                                    ->label('Subir / gestionar fotos')
                                     ->image()
                                     ->multiple()
                                     ->reorderable()
                                     ->maxFiles(4)
-                                    ->maxSize(5120)
-                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                                    ->maxSize(15360) // 15 MB — fotos de manuscrito
+                                    ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
                                     ->disk('public')
                                     ->visibility('public')
                                     ->directory('contract-recovery/references/'.$record->id)
-                                    ->imagePreviewHeight('96')
+                                    ->fetchFileInformation(false)
+                                    ->imagePreviewHeight('140')
                                     ->openable()
                                     ->downloadable()
                                     ->deletable()
                                     ->panelLayout('grid')
-                                    ->helperText('Para ver el manuscrito en grande usa las miniaturas de «Ver fotos» arriba. Aquí solo gestionas altas/bajas.'),
+                                    ->helperText('1) Sube o arrastra las fotos  2) Pulsa «Guardar fotos»  3) Vuelve a abrir VER REFERENCIAS para ampliarlas arriba.'),
                             ]),
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
                         $photos = array_values(array_filter(
                             Arr::wrap($data['reference_photos'] ?? []),
-                            fn ($path) => filled($path)
+                            function ($path) {
+                                if (! filled($path) || ! is_string($path)) {
+                                    return false;
+                                }
+                                // Descarta temporales Livewire no movidos al disco public
+                                if (str_contains($path, 'livewire-tmp')) {
+                                    return false;
+                                }
+
+                                return true;
+                            }
                         ));
 
                         if (count($photos) > 4) {
@@ -726,9 +755,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
                         Notification::make()
                             ->title('Referencias guardadas')
-                            ->body(count($photos).' foto(s) en el registro.')
+                            ->body(count($photos).' foto(s) en el registro. Vuelve a abrir el modal para verlas ampliadas.')
                             ->success()
                             ->send();
+
+                        $this->flushCachedTableRecords();
                     }),
 
                 Tables\Actions\Action::make('verDatos')
