@@ -3,6 +3,7 @@
 namespace App\Filament\SuperAdmin\Pages;
 
 use App\Exports\RecoveredContractsExport;
+use App\Enums\EstadoVenta;
 use App\Enums\VendidoPor;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecoveryItem;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Services\ContractRecovery\ContractFromImageRecovery;
 use App\Services\ContractRecovery\ContractImageExtractor;
 use App\Services\ContractRecovery\ContractVoiceExtractor;
+use App\Support\RecoveredContractsQuery;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -30,6 +32,7 @@ use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -80,9 +83,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 ->label('Previsualizar PDF')
                 ->icon('heroicon-o-eye')
                 ->color('warning')
-                ->url(fn (): string => route('recuperados-aceptados.pdf'))
+                ->url(fn (): string => $this->recuperadosPdfUrl())
                 ->openUrlInNewTab()
-                ->tooltip('PDF de recuperados aceptados (agregados a la app)'),
+                ->tooltip('PDF de recuperados aceptados (filtro de mes actual)'),
 
             Action::make('goToOrphanReattach')
                 ->label('Paso 2 · Docs huérfanos')
@@ -126,11 +129,26 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     public bool $updateCustomerIban = false;
 
+    /** Mes seleccionado (Y-m). Null + showAllMonths = Todos. */
+    public ?string $selectedYearMonth = null;
+
+    public bool $showAllMonths = true;
+
+    public int $selectedYear = 2025;
+
     public function mount(): void
     {
         $this->uploadForm->fill();
         $this->voiceForm->fill();
         $this->reviewForm->fill($this->emptyReview());
+
+        $this->selectedYear = (int) (session('recuperados.selectedYear') ?: now()->year);
+        $this->selectedYearMonth = session('recuperados.selectedYearMonth');
+        $this->showAllMonths = (bool) session('recuperados.showAllMonths', true);
+
+        if ($this->showAllMonths) {
+            $this->selectedYearMonth = null;
+        }
     }
 
     protected function getForms(): array
@@ -423,7 +441,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             return;
         }
 
-        $data = $this->reviewForm->getState();
+        $data = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults(
+            $this->reviewForm->getState()
+        );
         $dni = mb_strtoupper(trim((string) ($data['dni'] ?? '')));
         $nro = trim((string) ($data['nro_contr_adm'] ?? ''));
 
@@ -508,27 +528,43 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                Schema::hasTable('contrato_recovery_items')
-                    ? ContratoRecoveryItem::query()->with(['customer', 'venta'])->latest('id')
-                    : ContratoRecoveryItem::query()->whereRaw('1=0')
-            )
+            // Closure: se reevalúa al render (tras el click del tab). Un Builder
+            // fijo se arma en boot con el mes anterior y «Todos» queda vacío.
+            ->query(fn (): Builder => Schema::hasTable('contrato_recovery_items')
+                ? $this->filteredRecoveryQuery()
+                : ContratoRecoveryItem::query()->whereRaw('1 = 0'))
             ->columns([
-                Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
-                    ->sortable()
-                    ->toggleable(),
+                Tables\Columns\TextColumn::make('nro_contr_adm')
+                    ->label('# Contrato_admin')
+                    ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayNroContrAdm())
+                    ->searchable(
+                        query: function (Builder $query, string $search): void {
+                            RecoveredContractsQuery::applySearchFilter($query, $search);
+                        },
+                    )
+                    ->forceSearchCaseInsensitive()
+                    ->weight('bold'),
+                Tables\Columns\TextColumn::make('cliente_nombre')
+                    ->label('Cliente')
+                    ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayClienteNombre())
+                    ->searchable(isGlobal: false)
+                    ->forceSearchCaseInsensitive()
+                    ->weight('bold')
+                    ->limit(48)
+                    ->tooltip(fn (?string $state): ?string => $state)
+                    ->extraAttributes([
+                        'class' => 'whitespace-nowrap',
+                        'style' => 'white-space: nowrap; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; font-weight: 800;',
+                    ]),
                 Tables\Columns\TextColumn::make('dni')
                     ->label('DNI')
-                    ->searchable()
+                    ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayDni())
+                    ->searchable(isGlobal: false)
+                    ->forceSearchCaseInsensitive()
                     ->badge()
                     ->color('warning')
                     ->weight('bold')
                     ->formatStateUsing(fn (?string $state): string => $this->formatDniGroupedEvery4($state)),
-                Tables\Columns\TextColumn::make('nro_contr_adm')
-                    ->label('# Contrato_admin')
-                    ->searchable()
-                    ->weight('bold'),
                 Tables\Columns\TextColumn::make('fecha_contrato')
                     ->label('Fecha/Contrato')
                     ->state(fn (ContratoRecoveryItem $record): string => $this->fechaContratoFormatted($record) ?? '—')
@@ -545,20 +581,47 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->badge()
                     ->color(fn (ContratoRecoveryItem $record) => $this->mesContratoColor($record))
                     ->alignCenter(),
-                Tables\Columns\TextColumn::make('cliente_nombre')
-                    ->label('Nombre')
-                    ->weight('bold')
-                    ->limit(48)
-                    ->tooltip(fn (?string $state): ?string => $state)
-                    ->extraAttributes([
-                        'class' => 'whitespace-nowrap',
-                        'style' => 'white-space: nowrap; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; font-weight: 800;',
-                    ]),
                 Tables\Columns\TextColumn::make('customer_id')
                     ->label('Cliente app')
-                    ->formatStateUsing(fn ($state, ContratoRecoveryItem $record) => $state
-                        ? "#{$state}".($record->customer ? ' '.$record->customer->first_names : '')
-                        : '— sin match'),
+                    ->state(fn (ContratoRecoveryItem $record): ?int => $record->displayCustomerId())
+                    ->searchable(isGlobal: false)
+                    ->formatStateUsing(function ($state, ContratoRecoveryItem $record): string {
+                        $id = $record->displayCustomerId();
+                        if (! $id) {
+                            return '— sin match';
+                        }
+                        $record->loadMissing(['venta.customer', 'customer']);
+                        $name = $record->venta?->customer?->first_names
+                            ?? $record->customer?->first_names
+                            ?? '';
+
+                        return '#'.$id.($name !== '' ? ' '.$name : '');
+                    }),
+                Tables\Columns\TextColumn::make('estado_venta_col')
+                    ->label('Estado de la venta')
+                    ->state(function (ContratoRecoveryItem $record): string {
+                        $estado = $record->venta?->estado_venta
+                            ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
+                            ?? EstadoVenta::POR_ASIGNAR;
+
+                        return $estado->label();
+                    })
+                    ->badge()
+                    ->color(function (ContratoRecoveryItem $record): string {
+                        $estado = $record->venta?->estado_venta
+                            ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
+                            ?? EstadoVenta::POR_ASIGNAR;
+
+                        return $estado->color();
+                    }),
+                Tables\Columns\TextColumn::make('ofertas_de_la_venta')
+                    ->label('OfertasDeLaVenta')
+                    ->html()
+                    ->state(fn (ContratoRecoveryItem $record): HtmlString => $this->formatOfertasDeLaVentaHtml($record))
+                    ->wrap()
+                    ->extraAttributes([
+                        'style' => 'font-size:8px;line-height:1.2;max-width:11rem;',
+                    ]),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
@@ -588,6 +651,10 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->limit(4)
                     ->limitedRemainingText()
                     ->defaultImageUrl(null)
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('id')
+                    ->label('ID')
+                    ->sortable()
                     ->toggleable(),
             ])
             ->actions([
@@ -875,6 +942,64 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         : null)
                     ->visible(fn (ContratoRecoveryItem $record) => filled($record->venta_id))
                     ->openUrlInNewTab(),
+
+                Tables\Actions\Action::make('syncFromVenta')
+                    ->label('Sync venta')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->tooltip('Copia al snapshot los datos actuales de la venta (cliente, nº, fecha, ofertas…)')
+                    ->visible(fn (ContratoRecoveryItem $record) => $record->canSyncFromVenta())
+                    ->requiresConfirmation()
+                    ->modalHeading('Sincronizar desde venta')
+                    ->modalDescription('Se actualizará el registro de recuperados con los datos actuales de la venta enlazada. La vista ya muestra datos en vivo; esto congela el snapshot.')
+                    ->action(function (ContratoRecoveryItem $record): void {
+                        $result = (new ContractFromImageRecovery)->syncFromVenta($record);
+                        if ($result['ok']) {
+                            Notification::make()
+                                ->title('Sincronizado')
+                                ->body($result['message'])
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('No se pudo sincronizar')
+                                ->body($result['message'])
+                                ->danger()
+                                ->send();
+                        }
+                        $this->flushCachedTableRecords();
+                    }),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkAction::make('syncFromVentaBulk')
+                    ->label('Sincronizar desde venta')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (\Illuminate\Support\Collection $records): void {
+                        $ok = 0;
+                        $fail = 0;
+                        $svc = new ContractFromImageRecovery;
+                        foreach ($records as $record) {
+                            if (! $record instanceof ContratoRecoveryItem || ! $record->canSyncFromVenta()) {
+                                $fail++;
+                                continue;
+                            }
+                            $result = $svc->syncFromVenta($record);
+                            if ($result['ok']) {
+                                $ok++;
+                            } else {
+                                $fail++;
+                            }
+                        }
+                        Notification::make()
+                            ->title('Sincronización')
+                            ->body("OK: {$ok}".($fail > 0 ? " · Fallidos/omitidos: {$fail}" : ''))
+                            ->color($fail > 0 ? 'warning' : 'success')
+                            ->send();
+                        $this->flushCachedTableRecords();
+                    }),
             ])
             ->recordAction(null)
             ->recordUrl(null)
@@ -1057,10 +1182,26 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             Forms\Components\Grid::make(3)->schema([
                                 Forms\Components\Select::make('oferta_id')
                                     ->label('Oferta')
-                                    ->options(fn () => Oferta::query()
-                                        ->orderBy('nombre')
-                                        ->pluck('nombre', 'id')
-                                        ->all())
+                                    ->options(function () {
+                                        return Oferta::query()
+                                            ->orderBy('nombre')
+                                            ->get()
+                                            ->mapWithKeys(function (Oferta $oferta) {
+                                                if ($oferta->nombre === ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE) {
+                                                    return [
+                                                        $oferta->id => new HtmlString(
+                                                            '<span style="color:#dc2626;font-weight:800;">'
+                                                            .e($oferta->nombre)
+                                                            .'</span>'
+                                                        ),
+                                                    ];
+                                                }
+
+                                                return [$oferta->id => $oferta->nombre];
+                                            })
+                                            ->all();
+                                    })
+                                    ->allowHtml()
                                     ->searchable()
                                     ->preload()
                                     ->required()
@@ -1425,10 +1566,13 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
      */
     protected function emptyReview(): array
     {
+        $defaults = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults([]);
+
         return app(ContractImageExtractor::class)->emptyPayload() + [
             'comercial_id' => null,
             'repartidor_id' => null,
-            'ventaOfertas' => [],
+            'estado_venta' => $defaults['estado_venta'] ?? EstadoVenta::POR_ASIGNAR->value,
+            'ventaOfertas' => $defaults['ventaOfertas'] ?? [],
             'productos_externos' => [],
             '_conflicts' => [],
         ];
@@ -1489,12 +1633,198 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return null;
     }
 
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\ContratoRecoveryItem>
+     */
+    protected function filteredRecoveryQuery()
+    {
+        return RecoveredContractsQuery::forList(
+            $this->selectedYearMonth,
+            $this->showAllMonths || blank($this->selectedYearMonth),
+            null, // la búsqueda la aplica Filament vía columnas searchable
+        )->with(['customer', 'venta.customer', 'venta.ventaOfertas.oferta']);
+    }
+
+    protected function recoveryFechaSqlExpression(): string
+    {
+        return RecoveredContractsQuery::fechaSqlExpression();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function tabYears(): array
+    {
+        return [2025, 2026];
+    }
+
+    public function clienteSearchQuery(): string
+    {
+        return trim((string) ($this->tableSearch ?? ''));
+    }
+
+    /**
+     * Meses (1-12) con recuperados que coinciden con la búsqueda, por año.
+     *
+     * @return array<int, list<int>>
+     */
+    public function clienteActivityByYear(): array
+    {
+        $q = $this->clienteSearchQuery();
+        if ($q === '' || ! Schema::hasTable('contrato_recovery_items')) {
+            return [];
+        }
+
+        $years = array_map('intval', $this->tabYears());
+
+        $items = RecoveredContractsQuery::applySearchFilter(
+            ContratoRecoveryItem::query()->with(['venta:id,fecha_venta']),
+            $q,
+        )
+            ->limit(500)
+            ->get(['id', 'reviewed_json', 'venta_id']);
+
+        $map = [];
+        foreach ($items as $item) {
+            $fecha = $this->fechaContratoCarbon($item);
+            if (! $fecha) {
+                continue;
+            }
+
+            $year = (int) $fecha->year;
+            $month = (int) $fecha->month;
+            if (! in_array($year, $years, true) || $month < 1 || $month > 12) {
+                continue;
+            }
+
+            if (! in_array($month, $map[$year] ?? [], true)) {
+                $map[$year][] = $month;
+            }
+        }
+
+        ksort($map);
+        foreach ($map as &$months) {
+            sort($months);
+        }
+        unset($months);
+
+        return $map;
+    }
+
+    /**
+     * @return array<int, array{label: string, full: string, bg: string, border: string, text: string}>
+     */
+    public function monthBadges(): array
+    {
+        return [
+            1 => ['label' => 'ENE', 'full' => 'Enero', 'bg' => '#fde8e8', 'border' => '#f5c2c2', 'text' => '#9f1239'],
+            2 => ['label' => 'FEB', 'full' => 'Febrero', 'bg' => '#fce7f3', 'border' => '#f0abcf', 'text' => '#9d174d'],
+            3 => ['label' => 'MAR', 'full' => 'Marzo', 'bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
+            4 => ['label' => 'ABR', 'full' => 'Abril', 'bg' => '#ede9fe', 'border' => '#c4b5fd', 'text' => '#5b21b6'],
+            5 => ['label' => 'MAY', 'full' => 'Mayo', 'bg' => '#e0e7ff', 'border' => '#a5b4fc', 'text' => '#3730a3'],
+            6 => ['label' => 'JUN', 'full' => 'Junio', 'bg' => '#e0f2fe', 'border' => '#7dd3fc', 'text' => '#075985'],
+            7 => ['label' => 'JUL', 'full' => 'Julio', 'bg' => '#ccfbf1', 'border' => '#5eead4', 'text' => '#115e59'],
+            8 => ['label' => 'AGO', 'full' => 'Agosto', 'bg' => '#d1fae5', 'border' => '#6ee7b7', 'text' => '#065f46'],
+            9 => ['label' => 'SEP', 'full' => 'Septiembre', 'bg' => '#ecfccb', 'border' => '#bef264', 'text' => '#3f6212'],
+            10 => ['label' => 'OCT', 'full' => 'Octubre', 'bg' => '#fef9c3', 'border' => '#fde047', 'text' => '#854d0e'],
+            11 => ['label' => 'NOV', 'full' => 'Noviembre', 'bg' => '#ffedd5', 'border' => '#fdba74', 'text' => '#9a3412'],
+            12 => ['label' => 'DIC', 'full' => 'Diciembre', 'bg' => '#fee2e2', 'border' => '#fca5a5', 'text' => '#991b1b'],
+        ];
+    }
+
+    public function selectedBadgeMonth(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[1];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectedBadgeYear(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[0];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectCalendarMonth(int $year, int $month): void
+    {
+        $month = max(1, min(12, $month));
+        $this->selectedYear = $year;
+        $this->selectedYearMonth = sprintf('%04d-%02d', $year, $month);
+        $this->showAllMonths = false;
+        $this->persistRecoveryMonthSelection();
+        $this->resetPage();
+        $this->flushCachedTableRecords();
+    }
+
+    public function showAllPayments(): void
+    {
+        $this->showAllMonths = true;
+        $this->selectedYearMonth = null;
+        $this->persistRecoveryMonthSelection();
+        $this->resetPage();
+        $this->flushCachedTableRecords();
+    }
+
+    protected function persistRecoveryMonthSelection(): void
+    {
+        session([
+            'recuperados.selectedYear' => $this->selectedYear,
+            'recuperados.selectedYearMonth' => $this->selectedYearMonth,
+            'recuperados.showAllMonths' => $this->showAllMonths,
+        ]);
+    }
+
+    public function selectedPeriodLabel(): string
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return 'Todos los registros';
+        }
+
+        $badges = $this->monthBadges();
+        $month = $this->selectedBadgeMonth();
+        $year = $this->selectedBadgeYear() ?? $this->selectedYear;
+        $label = $badges[$month]['full'] ?? ($badges[$month]['label'] ?? 'MES');
+
+        return $label.' '.$year;
+    }
+
+    public function recuperadosPdfUrl(bool $download = false): string
+    {
+        $params = [];
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            $params['todos'] = 1;
+        } else {
+            $params['mes'] = $this->selectedYearMonth;
+        }
+
+        $q = $this->clienteSearchQuery();
+        if ($q !== '') {
+            $params['q'] = $q;
+        }
+
+        if ($download) {
+            $params['download'] = 1;
+        }
+
+        return route('recuperados-aceptados.pdf', $params);
+    }
+
     protected function fechaContratoCarbon(ContratoRecoveryItem $record): ?Carbon
     {
-        $raw = data_get($record->reviewedData(), 'fecha_venta');
-        if (blank($raw)) {
-            $raw = $record->venta?->fecha_venta;
-        }
+        $raw = $record->displayFechaVentaRaw();
         if (blank($raw)) {
             return null;
         }
@@ -1563,6 +1893,27 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         };
 
         return Color::hex($hex);
+    }
+
+    protected function formatOfertasDeLaVentaHtml(ContratoRecoveryItem $record): HtmlString
+    {
+        $names = $record->displayOfertaNombres();
+
+        if ($names === []) {
+            return new HtmlString('<span style="font-size:8px;color:#9ca3af;">—</span>');
+        }
+
+        $lines = array_map(function (string $nombre): string {
+            $isPorAsignar = $nombre === ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE;
+            $color = $isPorAsignar ? '#dc2626' : '#111827';
+            $weight = $isPorAsignar ? '700' : '500';
+
+            return '<div style="font-size:8px;line-height:1.25;color:'.$color.';font-weight:'.$weight.';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+                .e($nombre)
+                .'</div>';
+        }, $names);
+
+        return new HtmlString(implode('', $lines));
     }
 
     protected function formatDniGrouped(?string $dni): string

@@ -27,38 +27,45 @@
         .nombre { font-weight: bold; text-transform: uppercase; }
         .fecha { font-weight: bold; color: #b45309; }
         .mes { font-weight: bold; }
+        .ofertas { font-size: 7.5px; line-height: 1.25; }
+        .ofertas-line { display: block; white-space: nowrap; }
+        .ofertas-asignar { color: #dc2626; font-weight: bold; }
+        .estado-pend { color: #b45309; font-weight: bold; }
         tr:nth-child(even) td { background: #fafafa; }
     </style>
 </head>
 <body>
     <h1>Recuperados aceptados</h1>
     <p class="meta">
-        Generado: {{ $fechaReporte }} · Registros: {{ $rows->count() }}
+        Periodo: <strong>{{ $periodoLabel ?? 'Todos' }}</strong>
+        · Generado: {{ $fechaReporte }} · Registros: {{ $rows->count() }}
     </p>
 
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>DNI</th>
                 <th># Contrato</th>
+                <th>Cliente</th>
+                <th>DNI</th>
                 <th>Fecha/Contrato</th>
                 <th>Mes</th>
-                <th>Cliente</th>
+                <th>OfertasDeLaVenta</th>
                 <th>Estado</th>
                 <th>ID Vta</th>
                 <th>Docs</th>
-                <th>Aceptado</th>
+                <th>ID</th>
             </tr>
         </thead>
         <tbody>
             @forelse ($rows as $row)
                 @php
-                    $fechaRaw = data_get($row->reviewed_json, 'fecha_venta') ?? $row->venta?->fecha_venta;
+                    $fechaRaw = $row->displayFechaVentaRaw();
                     $fecha = null;
                     try {
                         if (filled($fechaRaw)) {
-                            $fecha = \Illuminate\Support\Carbon::parse($fechaRaw)->timezone('Europe/Madrid');
+                            $fecha = $fechaRaw instanceof \Illuminate\Support\Carbon
+                                ? $fechaRaw->copy()->timezone('Europe/Madrid')
+                                : \Illuminate\Support\Carbon::parse($fechaRaw)->timezone('Europe/Madrid');
                         }
                     } catch (\Throwable) {
                         $fecha = null;
@@ -67,7 +74,7 @@
                     $mesHex = [1=>'#9f1239',2=>'#9d174d',3=>'#6b21a8',4=>'#5b21b6',5=>'#3730a3',6=>'#075985',7=>'#115e59',8=>'#065f46',9=>'#3f6212',10=>'#854d0e',11=>'#9a3412',12=>'#991b1b'];
                     $mesLabel = $fecha ? (($mesLabels[(int)$fecha->month] ?? '').' '.$fecha->format('y')) : '—';
                     $mesColor = $fecha ? ($mesHex[(int)$fecha->month] ?? '#6b7280') : '#6b7280';
-                    $dniRaw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) ($row->dni ?? '')) ?? '');
+                    $dniRaw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) ($row->displayDni() ?? '')) ?? '');
                     $dniLetter = '';
                     if ($dniRaw !== '' && preg_match('/[A-Z]$/', $dniRaw) === 1) {
                         $dniLetter = substr($dniRaw, -1);
@@ -76,18 +83,29 @@
                     $dniFmt = $dniRaw === '' && $dniLetter === ''
                         ? '—'
                         : trim(implode(' ', $dniRaw === '' ? [] : str_split($dniRaw, 4)).($dniLetter !== '' ? ' '.$dniLetter : ''));
+
+                    $ofertaNombres = $row->displayOfertaNombres();
+                    $estadoLabel = $row->statusLabel();
+                    $isPend = $row->status === \App\Models\ContratoRecoveryItem::STATUS_PENDING_ADD;
+                    $porAsignar = \App\Services\ContractRecovery\ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE;
                 @endphp
                 <tr>
-                    <td>{{ $row->id }}</td>
+                    <td>{{ $row->displayNroContrAdm() ?: '—' }}</td>
+                    <td class="nombre">{{ $row->displayClienteNombre() ?: '—' }}</td>
                     <td style="font-weight:bold;color:#b45309;">{{ $dniFmt }}</td>
-                    <td>{{ $row->nro_contr_adm ?: '—' }}</td>
                     <td class="fecha">{{ $fecha?->format('d/m/Y') ?? '—' }}</td>
                     <td class="mes" style="color: {{ $mesColor }};">{{ $mesLabel }}</td>
-                    <td class="nombre">{{ $row->cliente_nombre ?: '—' }}</td>
-                    <td>{{ $row->statusLabel() }}</td>
+                    <td class="ofertas">
+                        @forelse ($ofertaNombres as $ofertaNombre)
+                            <span class="ofertas-line {{ $ofertaNombre === $porAsignar ? 'ofertas-asignar' : '' }}">{{ $ofertaNombre }}</span>
+                        @empty
+                            —
+                        @endforelse
+                    </td>
+                    <td class="{{ $isPend ? 'estado-pend' : '' }}">{{ $estadoLabel }}</td>
                     <td>{{ $row->venta_id ?: '—' }}</td>
                     <td>{{ count($row->documents ?? []) }}</td>
-                    <td>{{ optional($row->created_at)->timezone('Europe/Madrid')->format('d/m/Y H:i') }}</td>
+                    <td>{{ $row->id }}</td>
                 </tr>
             @empty
                 <tr>

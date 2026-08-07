@@ -191,18 +191,57 @@ Route::middleware(['web', 'auth'])
             403
         );
 
-        $rows = \App\Models\ContratoRecoveryItem::query()
-            ->with(['venta'])
-            ->where('status', \App\Models\ContratoRecoveryItem::STATUS_ADDED)
-            ->orderByDesc('id')
-            ->get();
+        $mes = $request->query('mes');
+        $showAll = blank($mes) || $request->boolean('todos');
+        $search = trim((string) $request->query('q', ''));
+
+        if (! $showAll) {
+            try {
+                \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes);
+            } catch (\Throwable) {
+                $showAll = true;
+                $mes = null;
+            }
+        }
+
+        $query = \App\Support\RecoveredContractsQuery::forList(
+            $showAll ? null : (string) $mes,
+            $showAll,
+            $search !== '' ? $search : null,
+        )->with(['venta.customer', 'venta.ventaOfertas.oferta', 'customer']);
+
+        $rows = $query->get();
+
+        $periodoLabel = $showAll || blank($mes) ? 'Todos' : (string) $mes;
+        if (! $showAll && filled($mes)) {
+            try {
+                $periodoLabel = \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes)
+                    ->locale('es')
+                    ->translatedFormat('F Y');
+                $periodoLabel = mb_convert_case($periodoLabel, MB_CASE_TITLE, 'UTF-8');
+            } catch (\Throwable) {
+                $periodoLabel = (string) $mes;
+            }
+        }
+
+        if ($search !== '') {
+            $periodoLabel .= ' · Buscar: '.$search;
+        }
 
         $pdf = Pdf::loadView('pdf.recuperados-aceptados', [
             'rows' => $rows,
             'fechaReporte' => now('Europe/Madrid')->format('d/m/Y H:i'),
+            'periodoLabel' => $periodoLabel,
+            'searchQuery' => $search !== '' ? $search : null,
         ])->setPaper('a4', 'landscape');
 
-        return $pdf->stream('recuperados-aceptados.pdf');
+        $filename = 'recuperados-aceptados-'.now('Europe/Madrid')->format('Ymd-His').'.pdf';
+
+        if ($request->boolean('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
     })->name('recuperados-aceptados.pdf');
 
 Route::middleware(['web', 'auth'])

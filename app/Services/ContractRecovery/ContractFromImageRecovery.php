@@ -33,6 +33,10 @@ use Throwable;
  */
 final class ContractFromImageRecovery
 {
+    public const OFERTA_POR_ASIGNAR_NOMBRE = 'OFxAsignar';
+
+    public const PRODUCTO_POR_ASIGNAR_NOMBRE = 'Por asignar';
+
     /**
      * @return array{ok: bool, message: string, venta_id?: int}
      */
@@ -46,7 +50,7 @@ final class ContractFromImageRecovery
             ];
         }
 
-        $data = $item->reviewedData();
+        $data = $this->ensureRecoveryDefaults($item->reviewedData());
         $dni = $this->normalizeDni((string) ($data['dni'] ?? $item->dni ?? ''));
         $nro = $this->normalizeNro((string) ($data['nro_contr_adm'] ?? $item->nro_contr_adm ?? ''));
 
@@ -80,6 +84,12 @@ final class ContractFromImageRecovery
         if ($ofertaError !== null) {
             return ['ok' => false, 'message' => $ofertaError];
         }
+
+        // Persistir defaults (Por Asignar / OFxAsignar) en el staging
+        $item->forceFill(['reviewed_json' => array_merge($item->reviewedData(), [
+            'ventaOfertas' => $data['ventaOfertas'],
+            'estado_venta' => $data['estado_venta'] ?? EstadoVenta::POR_ASIGNAR->value,
+        ])])->save();
 
         try {
             $venta = DB::transaction(function () use ($item, $customer, $nro, $data, $comercialId, $updateCustomerIban, $dni) {
@@ -181,6 +191,95 @@ final class ContractFromImageRecovery
         }
     }
 
+    /**
+     * Copia datos actuales de la venta (y cliente) al snapshot del recovery item.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function syncFromVenta(ContratoRecoveryItem $item): array
+    {
+        if (! $item->venta_id) {
+            return ['ok' => false, 'message' => 'Este registro aún no tiene venta enlazada.'];
+        }
+
+        $venta = Venta::withTrashed()
+            ->with(['customer', 'ventaOfertas.productos'])
+            ->find($item->venta_id);
+
+        if (! $venta) {
+            return ['ok' => false, 'message' => 'No se encontró la venta #'.$item->venta_id.'.'];
+        }
+
+        $customer = $venta->customer;
+        $dni = $this->normalizeDni((string) ($customer?->dni ?? $item->dni ?? ''));
+        $nro = $this->normalizeNro((string) ($venta->nro_contr_adm ?? $item->nro_contr_adm ?? ''));
+        $clienteNombre = trim((string) ($customer?->name ?? $item->cliente_nombre ?? ''));
+        if ($clienteNombre !== '') {
+            $clienteNombre = mb_strtoupper($clienteNombre);
+        }
+
+        $fechaVenta = null;
+        if (filled($venta->fecha_venta)) {
+            $fechaVenta = $venta->fecha_venta instanceof \Illuminate\Support\Carbon
+                ? $venta->fecha_venta->timezone('Europe/Madrid')->format('Y-m-d')
+                : (string) $venta->fecha_venta;
+        }
+
+        $ventaOfertas = [];
+        foreach ($venta->ventaOfertas as $vo) {
+            $productos = [];
+            foreach ($vo->productos as $line) {
+                $productos[] = [
+                    'producto_id' => (int) $line->producto_id,
+                    'cantidad' => max(1, (int) ($line->cantidad ?? 1)),
+                    'puntos_linea' => (int) ($line->puntos_linea ?? 0),
+                    'vendido_por' => (string) ($line->vendido_por ?? VendidoPor::Comercial->value),
+                ];
+            }
+
+            $ventaOfertas[] = [
+                'oferta_id' => (int) $vo->oferta_id,
+                'puntos' => (int) ($vo->puntos ?? 0),
+                'productos' => $productos,
+            ];
+        }
+
+        $estado = $venta->estado_venta;
+        $estadoValue = $estado instanceof EstadoVenta
+            ? $estado->value
+            : (string) ($estado ?? EstadoVenta::POR_ASIGNAR->value);
+
+        $reviewed = array_merge($item->reviewedData(), array_filter([
+            'dni' => $dni !== '' ? $dni : null,
+            'nro_contr_adm' => $nro !== '' ? $nro : null,
+            'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : null,
+            'fecha_venta' => $fechaVenta,
+            'importe_total' => $venta->importe_total,
+            'entrada' => $venta->entrada ?? data_get($item->reviewedData(), 'entrada'),
+            'cuota_mensual' => $venta->cuota_mensual ?? data_get($item->reviewedData(), 'cuota_mensual'),
+            'num_cuotas' => $venta->num_cuotas ?? data_get($item->reviewedData(), 'num_cuotas'),
+            'comercial_id' => $venta->comercial_id,
+            'estado_venta' => $estadoValue,
+            'ventaOfertas' => $ventaOfertas !== [] ? $ventaOfertas : data_get($item->reviewedData(), 'ventaOfertas'),
+        ], fn ($v) => $v !== null));
+
+        $item->forceFill([
+            'dni' => $dni !== '' ? $dni : $item->dni,
+            'nro_contr_adm' => $nro !== '' ? $nro : $item->nro_contr_adm,
+            'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : $item->cliente_nombre,
+            'customer_id' => $venta->customer_id ?: $item->customer_id,
+            'comercial_id' => $venta->comercial_id ?: $item->comercial_id,
+            'reviewed_json' => $reviewed,
+            'last_error' => null,
+        ])->save();
+
+        return [
+            'ok' => true,
+            'message' => 'Snapshot sincronizado desde venta #'.$venta->id
+                .($nro !== '' ? " (nº {$nro})" : '').'.',
+        ];
+    }
+
     protected function findVentaByNroLocked(string $nro): ?Venta
     {
         $candidates = $this->nroCandidates($nro);
@@ -243,6 +342,81 @@ final class ContractFromImageRecovery
             "PROTEGIDO: el contrato archivado «{$nro}» (venta #{$existing->id}) pertenece a otro cliente ".
             "(customer_id={$existing->customer_id}".($existingDni !== '' ? ", DNI {$existingDni}" : '').'). '.
             "El DNI recuperado es {$dni}. No se restaura ni se reasigna. Ningún contrato se borra."
+        );
+    }
+
+    /**
+     * Rellena estado Por Asignar + oferta OFxAsignar si faltan al recuperar.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function ensureRecoveryDefaults(array $data): array
+    {
+        if (blank($data['estado_venta'] ?? null)) {
+            $data['estado_venta'] = EstadoVenta::POR_ASIGNAR->value;
+        }
+
+        $rows = $data['ventaOfertas'] ?? [];
+        $hasValid = false;
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                if (is_array($row) && (int) ($row['oferta_id'] ?? 0) > 0) {
+                    $hasValid = true;
+                    break;
+                }
+            }
+        }
+
+        if (! $hasValid) {
+            // Solo crea oferta/producto catálogo; el vínculo real va en venta_oferta_productos
+            // al Agregar Contrato (la tabla pivote oferta_productos no existe en este schema).
+            $oferta = $this->ensureOfxAsignarOferta();
+            $producto = $this->ensurePorAsignarProducto();
+
+            $data['ventaOfertas'] = [[
+                'oferta_id' => $oferta->id,
+                'puntos' => 0,
+                'productos' => [[
+                    'producto_id' => $producto->id,
+                    'cantidad' => 1,
+                    'puntos_linea' => 0,
+                    'vendido_por' => VendidoPor::Comercial->value,
+                ]],
+            ]];
+        }
+
+        return $data;
+    }
+
+    public function ensureOfxAsignarOferta(): Oferta
+    {
+        $oferta = Oferta::withTrashed()->firstOrCreate(
+            ['nombre' => self::OFERTA_POR_ASIGNAR_NOMBRE],
+            [
+                'puntos_base' => 0,
+                'precio_base' => 0,
+                'descripcion' => 'Oferta provisional al recuperar contrato (asignar después)',
+                'visible' => true,
+            ]
+        );
+
+        if ($oferta->trashed()) {
+            $oferta->restore();
+        }
+
+        return $oferta;
+    }
+
+    public function ensurePorAsignarProducto(): Producto
+    {
+        return Producto::query()->firstOrCreate(
+            ['nombre' => self::PRODUCTO_POR_ASIGNAR_NOMBRE],
+            [
+                'puntos' => 0,
+                'delete' => false,
+                'visible_for_commercials' => false,
+            ]
         );
     }
 
@@ -436,7 +610,8 @@ final class ContractFromImageRecovery
                 'productos_externos' => $productos,
                 'list_descripcion' => 'Recuperado desde imagen (SuperAdmin)',
                 'en_app' => false,
-                'estado_venta' => EstadoVenta::EN_REVISION,
+                'estado_venta' => EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
+                    ?? EstadoVenta::POR_ASIGNAR,
                 'nro_cliente_adm' => $customer->nro_cliente,
                 'observaciones_repartidor' => $this->recoveryObservaciones($data['observaciones'] ?? null),
             ]);
@@ -453,6 +628,10 @@ final class ContractFromImageRecovery
             ),
         ];
 
+        if (! $venta->estado_venta) {
+            $patch['estado_venta'] = EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
+                ?? EstadoVenta::POR_ASIGNAR;
+        }
         if (! $venta->customer_id) {
             $patch['customer_id'] = $customer->id;
         }

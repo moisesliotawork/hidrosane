@@ -5,6 +5,7 @@ namespace App\Enums;
 enum EstadoVenta: string
 {
     case EN_REVISION = 'en_revision';
+    case POR_ASIGNAR = 'por_asignar';
     case COMITE = 'comite';
     case STAND_BY = 'stand_by';
     case EN_REPARTO = 'en_reparto';
@@ -26,6 +27,7 @@ enum EstadoVenta: string
     {
         return match ($this) {
             self::EN_REVISION => 'En revisión',
+            self::POR_ASIGNAR => 'Por Asignar',
             self::COMITE => 'Comité',
             self::STAND_BY => 'Stand-by',
             self::EN_REPARTO => 'En reparto',
@@ -46,6 +48,7 @@ enum EstadoVenta: string
     {
         return match ($this) {
             self::EN_REVISION => 'info',           // Azul
+            self::POR_ASIGNAR => 'danger',         // Rojo
             self::COMITE => 'danger',              // Rojo
             self::STAND_BY => 'primary',           // Ámbar
             self::EN_REPARTO => 'success',         // Verde

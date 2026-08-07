@@ -83,7 +83,7 @@ class ContratoRecoveryItem extends Model
     {
         return match ($this->status) {
             self::STATUS_DRAFT => 'Borrador',
-            self::STATUS_PENDING_ADD => 'Pendiente de agregar',
+            self::STATUS_PENDING_ADD => 'PendxAgregar',
             self::STATUS_ADDED => 'Agregado',
             self::STATUS_FAILED => 'Error',
             default => $this->status,
@@ -93,5 +93,142 @@ class ContratoRecoveryItem extends Model
     public function reviewedData(): array
     {
         return is_array($this->reviewed_json) ? $this->reviewed_json : [];
+    }
+
+    public function canSyncFromVenta(): bool
+    {
+        return filled($this->venta_id);
+    }
+
+    /**
+     * Lectura en vivo: venta (si existe) > snapshot de recuperación.
+     */
+    public function displayNroContrAdm(): ?string
+    {
+        $fromVenta = trim((string) ($this->venta?->nro_contr_adm ?? ''));
+        if ($fromVenta !== '') {
+            return $fromVenta;
+        }
+
+        $fromCol = trim((string) ($this->nro_contr_adm ?? ''));
+
+        return $fromCol !== '' ? $fromCol : null;
+    }
+
+    public function displayDni(): ?string
+    {
+        $this->loadMissing(['venta.customer', 'customer']);
+
+        $fromVentaCustomer = trim((string) ($this->venta?->customer?->dni ?? ''));
+        if ($fromVentaCustomer !== '') {
+            return $fromVentaCustomer;
+        }
+
+        $fromCustomer = trim((string) ($this->customer?->dni ?? ''));
+        if ($fromCustomer !== '') {
+            return $fromCustomer;
+        }
+
+        $fromCol = trim((string) ($this->dni ?? ''));
+
+        return $fromCol !== '' ? $fromCol : null;
+    }
+
+    public function displayClienteNombre(): ?string
+    {
+        $this->loadMissing(['venta.customer', 'customer']);
+
+        $fromVentaCustomer = trim((string) ($this->venta?->customer?->name ?? ''));
+        if ($fromVentaCustomer !== '') {
+            return mb_strtoupper($fromVentaCustomer);
+        }
+
+        $fromCustomer = trim((string) ($this->customer?->name ?? ''));
+        if ($fromCustomer !== '') {
+            return mb_strtoupper($fromCustomer);
+        }
+
+        $fromCol = trim((string) ($this->cliente_nombre ?? ''));
+
+        return $fromCol !== '' ? $fromCol : null;
+    }
+
+    public function displayCustomerId(): ?int
+    {
+        $fromVenta = (int) ($this->venta?->customer_id ?? 0);
+        if ($fromVenta > 0) {
+            return $fromVenta;
+        }
+
+        $fromCol = (int) ($this->customer_id ?? 0);
+
+        return $fromCol > 0 ? $fromCol : null;
+    }
+
+    /**
+     * Preferir fecha de la venta cuando ya está enlazada.
+     */
+    public function displayFechaVentaRaw(): mixed
+    {
+        if ($this->venta_id && filled($this->venta?->fecha_venta)) {
+            return $this->venta->fecha_venta;
+        }
+
+        $fromJson = data_get($this->reviewedData(), 'fecha_venta');
+        if (filled($fromJson)) {
+            return $fromJson;
+        }
+
+        return $this->venta?->fecha_venta;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function displayOfertaNombres(): array
+    {
+        $names = [];
+
+        if ($this->venta) {
+            $this->venta->loadMissing('ventaOfertas.oferta');
+            foreach ($this->venta->ventaOfertas as $vo) {
+                $nombre = trim((string) ($vo->oferta?->nombre ?? ''));
+                if ($nombre !== '') {
+                    $names[] = $nombre;
+                }
+            }
+        }
+
+        if ($names !== []) {
+            return $names;
+        }
+
+        $ofertaIds = [];
+        foreach ($this->reviewedData()['ventaOfertas'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $id = (int) ($row['oferta_id'] ?? 0);
+            if ($id > 0) {
+                $ofertaIds[] = $id;
+            }
+        }
+
+        if ($ofertaIds === []) {
+            return [];
+        }
+
+        $map = Oferta::query()
+            ->whereIn('id', array_values(array_unique($ofertaIds)))
+            ->pluck('nombre', 'id');
+
+        foreach ($ofertaIds as $id) {
+            $nombre = trim((string) ($map[$id] ?? ''));
+            if ($nombre !== '') {
+                $names[] = $nombre;
+            }
+        }
+
+        return $names;
     }
 }

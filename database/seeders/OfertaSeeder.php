@@ -56,6 +56,9 @@ class OfertaSeeder extends Seeder
 
             #Venta 240  Entrega 30
             ['nombre' => 'Oferta 3564€ somier art.+colchon+topper 7pts', 'puntos' => 7, 'precio' => 3564],
+
+            // ───────────── RECUPERACIÓN (provisional) ─────────────
+            ['nombre' => 'OFxAsignar', 'puntos' => 0, 'precio' => 0],
         ];
 
         foreach ($ofertas as $item) {
