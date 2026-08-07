@@ -9,7 +9,6 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
-use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -106,26 +105,14 @@ class ListaAmanoResource extends Resource
                             ->weight(FontWeight::SemiBold)
                             ->color('gray'),
 
-                        TextInputColumn::make('cliente')
+                        Tables\Columns\TextColumn::make('cliente')
                             ->label('Cliente')
-                            ->rules(['required', 'string', 'max:255'])
+                            ->description('Cliente', position: 'above')
                             ->sortable()
                             ->searchable()
-                            ->grow()
-                            ->extraAttributes([
-                                'class' => 'font-bold',
-                                'title' => 'Clic para corregir el nombre (fuente manuscrita)',
-                            ])
-                            ->updateStateUsing(function (ListaAmano $record, mixed $state): string {
-                                $nombre = trim(preg_replace('/\s+/u', ' ', (string) $state) ?? '');
-                                if ($nombre === '') {
-                                    return (string) $record->cliente;
-                                }
-
-                                $record->forceFill(['cliente' => $nombre])->save();
-
-                                return $nombre;
-                            }),
+                            ->weight(FontWeight::Bold)
+                            ->wrap()
+                            ->grow(),
 
                         Tables\Columns\TextColumn::make('comerciales')
                             ->label('Comerciales')
@@ -201,6 +188,31 @@ class ListaAmanoResource extends Resource
             ->filtersLayout(FiltersLayout::AboveContent)
             ->persistFiltersInSession()
             ->actions([
+                Tables\Actions\Action::make('corregirNombre')
+                    ->label('Nombre')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->tooltip('Corregir nombre/apellido (error de manuscrito)')
+                    ->modalHeading(fn (ListaAmano $record): string => 'Corregir cliente — nº '.$record->nro)
+                    ->modalSubmitActionLabel('Guardar nombre')
+                    ->form([
+                        Forms\Components\TextInput::make('cliente')
+                            ->label('Nombre del cliente')
+                            ->required()
+                            ->maxLength(255)
+                            ->helperText('Corrige errores de extracción del listado manuscrito.'),
+                    ])
+                    ->fillForm(fn (ListaAmano $record): array => [
+                        'cliente' => $record->cliente,
+                    ])
+                    ->action(function (ListaAmano $record, array $data): void {
+                        $nombre = trim(preg_replace('/\s+/u', ' ', (string) ($data['cliente'] ?? '')) ?? '');
+                        if ($nombre === '') {
+                            return;
+                        }
+
+                        $record->forceFill(['cliente' => $nombre])->save();
+                    }),
                 Tables\Actions\EditAction::make()
                     ->label('Editar')
                     ->modalWidth('4xl'),
