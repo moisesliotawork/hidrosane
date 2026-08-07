@@ -10,14 +10,36 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class RecoveredContractsQuery
 {
+    /**
+     * Fecha efectiva del recuperado (JSON → venta), sin literales '0000-00-00'
+     * (MySQL estricto en prod lanza error 1525 con NULLIF(..., '0000-00-00')).
+     */
     public static function fechaSqlExpression(): string
     {
-        return "COALESCE(
-            NULLIF(STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT(contrato_recovery_items.reviewed_json, '$.fecha_venta')), '%Y-%m-%d'), '0000-00-00'),
-            NULLIF(STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT(contrato_recovery_items.reviewed_json, '$.fecha_venta')), '%d/%m/%Y'), '0000-00-00'),
-            NULLIF(STR_TO_DATE(JSON_UNQUOTE(JSON_EXTRACT(contrato_recovery_items.reviewed_json, '$.fecha_venta')), '%d-%m-%Y'), '0000-00-00'),
-            (SELECT v.fecha_venta FROM ventas v WHERE v.id = contrato_recovery_items.venta_id LIMIT 1)
+        $rawJson = "NULLIF(NULLIF(TRIM(JSON_UNQUOTE(JSON_EXTRACT(contrato_recovery_items.reviewed_json, '$.fecha_venta'))), ''), 'null')";
+
+        $parsed = "COALESCE(
+            STR_TO_DATE({$rawJson}, '%Y-%m-%d'),
+            STR_TO_DATE({$rawJson}, '%d/%m/%Y'),
+            STR_TO_DATE({$rawJson}, '%d-%m-%Y'),
+            (
+                SELECT CASE
+                    WHEN v.fecha_venta IS NULL THEN NULL
+                    WHEN CAST(v.fecha_venta AS CHAR) LIKE '0000-%' THEN NULL
+                    ELSE v.fecha_venta
+                END
+                FROM ventas v
+                WHERE v.id = contrato_recovery_items.venta_id
+                LIMIT 1
+            )
         )";
+
+        // Evita que YEAR()/MONTH() reciban fechas cero si STR_TO_DATE las devolviera.
+        return "CASE
+            WHEN {$parsed} IS NULL THEN NULL
+            WHEN CAST({$parsed} AS CHAR) LIKE '0000-%' THEN NULL
+            ELSE {$parsed}
+        END";
     }
 
     /**
@@ -46,7 +68,10 @@ class RecoveredContractsQuery
 
         $fechaExpr = self::fechaSqlExpression();
 
-        return $query->whereRaw("YEAR({$fechaExpr}) = ? AND MONTH({$fechaExpr}) = ?", [$year, $month]);
+        return $query->whereRaw(
+            "({$fechaExpr}) IS NOT NULL AND YEAR({$fechaExpr}) = ? AND MONTH({$fechaExpr}) = ?",
+            [$year, $month]
+        );
     }
 
     /**
