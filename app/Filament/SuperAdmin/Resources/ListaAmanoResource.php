@@ -108,7 +108,6 @@ class ListaAmanoResource extends Resource
 
                         TextInputColumn::make('cliente')
                             ->label('Cliente')
-                            ->description('Cliente (editable)', position: 'above')
                             ->rules(['required', 'string', 'max:255'])
                             ->sortable()
                             ->searchable()
