@@ -26,7 +26,6 @@
         }
         .nombre { font-weight: bold; text-transform: uppercase; }
         .fecha { font-weight: bold; color: #b45309; }
-        .mes { font-weight: bold; }
         .ofertas { font-size: 7.5px; line-height: 1.25; }
         .ofertas-line { display: block; white-space: nowrap; }
         .ofertas-asignar { color: #dc2626; font-weight: bold; }
@@ -48,7 +47,6 @@
                 <th>Cliente</th>
                 <th>DNI</th>
                 <th>Fecha/Contrato</th>
-                <th>MES/AÑO</th>
                 <th>OfertasDeLaVenta</th>
                 <th>Estado</th>
                 <th>ID Vta</th>
@@ -70,10 +68,6 @@
                     } catch (\Throwable) {
                         $fecha = null;
                     }
-                    $mesLabels = [1=>'ENE',2=>'FEB',3=>'MAR',4=>'ABR',5=>'MAY',6=>'JUN',7=>'JUL',8=>'AGO',9=>'SEP',10=>'OCT',11=>'NOV',12=>'DIC'];
-                    $mesHex = [1=>'#9f1239',2=>'#9d174d',3=>'#6b21a8',4=>'#5b21b6',5=>'#3730a3',6=>'#075985',7=>'#115e59',8=>'#065f46',9=>'#3f6212',10=>'#854d0e',11=>'#9a3412',12=>'#991b1b'];
-                    $mesLabel = $fecha ? (($mesLabels[(int)$fecha->month] ?? '').' '.$fecha->format('y')) : '—';
-                    $mesColor = $fecha ? ($mesHex[(int)$fecha->month] ?? '#6b7280') : '#6b7280';
                     $dniRaw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) ($row->displayDni() ?? '')) ?? '');
                     $dniLetter = '';
                     if ($dniRaw !== '' && preg_match('/[A-Z]$/', $dniRaw) === 1) {
@@ -94,7 +88,6 @@
                     <td class="nombre">{{ $row->displayClienteNombre() ?: '—' }}</td>
                     <td style="font-weight:bold;color:#b45309;">{{ $dniFmt }}</td>
                     <td class="fecha">{{ $fecha?->format('d/m/Y') ?? '—' }}</td>
-                    <td class="mes" style="color: {{ $mesColor }};">{{ $mesLabel }}</td>
                     <td class="ofertas">
                         @forelse ($ofertaNombres as $ofertaNombre)
                             <span class="ofertas-line {{ $ofertaNombre === $porAsignar ? 'ofertas-asignar' : '' }}">{{ $ofertaNombre }}</span>
@@ -109,7 +102,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10">No hay recuperados aceptados.</td>
+                    <td colspan="9">No hay recuperados aceptados.</td>
                 </tr>
             @endforelse
         </tbody>

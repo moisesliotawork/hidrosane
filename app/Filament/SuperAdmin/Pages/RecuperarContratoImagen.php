@@ -535,7 +535,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 : ContratoRecoveryItem::query()->whereRaw('1 = 0'))
             ->columns([
                 Tables\Columns\TextColumn::make('nro_contr_adm')
-                    ->label('# Contrato_admin')
+                    ->label('#Contr.')
                     ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayNroContrAdm())
                     ->searchable(
                         query: function (Builder $query, string $search): void {
