@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property string $status
  * @property array|null $documents
+ * @property array|null $reference_photos
  * @property array|null $extracted_json
  * @property array|null $reviewed_json
  * @property string|null $dni
@@ -38,6 +39,7 @@ class ContratoRecoveryItem extends Model
     protected $fillable = [
         'status',
         'documents',
+        'reference_photos',
         'extracted_json',
         'reviewed_json',
         'dni',
@@ -52,6 +54,7 @@ class ContratoRecoveryItem extends Model
 
     protected $casts = [
         'documents' => 'array',
+        'reference_photos' => 'array',
         'extracted_json' => 'array',
         'reviewed_json' => 'array',
     ];

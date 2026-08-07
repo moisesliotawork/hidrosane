@@ -5,6 +5,7 @@ use App\Http\Controllers\ContratoPreviewController;
 use App\Http\Controllers\ContratoPreviewBController;
 use App\Http\Controllers\NotasSalaPdfController;
 use App\Models\PickingDiario;
+use App\Models\ListaAmano;
 use App\Support\ContratosPorMesStats;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Auth\LogoutController;
@@ -122,6 +123,87 @@ Route::middleware(['web', 'auth'])
 
         return $pdf->stream('contratos-por-mes.pdf');
     })->name('contratos-por-mes.pdf');
+
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/lista-amano/pdf', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $mes = $request->query('mes');
+        $showAll = blank($mes) || $request->boolean('todos');
+        $clienteQ = trim((string) $request->query('q', ''));
+
+        if (! $showAll) {
+            try {
+                \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes);
+            } catch (\Throwable) {
+                $showAll = true;
+                $mes = null;
+            }
+        }
+
+        $query = ListaAmano::query()->orderBy('id');
+
+        if (! $showAll && filled($mes)) {
+            [$year, $month] = array_map('intval', explode('-', (string) $mes));
+            $query->where('anio', $year)->where('mes', $month);
+        }
+
+        if ($clienteQ !== '') {
+            $query->where('cliente', 'like', '%'.$clienteQ.'%');
+        }
+
+        $rows = $query->get();
+
+        $periodoLabel = $showAll || blank($mes)
+            ? 'Todos los registros'
+            : (string) $mes;
+
+        if (! $showAll && filled($mes)) {
+            try {
+                $periodoLabel = \Illuminate\Support\Carbon::createFromFormat('Y-m', (string) $mes)
+                    ->locale('es')
+                    ->translatedFormat('F Y');
+                $periodoLabel = mb_convert_case($periodoLabel, MB_CASE_TITLE, 'UTF-8');
+            } catch (\Throwable) {
+                $periodoLabel = (string) $mes;
+            }
+        }
+
+        $pdf = Pdf::loadView('pdf.lista-amano', [
+            'rows' => $rows,
+            'periodoLabel' => $periodoLabel,
+            'clienteQ' => $clienteQ !== '' ? $clienteQ : null,
+            'fechaReporte' => now('Europe/Madrid')->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('lista-amano.pdf');
+    })->name('lista-amano.pdf');
+
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/recuperados-aceptados/pdf', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $rows = \App\Models\ContratoRecoveryItem::query()
+            ->with(['venta'])
+            ->where('status', \App\Models\ContratoRecoveryItem::STATUS_ADDED)
+            ->orderByDesc('id')
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.recuperados-aceptados', [
+            'rows' => $rows,
+            'fechaReporte' => now('Europe/Madrid')->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('recuperados-aceptados.pdf');
+    })->name('recuperados-aceptados.pdf');
 
 Route::middleware(['web', 'auth'])
     ->get('/superadmin/contratos-por-mes/numeros/pdf', function (\Illuminate\Http\Request $request) {

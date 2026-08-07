@@ -24,11 +24,14 @@ use Filament\Infolists;
 use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Colors\Color;
 use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
@@ -73,6 +76,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('previewPdf')
+                ->label('Previsualizar PDF')
+                ->icon('heroicon-o-eye')
+                ->color('warning')
+                ->url(fn (): string => route('recuperados-aceptados.pdf'))
+                ->openUrlInNewTab()
+                ->tooltip('PDF de recuperados aceptados (agregados a la app)'),
+
             Action::make('goToOrphanReattach')
                 ->label('Paso 2 · Docs huérfanos')
                 ->icon('heroicon-o-link')
@@ -499,7 +510,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return $table
             ->query(
                 Schema::hasTable('contrato_recovery_items')
-                    ? ContratoRecoveryItem::query()->with(['customer'])->latest('id')
+                    ? ContratoRecoveryItem::query()->with(['customer', 'venta'])->latest('id')
                     : ContratoRecoveryItem::query()->whereRaw('1=0')
             )
             ->columns([
@@ -510,18 +521,38 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('dni')
                     ->label('DNI')
                     ->searchable()
-                    ->weight('bold'),
+                    ->badge()
+                    ->color('warning')
+                    ->weight('bold')
+                    ->formatStateUsing(fn (?string $state): string => $this->formatDniGroupedEvery4($state)),
                 Tables\Columns\TextColumn::make('nro_contr_adm')
                     ->label('# Contrato_admin')
                     ->searchable()
                     ->weight('bold'),
+                Tables\Columns\TextColumn::make('fecha_contrato')
+                    ->label('Fecha/Contrato')
+                    ->state(fn (ContratoRecoveryItem $record): string => $this->fechaContratoFormatted($record) ?? '—')
+                    ->badge()
+                    ->color('warning')
+                    ->sortable(query: function ($query, string $direction) {
+                        return $query->orderByRaw(
+                            "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reviewed_json, '$.fecha_venta')), '') {$direction}"
+                        );
+                    }),
+                Tables\Columns\TextColumn::make('mes_contrato')
+                    ->label('Mes')
+                    ->state(fn (ContratoRecoveryItem $record): string => $this->mesContratoLabel($record) ?? '—')
+                    ->badge()
+                    ->color(fn (ContratoRecoveryItem $record) => $this->mesContratoColor($record))
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('cliente_nombre')
                     ->label('Nombre')
+                    ->weight('bold')
                     ->limit(48)
                     ->tooltip(fn (?string $state): ?string => $state)
                     ->extraAttributes([
                         'class' => 'whitespace-nowrap',
-                        'style' => 'white-space: nowrap; max-width: 18rem; overflow: hidden; text-overflow: ellipsis;',
+                        'style' => 'white-space: nowrap; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; font-weight: 800;',
                     ]),
                 Tables\Columns\TextColumn::make('customer_id')
                     ->label('Cliente app')
@@ -548,8 +579,77 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->label('Aceptado')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                Tables\Columns\ImageColumn::make('reference_photos')
+                    ->label('Referencias')
+                    ->disk('public')
+                    ->square()
+                    ->height(36)
+                    ->stacked()
+                    ->limit(4)
+                    ->limitedRemainingText()
+                    ->defaultImageUrl(null)
+                    ->toggleable(),
             ])
             ->actions([
+                Tables\Actions\Action::make('verReferencias')
+                    ->label('VER REFERENCIAS')
+                    ->icon('heroicon-o-photo')
+                    ->color('gray')
+                    ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Referencias — '.$record->nro_contr_adm)
+                    ->modalDescription('Hasta 4 fotos. Puedes previsualizar, reordenar y eliminar.')
+                    ->modalWidth(MaxWidth::ThreeExtraLarge)
+                    ->modalSubmitActionLabel('Guardar fotos')
+                    ->modalCancelActionLabel('Cerrar')
+                    ->fillForm(fn (ContratoRecoveryItem $record): array => [
+                        'reference_photos' => array_values($record->reference_photos ?? []),
+                    ])
+                    ->form(fn (ContratoRecoveryItem $record): array => [
+                        Forms\Components\Section::make('Fotos de referencia')
+                            ->description('JPG/PNG/WebP · máximo 4 · clic en la miniatura para previsualizar')
+                            ->icon('heroicon-o-camera')
+                            ->collapsible()
+                            ->collapsed(false)
+                            ->schema([
+                                Forms\Components\FileUpload::make('reference_photos')
+                                    ->label('Fotos')
+                                    ->image()
+                                    ->multiple()
+                                    ->reorderable()
+                                    ->maxFiles(4)
+                                    ->maxSize(5120)
+                                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                                    ->disk('public')
+                                    ->visibility('public')
+                                    ->directory('contract-recovery/references/'.$record->id)
+                                    ->imagePreviewHeight('160')
+                                    ->openable()
+                                    ->downloadable()
+                                    ->deletable()
+                                    ->panelLayout('grid')
+                                    ->helperText('Arrastra o selecciona hasta 4 imágenes. Abre cualquiera con el icono de ojo.'),
+                            ]),
+                    ])
+                    ->action(function (ContratoRecoveryItem $record, array $data): void {
+                        $photos = array_values(array_filter(
+                            Arr::wrap($data['reference_photos'] ?? []),
+                            fn ($path) => filled($path)
+                        ));
+
+                        if (count($photos) > 4) {
+                            $photos = array_slice($photos, 0, 4);
+                        }
+
+                        $record->forceFill([
+                            'reference_photos' => $photos === [] ? null : $photos,
+                        ])->save();
+
+                        Notification::make()
+                            ->title('Referencias guardadas')
+                            ->body(count($photos).' foto(s) en el registro.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Tables\Actions\Action::make('verDatos')
                     ->label('VER DATOS')
                     ->icon('heroicon-o-pencil-square')
@@ -1389,6 +1489,82 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return null;
     }
 
+    protected function fechaContratoCarbon(ContratoRecoveryItem $record): ?Carbon
+    {
+        $raw = data_get($record->reviewedData(), 'fecha_venta');
+        if (blank($raw)) {
+            $raw = $record->venta?->fecha_venta;
+        }
+        if (blank($raw)) {
+            return null;
+        }
+
+        try {
+            return $raw instanceof Carbon
+                ? $raw->copy()->timezone('Europe/Madrid')
+                : Carbon::parse((string) $raw, 'Europe/Madrid');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function fechaContratoFormatted(ContratoRecoveryItem $record): ?string
+    {
+        return $this->fechaContratoCarbon($record)?->format('d/m/Y');
+    }
+
+    protected function mesContratoLabel(ContratoRecoveryItem $record): ?string
+    {
+        $fecha = $this->fechaContratoCarbon($record);
+        if ($fecha === null) {
+            return null;
+        }
+
+        $labels = [
+            1 => 'ENE', 2 => 'FEB', 3 => 'MAR', 4 => 'ABR',
+            5 => 'MAY', 6 => 'JUN', 7 => 'JUL', 8 => 'AGO',
+            9 => 'SEP', 10 => 'OCT', 11 => 'NOV', 12 => 'DIC',
+        ];
+
+        $mes = $labels[(int) $fecha->month] ?? null;
+        if ($mes === null) {
+            return null;
+        }
+
+        return $mes.' '.$fecha->format('y');
+    }
+
+    /**
+     * Colores alineados con los tabs de mes de ListaAmano.
+     *
+     * @return string|array{50: string, 100: string, 200: string, 300: string, 400: string, 500: string, 600: string, 700: string, 800: string, 900: string, 950: string}
+     */
+    protected function mesContratoColor(ContratoRecoveryItem $record): string|array
+    {
+        $fecha = $this->fechaContratoCarbon($record);
+        if ($fecha === null) {
+            return 'gray';
+        }
+
+        $hex = match ((int) $fecha->month) {
+            1 => '#9f1239',
+            2 => '#9d174d',
+            3 => '#6b21a8',
+            4 => '#5b21b6',
+            5 => '#3730a3',
+            6 => '#075985',
+            7 => '#115e59',
+            8 => '#065f46',
+            9 => '#3f6212',
+            10 => '#854d0e',
+            11 => '#9a3412',
+            12 => '#991b1b',
+            default => '#6b7280',
+        };
+
+        return Color::hex($hex);
+    }
+
     protected function formatDniGrouped(?string $dni): string
     {
         $raw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) $dni) ?? '');
@@ -1403,6 +1579,26 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         }
 
         $chunks = $raw === '' ? [] : str_split($raw, 3);
+        $grouped = implode(' ', $chunks);
+
+        return trim($grouped.($letter !== '' ? ' '.$letter : ''));
+    }
+
+    /** Agrupa DNI cada 4 cifras (tabla recuperados). */
+    protected function formatDniGroupedEvery4(?string $dni): string
+    {
+        $raw = mb_strtoupper(preg_replace('/[^0-9A-Z]/', '', (string) $dni) ?? '');
+        if ($raw === '') {
+            return '—';
+        }
+
+        $letter = '';
+        if (preg_match('/[A-Z]$/', $raw) === 1) {
+            $letter = substr($raw, -1);
+            $raw = substr($raw, 0, -1);
+        }
+
+        $chunks = $raw === '' ? [] : str_split($raw, 4);
         $grouped = implode(' ', $chunks);
 
         return trim($grouped.($letter !== '' ? ' '.$letter : ''));

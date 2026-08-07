@@ -2,12 +2,14 @@
 
 namespace App\Filament\SuperAdmin\Resources\ListaAmanoResource\Pages;
 
+use App\Exports\ListaAmanoExport;
 use App\Filament\SuperAdmin\Resources\ListaAmanoResource;
 use App\Models\ListaAmano;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListListaAmanos extends ListRecords
 {
@@ -43,9 +45,70 @@ class ListListaAmanos extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('previewPdf')
+                ->label('Previsualizar PDF')
+                ->icon('heroicon-o-eye')
+                ->color('warning')
+                ->url(fn (): string => $this->listaAmanoPdfUrl())
+                ->openUrlInNewTab(),
+
+            Actions\Action::make('downloadExcel')
+                ->label('Descargar Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $filters = $this->exportFilterState();
+                    $suffix = $filters['showAll']
+                        ? 'todos'
+                        : str_replace('-', '', (string) $filters['yearMonth']);
+                    $filename = 'lista-amano-'.$suffix.'-'.now('Europe/Madrid')->format('Ymd-His').'.xlsx';
+
+                    return Excel::download(
+                        new ListaAmanoExport(
+                            yearMonth: $filters['yearMonth'],
+                            clienteQ: $filters['clienteQ'],
+                            showAll: $filters['showAll'],
+                        ),
+                        $filename
+                    );
+                }),
+
             Actions\CreateAction::make()
                 ->label('Nuevo registro'),
         ];
+    }
+
+    /**
+     * @return array{yearMonth: ?string, clienteQ: ?string, showAll: bool}
+     */
+    protected function exportFilterState(): array
+    {
+        $showAll = $this->showAllMonths || blank($this->selectedYearMonth);
+        $clienteQ = $this->clienteSearchQuery();
+
+        return [
+            'yearMonth' => $showAll ? null : $this->selectedYearMonth,
+            'clienteQ' => $clienteQ !== '' ? $clienteQ : null,
+            'showAll' => $showAll,
+        ];
+    }
+
+    public function listaAmanoPdfUrl(): string
+    {
+        $filters = $this->exportFilterState();
+        $params = [];
+
+        if ($filters['showAll']) {
+            $params['todos'] = 1;
+        } else {
+            $params['mes'] = $filters['yearMonth'];
+        }
+
+        if (filled($filters['clienteQ'])) {
+            $params['q'] = $filters['clienteQ'];
+        }
+
+        return route('lista-amano.pdf', $params);
     }
 
     protected function getTableQuery(): Builder
