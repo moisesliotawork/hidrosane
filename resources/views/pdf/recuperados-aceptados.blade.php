@@ -48,7 +48,7 @@
                 <th>Cliente</th>
                 <th>DNI</th>
                 <th>Fecha/Contrato</th>
-                <th>Mes</th>
+                <th>MES/AÑO</th>
                 <th>OfertasDeLaVenta</th>
                 <th>Estado</th>
                 <th>ID Vta</th>
@@ -104,7 +104,7 @@
                     </td>
                     <td class="{{ $isPend ? 'estado-pend' : '' }}">{{ $estadoLabel }}</td>
                     <td>{{ $row->venta_id ?: '—' }}</td>
-                    <td>{{ count($row->documents ?? []) }}</td>
+                    <td>{{ $row->displayDocsCount() }}</td>
                     <td>{{ $row->id }}</td>
                 </tr>
             @empty

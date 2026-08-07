@@ -101,6 +101,21 @@ class ContratoRecoveryItem extends Model
     }
 
     /**
+     * Docs: si hay venta enlazada, cuenta slots rellenos en BD; si no, docs del recovery.
+     */
+    public function displayDocsCount(): int
+    {
+        if ($this->venta_id) {
+            $this->loadMissing('venta');
+            if ($this->venta) {
+                return $this->venta->filledDocumentsCount();
+            }
+        }
+
+        return count($this->documents ?? []);
+    }
+
+    /**
      * Lectura en vivo: venta (si existe) > snapshot de recuperación.
      */
     public function displayNroContrAdm(): ?string

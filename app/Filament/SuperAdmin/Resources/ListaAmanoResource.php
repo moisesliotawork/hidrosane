@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
+use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -105,14 +106,27 @@ class ListaAmanoResource extends Resource
                             ->weight(FontWeight::SemiBold)
                             ->color('gray'),
 
-                        Tables\Columns\TextColumn::make('cliente')
+                        TextInputColumn::make('cliente')
                             ->label('Cliente')
-                            ->description('Cliente', position: 'above')
+                            ->description('Cliente (editable)', position: 'above')
+                            ->rules(['required', 'string', 'max:255'])
                             ->sortable()
                             ->searchable()
-                            ->weight(FontWeight::Bold)
-                            ->wrap()
-                            ->grow(),
+                            ->grow()
+                            ->extraAttributes([
+                                'class' => 'font-bold',
+                                'title' => 'Clic para corregir el nombre (fuente manuscrita)',
+                            ])
+                            ->updateStateUsing(function (ListaAmano $record, mixed $state): string {
+                                $nombre = trim(preg_replace('/\s+/u', ' ', (string) $state) ?? '');
+                                if ($nombre === '') {
+                                    return (string) $record->cliente;
+                                }
+
+                                $record->forceFill(['cliente' => $nombre])->save();
+
+                                return $nombre;
+                            }),
 
                         Tables\Columns\TextColumn::make('comerciales')
                             ->label('Comerciales')

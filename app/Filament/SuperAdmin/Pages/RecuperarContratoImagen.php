@@ -634,7 +634,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     }),
                 Tables\Columns\TextColumn::make('docs_count')
                     ->label('Docs')
-                    ->state(fn (ContratoRecoveryItem $record): string => (string) count($record->documents ?? [])),
+                    ->state(fn (ContratoRecoveryItem $record): string => (string) $record->displayDocsCount())
+                    ->badge()
+                    ->color(fn (ContratoRecoveryItem $record): string => $record->displayDocsCount() > 0 ? 'success' : 'gray')
+                    ->tooltip(fn (ContratoRecoveryItem $record): string => $record->venta_id
+                        ? 'Documentos en la venta (BD)'
+                        : 'Documentos del recovery (aún sin venta)'),
                 Tables\Columns\TextColumn::make('venta_id')
                     ->label('ID_Vta')
                     ->placeholder('—'),
@@ -671,8 +676,17 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         'reference_photos' => array_values($record->reference_photos ?? []),
                     ])
                     ->form(fn (ContratoRecoveryItem $record): array => [
+                        Forms\Components\Section::make('Ver fotos')
+                            ->description('Clic en una imagen para ampliarla y leer el manuscrito')
+                            ->icon('heroicon-o-eye')
+                            ->schema([
+                                Forms\Components\View::make('filament.superAdmin.components.reference-photos-lightbox')
+                                    ->viewData([
+                                        'photos' => array_values($record->reference_photos ?? []),
+                                    ]),
+                            ]),
                         Forms\Components\Section::make('Fotos de referencia')
-                            ->description('JPG/PNG/WebP · máximo 4 · clic en la miniatura para previsualizar')
+                            ->description('JPG/PNG/WebP · máximo 4 · subir, reordenar o eliminar')
                             ->icon('heroicon-o-camera')
                             ->collapsible()
                             ->collapsed(false)
@@ -688,12 +702,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     ->disk('public')
                                     ->visibility('public')
                                     ->directory('contract-recovery/references/'.$record->id)
-                                    ->imagePreviewHeight('160')
+                                    ->imagePreviewHeight('220')
                                     ->openable()
                                     ->downloadable()
                                     ->deletable()
                                     ->panelLayout('grid')
-                                    ->helperText('Arrastra o selecciona hasta 4 imágenes. Abre cualquiera con el icono de ojo.'),
+                                    ->helperText('Tras guardar, las fotos aparecen arriba para ampliarlas con un clic.'),
                             ]),
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {

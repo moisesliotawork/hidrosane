@@ -416,6 +416,20 @@ class Venta extends Model
         return $this->urlFor('foto_sorteo');
     }
 
+    /**
+     * Nº de slots de documento con archivo en la venta (BD).
+     */
+    public function filledDocumentsCount(): int
+    {
+        $count = 0;
+        foreach (\App\Support\Filament\VentaDocumentUpload::recoveryDocumentSlots() as $field) {
+            if (filled($this->{$field} ?? null)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
 
     /* ---------- Helper ---------- */
     protected function urlFor(string $field): ?string
