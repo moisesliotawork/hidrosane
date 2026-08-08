@@ -24,6 +24,7 @@ class ReasignadoOkResource extends Resource
     protected static ?string $pluralModelLabel = 'REASIGNADO OK';
     protected static ?string $modelLabel = 'Reasignación';
     protected static ?string $slug = 'reasignado-ok';
+    protected static ?string $navigationGroup = 'Asignación de Notas';
 
     public static function form(Form $form): Form
     {

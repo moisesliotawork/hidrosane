@@ -25,6 +25,7 @@ class TlfChangeResource extends Resource
     protected static ?string $modelLabel = 'TLF Change';
     protected static ?string $pluralModelLabel = 'TLF Change';
     protected static ?string $slug = 'tlf-change';
+    protected static ?string $navigationGroup = 'General';
     protected static ?int $navigationSort = 20;
 
     public static function form(Form $form): Form

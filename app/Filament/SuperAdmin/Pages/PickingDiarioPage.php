@@ -24,7 +24,12 @@ class PickingDiarioPage extends Page implements Tables\Contracts\HasTable
     protected static ?string $navigationLabel = 'HOJA CARGA REPARTO';
     protected static ?string $title = 'HOJA CARGA REPARTO';
     protected static ?string $slug = 'picking-diario';
+    protected static ?string $navigationGroup = 'OTROS';
     protected static string $view = 'filament.pages.picking-diario';
+
+    /** Al final del menú */
+    protected static ?int $navigationSort = 98;
+
     public function table(Table $table): Table
     {
         return $table

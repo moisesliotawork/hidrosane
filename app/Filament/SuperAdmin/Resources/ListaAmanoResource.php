@@ -22,6 +22,8 @@ class ListaAmanoResource extends Resource
 
     protected static ?string $navigationLabel = 'ListaAmano';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?string $modelLabel = 'Lista a mano';
 
     protected static ?string $pluralModelLabel = 'Lista a mano';

@@ -8,6 +8,8 @@ use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use App\Models\Venta;
 use App\Support\Filament\VentaSoftDeleteTableAction;
+use Filament\Forms\Components\Component;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -23,21 +25,78 @@ class VentaResource extends Resource
     protected static ?string $pluralModelLabel = 'Contratos';
     protected static ?string $breadcrumb = 'Contratos';
     protected static ?string $slug = 'ventas-admin';
+    protected static ?int $navigationSort = -8;
 
     public static function form(Form $form): Form
     {
-        return AdminVentaResource::form($form);
+        $form = AdminVentaResource::form($form);
+
+        static::applyDniMask($form->getComponents());
+
+        return $form;
+    }
+
+    /**
+     * Solo en SuperAdmin: separa el DNI en grupos de 4 caracteres para facilitar su lectura.
+     */
+    protected static function applyDniMask(array $components): void
+    {
+        foreach ($components as $component) {
+            if (! $component instanceof Component) {
+                continue;
+            }
+
+            if ($component instanceof TextInput && $component->getName() === 'dni') {
+                $component->mask('**** **** ****');
+
+                continue;
+            }
+
+            if (method_exists($component, 'getChildComponents')) {
+                static::applyDniMask($component->getChildComponents());
+            }
+        }
     }
 
     public static function table(Table $table): Table
     {
         $table = AdminVentaResource::table($table);
 
+        $columns = $table->getColumns();
+        $nameColumn = null;
+
+        $columnsWithoutIndividualSearch = [
+            'nro_contr_adm',
+            'note.nro_nota',
+            'nro_cliente_adm',
+        ];
+
+        foreach ($columns as $key => $column) {
+            if ($column->getName() === 'customer.name') {
+                $column->searchable(['first_names', 'last_names']);
+                $nameColumn = $column;
+                unset($columns[$key]);
+                continue;
+            }
+
+            if (in_array($column->getName(), $columnsWithoutIndividualSearch, true)) {
+                $column->searchable();
+            }
+        }
+
+        $allColumns = array_values(array_filter([
+            SuperAdminVentaCustomerId::tableColumn(),
+            $nameColumn,
+            ...array_values($columns),
+        ]));
+
+        foreach ($allColumns as $column) {
+            $column->toggleable();
+        }
+
         return $table
-            ->columns([
-                SuperAdminVentaCustomerId::tableColumn(),
-                ...array_values($table->getColumns()),
-            ])
+            ->columns($allColumns)
+            ->filtersLayout(Tables\Enums\FiltersLayout::Dropdown)
             ->actions([
                 Tables\Actions\EditAction::make(),
                 VentaSoftDeleteTableAction::make(),

@@ -21,7 +21,8 @@ use Filament\Infolists\Components\TextEntry;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\TextInputColumn;
+use Filament\Tables\Actions\Action as TableAction;
+use Filament\Support\Enums\IconPosition;
 use App\Models\Venta;
 use App\Services\CustomerPrimaryKeyReassignmentService;
 use App\Support\Filament\CustomerSoftDeleteTableAction;
@@ -35,6 +36,9 @@ class CustomerResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-user';
     protected static ?string $navigationLabel = 'Posicion Global de Cliente';
     protected static ?string $modelLabel = 'Posicion Global de Cliente';
+
+    /** Justo encima del recurso Contratos en el menú */
+    protected static ?int $navigationSort = -9;
 
 
     public static function form(Form $form): Form
@@ -320,33 +324,65 @@ class CustomerResource extends Resource
                 TextColumn::make('name')
                     ->label('Nombre de Cliente')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                    ->color('warning')
+                    ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                    ->width('240px')
                     ->searchable(['first_names', 'last_names'])
                     ->extraAttributes(['class' => 'whitespace-nowrap'])
                     ->toggleable(),
 
-                TextColumn::make('nro_cliente')
-                    ->label('ID/Cliente')
-                    ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('ventas', function ($q) use ($search) {
-                            // antes: nro_cliente_admin
-                            $q->where('nro_cliente_adm', 'like', "%{$search}%");
-                        });
-                    })
-                    ->sortable(query: function (Builder $query, string $direction) {
-                        $firstVentaAdmin = Venta::select('nro_cliente_adm') // antes: nro_cliente_admin
-                            ->whereColumn('ventas.customer_id', 'customers.id')
-                            ->whereNotNull('nro_cliente_adm')
-                            ->where('nro_cliente_adm', '!=', '')
-                            ->orderBy('created_at', 'asc')
-                            ->limit(1);
+                TextColumn::make('id')
+                    ->label('ID_Cliente')
+                    ->width('80px')
+                    ->icon('heroicon-o-pencil-square')
+                    ->iconPosition(IconPosition::After)
+                    ->iconColor('gray')
+                    ->extraAttributes(['class' => 'cursor-pointer'])
+                    ->sortable()
+                    ->searchable(
+                        query: function (Builder $query, string $search): Builder {
+                            return $query->whereRaw('CAST(customers.id AS CHAR) LIKE ?', ["%{$search}%"]);
+                        },
+                    )
+                    ->action(
+                        TableAction::make('editIdCliente')
+                            ->label('Editar ID_Cliente')
+                            ->modalHeading('Editar ID_Cliente')
+                            ->modalSubmitActionLabel('Guardar')
+                            ->form([
+                                Forms\Components\TextInput::make('id')
+                                    ->label('Nuevo ID_Cliente')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1)
+                                    ->rule(fn (Customer $record) => Rule::unique('customers', 'id')->ignore($record->id)),
+                            ])
+                            ->fillForm(fn (Customer $record): array => ['id' => $record->id])
+                            ->action(function (Customer $record, array $data): void {
+                                try {
+                                    CustomerPrimaryKeyReassignmentService::reassign($record, (int) $data['id']);
 
-                        $query->orderBy($firstVentaAdmin, $direction);
-                    })
+                                    Notification::make()
+                                        ->title('ID_Cliente actualizado')
+                                        ->success()
+                                        ->send();
+                                } catch (\Throwable $e) {
+                                    Notification::make()
+                                        ->title('No se pudo actualizar el ID_Cliente')
+                                        ->body($e->getMessage())
+                                        ->danger()
+                                        ->send();
+                                }
+                            })
+                    )
                     ->toggleable(),
 
                 TextColumn::make('dni')
                     ->label('DNI')
+                    ->formatStateUsing(fn (?string $state): string => $state
+                        ? implode(' ', str_split($state, 4))
+                        : '—')
+                    ->color('warning')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
@@ -356,6 +392,24 @@ class CustomerResource extends Resource
                     ->state(fn(Customer $r): int => $r->ventas()->count())
                     ->badge()
                     ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray')
+                    ->toggleable(),
+
+                TextColumn::make('contr_recup')
+                    ->label('ContrRecup')
+                    ->state(function (Customer $r): bool {
+                        if (! \Illuminate\Support\Facades\Schema::hasTable('contratos_recuperados')) {
+                            return false;
+                        }
+
+                        return $r->ventas()
+                            ->whereIn('nro_contr_adm', function ($query) {
+                                $query->select('nro_contr_adm')->from('contratos_recuperados');
+                            })
+                            ->exists();
+                    })
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'SI' : 'NO')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'danger' : 'success')
                     ->toggleable(),
 
                 TextColumn::make('inhabilitado')
@@ -379,44 +433,6 @@ class CustomerResource extends Resource
                     ->searchable(['phone', 'secondary_phone'])
                     ->toggleable(),
 
-                TextInputColumn::make('id')
-                    ->label('ID_Cliente')
-                    ->type('number')
-                    ->sortable()
-                    ->rules(fn (Customer $record): array => [
-                        'required',
-                        'integer',
-                        'min:1',
-                        Rule::unique('customers', 'id')->ignore($record->id),
-                    ])
-                    ->searchable(
-                        isIndividual: true,
-                        query: function (Builder $query, string $search): Builder {
-                            return $query->whereRaw('CAST(customers.id AS CHAR) LIKE ?', ["%{$search}%"]);
-                        },
-                    )
-                    ->updateStateUsing(function (Customer $record, $state) {
-                        try {
-                            CustomerPrimaryKeyReassignmentService::reassign($record, (int) $state);
-
-                            Notification::make()
-                                ->title('ID_Cliente actualizado')
-                                ->success()
-                                ->send();
-
-                            return (int) $state;
-                        } catch (\Throwable $e) {
-                            Notification::make()
-                                ->title('No se pudo actualizar el ID_Cliente')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-
-                            return $record->id;
-                        }
-                    })
-                    ->toggleable(),
-
                 TextColumn::make('phones_commercial')
                     ->label('TEL. COMERCIAL')
                     ->state(function (Customer $r): string {
@@ -433,6 +449,27 @@ class CustomerResource extends Resource
                     ->toggleable(),
 
                 CustomerPosicionGlobalTable::gpsDentroColumn()
+                    ->toggleable(),
+
+                TextColumn::make('nro_cliente')
+                    ->label('ID/App/Cliente')
+                    ->state(fn(Customer $r) => $r->firstVentaClienteAdmin())
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('ventas', function ($q) use ($search) {
+                            // antes: nro_cliente_admin
+                            $q->where('nro_cliente_adm', 'like', "%{$search}%");
+                        });
+                    })
+                    ->sortable(query: function (Builder $query, string $direction) {
+                        $firstVentaAdmin = Venta::select('nro_cliente_adm') // antes: nro_cliente_admin
+                            ->whereColumn('ventas.customer_id', 'customers.id')
+                            ->whereNotNull('nro_cliente_adm')
+                            ->where('nro_cliente_adm', '!=', '')
+                            ->orderBy('created_at', 'asc')
+                            ->limit(1);
+
+                        $query->orderBy($firstVentaAdmin, $direction);
+                    })
                     ->toggleable(),
 
             ])

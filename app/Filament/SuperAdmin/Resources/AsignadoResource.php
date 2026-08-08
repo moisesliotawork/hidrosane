@@ -26,6 +26,8 @@ class AsignadoResource extends Resource
 
     protected static ?string $slug = 'asignado';
 
+    protected static ?string $navigationGroup = 'Asignación de Notas';
+
     protected static ?int $navigationSort = 3;
 
     public static function getEloquentQuery(): Builder

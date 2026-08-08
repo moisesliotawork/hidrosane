@@ -26,6 +26,8 @@ class NotasBorradasResource extends Resource
 
     protected static ?string $slug = 'notas-borradas';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?int $navigationSort = 93;
 
     public static function getEloquentQuery(): Builder
@@ -40,6 +42,11 @@ class NotasBorradasResource extends Resource
                 'comercial',
                 'deletedBy',
             ]);
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getModel()::onlyTrashed()->count();
     }
 
     public static function table(Table $table): Table

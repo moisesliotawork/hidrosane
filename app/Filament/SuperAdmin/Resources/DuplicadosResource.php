@@ -27,6 +27,8 @@ class DuplicadosResource extends Resource
     protected static ?string $modelLabel = 'Duplicado';
     protected static ?string $pluralModelLabel = 'Duplicados';
     protected static ?string $slug = 'duplicados';
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+    protected static ?int $navigationSort = -10;
 
     public static function form(Form $form): Form
     {

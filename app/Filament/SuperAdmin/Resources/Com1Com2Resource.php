@@ -20,6 +20,7 @@ class Com1Com2Resource extends Resource
     protected static ?string $pluralModelLabel = 'COM1 - COM2';
     protected static ?string $modelLabel = 'Registro COM';
     protected static ?string $slug = 'com1-com2';
+    protected static ?string $navigationGroup = 'General';
 
     public static function form(Form $form): Form
     {

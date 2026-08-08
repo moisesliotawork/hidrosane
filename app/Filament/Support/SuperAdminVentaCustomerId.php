@@ -58,12 +58,11 @@ class SuperAdminVentaCustomerId
     public static function tableColumn(): TextColumn
     {
         return TextColumn::make('customer_id')
-            ->label('ID-Cliente')
+            ->label('ID-CL')
             ->badge()
-            ->color('gray')
+            ->color('info')
             ->sortable()
             ->searchable(
-                isIndividual: true,
                 query: function (Builder $query, string $search): Builder {
                     return $query->whereRaw('CAST(ventas.customer_id AS CHAR) LIKE ?', ["%{$search}%"]);
                 },

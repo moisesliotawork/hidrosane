@@ -17,6 +17,7 @@ class NoteHorResource extends Resource
 
     protected static ?string $navigationIcon   = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel  = 'Notas HOR';
+    protected static ?string $navigationGroup  = 'Asignación de Notas';
     protected static ?string $modelLabel       = 'Nota HOR';
     protected static ?string $pluralModelLabel = 'Notas HOR';
     protected static ?string $breadcrumb       = 'Notas HOR';

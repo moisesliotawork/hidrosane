@@ -29,7 +29,7 @@ class ReengancharDocumentosHuerfanos extends Page implements HasForms
 
     protected static ?string $navigationLabel = '2. Docs huérfanos';
 
-    protected static ?string $navigationGroup = 'Recuperación';
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
 
     protected static ?string $title = 'Paso 2 · Re-enganchar documentos huérfanos';
 
@@ -37,7 +37,8 @@ class ReengancharDocumentosHuerfanos extends Page implements HasForms
 
     protected static string $view = 'filament.superAdmin.pages.reenganchar-documentos-huerfanos';
 
-    protected static ?int $navigationSort = 96;
+    /** Justo debajo de "1. Recuperar contrato" en el menú */
+    protected static ?int $navigationSort = -6;
 
     public static function shouldRegisterNavigation(): bool
     {

@@ -38,6 +38,7 @@ class VentaDesdeCeroResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-right-on-rectangle';
     protected static ?string $navigationLabel = 'Puerta Fría';
+    protected static ?string $navigationGroup = 'General';
 
     public static function getNavigationUrl(): string
     {

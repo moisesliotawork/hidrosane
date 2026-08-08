@@ -18,9 +18,13 @@ class VentasPorEstado extends Page implements HasTable
 
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
     protected static ?string $navigationLabel = 'Supervision de Estados de Contrato';
+    protected static ?string $navigationGroup = 'OTROS';
     protected static ?string $title = 'Supervision de Estados de Contrato';
     protected static ?string $slug = 'ventas-por-estado';
     protected static string $view = 'filament.superAdmin.pages.ventas-por-estado';
+
+    /** Al final del menú */
+    protected static ?int $navigationSort = 99;
 
     public function table(Table $table): Table
     {

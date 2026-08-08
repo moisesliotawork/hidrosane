@@ -26,6 +26,8 @@ class ContratosBorradosResource extends Resource
 
     protected static ?string $slug = 'contratos-borrados';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?int $navigationSort = 94;
 
     public static function getEloquentQuery(): Builder
@@ -38,6 +40,11 @@ class ContratosBorradosResource extends Resource
                     ->withTrashed(),
                 'deletedBy',
             ]);
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getModel()::onlyTrashed()->count();
     }
 
     public static function table(Table $table): Table

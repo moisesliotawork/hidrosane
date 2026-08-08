@@ -30,6 +30,8 @@ class ListContractResource extends Resource
 
     protected static ?string $breadcrumb = 'ListContract';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?string $slug = 'list-contract';
 
     protected static ?int $navigationSort = 95;

@@ -24,6 +24,7 @@ class DclaraNotasResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationLabel = 'DclaraNOTAS';
+    protected static ?string $navigationGroup = 'Asignación de Notas';
     protected static ?string $modelLabel = 'Declaración';
     protected static ?string $pluralModelLabel = 'DclaraNOTAS';
     protected static ?string $breadcrumb = 'DclaraNOTAS';

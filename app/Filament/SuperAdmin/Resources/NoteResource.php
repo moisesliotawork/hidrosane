@@ -33,6 +33,8 @@ class NoteResource extends Resource
 
     protected static ?string $navigationLabel = 'Notas';
 
+    protected static ?string $navigationGroup = 'Asignación de Notas';
+
     protected static ?string $modelLabel = 'Nota';
 
     protected static ?string $pluralModelLabel = 'Notas';

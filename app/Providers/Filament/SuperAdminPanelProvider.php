@@ -6,7 +6,6 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Enums\MaxWidth;
@@ -24,6 +23,7 @@ use App\Filament\SuperAdmin\Pages\RecuperarContratoImagen;
 use App\Filament\SuperAdmin\Pages\ReengancharDocumentosHuerfanos;
 use App\Filament\SuperAdmin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationGroup;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
@@ -48,6 +48,22 @@ class SuperAdminPanelProvider extends PanelProvider
                 'primary' => Color::Lime,
             ])
             ->renderHook(
+                PanelsRenderHook::STYLES_AFTER,
+                fn(): string => Blade::render(<<<'BLADE'
+                    <style>
+                        /* Filas más compactas en todas las tablas de recursos de SuperAdmin */
+                        .fi-panel-superAdmin .fi-ta-header-cell {
+                            padding-top: 0.5rem !important;
+                            padding-bottom: 0.5rem !important;
+                        }
+                        .fi-panel-superAdmin .fi-ta-cell .py-4 {
+                            padding-top: 0.25rem !important;
+                            padding-bottom: 0.25rem !important;
+                        }
+                    </style>
+                BLADE)
+            )
+            ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
                 fn(): string => Blade::render('@if(auth()->check()) 
                 <div class="flex items-center justify-end gap-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -71,11 +87,19 @@ class SuperAdminPanelProvider extends PanelProvider
                 },
             )
             ->sidebarCollapsibleOnDesktop()
+            ->sidebarWidth('16rem')
             ->maxContentWidth(MaxWidth::Full)
+            ->navigationGroups([
+                NavigationGroup::make('RECUPERACION CONTRATOS'),
+                NavigationGroup::make('Registros'),
+                NavigationGroup::make('Asignación de Notas')
+                    ->collapsed(),
+                NavigationGroup::make('OTROS'),
+                NavigationGroup::make('General'),
+            ])
             ->discoverResources(in: app_path('Filament/SuperAdmin/Resources'), for: 'App\\Filament\\SuperAdmin\\Resources')
             ->discoverPages(in: app_path('Filament/SuperAdmin/Pages'), for: 'App\\Filament\\SuperAdmin\\Pages')
             ->pages([
-                Pages\Dashboard::class,
                 RecuperarContratoImagen::class,
                 ReengancharDocumentosHuerfanos::class,
             ])

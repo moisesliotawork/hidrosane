@@ -24,6 +24,8 @@ class SuperAsignarResource extends Resource
 
     protected static ?string $navigationLabel = 'Super_Asignar';
 
+    protected static ?string $navigationGroup = 'Asignación de Notas';
+
     protected static ?string $modelLabel = 'Asignación';
 
     protected static ?string $pluralModelLabel = 'Super_Asignar';

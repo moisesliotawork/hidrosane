@@ -20,7 +20,8 @@ class FusionarClientesDuplicados extends Page implements HasForms
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Fusionar duplicados';
     protected static ?string $title = 'Fusionar clientes duplicados';
-    protected static ?int $navigationSort = 90;
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+    protected static ?int $navigationSort = 200;
 
     protected static string $view = 'filament.super-admin.pages.fusionar-clientes-duplicados';
 

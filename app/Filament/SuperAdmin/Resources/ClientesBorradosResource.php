@@ -26,6 +26,8 @@ class ClientesBorradosResource extends Resource
 
     protected static ?string $slug = 'clientes-borrados';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?int $navigationSort = 95;
 
     public static function getEloquentQuery(): Builder
@@ -34,6 +36,11 @@ class ClientesBorradosResource extends Resource
             ->withoutGlobalScope(NotMergedScope::class)
             ->onlyTrashed()
             ->with(['deletedBy']);
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getModel()::withoutGlobalScope(NotMergedScope::class)->onlyTrashed()->count();
     }
 
     public static function table(Table $table): Table

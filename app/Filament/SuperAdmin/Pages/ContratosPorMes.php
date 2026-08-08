@@ -27,13 +27,15 @@ class ContratosPorMes extends Page implements HasTable
 
     protected static ?string $navigationLabel = 'Contratos/MES';
 
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
+
     protected static ?string $title = 'Contratos/MES';
 
     protected static ?string $slug = 'contratos-por-mes';
 
     protected static string $view = 'filament.superAdmin.pages.contratos-por-mes';
 
-    protected static ?int $navigationSort = 97;
+    protected static ?int $navigationSort = -11;
 
     public bool $variacionesOpen = false;
 

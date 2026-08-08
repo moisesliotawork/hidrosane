@@ -55,7 +55,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     protected static ?string $navigationLabel = '1. Recuperar contrato';
 
-    protected static ?string $navigationGroup = 'Recuperación';
+    protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
 
     protected static ?string $title = 'Paso 1 · Recuperar contrato';
 
@@ -63,8 +63,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     protected static string $view = 'filament.superAdmin.pages.recuperar-contrato-imagen';
 
-    /** Justo encima de Contratos/MES para que se vea en el menú */
-    protected static ?int $navigationSort = 95;
+    /** Justo debajo del recurso Contratos en el menú */
+    protected static ?int $navigationSort = -7;
 
     public static function shouldRegisterNavigation(): bool
     {

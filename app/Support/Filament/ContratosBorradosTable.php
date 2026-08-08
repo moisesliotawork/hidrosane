@@ -15,6 +15,12 @@ final class ContratosBorradosTable
     public static function columns(): array
     {
         return [
+            TextColumn::make('customer.name')
+                ->label('Cliente')
+                ->searchable(['first_names', 'last_names'])
+                ->sortable()
+                ->weight('bold'),
+
             BorradosRestoreColumn::make(
                 modalHeading: 'Restaurar contrato',
                 modalDescription: 'El contrato volverá a aparecer en Contratos.',
@@ -68,12 +74,6 @@ final class ContratosBorradosTable
                 ->searchable()
                 ->sortable()
                 ->placeholder('—'),
-
-            TextColumn::make('customer.name')
-                ->label('Cliente')
-                ->searchable(['first_names', 'last_names'])
-                ->sortable()
-                ->weight('bold'),
 
             TextColumn::make('customer.dni')
                 ->label('DNI')

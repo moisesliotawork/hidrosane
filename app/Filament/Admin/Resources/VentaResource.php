@@ -96,17 +96,22 @@ class VentaResource extends Resource
                     }
 
                     $blue = 'color:#2563eb;font-size:22px;font-weight:700;line-height:1.2;';
+                    $red = 'color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;';
 
                     $dato = function (string $label, string $valor): string {
                         return '<div class="flex flex-col items-end">'
-                            .'<span class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:400;">'.e($label).'</span>'
-                            .'<span class="text-gray-700 dark:text-gray-300" style="font-size:13px;font-weight:400;">'.e($valor).'</span>'
+                            .'<span class="text-gray-500 dark:text-gray-400" style="font-size:13px;font-weight:400;">'.e($label).'</span>'
+                            .'<span class="text-gray-700 dark:text-gray-300" style="font-size:16px;font-weight:700;">'.e($valor).'</span>'
                             .'</div>';
                     };
 
                     return new HtmlString(
                         '<div class="flex w-full flex-wrap items-start justify-between gap-3">'
+                        .'<div class="flex flex-wrap items-baseline" style="gap:0.35rem;">'
                         .'<span style="'.$blue.'">'.e($nombre).'</span>'
+                        .'<span style="'.$blue.'"> - </span>'
+                        .'<span style="'.$red.'">'.e($nroAdm).'</span>'
+                        .'</div>'
                         .'<div class="flex items-start justify-end gap-4">'
                         .$dato('Nº Nota', (string) $nota)
                         .$dato('Nro Contrato', $nroAdm)
