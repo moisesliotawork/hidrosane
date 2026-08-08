@@ -76,6 +76,20 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return auth()->check();
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        if (! Schema::hasTable('contrato_recovery_items')) {
+            return null;
+        }
+
+        return (string) ContratoRecoveryItem::query()->count();
+    }
+
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return 'success';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
