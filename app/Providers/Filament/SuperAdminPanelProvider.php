@@ -60,6 +60,15 @@ class SuperAdminPanelProvider extends PanelProvider
                             padding-top: 0.25rem !important;
                             padding-bottom: 0.25rem !important;
                         }
+
+                        /* Parpadeo en los badges rojos (contadores en 1+) de la navegación */
+                        .fi-panel-superAdmin .fi-sidebar-nav .fi-badge.fi-color-danger {
+                            animation: oh-badge-blink 1s ease-in-out infinite;
+                        }
+                        @keyframes oh-badge-blink {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.35; }
+                        }
                     </style>
                 BLADE)
             )

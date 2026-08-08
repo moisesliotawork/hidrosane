@@ -983,10 +983,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 ])
                                 ->send();
                         } else {
+                            $yaExiste = str_contains($result['message'], 'ya existe un contrato ACTIVO')
+                                || str_contains($result['message'], 'colisiona con venta');
+
                             Notification::make()
-                                ->title('No se pudo agregar')
+                                ->title($yaExiste ? 'YA EXISTE UN CONTRATO con ese número' : 'No se pudo agregar')
                                 ->body($result['message'])
                                 ->danger()
+                                ->persistent()
                                 ->send();
                         }
 
@@ -1028,6 +1032,16 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         }
                         $this->flushCachedTableRecords();
                     }),
+
+                Tables\Actions\DeleteAction::make()
+                    ->label('')
+                    ->tooltip('Eliminar registro')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->modalHeading('Eliminar registro de recuperación')
+                    ->modalDescription('Se elimina solo este registro de la tabla de recuperación (staging). No borra ni afecta ninguna venta/cliente ya creado.')
+                    ->using(fn (ContratoRecoveryItem $record) => $record->delete())
+                    ->successNotificationTitle('Registro eliminado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('syncFromVentaBulk')

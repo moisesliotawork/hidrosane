@@ -185,7 +185,7 @@
         <div class="pt-2">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
                 <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                    RECUPERADOS ACEPTADOS
+                    CONTRATOS A RECUPERAR
                 </h2>
                 <div style="display:inline-flex;align-items:center;gap:0.4rem;">
                     <a

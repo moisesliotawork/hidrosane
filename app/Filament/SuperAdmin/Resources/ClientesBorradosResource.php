@@ -43,6 +43,13 @@ class ClientesBorradosResource extends Resource
         return (string) static::getModel()::withoutGlobalScope(NotMergedScope::class)->onlyTrashed()->count();
     }
 
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return static::getModel()::withoutGlobalScope(NotMergedScope::class)->onlyTrashed()->count() > 0
+            ? 'danger'
+            : 'success';
+    }
+
     public static function table(Table $table): Table
     {
         return $table
