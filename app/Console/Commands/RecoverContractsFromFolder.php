@@ -512,15 +512,24 @@ class RecoverContractsFromFolder extends Command
             $merged = $g['merged'];
             $dni = mb_strtoupper(trim((string) ($merged['dni'] ?? '')));
             $nro = trim((string) ($merged['nro_contr_adm'] ?? ''));
+            $nombre = trim((string) ($merged['cliente_nombre'] ?? ''));
 
             // El DNI es el campo que MENOS fiable lee Vision (letra pequeña); exigirlo
             // descartaría de entrada la mayoría de contratos válidos. Solo el nº de
-            // contrato es imprescindible (es la clave para detectar duplicados); el
-            // DNI, si falta, lo rellena el revisor a mano mirando la foto adjunta.
+            // contrato y el nombre del cliente son imprescindibles (nº para detectar
+            // duplicados, nombre para poder identificar al cliente en la revisión);
+            // el DNI, si falta, lo rellena el revisor a mano mirando la foto adjunta.
             $dni = $dni !== '' ? $dni : null;
 
             if ($nro === '') {
                 $this->warn("Grupo {$g['key']}: sin nº de contrato, se omite.");
+                $skipped++;
+
+                continue;
+            }
+
+            if ($nombre === '') {
+                $this->warn("Grupo {$g['key']} (nº {$nro}): sin nombre de cliente, se omite.");
                 $skipped++;
 
                 continue;

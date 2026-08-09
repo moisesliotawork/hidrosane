@@ -132,6 +132,33 @@
             letter-spacing: 0.03em;
             font-variant-numeric: tabular-nums;
         }
+        /* Tabla "CONTRATOS RECHAZADOS": mismo tamaño/altura de fila que la tabla
+           de arriba (CONTRATOS A RECUPERAR, que usa los estilos compactos del
+           panel de SuperAdmin sobre .fi-ta-*). */
+        .recovery-rechazados-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .recovery-rechazados-table th,
+        .recovery-rechazados-table td {
+            padding: 0.25rem 0.55rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            white-space: nowrap;
+        }
+        html.dark .recovery-rechazados-table th,
+        html.dark .recovery-rechazados-table td {
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+        .recovery-rechazados-table th {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
     </style>
 
     <div class="space-y-6">
@@ -306,13 +333,13 @@
                 </p>
             @else
                 <div style="overflow-x: auto;">
-                    <table class="contratos-mes-detalle-table">
+                    <table class="recovery-rechazados-table">
                         <thead>
                             <tr>
                                 <th>Nº Contrato</th>
                                 <th>Cliente</th>
                                 <th>DNI</th>
-                                <th>Motivo</th>
+                                <th style="white-space: normal;">Motivo</th>
                                 <th>Fecha</th>
                                 <th></th>
                             </tr>
@@ -321,9 +348,9 @@
                             @foreach ($rejected as $item)
                                 <tr>
                                     <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
-                                    <td style="font-weight: 700; color: #f97316; white-space: nowrap;">{{ $item->displayClienteNombre() ?? '—' }}</td>
+                                    <td style="font-weight: 700; color: #f97316;">{{ $item->displayClienteNombre() ?? '—' }}</td>
                                     <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
-                                    <td style="color: #b91c1c;">{{ $item->last_error ?? 'Ya existe un contrato con ese número.' }}</td>
+                                    <td style="color: #b91c1c; white-space: normal;">{{ $item->last_error ?? 'Ya existe un contrato con ese número.' }}</td>
                                     <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
                                     <td style="white-space:nowrap;">
                                         @if ($item->venta_id)
