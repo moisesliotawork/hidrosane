@@ -28,7 +28,8 @@ class RecoverContractsFromFolder extends Command
         {folder : Carpeta con las fotos (jpg/jpeg/png)}
         {--state= : Ruta del archivo JSON de estado (para reanudar sin repetir llamadas a Vision)}
         {--dry-run : No escribe en BD. Solo clasifica, extrae y muestra el resumen}
-        {--limit= : Procesar solo las primeras N imágenes (para pruebas)}';
+        {--limit= : Procesar solo las primeras N imágenes (para pruebas)}
+        {--force : No pedir confirmación antes de escribir en BD (necesario en procesos no interactivos / nohup)}';
 
     protected $description = 'Clasifica (documento/captura) y extrae vía OCR fotos sueltas de contratos/albaranes, agrupa por nº de contrato y deja registros en contrato_recovery_items listos para revisar.';
 
@@ -193,7 +194,7 @@ class RecoverContractsFromFolder extends Command
         }
 
         $this->newLine();
-        if (! $this->confirm('¿Crear los registros en contrato_recovery_items para los '.$groups->count().' grupos detectados?', false)) {
+        if (! $this->option('force') && ! $this->confirm('¿Crear los registros en contrato_recovery_items para los '.$groups->count().' grupos detectados?', false)) {
             $this->comment('Cancelado por el usuario.');
 
             return self::SUCCESS;
