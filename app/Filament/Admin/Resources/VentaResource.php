@@ -1697,7 +1697,10 @@ class VentaResource extends Resource
                     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
                     $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true);
 
-                    $preview = $isImage
+                    // SuperAdmin: el propio FileUpload ya muestra una miniatura justo
+                    // debajo (imagePreviewHeight 200); esta imagen grande sobra y solo
+                    // ocupa espacio. En el resto de paneles se mantiene.
+                    $preview = ($isImage && ! self::isSuperAdminPanel())
                         ? '<img src="'.e($url).'" alt="'.e($name).'" class="mt-2 max-h-48 rounded border border-gray-600 object-contain" />'
                         : '';
 
