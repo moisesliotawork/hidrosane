@@ -318,6 +318,65 @@ Route::middleware(['web', 'auth'])
         return $pdf->stream('contratos-por-mes-solo-numeros.pdf');
     })->name('contratos-por-mes.solo-numeros.pdf');
 
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/recovery-items/{item}/pdf', function (\Illuminate\Http\Request $request, \App\Models\ContratoRecoveryItem $item) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $docs = collect($item->documents ?? [])
+            ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+            ->values();
+
+        abort_if($docs->isEmpty(), 404, 'Este registro no tiene documentos guardados.');
+
+        // Si es un único documento y ya es un PDF, servirlo tal cual (sin reempaquetar).
+        if ($docs->count() === 1) {
+            $path = (string) $docs->first()['path'];
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if ($ext === 'pdf' && \Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
+                return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="contrato-'.($item->nro_contr_adm ?: $item->id).'.pdf"',
+                ]);
+            }
+        }
+
+        // Fotos (jpg/png/webp) → se empaquetan como PDF, una por página.
+        $images = $docs
+            ->map(function (array $doc): ?string {
+                $path = (string) $doc['path'];
+                if (! \Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
+                    return null;
+                }
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($ext === 'pdf') {
+                    return null;
+                }
+                $mime = match ($ext) {
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    default => 'image/jpeg',
+                };
+                $data = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
+
+                return 'data:'.$mime.';base64,'.base64_encode($data);
+            })
+            ->filter()
+            ->values();
+
+        abort_if($images->isEmpty(), 404, 'No se pudo generar el PDF: el fichero original no está disponible.');
+
+        $pdf = Pdf::loadView('pdf.recovery-item-documents', [
+            'images' => $images,
+            'nro' => $item->displayNroContrAdm() ?? $item->nro_contr_adm,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('contrato-'.($item->nro_contr_adm ?: $item->id).'.pdf');
+    })->name('recovery-items.pdf');
+
 // Logout global de Laravel (solo POST: CSRF). GET → login para evitar 405 en barra/atrás.
 Route::get('/logout', fn () => redirect('/admin/login'));
 Route::post('/logout', LogoutController::class)->name('logout');

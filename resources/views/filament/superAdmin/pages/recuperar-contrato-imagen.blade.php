@@ -341,6 +341,7 @@
                                 <th>DNI</th>
                                 <th style="white-space: normal;">Motivo</th>
                                 <th>Fecha</th>
+                                <th>Contrato/PDF</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -352,6 +353,20 @@
                                     <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
                                     <td style="color: #b91c1c; white-space: normal;">{{ $item->last_error ?? 'Ya existe un contrato con ese número.' }}</td>
                                     <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
+                                    <td>
+                                        @if (filled($item->documents))
+                                            <a
+                                                href="{{ route('recovery-items.pdf', $item) }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                style="color:#1d4ed8;font-weight:700;"
+                                            >
+                                                Ver PDF
+                                            </a>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
                                     <td style="white-space:nowrap;">
                                         @if ($item->venta_id)
                                             <a
