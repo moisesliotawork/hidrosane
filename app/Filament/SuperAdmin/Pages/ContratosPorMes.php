@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Pages;
 use App\Livewire\SuperAdmin\VerDatosContratoSearch;
 use App\Models\ContratoMesVariacionItem;
 use App\Models\ContratoRecuperado;
+use App\Models\Venta;
 use App\Support\ContratosPorMesStats;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -36,6 +37,16 @@ class ContratosPorMes extends Page implements HasTable
     protected static string $view = 'filament.superAdmin.pages.contratos-por-mes';
 
     protected static ?int $navigationSort = -11;
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) Venta::query()->where('en_app', true)->count();
+    }
+
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return 'info';
+    }
 
     public bool $variacionesOpen = false;
 
