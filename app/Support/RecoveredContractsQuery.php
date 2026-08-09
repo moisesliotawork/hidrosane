@@ -47,7 +47,9 @@ class RecoveredContractsQuery
      */
     public static function base(): Builder
     {
-        return ContratoRecoveryItem::query()->latest('id');
+        return ContratoRecoveryItem::query()
+            ->where('status', '!=', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
+            ->latest('id');
     }
 
     /**

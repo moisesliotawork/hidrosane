@@ -34,6 +34,9 @@ class ContratoRecoveryItem extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    /** Rechazado en staging: ya existe una venta ACTIVA con ese nº de contrato admin. */
+    public const STATUS_REJECTED_EXISTS = 'rejected_exists';
+
     protected $table = 'contrato_recovery_items';
 
     protected $fillable = [
@@ -86,6 +89,7 @@ class ContratoRecoveryItem extends Model
             self::STATUS_PENDING_ADD => 'PendxAgregar',
             self::STATUS_ADDED => 'Agregado',
             self::STATUS_FAILED => 'Error',
+            self::STATUS_REJECTED_EXISTS => 'Ya existe en app',
             default => $this->status,
         };
     }

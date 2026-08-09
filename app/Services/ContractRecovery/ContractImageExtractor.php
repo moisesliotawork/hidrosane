@@ -89,7 +89,9 @@ final class ContractImageExtractor
         try {
             $prompt = $this->promptFor($type);
 
-            $model = (string) config('services.openai.vision_model', 'gpt-4o-mini');
+            // gpt-4o-mini clasifica bien pero lee mal letra pequeña (DNI, IBAN...);
+            // usamos el modelo completo para la extracción de datos en sí.
+            $model = (string) config('services.openai.extraction_model', 'gpt-4o');
 
             $response = Http::withToken($apiKey)
                 ->timeout(90)
@@ -106,7 +108,7 @@ final class ContractImageExtractor
                             'role' => 'user',
                             'content' => [
                                 ['type' => 'text', 'text' => $prompt],
-                                ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]],
+                                ['type' => 'image_url', 'image_url' => ['url' => $dataUrl, 'detail' => 'high']],
                             ],
                         ],
                     ],
@@ -149,9 +151,42 @@ final class ContractImageExtractor
         $data['dni'] = $this->normalizeSpanishId($data['dni'] ?? null)
             ?? $this->normalizeSpanishId($data['mrz_raw'] ?? null)
             ?? $this->normalizeSpanishId($data['observaciones'] ?? null);
+        // El DNI/NIE español tiene letra de control determinista (dígitos mod 23).
+        // Si no cuadra, es un dato erróneo (OCR o alucinación del modelo): mejor
+        // dejarlo en blanco para revisión manual que guardar un DNI falso.
+        if ($data['dni'] !== null && ! $this->isValidSpanishId($data['dni'])) {
+            $data['dni'] = null;
+        }
+        // "12345678Z"/"12345678A" es el DNI de ejemplo típico de tutoriales (y de
+        // hecho la Z sí cuadra con el checksum, por eso lo eligen). Si el modelo
+        // lo repite igual en varios contratos de personas distintas es alucinación,
+        // no un dato real: lo saneamos igualmente.
+        if ($data['dni'] !== null && str_starts_with($data['dni'], '12345678')) {
+            $data['dni'] = null;
+        }
         $data['documento_tipo'] = $this->normalizeDocumentoTipo($data['documento_tipo'] ?? null);
+        $data['codigo_postal'] = $this->normalizePostalCode($data['codigo_postal'] ?? null)
+            ?? $this->normalizePostalCode($data['direccion'] ?? null);
 
         return $data;
+    }
+
+    /**
+     * Código postal español (5 dígitos). Acepta el valor directo o lo detecta
+     * dentro de un texto libre (ej. dentro de "direccion" si Vision no lo separó).
+     */
+    public function normalizePostalCode(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = (string) $value;
+        if (preg_match('/\b(\d{5})\b/', $raw, $m)) {
+            return $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -184,6 +219,31 @@ final class ContractImageExtractor
         }
 
         return null;
+    }
+
+    /**
+     * Valida el dígito/letra de control del DNI (8 dígitos + letra) o NIE
+     * (X/Y/Z + 7 dígitos + letra) con el algoritmo oficial: número mod 23
+     * indexa la tabla "TRWAGMYFPDXBNJZSQVHLCKE". Sirve para detectar
+     * alucinaciones o errores de OCR: un DNI real siempre cuadra.
+     */
+    public function isValidSpanishId(string $value): bool
+    {
+        $letters = 'TRWAGMYFPDXBNJZSQVHLCKE';
+        $value = mb_strtoupper(trim($value));
+
+        if (preg_match('/^(\d{8})([A-Z])$/', $value, $m)) {
+            $number = (int) $m[1];
+            return $letters[$number % 23] === $m[2];
+        }
+
+        if (preg_match('/^([XYZ])(\d{7})([A-Z])$/', $value, $m)) {
+            $prefix = ['X' => '0', 'Y' => '1', 'Z' => '2'][$m[1]];
+            $number = (int) ($prefix . $m[2]);
+            return $letters[$number % 23] === $m[3];
+        }
+
+        return false;
     }
 
     public function normalizeDocumentoTipo(mixed $value): ?string
@@ -348,6 +408,7 @@ final class ContractImageExtractor
             'iban' => null,
             'productos_texto' => null,
             'direccion' => null,
+            'codigo_postal' => null,
             'telefonos' => null,
             'observaciones' => null,
         ];
@@ -367,6 +428,9 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Rep." / "Rep:" → repartidor_code: id de empleado del repartidor del contrato (ej. 005). Un solo código. No es comercial.
 - "Hora Entr." → horario_entrega (ej. TD, TM).
 - "Cód.Cliente" NO es nro_contr_adm.
+- "Domicilio" → direccion (texto completo tal cual aparece). Si dentro del domicilio se lee un
+  código postal (5 dígitos, ej. "36213 Vigo (Pontevedra)"), extráelo también por separado en
+  codigo_postal (ej. "36213"). Si no hay código postal visible, usa null.
 TXT;
 
         $dniCard = <<<'TXT'
@@ -420,6 +484,13 @@ TXT;
         $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
 
         if ($this->isSupportedImageMime($mime, $ext)) {
+            $corrected = $this->exifCorrectedCopy($absolute, $mime);
+            if ($corrected !== null) {
+                $b64 = base64_encode((string) file_get_contents($corrected));
+
+                return ['data:image/jpeg;base64,'.$b64, $corrected];
+            }
+
             $mime = $mime !== '' && str_starts_with($mime, 'image/') ? $mime : $this->mimeFromExtension($ext);
             $b64 = base64_encode((string) file_get_contents($absolute));
 
@@ -436,6 +507,58 @@ TXT;
         throw new \RuntimeException(
             "Tipo no soportado para OCR ({$mime}/.{$ext}). Solo imágenes o PDF."
         );
+    }
+
+    /**
+     * Las fotos de móvil suelen guardar la rotación como flag EXIF Orientation
+     * en vez de rotar los píxeles (p.ej. Orientation=6 = "girar 90° al
+     * mostrar"). La API de Vision de OpenAI decodifica el buffer de píxeles
+     * tal cual y NO aplica ese flag, así que sin este paso, cualquier foto con
+     * Orientation distinto de 1 llega girada al modelo (aunque en el Finder o
+     * la app Fotos se vea perfectamente derecha), causando errores al leer el
+     * nº de contrato y el DNI. Devuelve la ruta de una copia ya corregida y
+     * sin flag EXIF pendiente, o null si no hacía falta corregir nada.
+     */
+    public function exifCorrectedCopy(string $absolutePath, string $mime): ?string
+    {
+        if ($mime !== 'image/jpeg' || ! function_exists('exif_read_data') || ! extension_loaded('gd')) {
+            return null;
+        }
+
+        $exif = @exif_read_data($absolutePath);
+        $orientation = (int) ($exif['Orientation'] ?? 1);
+
+        if (! in_array($orientation, [3, 6, 8], true)) {
+            return null;
+        }
+
+        $src = @imagecreatefromjpeg($absolutePath);
+        if (! $src) {
+            return null;
+        }
+
+        // Grados en sentido horario que corrigen cada valor EXIF estándar.
+        $degrees = match ($orientation) {
+            3 => 180,
+            6 => 90,
+            8 => 270,
+            default => 0,
+        };
+
+        // imagerotate() gira en sentido antihorario: invertimos el ángulo para
+        // que $degrees siga significando "corrección en sentido horario".
+        $rotated = imagerotate($src, -$degrees, 0);
+        imagedestroy($src);
+
+        if (! $rotated) {
+            return null;
+        }
+
+        $out = sys_get_temp_dir().'/ohana_exif_'.uniqid('', true).'.jpg';
+        imagejpeg($rotated, $out, 92);
+        imagedestroy($rotated);
+
+        return is_file($out) ? $out : null;
     }
 
     protected function isSupportedImageMime(string $mime, string $ext): bool

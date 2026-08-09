@@ -299,6 +299,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             ->columnSpanFull(),
                         ...$this->ofertaProductosFormSchema(),
                         Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2),
+                        Forms\Components\TextInput::make('codigo_postal')->label('CP / Código Postal'),
                         Forms\Components\TextInput::make('telefonos')->label('Teléfonos'),
                         Forms\Components\Textarea::make('observaciones')->label('Observaciones')->rows(2)->columnSpanFull(),
                         Forms\Components\Placeholder::make('customer_match')
@@ -504,8 +505,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->orderBy('id')
             ->first();
 
+        // Chequeo temprano: si ya hay una venta ACTIVA con ese nº, no tiene sentido
+        // dejarlo como "pendiente de agregar" — va a la tabla de rechazados.
+        $existingVenta = app(ContractFromImageRecovery::class)->findActiveVentaByNro($nro);
+
         ContratoRecoveryItem::query()->create([
-            'status' => ContratoRecoveryItem::STATUS_PENDING_ADD,
+            'status' => $existingVenta
+                ? ContratoRecoveryItem::STATUS_REJECTED_EXISTS
+                : ContratoRecoveryItem::STATUS_PENDING_ADD,
             'documents' => $stableDocs,
             'extracted_json' => $data,
             'reviewed_json' => $data,
@@ -513,18 +520,61 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             'nro_contr_adm' => $nro,
             'cliente_nombre' => $data['cliente_nombre'] ?? null,
             'customer_id' => $customer?->id,
+            'venta_id' => $existingVenta?->id,
             'comercial_id' => $data['comercial_id'] ?? null,
             'created_by_user_id' => auth()->id(),
+            'last_error' => $existingVenta
+                ? "YA EXISTE UN CONTRATO con ese número (venta #{$existingVenta->id})."
+                : null,
         ]);
 
-        Notification::make()
-            ->title('Aceptado')
-            ->body('Quedó en la tabla pendiente. Usa «Agregar Contrato» para crear la venta.')
-            ->success()
-            ->send();
+        if ($existingVenta) {
+            Notification::make()
+                ->title('YA EXISTE UN CONTRATO con ese número')
+                ->body("Venta #{$existingVenta->id} ya está activa en la app. Se movió a «Contratos rechazados por estar ya en app».")
+                ->danger()
+                ->persistent()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Aceptado')
+                ->body('Quedó en la tabla pendiente. Usa «Agregar Contrato» para crear la venta.')
+                ->success()
+                ->send();
+        }
 
         $this->resetReview();
         $this->resetTable();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, ContratoRecoveryItem>
+     */
+    public function rejectedItems(): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('contrato_recovery_items')) {
+            return collect();
+        }
+
+        return ContratoRecoveryItem::query()
+            ->where('status', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
+            ->with('venta')
+            ->latest('id')
+            ->limit(200)
+            ->get();
+    }
+
+    public function deleteRejectedItem(int $id): void
+    {
+        $item = ContratoRecoveryItem::query()
+            ->where('status', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
+            ->find($id);
+
+        $item?->delete();
+
+        Notification::make()
+            ->title($item ? 'Registro eliminado' : 'No encontrado')
+            ->send();
     }
 
     public function cancelReview(): void
@@ -587,7 +637,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->label('Fecha/Contrato')
                     ->state(fn (ContratoRecoveryItem $record): string => $this->fechaContratoFormatted($record) ?? '—')
                     ->badge()
-                    ->color('warning')
+                    ->color(fn (ContratoRecoveryItem $record) => $this->mesContratoColor($record))
                     ->sortable(query: function ($query, string $direction) {
                         return $query->orderByRaw(
                             "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reviewed_json, '$.fecha_venta')), '') {$direction}"

@@ -292,6 +292,68 @@
             {{ $this->table }}
         </div>
 
+        <div class="pt-2">
+            @php $rejected = $this->rejectedItems(); @endphp
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+                <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
+                    CONTRATOS RECHAZADOS POR ESTAR YA EN APP ({{ $rejected->count() }})
+                </h2>
+            </div>
+
+            @if ($rejected->isEmpty())
+                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
+                    Ningún registro rechazado por colisión de nº de contrato.
+                </p>
+            @else
+                <div style="overflow-x: auto;">
+                    <table class="contratos-mes-detalle-table">
+                        <thead>
+                            <tr>
+                                <th>Nº Contrato</th>
+                                <th>Cliente</th>
+                                <th>DNI</th>
+                                <th>Motivo</th>
+                                <th>Fecha</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($rejected as $item)
+                                <tr>
+                                    <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
+                                    <td style="font-weight: 700; color: #f97316; white-space: nowrap;">{{ $item->displayClienteNombre() ?? '—' }}</td>
+                                    <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
+                                    <td style="color: #b91c1c;">{{ $item->last_error ?? 'Ya existe un contrato con ese número.' }}</td>
+                                    <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
+                                    <td style="white-space:nowrap;">
+                                        @if ($item->venta_id)
+                                            <a
+                                                href="{{ \App\Filament\SuperAdmin\Resources\VentaResource::getUrl('edit', ['record' => $item->venta_id]) }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                style="color:#1d4ed8;font-weight:700;font-size:0.75rem;margin-right:0.6rem;"
+                                            >
+                                                Ver venta existente
+                                            </a>
+                                        @endif
+                                        <button
+                                            type="button"
+                                            wire:click="deleteRejectedItem({{ $item->id }})"
+                                            wire:confirm="¿Eliminar este registro rechazado?"
+                                            style="color:#b91c1c;background:transparent;border:none;cursor:pointer;"
+                                            title="Eliminar registro"
+                                        >
+                                            <x-heroicon-o-trash class="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
         @if ($step === 'upload')
             <form wire:submit.prevent="analyzeDocuments" class="space-y-4">
                 {{ $this->uploadForm }}

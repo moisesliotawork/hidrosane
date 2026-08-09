@@ -49,6 +49,9 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'vision_model' => env('OPENAI_VISION_MODEL', 'gpt-4o-mini'),
+        // Extracción de datos (campos de texto pequeño como el DNI): gpt-4o-mini
+        // falla mucho más leyendo letra pequeña que el modelo completo.
+        'extraction_model' => env('OPENAI_EXTRACTION_MODEL', 'gpt-4o'),
         'transcribe_model' => env('OPENAI_TRANSCRIBE_MODEL', 'whisper-1'),
     ],
 

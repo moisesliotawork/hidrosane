@@ -280,6 +280,24 @@ final class ContractFromImageRecovery
         ];
     }
 
+    /**
+     * Chequeo de colisión SIN bloqueo (solo lectura), para decidir en staging
+     * si un nº de contrato admin ya existe como venta ACTIVA en la app.
+     * No lanza excepciones ni modifica nada.
+     */
+    public function findActiveVentaByNro(string $nro): ?Venta
+    {
+        $nro = $this->normalizeNro($nro);
+        if ($nro === '') {
+            return null;
+        }
+
+        return Venta::query()
+            ->whereIn('nro_contr_adm', $this->nroCandidates($nro))
+            ->orderBy('id')
+            ->first();
+    }
+
     protected function findVentaByNroLocked(string $nro): ?Venta
     {
         $candidates = $this->nroCandidates($nro);
