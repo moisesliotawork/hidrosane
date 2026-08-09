@@ -513,8 +513,32 @@ class RecoverContractsFromFolder extends Command
             $dni = mb_strtoupper(trim((string) ($merged['dni'] ?? '')));
             $nro = trim((string) ($merged['nro_contr_adm'] ?? ''));
 
-            if ($dni === '' || $nro === '') {
-                $this->warn("Grupo {$g['key']}: sin DNI o sin nº de contrato, se omite ({$dni} / {$nro}).");
+            // El DNI es el campo que MENOS fiable lee Vision (letra pequeña); exigirlo
+            // descartaría de entrada la mayoría de contratos válidos. Solo el nº de
+            // contrato es imprescindible (es la clave para detectar duplicados); el
+            // DNI, si falta, lo rellena el revisor a mano mirando la foto adjunta.
+            $dni = $dni !== '' ? $dni : null;
+
+            if ($nro === '') {
+                $this->warn("Grupo {$g['key']}: sin nº de contrato, se omite.");
+                $skipped++;
+
+                continue;
+            }
+
+            // Idempotencia: si el comando se relanza (ej. tras corregir algo y
+            // reusar el mismo --state), no duplicar grupos ya volcados antes.
+            $alreadyExists = ContratoRecoveryItem::query()
+                ->where('nro_contr_adm', $nro)
+                ->whereIn('status', [
+                    ContratoRecoveryItem::STATUS_PENDING_ADD,
+                    ContratoRecoveryItem::STATUS_REJECTED_EXISTS,
+                    ContratoRecoveryItem::STATUS_ADDED,
+                ])
+                ->exists();
+
+            if ($alreadyExists) {
+                $this->line("Grupo {$g['key']}: ya existe un recovery item para el nº {$nro}, se omite.");
                 $skipped++;
 
                 continue;
@@ -535,7 +559,7 @@ class RecoverContractsFromFolder extends Command
                 $stableDocs[] = ['type' => ContractImageExtractor::TYPE_OTHER, 'path' => $to, 'label' => $filename];
             }
 
-            $customer = Customer::query()
+            $customer = $dni === null ? null : Customer::query()
                 ->whereNull('deleted_at')
                 ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
                 ->orderBy('id')
