@@ -40,7 +40,7 @@ class ContratosPorMes extends Page implements HasTable
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) Venta::query()->where('en_app', true)->count();
+        return (string) Venta::query()->count();
     }
 
     public static function getNavigationBadgeColor(): string | array | null
