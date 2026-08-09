@@ -180,6 +180,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->schema([
                 Forms\Components\Section::make('Documentos (máximo 3)')
                     ->description('Puedes subir contrato de app, albarán y/u otro documento. Al menos uno es obligatorio. No modifica el flujo comercial.')
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         Forms\Components\FileUpload::make('doc_app')
                             ->label('1. Contrato app (foto/PDF)')
@@ -217,6 +219,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return $form
             ->schema([
                 Forms\Components\Section::make('DATOS POR VOZ')
+                    ->collapsible()
+                    ->collapsed()
                     ->description('Dicta con el micrófono (Mac/navegador), pega texto o sube un audio. Revisa el escrito y luego Procesar dictado (OpenAI).')
                     ->schema([
                         Forms\Components\View::make('filament.superAdmin.pages.partials.voice-dictation')

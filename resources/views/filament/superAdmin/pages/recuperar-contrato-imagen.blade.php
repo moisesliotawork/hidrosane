@@ -143,45 +143,6 @@
             <strong>Paso 2 · Docs huérfanos</strong> cuando el contrato ya esté creado.
         </div>
 
-        @if ($step === 'upload')
-            <form wire:submit.prevent="analyzeDocuments" class="space-y-4">
-                {{ $this->uploadForm }}
-                <x-filament::button type="submit" color="warning" wire:loading.attr="disabled">
-                    Analizar documentos
-                </x-filament::button>
-            </form>
-
-            <div class="relative py-2">
-                <div class="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
-                </div>
-                <div class="relative flex justify-center">
-                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-                        o
-                    </span>
-                </div>
-            </div>
-
-            <form wire:submit.prevent="processVoiceDictation" class="space-y-4">
-                {{ $this->voiceForm }}
-                <x-filament::button type="submit" color="info" wire:loading.attr="disabled">
-                    Procesar dictado
-                </x-filament::button>
-            </form>
-        @else
-            <form wire:submit.prevent="acceptRecovered" class="space-y-4">
-                {{ $this->reviewForm }}
-                <div class="flex flex-wrap gap-3">
-                    <x-filament::button type="submit" color="success">
-                        Aceptar (guardar en tabla)
-                    </x-filament::button>
-                    <x-filament::button type="button" color="gray" wire:click="cancelReview">
-                        Cancelar revisión
-                    </x-filament::button>
-                </div>
-            </form>
-        @endif
-
         <div class="pt-2">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
                 <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
@@ -330,5 +291,44 @@
 
             {{ $this->table }}
         </div>
+
+        @if ($step === 'upload')
+            <form wire:submit.prevent="analyzeDocuments" class="space-y-4">
+                {{ $this->uploadForm }}
+                <x-filament::button type="submit" color="warning" wire:loading.attr="disabled">
+                    Analizar documentos
+                </x-filament::button>
+            </form>
+
+            <div class="relative py-2">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                        o
+                    </span>
+                </div>
+            </div>
+
+            <form wire:submit.prevent="processVoiceDictation" class="space-y-4">
+                {{ $this->voiceForm }}
+                <x-filament::button type="submit" color="info" wire:loading.attr="disabled">
+                    Procesar dictado
+                </x-filament::button>
+            </form>
+        @else
+            <form wire:submit.prevent="acceptRecovered" class="space-y-4">
+                {{ $this->reviewForm }}
+                <div class="flex flex-wrap gap-3">
+                    <x-filament::button type="submit" color="success">
+                        Aceptar (guardar en tabla)
+                    </x-filament::button>
+                    <x-filament::button type="button" color="gray" wire:click="cancelReview">
+                        Cancelar revisión
+                    </x-filament::button>
+                </div>
+            </form>
+        @endif
     </div>
 </x-filament-panels::page>

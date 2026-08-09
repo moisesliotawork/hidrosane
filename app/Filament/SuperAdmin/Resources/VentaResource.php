@@ -91,7 +91,9 @@ class VentaResource extends Resource
         ]));
 
         foreach ($allColumns as $column) {
-            $column->toggleable();
+            // Preserva el "oculto por defecto" ya definido en la columna (p.ej. Teléfonos_CL,
+            // Tlf_Com, CP), en vez de resetearlo a false al llamar toggleable() sin argumentos.
+            $column->toggleable(isToggledHiddenByDefault: $column->isToggledHiddenByDefault());
         }
 
         return $table
