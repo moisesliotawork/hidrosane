@@ -45,6 +45,16 @@ class ListContractResource extends Resource
             ]);
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getModel()::query()->where('en_app', true)->count();
+    }
+
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return 'info';
+    }
+
     public static function form(Form $form): Form
     {
         return $form
