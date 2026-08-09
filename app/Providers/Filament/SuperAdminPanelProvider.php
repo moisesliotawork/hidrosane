@@ -19,9 +19,11 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
+use App\Filament\SuperAdmin\Pages\ContratosPorMes;
 use App\Filament\SuperAdmin\Pages\RecuperarContratoImagen;
 use App\Filament\SuperAdmin\Pages\ReengancharDocumentosHuerfanos;
 use App\Filament\SuperAdmin\Pages\ViewProfile;
+use Illuminate\Support\Carbon;
 use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationGroup;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
@@ -71,6 +73,41 @@ class SuperAdminPanelProvider extends PanelProvider
                         }
                     </style>
                 BLADE)
+            )
+            ->renderHook(
+                PanelsRenderHook::PAGE_HEADER_ACTIONS_BEFORE,
+                function (): string {
+                    $actualKey = Carbon::now()->format('Y-m');
+                    $anteriorKey = Carbon::now()->subMonthNoOverflow()->format('Y-m');
+
+                    return Blade::render(<<<'BLADE'
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <div class="flex items-center gap-x-2">
+                                <x-heroicon-o-calendar-days class="h-5 w-5 text-primary-600 dark:text-primary-400 shrink-0" />
+                                <span class="text-sm font-medium text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                                    Contratos/Mes/Actual
+                                </span>
+                                <x-filament::badge color="info">
+                                    {{ $actual }}
+                                </x-filament::badge>
+                            </div>
+
+                            <div class="flex items-center gap-x-2">
+                                <x-heroicon-o-calendar-days class="h-5 w-5 text-primary-600 dark:text-primary-400 shrink-0" />
+                                <span class="text-sm font-medium text-primary-600 dark:text-primary-400 whitespace-nowrap">
+                                    Contratos/Mes/Anterior
+                                </span>
+                                <x-filament::badge color="info">
+                                    {{ $anterior }}
+                                </x-filament::badge>
+                            </div>
+                        </div>
+                    BLADE, [
+                        'actual' => ContratosPorMes::contratosDelMes($actualKey),
+                        'anterior' => ContratosPorMes::contratosDelMes($anteriorKey),
+                    ]);
+                },
+                scopes: ContratosPorMes::class,
             )
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,

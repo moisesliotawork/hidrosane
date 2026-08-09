@@ -507,6 +507,15 @@ class ContratosPorMes extends Page implements HasTable
         return route('contratos-por-mes.numeros.pdf', $params);
     }
 
+    public static function contratosDelMes(string $mesKey): int
+    {
+        return Venta::query()
+            ->withoutTrashed()
+            ->whereNotNull('fecha_venta')
+            ->whereRaw("DATE_FORMAT(fecha_venta, '%Y-%m') = ?", [$mesKey])
+            ->count();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
