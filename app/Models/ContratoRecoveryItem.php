@@ -172,6 +172,25 @@ class ContratoRecoveryItem extends Model
         return $fromCol !== '' ? $fromCol : null;
     }
 
+    public function displayDireccion(): ?string
+    {
+        $this->loadMissing(['venta.customer', 'customer']);
+
+        $fromVentaCustomer = trim((string) ($this->venta?->customer?->primary_address ?? ''));
+        if ($fromVentaCustomer !== '') {
+            return $fromVentaCustomer;
+        }
+
+        $fromCustomer = trim((string) ($this->customer?->primary_address ?? ''));
+        if ($fromCustomer !== '') {
+            return $fromCustomer;
+        }
+
+        $fromJson = trim((string) (data_get($this->reviewedData(), 'direccion') ?? ''));
+
+        return $fromJson !== '' ? $fromJson : null;
+    }
+
     public function displayCustomerId(): ?int
     {
         $fromVenta = (int) ($this->venta?->customer_id ?? 0);

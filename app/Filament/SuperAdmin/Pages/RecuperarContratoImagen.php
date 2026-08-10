@@ -633,6 +633,27 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->color('warning')
                     ->weight('bold')
                     ->formatStateUsing(fn (?string $state): string => $this->formatDniGroupedEvery4($state)),
+                Tables\Columns\TextColumn::make('contrato_pdf')
+                    ->label('Contrato/PDF')
+                    ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver PDF' : '—')
+                    ->color(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'primary' : 'gray')
+                    ->weight('bold')
+                    ->url(fn (ContratoRecoveryItem $record): ?string => filled($record->documents)
+                        ? route('recovery-items.pdf', $record)
+                        : null)
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto(s) originales con las que se extrajeron los datos del contrato'),
+                Tables\Columns\TextColumn::make('domicilio')
+                    ->label('Domicilio')
+                    ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayDireccion())
+                    ->formatStateUsing(function (?string $state): string {
+                        if (blank($state)) {
+                            return '—';
+                        }
+
+                        return mb_strlen($state) > 14 ? mb_substr($state, 0, 14).'...' : $state;
+                    })
+                    ->tooltip(fn (ContratoRecoveryItem $record): ?string => $record->displayDireccion()),
                 Tables\Columns\TextColumn::make('fecha_contrato')
                     ->label('Fecha/Contrato')
                     ->state(fn (ContratoRecoveryItem $record): string => $this->fechaContratoFormatted($record) ?? '—')
@@ -708,16 +729,6 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->tooltip(fn (ContratoRecoveryItem $record): string => $record->venta_id
                         ? 'Documentos en la venta (BD)'
                         : 'Documentos del recovery (aún sin venta)'),
-                Tables\Columns\TextColumn::make('contrato_pdf')
-                    ->label('Contrato/PDF')
-                    ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver PDF' : '—')
-                    ->color(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'primary' : 'gray')
-                    ->weight('bold')
-                    ->url(fn (ContratoRecoveryItem $record): ?string => filled($record->documents)
-                        ? route('recovery-items.pdf', $record)
-                        : null)
-                    ->openUrlInNewTab()
-                    ->tooltip('Foto(s) originales con las que se extrajeron los datos del contrato'),
                 Tables\Columns\TextColumn::make('venta_id')
                     ->label('ID_Vta')
                     ->placeholder('—'),
