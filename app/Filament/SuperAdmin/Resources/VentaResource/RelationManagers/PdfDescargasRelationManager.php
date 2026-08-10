@@ -6,6 +6,7 @@ use App\Models\VentaPdfDownload;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Tabla "PDF DESCARGADOS": auditoría de copias de PDF archivadas en segundo plano
@@ -19,6 +20,16 @@ class PdfDescargasRelationManager extends RelationManager
     protected static ?string $title = 'PDF Descargados';
 
     protected static ?string $modelLabel = 'PDF descargado';
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        return (string) $ownerRecord->pdfDownloads()->count();
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        return $ownerRecord->pdfDownloads()->count() > 0 ? 'info' : 'gray';
+    }
 
     public function table(Table $table): Table
     {

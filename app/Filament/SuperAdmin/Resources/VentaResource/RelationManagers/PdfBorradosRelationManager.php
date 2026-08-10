@@ -7,6 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Tabla "PDF Borrados": copias de PDF archivadas que se han eliminado (soft-delete)
@@ -19,6 +20,16 @@ class PdfBorradosRelationManager extends RelationManager
     protected static ?string $title = 'PDF Borrados';
 
     protected static ?string $modelLabel = 'PDF borrado';
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        return (string) $ownerRecord->pdfDownloads()->onlyTrashed()->count();
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        return $ownerRecord->pdfDownloads()->onlyTrashed()->count() > 0 ? 'danger' : 'gray';
+    }
 
     public function table(Table $table): Table
     {

@@ -7,6 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Model;
 
 class AsociadasRelationManager extends RelationManager
 {
@@ -14,6 +15,16 @@ class AsociadasRelationManager extends RelationManager
     protected static string $relationship = 'asociadas';
 
     protected static ?string $title = 'Contratos -B asociados';
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        return (string) $ownerRecord->asociadas()->where('nro_contr_adm', 'like', '%-B')->count();
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        return $ownerRecord->asociadas()->where('nro_contr_adm', 'like', '%-B')->count() > 0 ? 'success' : 'gray';
+    }
 
     public function table(Table $table): Table
     {
