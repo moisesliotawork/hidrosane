@@ -11,11 +11,15 @@ use Filament\Actions\Action;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
+use App\Models\VentaPdfDownload;
 use App\Enums\EstadoEntrega;
 use App\Services\VentaNotesCustomerSync;
 use App\Support\VentaFechaVenta;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -365,8 +369,12 @@ class EditVenta extends EditRecord
             ->loadView('pdf_pos', compact('venta', 'bg1', 'bg2'))
             ->setPaper('a4', 'portrait');
 
+        $bytes = $pdf->output();
+
+        $this->archivePdfDownload($venta, $bytes, 'normal');
+
         return response()->streamDownload(
-            fn() => print ($pdf->output()),
+            fn() => print ($bytes),
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
     }
@@ -389,10 +397,41 @@ class EditVenta extends EditRecord
             ->loadView('pdf_pos_b', compact('venta'))
             ->setPaper('a4', 'portrait');
 
+        $bytes = $pdf->output();
+
+        $this->archivePdfDownload($venta, $bytes, 'B');
+
         return response()->streamDownload(
-            fn() => print ($pdf->output()),
+            fn() => print ($bytes),
             'contrato-' . $venta->nro_contr_adm . '.pdf'
         );
+    }
+
+    /**
+     * Guarda en segundo plano una copia del PDF generado al descargar, para que
+     * SuperAdmin pueda auditar quién y cuándo descargó cada contrato (tabla
+     * "PDF DESCARGADOS", solo visible en ese panel). No debe alterar en nada la
+     * descarga que recibe el usuario actual.
+     */
+    protected function archivePdfDownload(Venta $venta, string $pdfBytes, string $tipo): void
+    {
+        try {
+            $path = 'pdf-descargas/' . $venta->id . '/' . now()->format('YmdHis') . '_' . Str::random(6) . '.pdf';
+
+            Storage::disk('local')->put($path, $pdfBytes);
+
+            VentaPdfDownload::create([
+                'venta_id' => $venta->id,
+                'user_id' => auth()->id(),
+                'tipo' => $tipo,
+                'file_path' => $path,
+            ]);
+        } catch (Throwable $exception) {
+            Log::warning('No se pudo archivar la copia del PDF descargado.', [
+                'venta_id' => $venta->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     protected function afterSave(): void

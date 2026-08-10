@@ -4,6 +4,7 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\Admin\Resources\VentaResource as AdminVentaResource;
 use App\Filament\Admin\Resources\VentaResource\RelationManagers\AsociadasRelationManager;
+use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfDescargasRelationManager;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use App\Models\Venta;
@@ -113,6 +114,7 @@ class VentaResource extends Resource
     {
         return [
             AsociadasRelationManager::class,
+            PdfDescargasRelationManager::class,
         ];
     }
 

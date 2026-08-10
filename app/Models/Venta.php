@@ -476,6 +476,12 @@ class Venta extends Model
         return $this->hasMany(VentaOferta::class);
     }
 
+    /** Histórico de copias de PDF archivadas al descargar el contrato (solo visible en SuperAdmin). */
+    public function pdfDownloads(): HasMany
+    {
+        return $this->hasMany(VentaPdfDownload::class)->latest();
+    }
+
     public function repartidor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'repartidor_id');

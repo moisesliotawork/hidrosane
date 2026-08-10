@@ -452,6 +452,29 @@ Route::middleware(['web', 'auth'])
         ]);
     })->name('recovery-items.image');
 
+// Previsualiza la copia archivada en segundo plano de un PDF de contrato descargado
+// (tabla "PDF DESCARGADOS", solo SuperAdmin). Admin nunca ve ni descarga desde aquí.
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/pdf-descargas/{descarga}/ver', function (\Illuminate\Http\Request $request, \App\Models\VentaPdfDownload $descarga) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        abort_unless(
+            \Illuminate\Support\Facades\Storage::disk('local')->exists($descarga->file_path),
+            404,
+            'El PDF archivado ya no está disponible.'
+        );
+
+        return response(\Illuminate\Support\Facades\Storage::disk('local')->get($descarga->file_path), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="pdf-descargado-'.$descarga->id.'.pdf"',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    })->name('pdf-descargas.ver');
+
 // Logout global de Laravel (solo POST: CSRF). GET → login para evitar 405 en barra/atrás.
 Route::get('/logout', fn () => redirect('/admin/login'));
 Route::post('/logout', LogoutController::class)->name('logout');
