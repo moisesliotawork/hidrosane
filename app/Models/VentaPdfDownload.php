@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Copia archivada (en segundo plano) de un PDF de contrato en el momento en que
@@ -17,9 +18,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $origen
  * @property string $file_path
  * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
  */
 class VentaPdfDownload extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'venta_id',
         'user_id',

@@ -6,27 +6,32 @@ use App\Models\VentaPdfDownload;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Tabla "PDF DESCARGADOS": auditoría de copias de PDF archivadas en segundo plano
- * cada vez que se descarga el contrato (desde Admin o SuperAdmin). Solo se
- * registra en el recurso Contratos de SuperAdmin; Admin no ve ni sabe de esto.
+ * Tabla "PDF Borrados": copias de PDF archivadas que se han eliminado (soft-delete)
+ * desde "PDF Descargados". Solo visible en SuperAdmin; permite restaurarlas.
  */
-class PdfDescargasRelationManager extends RelationManager
+class PdfBorradosRelationManager extends RelationManager
 {
     protected static string $relationship = 'pdfDownloads';
 
-    protected static ?string $title = 'PDF Descargados';
+    protected static ?string $title = 'PDF Borrados';
 
-    protected static ?string $modelLabel = 'PDF descargado';
+    protected static ?string $modelLabel = 'PDF borrado';
 
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->onlyTrashed())
             ->recordTitleAttribute('id')
             ->columns([
+                Tables\Columns\TextColumn::make('deleted_at')
+                    ->label('Borrado el')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Fecha')
+                    ->label('Fecha original')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('user')
@@ -53,23 +58,17 @@ class PdfDescargasRelationManager extends RelationManager
             ])
             ->headerActions([])
             ->actions([
-                Tables\Actions\Action::make('ver')
-                    ->label('Ver')
-                    ->icon('heroicon-o-eye')
-                    ->color('gray')
-                    ->url(fn (VentaPdfDownload $record) => route('pdf-descargas.ver', $record))
-                    ->openUrlInNewTab(),
-                Tables\Actions\DeleteAction::make()
+                Tables\Actions\RestoreAction::make()
                     ->label('')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('success')
                     ->requiresConfirmation()
-                    ->modalHeading('Borrar PDF archivado')
-                    ->modalDescription('Se archivará (soft-delete) y podrá consultarse/restaurarse en "PDF Borrados".')
-                    ->successNotificationTitle('PDF archivado en "PDF Borrados"'),
+                    ->modalHeading('Restaurar PDF')
+                    ->modalDescription('Volverá a aparecer en "PDF Descargados".')
+                    ->successNotificationTitle('PDF restaurado'),
             ])
             ->bulkActions([])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('deleted_at', 'desc')
             ->paginated([10, 25, 50]);
     }
 }

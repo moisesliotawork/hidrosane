@@ -1344,6 +1344,21 @@ class VentaResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                // Solo en el recurso Contratos de Admin: acceso rápido al PDF sin
+                // tener que entrar a editar el contrato.
+                TextColumn::make('ver_pdf')
+                    ->label('Ver_pdf')
+                    ->state('VerContrato')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn(Venta $record) => str_ends_with((string) $record->nro_contr_adm, '-B')
+                        ? route('ventas.preview-b', $record)
+                        : route('ventas.preview', $record))
+                    ->openUrlInNewTab()
+                    ->sortable(false)
+                    ->searchable(false)
+                    ->tooltip('Ver el último PDF de este contrato'),
+
             ])
             ->headerActions([
                 // 👇 EXPORTAR EXCEL POR MES

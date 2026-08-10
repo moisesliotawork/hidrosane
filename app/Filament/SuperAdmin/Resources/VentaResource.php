@@ -4,6 +4,7 @@ namespace App\Filament\SuperAdmin\Resources;
 
 use App\Filament\Admin\Resources\VentaResource as AdminVentaResource;
 use App\Filament\Admin\Resources\VentaResource\RelationManagers\AsociadasRelationManager;
+use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfBorradosRelationManager;
 use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfDescargasRelationManager;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
@@ -72,7 +73,17 @@ class VentaResource extends Resource
             'nro_cliente_adm',
         ];
 
+        // Columnas exclusivas del recurso Contratos de Admin (no deben verse en SuperAdmin).
+        $columnsOnlyInAdmin = [
+            'ver_pdf',
+        ];
+
         foreach ($columns as $key => $column) {
+            if (in_array($column->getName(), $columnsOnlyInAdmin, true)) {
+                unset($columns[$key]);
+                continue;
+            }
+
             if ($column->getName() === 'customer.name') {
                 $column->searchable(['first_names', 'last_names']);
                 $nameColumn = $column;
@@ -115,6 +126,7 @@ class VentaResource extends Resource
         return [
             AsociadasRelationManager::class,
             PdfDescargasRelationManager::class,
+            PdfBorradosRelationManager::class,
         ];
     }
 
