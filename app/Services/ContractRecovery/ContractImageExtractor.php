@@ -143,8 +143,10 @@ final class ContractImageExtractor
     public function normalizeExtracted(array $data): array
     {
         $data['nro_contr_adm'] = $this->normalizeNroContrato($data['nro_contr_adm'] ?? null);
-        $data['fecha_venta'] = $this->normalizeDate($data['fecha_venta'] ?? null);
-        $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null);
+        // Fec.Promo./Fec.Entr. del contrato casi nunca llevan año: cuando falta, es de la
+        // campaña 2025 (ver normalizeDate: día/mes SIEMPRE, nunca mes/día).
+        $data['fecha_venta'] = $this->normalizeDate($data['fecha_venta'] ?? null, 2025);
+        $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null, 2025);
         $data['comercial_codes'] = $this->normalizeComercialCodes($data['comercial_codes'] ?? null);
         $data['repartidor_code'] = $this->normalizeEmpleadoCode($data['repartidor_code'] ?? null);
         $data['fecha_nacimiento'] = $this->normalizeDate($data['fecha_nacimiento'] ?? null);
@@ -366,13 +368,37 @@ final class ContractImageExtractor
         return $digits !== '' ? ltrim($digits, '0') ?: '0' : null;
     }
 
-    public function normalizeDate(mixed $value): ?string
+    /**
+     * @param  int|null  $defaultYear  Año a usar cuando la fecha NO trae año (ej. "2/7").
+     *                                 Sin este valor, una fecha sin año se descarta (null)
+     *                                 en vez de arriesgarse a adivinar mal.
+     */
+    public function normalizeDate(mixed $value, ?int $defaultYear = null): ?string
     {
         if (! filled($value)) {
             return null;
         }
 
         $raw = trim((string) $value);
+
+        // Fechas SIN año (ej. "2/7", "02-07"): en los contratos Ohana el formato es
+        // SIEMPRE día/mes (español), NUNCA mes/día (americano) — a diferencia de
+        // Carbon::parse()/strtotime, que interpretarían "2/7" como 7 de febrero.
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})$/', $raw, $m)) {
+            $day = (int) $m[1];
+            $month = (int) $m[2];
+
+            if ($day < 1 || $day > 31 || $month < 1 || $month > 12 || $defaultYear === null) {
+                return null;
+            }
+
+            try {
+                return \Illuminate\Support\Carbon::create($defaultYear, $month, $day)->format('Y-m-d');
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
         foreach (['d-m-Y', 'd/m/Y', 'd-m-y', 'd/m/y', 'Y-m-d'] as $fmt) {
             try {
                 $dt = \Illuminate\Support\Carbon::createFromFormat($fmt, $raw);
@@ -513,8 +539,12 @@ final class ContractImageExtractor
         $headerMap = <<<'TXT'
 Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Cod.Contrato" / "Cod. Contrato" → nro_contr_adm (número del contrato admin; ej. 1189). Solo el número.
-- "Fec.Promo." / "Fec. Promo." → fecha_venta (fecha del contrato admin / promo). Formato YYYY-MM-DD. Ej. 02-10-2025 → 2025-10-02.
-- "Fec.Entr." / "Fec. Entr." → fecha_entrega. Formato YYYY-MM-DD. Ej. 03-10-2025 → 2025-10-03.
+- "Fec.Promo." / "Fec. Promo." → fecha_venta (fecha del contrato admin / promo).
+  CASI SIEMPRE aparece SIN año, solo día/mes (ej. "2/7"): el PRIMER número es el DÍA,
+  el SEGUNDO es el MES (formato español día/mes, NUNCA mes/día). Si no ves año, asume
+  2025. Devuelve siempre YYYY-MM-DD. Ej. "2/7" → 2025-07-02. Ej. con año "02-10-2025" → 2025-10-02.
+- "Fec.Entr." / "Fec. Entr." → fecha_entrega. Mismo formato y misma regla día/mes (nunca
+  mes/día) que Fec.Promo. Ej. "3/7" → 2025-07-03. Ej. con año "03-10-2025" → 2025-10-03.
 - "Com." / "Com:" → comercial_codes: los 1 o 2 códigos de comercial del contrato, separados por coma.
   Ej. "008 - 004" → "008,004". No confundir con "Rep." (repartidor).
 - "Rep." / "Rep:" → repartidor_code: id de empleado del repartidor del contrato (ej. 005). Un solo código. No es comercial.
