@@ -635,7 +635,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->searchable(isGlobal: false)
                     ->forceSearchCaseInsensitive()
                     ->badge()
-                    ->color('warning')
+                    ->color('info')
                     ->weight('bold')
                     ->formatStateUsing(fn (?string $state): string => $this->formatDniGroupedEvery4($state)),
                 Tables\Columns\TextColumn::make('contrato_pdf')
@@ -659,7 +659,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->label('Editar/Datos')
                     ->state('Editar')
                     ->badge()
-                    ->color('warning')
+                    ->color(Color::Pink)
                     ->weight('bold')
                     ->action(Tables\Actions\Action::make('verDatos'))
                     ->tooltip('Editar los datos extraídos de este contrato'),
