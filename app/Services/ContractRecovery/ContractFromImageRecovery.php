@@ -150,6 +150,11 @@ final class ContractFromImageRecovery
                     ])->saveQuietly();
                 }
 
+                // Dirección/CP del "Domicilio:" del contrato → columnas reales del cliente
+                // (primary_address / postal_code), igual que en el resto de la app. Solo
+                // rellena huecos: nunca pisa una dirección o CP que el cliente ya tuviera.
+                $this->fillCustomerAddressIfBlank($customer, $data);
+
                 ContratoRecuperado::query()->firstOrCreate(
                     ['nro_contr_adm' => $nro],
                     ['created_by_user_id' => auth()->id()],
@@ -792,6 +797,28 @@ final class ContractFromImageRecovery
 
         if ($updates !== []) {
             $venta->forceFill($updates)->saveQuietly();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function fillCustomerAddressIfBlank(Customer $customer, array $data): void
+    {
+        $patch = [];
+
+        $direccion = trim((string) ($data['direccion'] ?? ''));
+        if ($direccion !== '' && blank($customer->primary_address)) {
+            $patch['primary_address'] = $direccion;
+        }
+
+        $codigoPostal = trim((string) ($data['codigo_postal'] ?? ''));
+        if ($codigoPostal !== '' && blank($customer->postal_code)) {
+            $patch['postal_code'] = $codigoPostal;
+        }
+
+        if ($patch !== []) {
+            $customer->forceFill($patch)->saveQuietly();
         }
     }
 

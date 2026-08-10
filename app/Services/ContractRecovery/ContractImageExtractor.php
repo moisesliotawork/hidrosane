@@ -167,6 +167,12 @@ final class ContractImageExtractor
         $data['documento_tipo'] = $this->normalizeDocumentoTipo($data['documento_tipo'] ?? null);
         $data['codigo_postal'] = $this->normalizePostalCode($data['codigo_postal'] ?? null)
             ?? $this->normalizePostalCode($data['direccion'] ?? null);
+        // El modelo suele copiar el "Domicilio:" tal cual, con el CP pegado dentro
+        // (ej. "Avda. Castelao 67 9ºB 36209"). Una vez extraído el CP por separado,
+        // lo quitamos de la dirección para que quede limpia (solo calle/piso), que
+        // es el formato con el que se guarda al cliente en la app (primary_address
+        // y postal_code son columnas separadas).
+        $data['direccion'] = $this->stripPostalCodeFromDireccion($data['direccion'] ?? null, $data['codigo_postal']);
 
         return $data;
     }
@@ -187,6 +193,29 @@ final class ContractImageExtractor
         }
 
         return null;
+    }
+
+    /**
+     * Quita el código postal (si aparece) de la línea de dirección, dejando solo
+     * calle/número/piso. No toca nada si no hay CP o la dirección viene vacía.
+     */
+    public function stripPostalCodeFromDireccion(mixed $direccion, ?string $codigoPostal): ?string
+    {
+        if (! filled($direccion)) {
+            return null;
+        }
+
+        $raw = trim((string) $direccion);
+        if ($codigoPostal !== null) {
+            $raw = preg_replace('/\b'.preg_quote($codigoPostal, '/').'\b/', '', $raw) ?? $raw;
+        }
+
+        // Limpia comas/guiones sueltos y espacios dobles que deja el hueco del CP.
+        $raw = preg_replace('/\s{2,}/', ' ', $raw) ?? $raw;
+        $raw = preg_replace('/\s*,\s*,/', ',', $raw) ?? $raw;
+        $raw = trim($raw, " \t\n\r\0\x0B,-");
+
+        return $raw !== '' ? $raw : null;
     }
 
     /**
@@ -428,9 +457,11 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Rep." / "Rep:" → repartidor_code: id de empleado del repartidor del contrato (ej. 005). Un solo código. No es comercial.
 - "Hora Entr." → horario_entrega (ej. TD, TM).
 - "Cód.Cliente" NO es nro_contr_adm.
-- "Domicilio" → direccion (texto completo tal cual aparece). Si dentro del domicilio se lee un
-  código postal (5 dígitos, ej. "36213 Vigo (Pontevedra)"), extráelo también por separado en
-  codigo_postal (ej. "36213"). Si no hay código postal visible, usa null.
+- "Domicilio" → direccion: copia la línea completa de "Domicilio:" tal cual aparece (calle,
+  número, piso/puerta). Es habitual que el código postal (5 dígitos) esté pegado al final de esa
+  misma línea, con o sin ciudad detrás (ej. "Avda. Castelao 67 9ºB 36209" o "36213 Vigo
+  (Pontevedra)"): en ambos casos extrae esos 5 dígitos también por separado en codigo_postal
+  (ej. "36209" / "36213"). Si no hay código postal visible, usa null.
 - IMPORTANTE — nro_contr_adm SOLO si está ETIQUETADO como "Cod.Contrato" / "Cod. Contrato".
   Muchos albaranes/notas de entrega llevan un número de serie propio impreso arriba (del propio
   talonario), SIN esa etiqueta: eso NO es el número de contrato, es solo el correlativo del papel.
