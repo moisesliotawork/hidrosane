@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Venta;
 use App\Services\ContractRecovery\ContractImageExtractor;
+use App\Support\Storage\DocumentStorage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -26,16 +27,17 @@ class ListOrphanPrecontractuals extends Command
 
     public function handle(ContractImageExtractor $extractor): int
     {
-        $disk = Storage::disk('public');
-        $ventasDir = $disk->path('ventas');
-        if (! is_dir($ventasDir)) {
-            $this->error("No existe {$ventasDir}");
+        $this->info('Inventariando disco *precontractual*…');
+
+        $files = DocumentStorage::allFiles('ventas');
+
+        if ($files === []) {
+            $this->error('No hay ficheros bajo ventas/ en el disco "'.DocumentStorage::diskName().'".');
 
             return self::FAILURE;
         }
 
-        $this->info('Inventariando disco *precontractual*…');
-        $onDisk = $this->listPrecontractualOnDisk($ventasDir);
+        $onDisk = $this->filterPrecontractuals($files);
         $this->info('En disco: '.count($onDisk));
 
         $this->info('Leyendo paths de BD…');
@@ -73,6 +75,9 @@ class ListOrphanPrecontractuals extends Command
         if ($limit !== null && $limit > 0) {
             $orphans = array_slice($orphans, 0, $limit);
         }
+
+        // Solo lo usa la rama --ocr, que sigue pendiente de migrar (ver TODO abajo).
+        $disk = Storage::disk('public');
 
         $doOcr = (bool) $this->option('ocr');
         if ($doOcr && ! filled(config('services.openai.api_key'))) {
@@ -126,6 +131,9 @@ class ListOrphanPrecontractuals extends Command
 
             if ($doOcr) {
                 try {
+                    // TODO(migración Spaces): sin migrar a propósito. $disk->path()
+                    // solo devuelve una ruta de filesystem real en un disco local,
+                    // así que con DOCUMENTS_DISK=spaces esta rama deja de funcionar.
                     $absolute = $disk->path(preg_replace('#^public/#', '', $rel));
                     // PDF → JPG (1ª página) dentro de extractOne
                     $data = $this->extractWithRateLimitRetry($extractor, $absolute);
@@ -159,25 +167,17 @@ class ListOrphanPrecontractuals extends Command
     }
 
     /**
+     * @param  list<string>  $files  paths relativos al disco de documentos
      * @return list<string> paths tipo ventas/….
      */
-    protected function listPrecontractualOnDisk(string $ventasDir): array
+    protected function filterPrecontractuals(array $files): array
     {
         $out = [];
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($ventasDir, \FilesystemIterator::SKIP_DOTS)
-        );
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
+        foreach ($files as $rel) {
+            $rel = ltrim(str_replace('\\', '/', $rel), '/');
+            if (! str_contains(mb_strtolower(basename($rel)), 'precontractual')) {
                 continue;
             }
-            $name = $file->getFilename();
-            if (! str_contains(mb_strtolower($name), 'precontractual')) {
-                continue;
-            }
-            $full = $file->getPathname();
-            $rel = 'ventas/'.ltrim(str_replace($ventasDir, '', $full), DIRECTORY_SEPARATOR);
-            $rel = str_replace('\\', '/', $rel);
             $out[] = $rel;
         }
         sort($out);
