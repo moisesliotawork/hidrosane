@@ -147,6 +147,7 @@ final class ContractImageExtractor
         $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null);
         $data['comercial_codes'] = $this->normalizeComercialCodes($data['comercial_codes'] ?? null);
         $data['repartidor_code'] = $this->normalizeEmpleadoCode($data['repartidor_code'] ?? null);
+        $data['fecha_nacimiento'] = $this->normalizeDate($data['fecha_nacimiento'] ?? null);
         $data['horario_entrega'] = $this->normalizeHorario($data['horario_entrega'] ?? null);
         $data['dni'] = $this->normalizeSpanishId($data['dni'] ?? null)
             ?? $this->normalizeSpanishId($data['mrz_raw'] ?? null)
@@ -491,6 +492,7 @@ final class ContractImageExtractor
             'horario_entrega' => null,
             'comercial_codes' => null,
             'repartidor_code' => null,
+            'fecha_nacimiento' => null,
             'importe_total' => null,
             'entrada' => null,
             'cuota_mensual' => null,
@@ -536,6 +538,11 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
   encabezado) ni con los teléfonos de la línea de abajo. Si la línea existe pero un dígito no se ve
   con total claridad, aun así devuelve tu mejor lectura completa (no la dejes en null solo por duda:
   para eso existe la validación posterior).
+- "Fecha nacimiento" → fecha_nacimiento: en esa misma sección "A. DATOS PERSONALES DEL CLIENTE",
+  justo debajo de la línea "DNI/NIE", hay una línea "Fecha nacimiento" con la fecha de nacimiento
+  del cliente (formato dd-mm-aaaa). Devuélvela en formato YYYY-MM-DD (ej. 02-05-1953 → 1953-05-02).
+  No la confundas con "Fec.Promo." ni "Fec.Entr." del encabezado (esas son del contrato, no del
+  cliente).
 - "C. IMPORTE Y FORMA DE PAGO" (MUY IMPORTANTE, no te lo saltes): es una tabla con 5 columnas, justo
   debajo de "B. RELACIÓN DE ARTÍCULOS". Lee cada celda de esa fila y mapea exactamente así (no
   confundas estas cifras con ninguna otra del documento):

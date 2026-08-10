@@ -263,6 +263,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('nro_contr_adm')->label('Cod.Contrato (nº contrato admin)')->required(),
                         Forms\Components\TextInput::make('cliente_nombre')->label('Nombre (extraído)'),
                         Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
+                        Forms\Components\DatePicker::make('fecha_nacimiento')
+                            ->label('Fecha nacimiento (cliente)')
+                            ->native(false)
+                            ->displayFormat('d-m-Y')
+                            ->format('Y-m-d'),
                         Forms\Components\DatePicker::make('fecha_venta')
                             ->label('Fec.Promo. (fecha contrato admin)')
                             ->native(false)
@@ -894,6 +899,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 'fecha_entrega' => $this->normalizeDateForPicker(
                                     data_get($record->reviewedData(), 'fecha_entrega')
                                 ),
+                                'fecha_nacimiento' => $this->normalizeDateForPicker(
+                                    data_get($record->reviewedData(), 'fecha_nacimiento')
+                                ),
                             ],
                         );
                     })
@@ -969,6 +977,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 'fecha_promo' => $fechaVenta,
                                 'fecha_entrega' => $this->normalizeDateForPicker(
                                     data_get($record->reviewedData(), 'fecha_entrega')
+                                ),
+                                'fecha_nacimiento' => $this->normalizeDateForPicker(
+                                    data_get($record->reviewedData(), 'fecha_nacimiento')
                                 ),
                             ],
                         );
@@ -1172,7 +1183,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return [
             Forms\Components\Section::make()
                 ->compact()
-                ->columns(4)
+                ->columns(5)
                 ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-form-4col'])
                 ->schema([
                     Forms\Components\TextInput::make('nro_contr_adm')
@@ -1237,6 +1248,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     Forms\Components\TextInput::make('nro_albaran')
                         ->label('ALBARÁN')
                         ->inlineLabel()
+                        ->columnSpan(1),
+                    Forms\Components\DatePicker::make('fecha_nacimiento')
+                        ->label('FEC. NACIMIENTO')
+                        ->inlineLabel()
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->extraInputAttributes(['class' => 'recovery-fecha-bold-input'])
                         ->columnSpan(1),
                 ]),
 

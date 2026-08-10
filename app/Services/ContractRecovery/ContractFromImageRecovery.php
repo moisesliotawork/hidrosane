@@ -150,9 +150,9 @@ final class ContractFromImageRecovery
                     ])->saveQuietly();
                 }
 
-                // Dirección/CP del "Domicilio:" del contrato → columnas reales del cliente
-                // (primary_address / postal_code), igual que en el resto de la app. Solo
-                // rellena huecos: nunca pisa una dirección o CP que el cliente ya tuviera.
+                // Dirección/CP/fecha de nacimiento del contrato → columnas reales del cliente
+                // (primary_address / postal_code / fecha_nac), igual que en el resto de la app.
+                // Solo rellena huecos: nunca pisa un dato que el cliente ya tuviera.
                 $this->fillCustomerAddressIfBlank($customer, $data);
 
                 ContratoRecuperado::query()->firstOrCreate(
@@ -801,6 +801,9 @@ final class ContractFromImageRecovery
     }
 
     /**
+     * Rellena huecos del cliente (dirección, CP, fecha de nacimiento) con lo leído del
+     * contrato recuperado. Nunca pisa un dato que el cliente ya tuviera.
+     *
      * @param  array<string, mixed>  $data
      */
     protected function fillCustomerAddressIfBlank(Customer $customer, array $data): void
@@ -815,6 +818,11 @@ final class ContractFromImageRecovery
         $codigoPostal = trim((string) ($data['codigo_postal'] ?? ''));
         if ($codigoPostal !== '' && blank($customer->postal_code)) {
             $patch['postal_code'] = $codigoPostal;
+        }
+
+        $fechaNacimiento = trim((string) ($data['fecha_nacimiento'] ?? ''));
+        if ($fechaNacimiento !== '' && blank($customer->getRawOriginal('fecha_nac'))) {
+            $patch['fecha_nac'] = $fechaNacimiento;
         }
 
         if ($patch !== []) {
