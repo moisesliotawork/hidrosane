@@ -150,6 +150,26 @@ final class DocumentStorage
         return $found['disk']->url($found['path']);
     }
 
+    /**
+     * Timestamp de última modificación, o null si el documento no está.
+     */
+    public static function lastModified(?string $path): ?int
+    {
+        $found = self::locate($path);
+
+        if ($found === null) {
+            return null;
+        }
+
+        try {
+            return $found['disk']->lastModified($found['path']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
     public static function get(?string $path): ?string
     {
         $found = self::locate($path);
@@ -247,6 +267,41 @@ final class DocumentStorage
 
         try {
             return self::disk()->allFiles($prefix ?? '');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * Igual que allFiles(), pero devolviendo también la fecha de modificación.
+     *
+     * Existe para no pedir lastModified() fichero a fichero: en un disco remoto
+     * eso es un HEAD por objeto y aquí se recorren miles. El listado de S3 ya
+     * trae la fecha en la misma respuesta, así que sale gratis.
+     *
+     * @return list<array{path: string, last_modified: ?int}>
+     */
+    public static function allFilesWithMeta(string $directory = ''): array
+    {
+        $prefix = self::normalize($directory);
+
+        try {
+            $files = [];
+
+            foreach (self::disk()->getDriver()->listContents($prefix ?? '', true) as $item) {
+                if (! $item->isFile()) {
+                    continue;
+                }
+
+                $files[] = [
+                    'path' => $item->path(),
+                    'last_modified' => $item->lastModified(),
+                ];
+            }
+
+            return $files;
         } catch (\Throwable $e) {
             report($e);
 

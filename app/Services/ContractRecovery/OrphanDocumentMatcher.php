@@ -5,8 +5,8 @@ namespace App\Services\ContractRecovery;
 use App\Models\ContratoRecoveryItem;
 use App\Models\Venta;
 use App\Support\Filament\VentaDocumentUpload;
+use App\Support\Storage\DocumentStorage;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -409,7 +409,10 @@ final class OrphanDocumentMatcher
     }
 
     /**
-     * Paths en public/ventas no referenciados por ninguna venta (incl. soft-deleted).
+     * Paths bajo ventas/ no referenciados por ninguna venta (incl. soft-deleted).
+     *
+     * El disco lo decide DocumentStorage, así que funciona igual con los
+     * documentos en storage/app/public que en Spaces.
      *
      * @return list<array{
      *     path: string,
@@ -421,50 +424,40 @@ final class OrphanDocumentMatcher
      */
     public function listOrphans(?string $monthYyyymm = null): array
     {
-        $disk = Storage::disk('public');
-        $ventasDir = $disk->path('ventas');
-        if (! is_dir($ventasDir)) {
+        $files = DocumentStorage::allFilesWithMeta('ventas');
+
+        if ($files === []) {
             return [];
         }
 
         $linked = $this->allLinkedDocumentPaths();
         $orphans = [];
 
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($ventasDir, \FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
-                continue;
-            }
-
-            $name = $file->getFilename();
+        foreach ($files as $file) {
+            $rel = ltrim(str_replace('\\', '/', $file['path']), '/');
+            $name = basename($rel);
             $lowerName = mb_strtolower($name);
             // Solo docs recuperables por OCR / formulario (no .numbers, .zip, etc.)
             if (! preg_match('/\.(jpe?g|png|webp|gif|heic|heif|pdf)$/i', $lowerName)) {
                 continue;
             }
-            if (str_ends_with($lowerName, '.pages')) {
+
+            // allLinkedDocumentPaths() indexa siempre sin barra inicial.
+            if (isset($linked[$rel])) {
                 continue;
             }
 
             $meta = $this->parseFilename($name);
-            $full = $file->getPathname();
-            $rel = 'ventas/'.ltrim(str_replace($ventasDir, '', $full), DIRECTORY_SEPARATOR);
-            $rel = str_replace('\\', '/', $rel);
-
-            if (isset($linked[$rel]) || isset($linked[ltrim($rel, '/')])) {
-                continue;
-            }
 
             // UUID / nombres sin patrón comercial: usar mtime como fecha de carga.
-            $uploadedAt = $meta['uploaded_at']
-                ?? Carbon::createFromTimestamp($file->getMTime());
+            $uploadedAt = $meta['uploaded_at'];
+            if ($uploadedAt === null && $file['last_modified'] !== null) {
+                $uploadedAt = Carbon::createFromTimestamp($file['last_modified']);
+            }
 
             if ($monthYyyymm !== null && $monthYyyymm !== '') {
                 $month = preg_replace('/\D+/', '', $monthYyyymm);
-                $uploadYmd = $uploadedAt->format('Ymd');
+                $uploadYmd = $uploadedAt?->format('Ymd') ?? '';
                 if ($uploadYmd === '' || ! str_starts_with($uploadYmd, $month)) {
                     continue;
                 }
@@ -1179,7 +1172,7 @@ final class OrphanDocumentMatcher
                 continue;
             }
 
-            if (! Storage::disk('public')->exists(preg_replace('#^public/#', '', $path))) {
+            if (! DocumentStorage::exists($path)) {
                 $skipped++;
 
                 continue;
@@ -1234,14 +1227,14 @@ final class OrphanDocumentMatcher
 
     protected function uploadedAtForPath(string $path): ?Carbon
     {
-        $disk = Storage::disk('public');
-        $rel = preg_replace('#^public/#', '', $path) ?? $path;
-        if (! $disk->exists($rel)) {
+        $timestamp = DocumentStorage::lastModified($path);
+
+        if ($timestamp === null) {
             return null;
         }
 
         try {
-            return Carbon::createFromTimestamp($disk->lastModified($rel));
+            return Carbon::createFromTimestamp($timestamp);
         } catch (Throwable) {
             return null;
         }
