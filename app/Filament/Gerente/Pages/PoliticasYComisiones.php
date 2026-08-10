@@ -10,6 +10,7 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Storage\DocumentStorage;
 
 class PoliticasYComisiones extends Page implements HasForms
 {
@@ -86,8 +87,8 @@ class PoliticasYComisiones extends Page implements HasForms
         $oldPath = $this->normalizePath($old['path'] ?? null);
 
         // Si subimos uno nuevo y existe uno anterior distinto -> borrar anterior
-        if ($newPath && $oldPath && $newPath !== $oldPath && Storage::disk('public')->exists($oldPath)) {
-            Storage::disk('public')->delete($oldPath);
+        if ($newPath && $oldPath && $newPath !== $oldPath) {
+            DocumentStorage::delete($oldPath);
         }
 
         // Guardar SIEMPRE el string (no arrays) en el setting
@@ -106,7 +107,7 @@ class PoliticasYComisiones extends Page implements HasForms
         if (!$path)
             return null;
 
-        // Usar la URL del disco "public" (coincide con lo que usa FileUpload)
-        return Storage::disk('public')->url(ltrim($path, '/'));
+        // URL firmada si el documento vive en almacenamiento remoto privado
+        return DocumentStorage::url($path);
     }
 }

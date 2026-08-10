@@ -18,6 +18,7 @@ use App\Models\CreamDailyControl;
 use Carbon\Carbon;
 use Illuminate\Filesystem\FilesystemAdapter;
 use App\Enums\OrigenVenta;
+use App\Support\Storage\DocumentStorage;
 
 /**
  * @property int $id
@@ -434,14 +435,9 @@ class Venta extends Model
     /* ---------- Helper ---------- */
     protected function urlFor(string $field): ?string
     {
-        if (!$this->$field) {
-            return null;
-        }
-
-        /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
-
-        return $disk->url($this->$field);
+        // Devuelve URL firmada de vida corta cuando los documentos viven en un
+        // disco remoto privado, y la URL pública de siempre en disco local.
+        return DocumentStorage::url($this->$field ?? null);
     }
 
     /* ---------- Relaciones ---------- */

@@ -6,6 +6,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Storage\DocumentStorage;
+use App\Support\Storage\LocalCopy;
 use Throwable;
 
 /**
@@ -31,7 +33,11 @@ final class ContractVoiceExtractor
             throw new \RuntimeException('Falta OPENAI_API_KEY en el entorno. Puedes rellenar los campos a mano.');
         }
 
-        $absolute = $this->resolveAbsolutePath($relativePath);
+        // Se mantiene en ámbito hasta terminar la transcripción: si el audio
+        // vino de un disco remoto, el temporal se borra al salir del método.
+        $localCopy = $this->resolveLocalCopy($relativePath);
+        $absolute = $localCopy->path();
+
         if (! is_file($absolute)) {
             throw new \RuntimeException("No se encuentra el audio: {$relativePath}");
         }
@@ -138,19 +144,26 @@ final class ContractVoiceExtractor
         return $text;
     }
 
-    protected function resolveAbsolutePath(string $relativePath): string
+    /**
+     * Whisper se sube por multipart desde una ruta física, así que un audio
+     * alojado en disco remoto hay que materializarlo en un temporal.
+     */
+    protected function resolveLocalCopy(string $relativePath): LocalCopy
     {
         if (str_starts_with($relativePath, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:\\\\/', $relativePath)) {
-            return $relativePath;
+            return LocalCopy::existing($relativePath);
         }
 
-        foreach (['local', 'public'] as $disk) {
-            $full = Storage::disk($disk)->path($relativePath);
-            if (is_file($full)) {
-                return $full;
-            }
+        $copy = DocumentStorage::localCopy($relativePath);
+
+        if ($copy !== null) {
+            return $copy;
         }
 
-        return storage_path('app/'.$relativePath);
+        $working = Storage::disk('local')->path($relativePath);
+
+        return LocalCopy::existing(
+            is_file($working) ? $working : storage_path('app/'.$relativePath)
+        );
     }
 }

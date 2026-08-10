@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use App\Support\Storage\DocumentStorage;
 
 /**
  * @property int $id
@@ -115,7 +116,7 @@ class Team extends Model
 
     public function getFotoUrlAttribute(): ?string
     {
-        return $this->foto ? Storage::disk('public')->url($this->foto) : null;
+        return DocumentStorage::url($this->foto);
     }
 
     /**

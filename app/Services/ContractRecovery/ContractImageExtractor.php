@@ -6,6 +6,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Support\Storage\DocumentStorage;
+use App\Support\Storage\LocalCopy;
 use Throwable;
 
 /**
@@ -79,7 +81,11 @@ final class ContractImageExtractor
             throw new \RuntimeException('Falta OPENAI_API_KEY en el entorno. Puedes rellenar los campos a mano.');
         }
 
-        $absolute = $this->resolveAbsolutePath($relativePath);
+        // $localCopy se mantiene en ámbito durante todo el método: si es un
+        // temporal descargado de Spaces, se borra al salir de extractOne().
+        $localCopy = $this->resolveLocalCopy($relativePath);
+        $absolute = $localCopy->path();
+
         if (! is_file($absolute)) {
             throw new \RuntimeException("No se encuentra el archivo: {$relativePath}");
         }
@@ -393,20 +399,32 @@ TXT;
         };
     }
 
-    protected function resolveAbsolutePath(string $relativePath): string
+    /**
+     * Materializa el documento en disco local.
+     *
+     * Vision necesita leer los bytes y los conversores de PDF (Imagick,
+     * pdftoppm, gs) exigen una ruta física, así que si el documento vive en un
+     * disco remoto se descarga a un temporal. El LocalCopy devuelto debe
+     * mantenerse vivo mientras se use la ruta: al destruirse borra el temporal.
+     */
+    protected function resolveLocalCopy(string $relativePath): LocalCopy
     {
         if (str_starts_with($relativePath, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:\\\\/', $relativePath)) {
-            return $relativePath;
+            return LocalCopy::existing($relativePath);
         }
 
-        foreach (['local', 'public'] as $disk) {
-            $full = Storage::disk($disk)->path($relativePath);
-            if (is_file($full)) {
-                return $full;
-            }
+        $copy = DocumentStorage::localCopy($relativePath);
+
+        if ($copy !== null) {
+            return $copy;
         }
 
-        return storage_path('app/'.$relativePath);
+        // Ficheros de trabajo internos (disco 'local'), fuera del almacén de documentos.
+        $working = Storage::disk('local')->path($relativePath);
+
+        return LocalCopy::existing(
+            is_file($working) ? $working : storage_path('app/'.$relativePath)
+        );
     }
 
     /**

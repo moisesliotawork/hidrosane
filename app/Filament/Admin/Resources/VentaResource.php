@@ -45,6 +45,7 @@ use App\Filament\Support\CustomerPhoneForm;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaCustomerRelationshipSection;
 use App\Support\Filament\VentaDocumentUpload;
+use App\Support\Storage\DocumentStorage;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -1422,19 +1423,18 @@ class VentaResource extends Resource
                             return;
                         }
 
-                        $disk = 'public';
+                        // Disco privado: el Excel lleva datos de clientes y nunca se
+                        // sirve por URL, sólo se lee aquí para procesarlo. Además así
+                        // ->path() sigue siendo válido aunque los documentos de venta
+                        // se muevan a un almacenamiento remoto.
+                        $disk = 'local';
                         $folder = 'ventas_excel';
-
-                        // Crear carpeta si no existe
-                        if (!Storage::disk($disk)->exists($folder)) {
-                            Storage::disk($disk)->makeDirectory($folder);
-                        }
 
                         // Nombre único del archivo
                         $extension = $file->getClientOriginalExtension() ?: 'xlsx';
                         $fileName = 'ventas_import_' . now()->format('Ymd_His') . '_' . Str::random(6) . '.' . $extension;
 
-                        // Guardar archivo en storage/app/public/ventas_excel
+                        // storeAs() crea la carpeta si no existe
                         $storedPath = $file->storeAs($folder, $fileName, $disk);
 
                         // Ruta física completa para leerlo con maatwebsite/excel
@@ -1685,14 +1685,15 @@ class VentaResource extends Resource
                     }
 
                     $path = ltrim($path, '/');
-                    if (! Storage::disk('public')->exists($path)) {
+                    $url = DocumentStorage::url($path);
+
+                    if ($url === null) {
                         return new HtmlString(
                             '<div class="text-sm text-warning-600">Ruta en BD sin fichero en disco: '
                             .e($path).'</div>'
                         );
                     }
 
-                    $url = Storage::disk('public')->url($path);
                     $name = basename($path);
                     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
                     $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true);
