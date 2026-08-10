@@ -436,6 +436,14 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
   talonario), SIN esa etiqueta: eso NO es el número de contrato, es solo el correlativo del papel.
   Si ves un número grande o destacado pero SIN la palabra "Cod.Contrato" al lado, deja nro_contr_adm
   en null — mejor vacío para revisión manual que un número de contrato falso.
+- DNI/NIE (MUY IMPORTANTE, no te lo saltes): en la sección "A. DATOS PERSONALES DEL CLIENTE" hay una
+  línea con la etiqueta "DNI/NIE" (o "NIF/NIE"), justo debajo de "Nombre y apellidos" y encima de
+  "Fecha nacimiento". Contiene el documento del cliente: 8 dígitos + 1 letra final (ej. 36008542H) o
+  NIE (letra X/Y/Z + 7 dígitos + letra). Lee esa línea dígito a dígito, con mucho cuidado de no
+  transponer cifras ni confundirla con "Cód.Cliente" (que es un número aparte, más corto, en el
+  encabezado) ni con los teléfonos de la línea de abajo. Si la línea existe pero un dígito no se ve
+  con total claridad, aun así devuelve tu mejor lectura completa (no la dejes en null solo por duda:
+  para eso existe la validación posterior).
 TXT;
 
         $dniCard = <<<'TXT'
