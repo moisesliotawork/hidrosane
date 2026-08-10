@@ -652,7 +652,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->label('Imagen')
                     ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver Imagen' : '—')
                     ->badge()
-                    ->color('gray')
+                    ->color('warning')
                     ->action(Tables\Actions\Action::make('verImagenes'))
                     ->tooltip('Ver la(s) foto(s) originales al instante, sin esperar a generar el PDF'),
                 Tables\Columns\TextColumn::make('editar_datos')
