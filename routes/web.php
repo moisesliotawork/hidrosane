@@ -394,6 +394,64 @@ Route::middleware(['web', 'auth'])
         return $pdf->stream('contrato-'.($item->nro_contr_adm ?: $item->id).'.pdf');
     })->name('recovery-items.pdf');
 
+// Sirve una foto original suelta (sin re-empaquetar en PDF): mucho más rápido para
+// echar un vistazo rápido a los datos mientras se revisa el registro.
+Route::middleware(['web', 'auth'])
+    ->get('/superadmin/recovery-items/{item}/image/{index}', function (\Illuminate\Http\Request $request, \App\Models\ContratoRecoveryItem $item, int $index) {
+        $user = auth()->user();
+        abort_unless(
+            $user && method_exists($user, 'hasRole') && $user->hasRole('app_support'),
+            403
+        );
+
+        $docs = collect($item->documents ?? [])
+            ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+            ->values();
+
+        $doc = $docs->get($index);
+        abort_if($doc === null, 404, 'Documento no encontrado.');
+
+        $path = (string) $doc['path'];
+        abort_unless(\Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404, 'El fichero original no está disponible.');
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($ext === 'pdf') {
+            return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="doc-'.($item->nro_contr_adm ?: $item->id).'-'.$index.'.pdf"',
+            ]);
+        }
+
+        $mime = match ($ext) {
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            default => 'image/jpeg',
+        };
+
+        // Misma corrección de rotación (EXIF) que usa el pipeline OCR y el PDF, pero
+        // sin pasar por dompdf: se sirve el JPEG directo, mucho más rápido de abrir.
+        $extractor = app(\App\Services\ContractRecovery\ContractImageExtractor::class);
+        $absolutePath = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
+        $corrected = $extractor->exifCorrectedCopy($absolutePath, $mime);
+
+        if ($corrected !== null) {
+            $data = (string) file_get_contents($corrected);
+            @unlink($corrected);
+
+            return response($data, 200, [
+                'Content-Type' => 'image/jpeg',
+                'Content-Disposition' => 'inline; filename="doc-'.($item->nro_contr_adm ?: $item->id).'-'.$index.'.jpg"',
+                'Cache-Control' => 'private, max-age=3600',
+            ]);
+        }
+
+        return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="doc-'.($item->nro_contr_adm ?: $item->id).'-'.$index.'.'.$ext.'"',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    })->name('recovery-items.image');
+
 // Logout global de Laravel (solo POST: CSRF). GET → login para evitar 405 en barra/atrás.
 Route::get('/logout', fn () => redirect('/admin/login'));
 Route::post('/logout', LogoutController::class)->name('logout');

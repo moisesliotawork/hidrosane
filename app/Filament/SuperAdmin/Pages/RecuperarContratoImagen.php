@@ -648,6 +648,13 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         : null)
                     ->openUrlInNewTab()
                     ->tooltip('Foto(s) originales con las que se extrajeron los datos del contrato'),
+                Tables\Columns\TextColumn::make('ver_imagen')
+                    ->label('Imagen')
+                    ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver Imagen' : '—')
+                    ->badge()
+                    ->color('gray')
+                    ->action(Tables\Actions\Action::make('verImagenes'))
+                    ->tooltip('Ver la(s) foto(s) originales al instante, sin esperar a generar el PDF'),
                 Tables\Columns\TextColumn::make('editar_datos')
                     ->label('Editar/Datos')
                     ->state('Editar')
@@ -863,6 +870,28 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
                         $this->flushCachedTableRecords();
                     }),
+
+                Tables\Actions\Action::make('verImagenes')
+                    ->label('VER IMAGEN')
+                    ->icon('heroicon-o-photo')
+                    ->color('gray')
+                    ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Documentos originales — '.$record->nro_contr_adm)
+                    ->modalDescription('Vista rápida de las fotos/PDF con los que se extrajeron los datos (sin generar PDF, más rápido).')
+                    ->modalWidth(MaxWidth::ThreeExtraLarge)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Cerrar')
+                    ->visible(fn (ContratoRecoveryItem $record): bool => filled($record->documents))
+                    ->form(fn (ContratoRecoveryItem $record): array => [
+                        Forms\Components\View::make('filament.superAdmin.components.recovery-documents-lightbox')
+                            ->viewData([
+                                'photos' => collect($record->documents ?? [])
+                                    ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+                                    ->values()
+                                    ->keys()
+                                    ->map(fn (int $index): string => route('recovery-items.image', ['item' => $record, 'index' => $index]))
+                                    ->all(),
+                            ]),
+                    ]),
 
                 Tables\Actions\Action::make('verDatos')
                     ->label('VER DATOS')
