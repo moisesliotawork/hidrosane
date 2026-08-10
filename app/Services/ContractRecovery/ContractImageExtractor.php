@@ -167,6 +167,14 @@ final class ContractImageExtractor
         $data['documento_tipo'] = $this->normalizeDocumentoTipo($data['documento_tipo'] ?? null);
         $data['codigo_postal'] = $this->normalizePostalCode($data['codigo_postal'] ?? null)
             ?? $this->normalizePostalCode($data['direccion'] ?? null);
+        // "C. IMPORTE Y FORMA DE PAGO": el modelo suele copiar el número tal cual está impreso
+        // (formato español, ej. "2.628,60 €"). El formulario usa inputs numéricos (punto decimal,
+        // sin símbolo de moneda), así que lo normalizamos aquí para que se vea el dato en vez de
+        // quedar vacío por no ser un número JS/HTML válido.
+        $data['importe_total'] = $this->normalizeMoney($data['importe_total'] ?? null);
+        $data['entrada'] = $this->normalizeMoney($data['entrada'] ?? null);
+        $data['cuota_mensual'] = $this->normalizeMoney($data['cuota_mensual'] ?? null);
+        $data['num_cuotas'] = $this->normalizeNumCuotas($data['num_cuotas'] ?? null);
         // El modelo suele copiar el "Domicilio:" tal cual, con el CP pegado dentro
         // (ej. "Avda. Castelao 67 9ºB 36209"). Una vez extraído el CP por separado,
         // lo quitamos de la dirección para que quede limpia (solo calle/piso), que
@@ -216,6 +224,59 @@ final class ContractImageExtractor
         $raw = trim($raw, " \t\n\r\0\x0B,-");
 
         return $raw !== '' ? $raw : null;
+    }
+
+    /**
+     * Importe en euros de la tabla "C. IMPORTE Y FORMA DE PAGO" (entrada, cuota_mensual,
+     * importe_total). Acepta formato español tal cual viene impreso ("2.628,60 €", "87,62€",
+     * "0,00") y también JSON numérico plano (2628.6). Devuelve siempre con punto decimal y
+     * sin símbolo, listo para un input numérico (ej. "2628.60"). Null si no es un importe válido.
+     */
+    public function normalizeMoney(mixed $value): ?string
+    {
+        if (! filled($value) && $value !== 0 && $value !== '0') {
+            return null;
+        }
+
+        $raw = trim(preg_replace('/[€\s]/u', '', (string) $value) ?? '');
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^-?\d{1,3}(\.\d{3})+,\d{1,2}$/', $raw)) {
+            // Miles con punto + decimales con coma: "2.628,60" → "2628.60"
+            $raw = str_replace(['.', ','], ['', '.'], $raw);
+        } elseif (preg_match('/^-?\d{1,3}(,\d{3})+\.\d{1,2}$/', $raw)) {
+            // Formato EEUU (a veces lo devuelve así el modelo): "3,564.00" → "3564.00"
+            $raw = str_replace(',', '', $raw);
+        } elseif (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $raw)) {
+            // Solo miles con punto, sin decimales: "1.234" → "1234"
+            $raw = str_replace('.', '', $raw);
+        } elseif (preg_match('/^-?\d+,\d{1,2}$/', $raw)) {
+            // Solo coma decimal: "87,62" → "87.62"
+            $raw = str_replace(',', '.', $raw);
+        } elseif (! preg_match('/^-?\d+(\.\d{1,2})?$/', $raw)) {
+            // No es un importe reconocible: mejor null que un dato inventado.
+            return null;
+        }
+
+        return is_numeric($raw) ? number_format((float) $raw, 2, '.', '') : null;
+    }
+
+    /**
+     * Nº de cuotas de la misma tabla "C. IMPORTE Y FORMA DE PAGO" (columna "Nº DE CUOTAS").
+     */
+    public function normalizeNumCuotas(mixed $value): ?string
+    {
+        if (! filled($value) && $value !== 0 && $value !== '0') {
+            return null;
+        }
+
+        if (preg_match('/(\d{1,3})/', (string) $value, $m)) {
+            return (string) (int) $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -475,6 +536,17 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
   encabezado) ni con los teléfonos de la línea de abajo. Si la línea existe pero un dígito no se ve
   con total claridad, aun así devuelve tu mejor lectura completa (no la dejes en null solo por duda:
   para eso existe la validación posterior).
+- "C. IMPORTE Y FORMA DE PAGO" (MUY IMPORTANTE, no te lo saltes): es una tabla con 5 columnas, justo
+  debajo de "B. RELACIÓN DE ARTÍCULOS". Lee cada celda de esa fila y mapea exactamente así (no
+  confundas estas cifras con ninguna otra del documento):
+  - Columna "ENTRADA" → entrada (importe en euros, ej. "0,00 €" → 0.00).
+  - Columna "Nº DE CUOTAS" → num_cuotas (número entero de cuotas, ej. 30).
+  - Columna "CUOTA MENSUAL" → cuota_mensual (importe en euros, ej. "87,62 €" → 87.62).
+  - Columna "IMPORTE TOTAL" (la última, más a la derecha) → importe_total (importe en euros, ej.
+    "2.628,60 €" → 2628.60).
+  Copia el número tal cual está impreso en cada celda (con su coma decimal si la lleva); no
+  redondees, no inventes ni mezcles columnas. Si una celda está vacía o no se lee con claridad, usa
+  null solo en esa clave.
 TXT;
 
         $dniCard = <<<'TXT'
