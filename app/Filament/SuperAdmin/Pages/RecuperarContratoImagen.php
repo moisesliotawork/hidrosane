@@ -15,6 +15,7 @@ use App\Services\ContractRecovery\ContractFromImageRecovery;
 use App\Services\ContractRecovery\ContractImageExtractor;
 use App\Services\ContractRecovery\ContractVoiceExtractor;
 use App\Support\RecoveredContractsQuery;
+use App\Support\Storage\DocumentStorage;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -731,8 +732,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     ->maxFiles(4)
                                     ->maxSize(15360) // 15 MB — fotos de manuscrito
                                     ->acceptedFileTypes(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
-                                    ->disk('public')
-                                    ->visibility('public')
+                                    ->disk(DocumentStorage::diskName())
+                                    ->visibility(DocumentStorage::uploadVisibility())
                                     ->directory('contract-recovery/references/'.$record->id)
                                     ->fetchFileInformation(false)
                                     ->imagePreviewHeight('140')

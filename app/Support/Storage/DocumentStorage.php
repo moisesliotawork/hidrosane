@@ -41,6 +41,29 @@ final class DocumentStorage
         return Storage::disk(self::diskName());
     }
 
+    public static function driverFor(?string $disk = null): ?string
+    {
+        $driver = config('filesystems.disks.'.($disk ?? self::diskName()).'.driver');
+
+        return is_string($driver) ? $driver : null;
+    }
+
+    /**
+     * Visibilidad con la que deben escribir los FileUpload de Filament.
+     *
+     * En un disco remoto tiene que ser 'private': el default de Filament es
+     * 'public' y escribiría cada documento en Spaces con ACL public-read,
+     * accesible desde internet por URL directa. Además Filament sólo genera
+     * temporaryUrl() firmada cuando la visibilidad es 'private'.
+     *
+     * En el disco local histórico se mantiene 'public', porque ahí las URLs
+     * salen del symlink public/storage y no hay temporaryUrl().
+     */
+    public static function uploadVisibility(): string
+    {
+        return self::driverFor() === 's3' ? 'private' : 'public';
+    }
+
     /**
      * Normaliza las rutas que guarda la BD.
      *
@@ -112,9 +135,7 @@ final class DocumentStorage
             return null;
         }
 
-        $driver = config("filesystems.disks.{$found['name']}.driver");
-
-        if ($driver === 's3') {
+        if (self::driverFor($found['name']) === 's3') {
             $ttl = max(1, (int) config('filesystems.documents_url_ttl', 15));
 
             try {
@@ -158,9 +179,7 @@ final class DocumentStorage
             return null;
         }
 
-        $driver = config("filesystems.disks.{$found['name']}.driver");
-
-        if ($driver === 'local') {
+        if (self::driverFor($found['name']) === 'local') {
             return LocalCopy::existing($found['disk']->path($found['path']));
         }
 

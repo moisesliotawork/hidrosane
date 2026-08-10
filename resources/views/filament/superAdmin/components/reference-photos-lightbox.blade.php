@@ -1,5 +1,5 @@
 @php
-    use Illuminate\Support\Facades\Storage;
+    use App\Support\Storage\DocumentStorage;
 
     $photos = collect($photos ?? [])
         ->filter(fn ($path) => filled($path) && is_string($path))
@@ -21,6 +21,11 @@
             $path = substr($path, strlen('storage/'));
         }
 
+        // Disco remoto privado: no hay URL pública, sólo temporaryUrl() firmada.
+        if (DocumentStorage::driverFor() === 's3') {
+            return DocumentStorage::url($path);
+        }
+
         // Host del request actual (evita miniaturas rotas si APP_URL ≠ dominio real)
         $base = rtrim(request()->getSchemeAndHttpHost().request()->getBasePath(), '/');
 
@@ -39,7 +44,7 @@
         }
         $exists = false;
         try {
-            $exists = Storage::disk('public')->exists($diskPath);
+            $exists = DocumentStorage::exists($diskPath);
         } catch (\Throwable) {
             $exists = false;
         }

@@ -4,6 +4,7 @@ namespace App\Support\Filament;
 
 use App\Models\User;
 use App\Support\ContractsCommercialUser;
+use App\Support\Storage\DocumentStorage;
 use Filament\Forms\Components\FileUpload;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -232,9 +233,12 @@ class VentaDocumentUpload
 
         return $upload
             ->label('')
-            ->disk('public')
+            // Disco y visibilidad salen de config('filesystems.documents'): con el
+            // default 'public' el comportamiento es idéntico al de siempre, y al
+            // apuntar a Spaces los documentos se escriben privados y con URL firmada.
+            ->disk(DocumentStorage::diskName())
             ->directory('ventas')
-            ->visibility('public')
+            ->visibility(DocumentStorage::uploadVisibility())
             ->acceptedFileTypes(self::acceptedDocumentMimeTypes($allowPdf))
             // Evita que Filament “pierda” ficheros existentes al fallar el probe de mime/size
             // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).

@@ -60,9 +60,9 @@ class PoliticasYComisiones extends Page implements HasForms
                 FileUpload::make('pdf')
                     ->label('Documento PDF (Políticas y Comisiones)')
                     ->acceptedFileTypes(['application/pdf'])
-                    ->directory('politicas')   // storage/app/public/politicas
-                    ->disk('public')
-                    ->visibility('public')
+                    ->directory('politicas')
+                    ->disk(DocumentStorage::diskName())
+                    ->visibility(DocumentStorage::uploadVisibility())
                     ->preserveFilenames()
                     ->enableOpen()
                     ->enableDownload()
