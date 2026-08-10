@@ -47,14 +47,14 @@ class RecoveryBackfillDates extends Command
                 ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
                 ->values();
 
-            $bestFechaVenta = null;
-            $bestFechaEntrega = null;
+            // Candidatos por documento: si un item tiene varias fotos (ej. copias/duplicados
+            // del mismo papel), cada una puede dar una lectura de fecha distinta si alguna
+            // tiene peor letra/calidad. Nos quedamos con la fecha del documento cuyo propio
+            // nro_contr_adm leído coincide con el nº de contrato ya guardado del item — es
+            // la señal más fiable de que esa lectura concreta es de fiar.
+            $candidates = [];
 
             foreach ($docs as $doc) {
-                if ($bestFechaVenta !== null && $bestFechaEntrega !== null) {
-                    break;
-                }
-
                 $path = (string) $doc['path'];
                 $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
                 if ($ext === 'pdf' || ! Storage::disk('local')->exists($path)) {
@@ -87,11 +87,13 @@ class RecoveryBackfillDates extends Command
                     $type = (string) ($doc['type'] ?? ContractImageExtractor::TYPE_OTHER);
                     $data = $extractor->extractOne($type, $base);
 
-                    if ($bestFechaVenta === null && filled($data['fecha_venta'] ?? null)) {
-                        $bestFechaVenta = $data['fecha_venta'];
-                    }
-                    if ($bestFechaEntrega === null && filled($data['fecha_entrega'] ?? null)) {
-                        $bestFechaEntrega = $data['fecha_entrega'];
+                    if (filled($data['fecha_venta'] ?? null) || filled($data['fecha_entrega'] ?? null)) {
+                        $candidates[] = [
+                            'nro_contr_adm' => $data['nro_contr_adm'] ?? null,
+                            'fecha_venta' => $data['fecha_venta'] ?? null,
+                            'fecha_entrega' => $data['fecha_entrega'] ?? null,
+                            'label' => $doc['label'] ?? $path,
+                        ];
                     }
                 } catch (\Throwable $e) {
                     $this->warn("  #{$item->id}: fallo en {$path}: {$e->getMessage()}");
@@ -102,6 +104,12 @@ class RecoveryBackfillDates extends Command
                 }
 
                 usleep(500_000);
+            }
+
+            [$bestFechaVenta, $bestFechaEntrega, $sourceLabel] = $this->pickBestDates($candidates, (string) $item->nro_contr_adm);
+
+            if ($sourceLabel !== null) {
+                $this->line("    (usando lectura de: {$sourceLabel})");
             }
 
             $oldFv = $item->extracted_json['fecha_venta'] ?? null;
@@ -145,6 +153,44 @@ class RecoveryBackfillDates extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, array{nro_contr_adm: string|null, fecha_venta: string|null, fecha_entrega: string|null, label: string}>  $candidates
+     * @return array{0: string|null, 1: string|null, 2: string|null} [fecha_venta, fecha_entrega, etiqueta del documento elegido]
+     */
+    protected function pickBestDates(array $candidates, string $itemNroContrato): array
+    {
+        if ($candidates === []) {
+            return [null, null, null];
+        }
+
+        // 1) Preferimos el/los documento(s) cuyo propio nro_contr_adm leído coincide con
+        //    el nº de contrato ya guardado en el item: es la señal más fiable de que esa
+        //    lectura concreta (y por tanto sus fechas) es de fiar.
+        $matching = array_values(array_filter(
+            $candidates,
+            fn (array $c) => $itemNroContrato !== '' && $c['nro_contr_adm'] === $itemNroContrato
+        ));
+
+        $pool = $matching !== [] ? $matching : $candidates;
+
+        $fechaVenta = null;
+        $fechaEntrega = null;
+        $label = null;
+
+        foreach ($pool as $c) {
+            if ($fechaVenta === null && filled($c['fecha_venta'])) {
+                $fechaVenta = $c['fecha_venta'];
+                $label = $c['label'];
+            }
+            if ($fechaEntrega === null && filled($c['fecha_entrega'])) {
+                $fechaEntrega = $c['fecha_entrega'];
+                $label ??= $c['label'];
+            }
+        }
+
+        return [$fechaVenta, $fechaEntrega, $label];
     }
 
     /**
