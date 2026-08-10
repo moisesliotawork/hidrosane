@@ -643,6 +643,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         : null)
                     ->openUrlInNewTab()
                     ->tooltip('Foto(s) originales con las que se extrajeron los datos del contrato'),
+                Tables\Columns\TextColumn::make('editar_datos')
+                    ->label('Editar/Datos')
+                    ->state('Editar')
+                    ->badge()
+                    ->color('warning')
+                    ->weight('bold')
+                    ->action(Tables\Actions\Action::make('verDatos'))
+                    ->tooltip('Editar los datos extraídos de este contrato'),
                 Tables\Columns\TextColumn::make('domicilio')
                     ->label('Domicilio')
                     ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayDireccion())
