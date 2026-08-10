@@ -504,6 +504,7 @@ class RecoverContractsFromFolder extends Command
     protected function persistGroups(\Illuminate\Support\Collection $groups, string $sourceFolder): void
     {
         $recoverySvc = app(ContractFromImageRecovery::class);
+        $extractor = app(ContractImageExtractor::class);
         $created = 0;
         $rejected = 0;
         $skipped = 0;
@@ -555,6 +556,12 @@ class RecoverContractsFromFolder extends Command
 
             $data = $recoverySvc->ensureRecoveryDefaults($merged);
 
+            // documento_tipo por archivo (leído por Vision) → decide qué slot usará
+            // este documento al recuperar el contrato (ver attachDocumentsWithoutOverwrite).
+            $tipoPorArchivo = collect($g['per_document'] ?? [])
+                ->keyBy('path')
+                ->map(fn ($doc) => $extractor->normalizeDocumentoTipo($doc['data']['documento_tipo'] ?? null));
+
             // Copiar fotos del grupo a la carpeta estable de "accepted"
             $stableDocs = [];
             foreach ($g['files'] as $filename) {
@@ -565,7 +572,13 @@ class RecoverContractsFromFolder extends Command
                 $ext = pathinfo($from, PATHINFO_EXTENSION) ?: 'jpg';
                 $to = 'contract-recovery/accepted/'.now()->format('YmdHis').'_'.uniqid().'.'.$ext;
                 Storage::disk('local')->put($to, (string) file_get_contents($from));
-                $stableDocs[] = ['type' => ContractImageExtractor::TYPE_OTHER, 'path' => $to, 'label' => $filename];
+
+                $tipo = $tipoPorArchivo[$filename] ?? null;
+                $docType = $tipo === 'precontractual'
+                    ? ContractImageExtractor::TYPE_ALBARAN
+                    : ContractImageExtractor::TYPE_OTHER;
+
+                $stableDocs[] = ['type' => $docType, 'path' => $to, 'label' => $filename];
             }
 
             $customer = $dni === null ? null : Customer::query()

@@ -431,6 +431,11 @@ Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Domicilio" → direccion (texto completo tal cual aparece). Si dentro del domicilio se lee un
   código postal (5 dígitos, ej. "36213 Vigo (Pontevedra)"), extráelo también por separado en
   codigo_postal (ej. "36213"). Si no hay código postal visible, usa null.
+- IMPORTANTE — nro_contr_adm SOLO si está ETIQUETADO como "Cod.Contrato" / "Cod. Contrato".
+  Muchos albaranes/notas de entrega llevan un número de serie propio impreso arriba (del propio
+  talonario), SIN esa etiqueta: eso NO es el número de contrato, es solo el correlativo del papel.
+  Si ves un número grande o destacado pero SIN la palabra "Cod.Contrato" al lado, deja nro_contr_adm
+  en null — mejor vacío para revisión manual que un número de contrato falso.
 TXT;
 
         $dniCard = <<<'TXT'
@@ -451,9 +456,9 @@ TXT;
 
         return match ($type) {
             self::TYPE_APP => "Documento: contrato impreso Ohana (app). Extrae JSON con claves: {$keys}.\n{$headerMap}",
-            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento. productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato.",
+            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento (el correlativo propio del talonario, impreso arriba SIN etiqueta). productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato. nro_contr_adm SOLO si ves literalmente la etiqueta \"Cod.Contrato\"; el número de serie del propio albarán (arriba, sin etiquetar) va en nro_albaran, NUNCA en nro_contr_adm.",
             self::TYPE_DNI_CARD => str_replace('{$keys}', $keys, $dniCard),
-            default => "Documento relacionado con un contrato Ohana (puede ser DNI, precontractual, contrato, titularidad…). Extrae JSON con claves: {$keys}.\n{$headerMap}\nSi es DNI/NIE: rellena dni (8 dígitos+letra o NIE), documento_tipo (dni_anverso|dni_reverso) y mrz_raw si hay MRZ. Prioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.",
+            default => "Documento relacionado con un contrato Ohana (puede ser DNI, precontractual/albarán, contrato, titularidad…). Extrae JSON con claves: {$keys}.\n{$headerMap}\nSi es DNI/NIE: rellena dni (8 dígitos+letra o NIE), documento_tipo (dni_anverso|dni_reverso) y mrz_raw si hay MRZ. Prioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.\nCLASIFICA SIEMPRE documento_tipo (obligatorio, aparte de DNI):\n- \"precontractual\": hoja AMARILLA titulada \"INFORMACIÓN PRECONTRACTUAL\"/\"DATOS PERSONALES DEL CLIENTE\" a mano, con un \"DOCUMENTO: NNNNNN\" impreso arriba (ese número NO es nro_contr_adm, es el correlativo del talonario). Es el albarán.\n- \"contrato\": hoja BLANCA impresa titulada \"CONTRATO\", con \"Cod.Contrato: NNNN\" impreso arriba (ese SÍ es nro_contr_adm).\n- \"documento_titularidad\": recibo/factura de luz, agua, etc.\n- \"otro\": cualquier otro caso (nómina, pensión...).",
         };
     }
 

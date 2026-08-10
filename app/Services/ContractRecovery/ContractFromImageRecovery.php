@@ -761,17 +761,24 @@ final class ContractFromImageRecovery
             $dest = 'ventas/'.now()->format('YmdHis').'_recovery_'.$venta->id.'_'.Str::random(6).'.'.$ext;
             Storage::disk('public')->put($dest, Storage::disk('local')->get($path));
 
-            // Siempre anexar primero en contrato firmado (documento recuperado).
-            if (blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
-                $updates['contrato_firmado'] = $dest;
+            // El albarán (INFORMACIÓN PRECONTRACTUAL) va SIEMPRE al slot precontractual,
+            // nunca a contrato_firmado, se identifique o no primero en el grupo.
+            if ($type === ContractImageExtractor::TYPE_ALBARAN) {
+                if (blank($venta->precontractual) && empty($updates['precontractual'])) {
+                    $updates['precontractual'] = $dest;
+                } elseif (blank($venta->otros_documentos) && empty($updates['otros_documentos'])) {
+                    $updates['otros_documentos'] = $dest;
+                } elseif (blank($venta->foto_sorteo) && empty($updates['foto_sorteo'])) {
+                    $updates['foto_sorteo'] = $dest;
+                }
 
                 continue;
             }
 
-            if ($type === ContractImageExtractor::TYPE_ALBARAN
-                && blank($venta->precontractual)
-                && empty($updates['precontractual'])) {
-                $updates['precontractual'] = $dest;
+            // Resto (contrato real / sin identificar): el papel recuperado va primero
+            // a contrato_firmado; si ya está ocupado, cae en los siguientes huecos libres.
+            if (blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
+                $updates['contrato_firmado'] = $dest;
             } elseif (blank($venta->precontractual) && empty($updates['precontractual'])) {
                 $updates['precontractual'] = $dest;
             } elseif (blank($venta->otros_documentos) && empty($updates['otros_documentos'])) {

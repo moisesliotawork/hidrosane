@@ -345,8 +345,14 @@ Route::middleware(['web', 'auth'])
         }
 
         // Fotos (jpg/png/webp) → se empaquetan como PDF, una por página.
+        // dompdf (igual que la API de Vision) ignora el flag EXIF Orientation y
+        // pinta el JPEG "en crudo": si el móvil la guardó girada, aquí se veía de
+        // lado. Reutilizamos la misma corrección física de píxeles que ya usa el
+        // pipeline de extracción OCR para que se vea siempre derecha.
+        $extractor = app(\App\Services\ContractRecovery\ContractImageExtractor::class);
+
         $images = $docs
-            ->map(function (array $doc): ?string {
+            ->map(function (array $doc) use ($extractor): ?string {
                 $path = (string) $doc['path'];
                 if (! \Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
                     return null;
@@ -360,6 +366,17 @@ Route::middleware(['web', 'auth'])
                     'webp' => 'image/webp',
                     default => 'image/jpeg',
                 };
+
+                $absolutePath = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
+                $corrected = $extractor->exifCorrectedCopy($absolutePath, $mime);
+
+                if ($corrected !== null) {
+                    $data = (string) file_get_contents($corrected);
+                    @unlink($corrected);
+
+                    return 'data:image/jpeg;base64,'.base64_encode($data);
+                }
+
                 $data = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
 
                 return 'data:'.$mime.';base64,'.base64_encode($data);
