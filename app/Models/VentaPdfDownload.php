@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $venta_id
  * @property int|null $user_id
  * @property string|null $tipo
+ * @property string $origen
  * @property string $file_path
  * @property \Illuminate\Support\Carbon|null $created_at
  */
@@ -23,6 +24,7 @@ class VentaPdfDownload extends Model
         'venta_id',
         'user_id',
         'tipo',
+        'origen',
         'file_path',
     ];
 

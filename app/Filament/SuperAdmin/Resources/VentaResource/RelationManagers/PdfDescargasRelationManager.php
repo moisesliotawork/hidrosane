@@ -45,6 +45,11 @@ class PdfDescargasRelationManager extends RelationManager
                     ->badge()
                     ->color(fn (?string $state): string => $state === 'B' ? 'warning' : 'info')
                     ->formatStateUsing(fn (?string $state): string => $state === 'B' ? 'Contrato -B' : 'Contrato'),
+                Tables\Columns\TextColumn::make('origen')
+                    ->label('Vía')
+                    ->badge()
+                    ->color(fn (?string $state): string => $state === 'vista_previa' ? 'gray' : 'success')
+                    ->formatStateUsing(fn (?string $state): string => $state === 'vista_previa' ? 'Vista previa' : 'Descarga'),
             ])
             ->headerActions([])
             ->actions([
