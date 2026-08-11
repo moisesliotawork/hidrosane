@@ -10,6 +10,7 @@ use App\Enums\EstadoVenta;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use App\Models\ContratoRecuperado;
+use App\Models\ContratoRecoveryItem;
 use App\Models\Venta;
 use App\Support\Filament\VentaDatosInfolist;
 use App\Support\Filament\VentaSoftDeleteTableAction;
@@ -70,7 +71,6 @@ class VentaResource extends Resource
         $table = AdminVentaResource::table($table);
 
         $columns = $table->getColumns();
-        $nameColumn = null;
 
         $columnsWithoutIndividualSearch = [
             'nro_contr_adm',
@@ -91,9 +91,6 @@ class VentaResource extends Resource
 
             if ($column->getName() === 'customer.name') {
                 $column->searchable(['first_names', 'last_names']);
-                $nameColumn = $column;
-                unset($columns[$key]);
-                continue;
             }
 
             if (in_array($column->getName(), $columnsWithoutIndividualSearch, true)) {
@@ -115,11 +112,8 @@ class VentaResource extends Resource
             }
         }
 
+        // Orden SuperAdmin: Nº Contrato primero; ID-CL justo después de CF.
         $ordered = [];
-        $ordered[] = SuperAdminVentaCustomerId::tableColumn();
-        if ($nameColumn) {
-            $ordered[] = $nameColumn;
-        }
 
         foreach (array_values($columns) as $column) {
             $ordered[] = $column;
@@ -145,6 +139,24 @@ class VentaResource extends Resource
                                 static::getUrl('edit', ['record' => $record]),
                             ))
                     );
+
+                // Solo SuperAdmin: foto original usada en la recuperación (junto a Ver Datos).
+                $ordered[] = TextColumn::make('ver_imagen')
+                    ->label('Imagen')
+                    ->state(function (Venta $record): string {
+                        return static::contratoImagenUrl($record) ? 'Ver Imagen' : '—';
+                    })
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Ver Imagen' ? 'warning' : 'gray')
+                    ->url(fn (Venta $record): ?string => static::contratoImagenUrl($record))
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto original usada para recuperar este contrato')
+                    ->alignCenter()
+                    ->grow(false);
+            }
+
+            if ($column->getName() === 'cf') {
+                $ordered[] = SuperAdminVentaCustomerId::tableColumn();
             }
         }
 
@@ -185,6 +197,53 @@ class VentaResource extends Resource
             'edit' => Pages\EditVenta::route('/{record}/edit'),
             'create-b' => Pages\CreateContratoBPage::route('/{record}/create-b'),
         ];
+    }
+
+    /** @var array<int, string|null> */
+    protected static array $contratoImagenUrlCache = [];
+
+    /**
+     * Foto usada para recuperar: prioriza el ítem de recovery (misma ruta que
+     * Recuperar contrato); si no hay, cae a contrato_firmado.
+     */
+    public static function contratoImagenUrl(Venta $record): ?string
+    {
+        $id = (int) $record->id;
+        if (array_key_exists($id, static::$contratoImagenUrlCache)) {
+            return static::$contratoImagenUrlCache[$id];
+        }
+
+        $nro = filled($record->nro_contr_adm) ? (string) $record->nro_contr_adm : null;
+
+        $item = ContratoRecoveryItem::query()
+            ->whereNotNull('documents')
+            ->where(function ($q) use ($record, $nro): void {
+                $q->where('venta_id', $record->id);
+                if ($nro !== null) {
+                    $q->orWhere('nro_contr_adm', $nro);
+                }
+            })
+            ->orderByRaw('CASE WHEN venta_id = ? THEN 0 ELSE 1 END', [$record->id])
+            ->first();
+
+        if ($item) {
+            $docs = collect($item->documents ?? [])
+                ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+                ->values();
+
+            if ($docs->isNotEmpty()) {
+                return static::$contratoImagenUrlCache[$id] = route('recovery-items.image', [
+                    'item' => $item,
+                    'index' => 0,
+                ]);
+            }
+        }
+
+        if (filled($record->contrato_firmado)) {
+            return static::$contratoImagenUrlCache[$id] = $record->contrato_firmado_url;
+        }
+
+        return static::$contratoImagenUrlCache[$id] = null;
     }
 
     public static function canCreate(): bool
