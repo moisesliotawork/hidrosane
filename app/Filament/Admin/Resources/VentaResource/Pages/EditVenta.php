@@ -38,8 +38,14 @@ class EditVenta extends EditRecord
     {
         return Notification::make()
             ->success()
-            ->title('Contrato guardado')
-            ->body('Los cambios se han guardado correctamente.');
+            ->title('Guardado')
+            ->body('Los cambios del contrato se han guardado correctamente.')
+            ->duration(6000);
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Guardado';
     }
 
     /**
@@ -423,17 +429,16 @@ class EditVenta extends EditRecord
                 Reparto::create(['venta_id' => $venta->id, 'estado_entrega' => EstadoEntrega::NO_ENTREGADO]);
             }
         } catch (Throwable $exception) {
+            // No relanzar: el contrato ya se guardó; permitir redirect + alerta «Guardado».
             Notification::make()
-                ->danger()
-                ->title('Guardado parcial')
+                ->warning()
+                ->title('Guardado con aviso')
                 ->body(
-                    'El contrato se actualizó, pero falló un paso posterior: '
+                    'El contrato se guardó, pero falló un paso posterior: '
                     .str($exception->getMessage())->limit(200)->toString()
                 )
-                ->persistent()
+                ->duration(8000)
                 ->send();
-
-            throw $exception;
         }
     }
 }

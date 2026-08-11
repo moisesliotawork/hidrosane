@@ -14,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
+use Filament\Notifications\Notification;
 
 class EditVenta extends EditRecord
 {
@@ -27,6 +28,20 @@ class EditVenta extends EditRecord
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+
+    protected function getSavedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->success()
+            ->title('Guardado')
+            ->body('Los cambios del contrato se han guardado correctamente.')
+            ->duration(6000);
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Guardado';
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
