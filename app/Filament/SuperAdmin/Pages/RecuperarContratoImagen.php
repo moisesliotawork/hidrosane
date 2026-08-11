@@ -299,7 +299,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('iban')->label('IBAN'),
                         Forms\Components\Textarea::make('productos_texto')
                             ->label('Texto OCR / manuscrito (pista)')
-                            ->helperText('Úsalo para mapear al catálogo en Oferta y productos (obligatorio al Agregar Contrato).')
+                            ->helperText('Se intenta match automático con el catálogo (OFxAsignar). Si no hay match → producto «Por asignar»; luego lo sustituyes a mano.')
                             ->rows(3)
                             ->columnSpanFull(),
                         ...$this->ofertaProductosFormSchema(),
@@ -446,13 +446,17 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ? $this->guessEmpleadoId((string) $merged['repartidor_code'])
             : null;
 
-        $this->reviewForm->fill(array_merge($this->emptyReview(), $merged, [
+        $filled = array_merge($this->emptyReview(), $merged, [
             'comercial_id' => $comercialId,
             'repartidor_id' => $repartidorId,
             'fecha_venta' => $this->normalizeDateForPicker($merged['fecha_venta'] ?? null),
             'fecha_entrega' => $this->normalizeDateForPicker($merged['fecha_entrega'] ?? null),
             '_transcript' => $this->lastTranscript ?? ($merged['_transcript'] ?? null),
-        ]));
+        ]);
+        // Match productos_texto → catálogo (sin match = «Por asignar»)
+        $filled = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($filled);
+
+        $this->reviewForm->fill($filled);
 
         $this->step = 'review';
     }
@@ -468,6 +472,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $data = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults(
             $this->reviewForm->getState()
         );
+        unset($data['_product_match']);
         $dni = mb_strtoupper(trim((string) ($data['dni'] ?? '')));
         $nro = trim((string) ($data['nro_contr_adm'] ?? ''));
 
@@ -906,7 +911,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             data_get($record->reviewedData(), 'fecha_venta')
                         );
 
-                        return array_merge(
+                        $filled = array_merge(
                             $this->emptyReview(),
                             $record->reviewedData(),
                             [
@@ -933,6 +938,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 ),
                             ],
                         );
+
+                        return app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($filled);
                     })
                     ->form($this->recoveredDataFormSchema())
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
@@ -953,6 +960,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         $data['fecha_venta'] = $this->resolveFechaVentaFromForm($record, $data);
                         $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
                         unset($data['fecha_promo']);
+                        $data = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($data);
+                        unset($data['_product_match']);
 
                         $customer = Customer::query()
                             ->whereNull('deleted_at')
@@ -1077,7 +1086,18 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
                         $svc = app(ContractFromImageRecovery::class);
-                        $ofertaError = $svc->validateOfertaProductos($record->reviewedData());
+                        // OFxAsignar + match productos_texto → «Por asignar» si no hay match
+                        $reviewed = $svc->ensureRecoveryDefaults($record->reviewedData());
+                        $record->forceFill([
+                            'reviewed_json' => array_merge($record->reviewedData(), [
+                                'ventaOfertas' => $reviewed['ventaOfertas'] ?? [],
+                                'estado_venta' => $reviewed['estado_venta'] ?? null,
+                                'productos_externos' => $reviewed['productos_externos']
+                                    ?? data_get($record->reviewedData(), 'productos_externos'),
+                            ]),
+                        ])->save();
+
+                        $ofertaError = $svc->validateOfertaProductos($reviewed);
                         if ($ofertaError !== null) {
                             Notification::make()
                                 ->title('Falta oferta / productos')
@@ -1089,7 +1109,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         }
 
                         $result = $svc->addContract(
-                            $record,
+                            $record->fresh() ?? $record,
                             (bool) ($data['update_iban'] ?? false),
                         );
 
@@ -1359,7 +1379,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->columnSpan(2),
                     Forms\Components\Textarea::make('productos_texto')
                         ->label('Texto OCR / manuscrito (pista)')
-                        ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
+                        ->helperText('Match automático al guardar / Agregar Contrato. Sin coincidencia → «Por asignar» bajo oferta OFxAsignar.')
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
@@ -1377,7 +1397,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     {
         return [
             Forms\Components\Section::make('Oferta y productos')
-                ->description('Obligatorio antes de «Agregar Contrato». El texto OCR arriba es solo pista (a menudo manuscrito).')
+                ->description('Por defecto: oferta OFxAsignar. Match automático desde el texto OCR; si falla → producto «Por asignar» (lo sustituyes después).')
                 ->schema([
                     Forms\Components\Repeater::make('ventaOfertas')
                         ->label(false)
@@ -1396,8 +1416,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 Forms\Components\Select::make('oferta_id')
                                     ->label('Oferta')
                                     ->options(function () {
+                                        // Asegura OFxAsignar en catálogo / lista
+                                        app(ContractFromImageRecovery::class)->ensureOfxAsignarOferta();
+
                                         return Oferta::query()
-                                            ->orderBy('nombre')
+                                            ->orderByRaw(
+                                                'CASE WHEN nombre = ? THEN 0 ELSE 1 END, nombre',
+                                                [ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE]
+                                            )
                                             ->get()
                                             ->mapWithKeys(function (Oferta $oferta) {
                                                 if ($oferta->nombre === ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE) {
@@ -1405,7 +1431,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                                         $oferta->id => new HtmlString(
                                                             '<span style="color:#dc2626;font-weight:800;">'
                                                             .e($oferta->nombre)
-                                                            .'</span>'
+                                                            .' (Por/asignar)</span>'
                                                         ),
                                                     ];
                                                 }
@@ -1455,11 +1481,18 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     Forms\Components\Grid::make(4)->schema([
                                         Forms\Components\Select::make('producto_id')
                                             ->label('Producto')
-                                            ->options(fn () => Producto::query()
-                                                ->where('delete', false)
-                                                ->orderBy('nombre')
-                                                ->pluck('nombre', 'id')
-                                                ->all())
+                                            ->options(function () {
+                                                app(ContractFromImageRecovery::class)->ensurePorAsignarProducto();
+
+                                                return Producto::query()
+                                                    ->where('delete', false)
+                                                    ->orderByRaw(
+                                                        'CASE WHEN nombre = ? THEN 0 ELSE 1 END, nombre',
+                                                        [ContractFromImageRecovery::PRODUCTO_POR_ASIGNAR_NOMBRE]
+                                                    )
+                                                    ->pluck('nombre', 'id')
+                                                    ->all();
+                                            })
                                             ->searchable()
                                             ->preload()
                                             ->required()
