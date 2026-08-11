@@ -88,7 +88,7 @@ final class ContractFromImageRecovery
         // Persistir defaults (Por Asignar / OFxAsignar) en el staging
         $item->forceFill(['reviewed_json' => array_merge($item->reviewedData(), [
             'ventaOfertas' => $data['ventaOfertas'],
-            'estado_venta' => $data['estado_venta'] ?? EstadoVenta::POR_ASIGNAR->value,
+            'estado_venta' => $data['estado_venta'] ?? EstadoVenta::EN_REVISION->value,
         ])])->save();
 
         try {
@@ -255,7 +255,7 @@ final class ContractFromImageRecovery
         $estado = $venta->estado_venta;
         $estadoValue = $estado instanceof EstadoVenta
             ? $estado->value
-            : (string) ($estado ?? EstadoVenta::POR_ASIGNAR->value);
+            : (string) ($estado ?? EstadoVenta::EN_REVISION->value);
 
         $reviewed = array_merge($item->reviewedData(), array_filter([
             'dni' => $dni !== '' ? $dni : null,
@@ -384,7 +384,7 @@ final class ContractFromImageRecovery
     public function ensureRecoveryDefaults(array $data): array
     {
         if (blank($data['estado_venta'] ?? null)) {
-            $data['estado_venta'] = EstadoVenta::POR_ASIGNAR->value;
+            $data['estado_venta'] = EstadoVenta::EN_REVISION->value;
         }
 
         // Catálogo placeholder siempre disponible en lista / BD
@@ -877,7 +877,7 @@ final class ContractFromImageRecovery
                 'list_descripcion' => 'Recuperado desde imagen (SuperAdmin)',
                 'en_app' => false,
                 'estado_venta' => EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
-                    ?? EstadoVenta::POR_ASIGNAR,
+                    ?? EstadoVenta::EN_REVISION,
                 'nro_cliente_adm' => $customer->nro_cliente,
                 'observaciones_repartidor' => $this->recoveryObservaciones($data['observaciones'] ?? null),
             ]);
@@ -896,7 +896,7 @@ final class ContractFromImageRecovery
 
         if (! $venta->estado_venta) {
             $patch['estado_venta'] = EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
-                ?? EstadoVenta::POR_ASIGNAR;
+                ?? EstadoVenta::EN_REVISION;
         }
         if (! $venta->customer_id) {
             $patch['customer_id'] = $customer->id;

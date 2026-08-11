@@ -6,8 +6,10 @@ use App\Filament\Admin\Resources\VentaResource as AdminVentaResource;
 use App\Filament\Admin\Resources\VentaResource\RelationManagers\AsociadasRelationManager;
 use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfBorradosRelationManager;
 use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfDescargasRelationManager;
+use App\Enums\EstadoVenta;
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
+use App\Models\ContratoRecuperado;
 use App\Models\Venta;
 use App\Support\Filament\VentaDatosInfolist;
 use App\Support\Filament\VentaSoftDeleteTableAction;
@@ -96,6 +98,20 @@ class VentaResource extends Resource
 
             if (in_array($column->getName(), $columnsWithoutIndividualSearch, true)) {
                 $column->searchable();
+            }
+
+            // Recuperados en «En revisión» (estado por defecto) → badge gris.
+            if ($column->getName() === 'estado_venta') {
+                $column->color(function ($state, Venta $record): string {
+                    $estado = $state instanceof EstadoVenta
+                        ? $state
+                        : EstadoVenta::tryFrom((string) $state);
+
+                    return ContratoRecuperado::estadoBadgeColor(
+                        $estado,
+                        $record->nro_contr_adm,
+                    );
+                });
             }
         }
 

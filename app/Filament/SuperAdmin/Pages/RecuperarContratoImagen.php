@@ -747,7 +747,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->state(function (ContratoRecoveryItem $record): string {
                         $estado = $record->venta?->estado_venta
                             ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
-                            ?? EstadoVenta::POR_ASIGNAR;
+                            ?? EstadoVenta::EN_REVISION;
 
                         return $estado->label();
                     })
@@ -755,9 +755,10 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->color(function (ContratoRecoveryItem $record): string {
                         $estado = $record->venta?->estado_venta
                             ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
-                            ?? EstadoVenta::POR_ASIGNAR;
+                            ?? EstadoVenta::EN_REVISION;
 
-                        return $estado->color();
+                        // En esta pantalla todo es recuperación: «En revisión» → gris.
+                        return $estado === EstadoVenta::EN_REVISION ? 'gray' : $estado->color();
                     }),
                 Tables\Columns\TextColumn::make('ofertas_de_la_venta')
                     ->label('OfertasDeLaVenta')
@@ -1848,7 +1849,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return app(ContractImageExtractor::class)->emptyPayload() + [
             'comercial_id' => null,
             'repartidor_id' => null,
-            'estado_venta' => $defaults['estado_venta'] ?? EstadoVenta::POR_ASIGNAR->value,
+            'estado_venta' => $defaults['estado_venta'] ?? EstadoVenta::EN_REVISION->value,
             'ventaOfertas' => $defaults['ventaOfertas'] ?? [],
             'productos_externos' => [],
             '_conflicts' => [],
