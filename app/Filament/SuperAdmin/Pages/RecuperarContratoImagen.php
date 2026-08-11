@@ -658,8 +658,20 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver Imagen' : '—')
                     ->badge()
                     ->color('warning')
-                    ->action(Tables\Actions\Action::make('verImagenes'))
-                    ->tooltip('Ver la(s) foto(s) originales al instante, sin esperar a generar el PDF'),
+                    ->url(function (ContratoRecoveryItem $record): ?string {
+                        $docs = collect($record->documents ?? [])
+                            ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+                            ->values();
+
+                        if ($docs->isEmpty()) {
+                            return null;
+                        }
+
+                        // Primera imagen/PDF original en pestaña nueva (rápido, sin modal)
+                        return route('recovery-items.image', ['item' => $record, 'index' => 0]);
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Abre la imagen original en otra pestaña del navegador'),
                 Tables\Columns\TextColumn::make('editar_datos')
                     ->label('Editar/Datos')
                     ->state('Editar')
