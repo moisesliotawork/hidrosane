@@ -1113,43 +1113,22 @@ class VentaResource extends Resource
 
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
-                    ->html()
+                    ->badge()
+                    // Recuperados → amarillo (warning); resto → verde.
+                    ->color(fn ($state): string => \App\Models\ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
+                    ->description(function (Venta $record): ?string {
+                        return $record->fecha_venta
+                            ? Carbon::parse($record->fecha_venta)->timezone('Europe/Madrid')->format('d/m/Y')
+                            : null;
+                    })
                     ->wrap(false)
                     ->sortable()
                     ->searchable(isIndividual: true)
-                    ->extraHeaderAttributes(['class' => 'min-w-[14rem]'])
-                    ->extraCellAttributes(['class' => 'min-w-[14rem] whitespace-nowrap'])
-                    ->formatStateUsing(function ($state, Venta $record) {
-                        $nro = e((string) ($state ?: '—'));
-                        $fecha = $record->fecha_venta
-                            ? e(Carbon::parse($record->fecha_venta)->timezone('Europe/Madrid')->format('d/m/Y'))
-                            : null;
-
-                        // Recuperados → nº en amarillo; resto en verde.
-                        $isRecuperado = \App\Models\ContratoRecuperado::isRecuperado(
-                            filled($state) ? (string) $state : null
-                        );
-                        $nroBadgeClass = $isRecuperado
-                            ? 'bg-warning-50 text-warning-600 ring-warning-600/10 dark:bg-warning-400/10 dark:text-warning-400 dark:ring-warning-400/30'
-                            : 'bg-success-50 text-success-600 ring-success-600/10 dark:bg-success-400/10 dark:text-success-400 dark:ring-success-400/30';
-                        $fechaClass = $isRecuperado
-                            ? 'text-warning-600 dark:text-warning-400'
-                            : 'text-success-600 dark:text-success-400';
-
-                        $nroHtml = '<span class="inline-flex whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset '.$nroBadgeClass.'">'
-                            . $nro
-                            . '</span>';
-
-                        if (! $fecha) {
-                            return $nroHtml;
-                        }
-
-                        return '<span class="inline-flex items-center whitespace-nowrap">'
-                            . $nroHtml
-                            . '<span class="inline-block w-6 shrink-0" aria-hidden="true"></span>'
-                            . '<span class="whitespace-nowrap text-[11px] font-medium '.$fechaClass.'">' . $fecha . '</span>'
-                            . '</span>';
-                    }),
+                    ->extraHeaderAttributes(['class' => 'min-w-[10rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[10rem] whitespace-nowrap']),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')

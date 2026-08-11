@@ -97,6 +97,15 @@ class VentaResource extends Resource
                 $column->searchable();
             }
 
+            // Nº recuperado → amarillo (warning); el resto verde (hereda Admin y se refuerza aquí).
+            if ($column->getName() === 'nro_contr_adm') {
+                $column
+                    ->badge()
+                    ->color(fn ($state): string => ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success');
+            }
+
             // Recuperados en «En revisión» (estado por defecto) → badge gris.
             if ($column->getName() === 'estado_venta') {
                 $column->color(function ($state, Venta $record): string {

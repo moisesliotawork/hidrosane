@@ -32,11 +32,28 @@ class ContratoRecuperado extends Model
     public static function isRecuperado(?string $nroContrAdm): bool
     {
         $nro = trim((string) $nroContrAdm);
-        if ($nro === '') {
+        if ($nro === '' || $nro === '—') {
             return false;
         }
 
-        return isset(static::nrosLookup()[$nro]);
+        $lookup = static::nrosLookup();
+        if (isset($lookup[$nro])) {
+            return true;
+        }
+
+        // Variantes con/sin ceros a la izquierda (00829 ↔ 829).
+        $stripped = ltrim($nro, '0');
+        if ($stripped !== '' && isset($lookup[$stripped])) {
+            return true;
+        }
+
+        foreach ($lookup as $key => $_) {
+            if ($key !== '' && ltrim($key, '0') === ($stripped !== '' ? $stripped : $nro)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -70,10 +87,31 @@ class ContratoRecuperado extends Model
         }
 
         $lookup = [];
+        $remember = static function (string $nro) use (&$lookup): void {
+            $nro = trim($nro);
+            if ($nro === '') {
+                return;
+            }
+            $lookup[$nro] = true;
+            $stripped = ltrim($nro, '0');
+            if ($stripped !== '' && $stripped !== $nro) {
+                $lookup[$stripped] = true;
+            }
+        };
+
         foreach (static::query()->pluck('nro_contr_adm') as $nro) {
-            $nro = trim((string) $nro);
-            if ($nro !== '') {
-                $lookup[$nro] = true;
+            $remember((string) $nro);
+        }
+
+        // Ítems ya agregados en recovery, por si falta fila en contratos_recuperados.
+        if (Schema::hasTable('contrato_recovery_items')) {
+            foreach (
+                ContratoRecoveryItem::query()
+                    ->where('status', ContratoRecoveryItem::STATUS_ADDED)
+                    ->whereNotNull('nro_contr_adm')
+                    ->pluck('nro_contr_adm') as $nro
+            ) {
+                $remember((string) $nro);
             }
         }
 
