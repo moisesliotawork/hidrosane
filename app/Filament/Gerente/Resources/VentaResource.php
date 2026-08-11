@@ -771,6 +771,11 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
@@ -856,7 +861,6 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: false),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))

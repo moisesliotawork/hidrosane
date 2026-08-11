@@ -127,8 +127,8 @@ class VentaResource extends Resource
         foreach (array_values($columns) as $column) {
             $ordered[] = $column;
 
-            // Justo a la derecha de Nº Contrato (+ fecha): mismo modal que Posición Global.
-            if ($column->getName() === 'nro_contr_adm') {
+            // Tras Nº Contrato + Fecha: Ver Datos e Imagen (solo SuperAdmin).
+            if ($column->getName() === 'fecha_venta') {
                 $ordered[] = TextColumn::make('ver_datos')
                     ->label('Ver Datos')
                     ->state('VER DATOS')
@@ -149,7 +149,6 @@ class VentaResource extends Resource
                             ))
                     );
 
-                // Solo SuperAdmin: foto original usada en la recuperación (junto a Ver Datos).
                 $ordered[] = TextColumn::make('ver_imagen')
                     ->label('Imagen')
                     ->state(function (Venta $record): string {

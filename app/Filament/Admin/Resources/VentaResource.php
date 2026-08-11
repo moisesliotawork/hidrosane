@@ -1119,16 +1119,17 @@ class VentaResource extends Resource
                         filled($state) ? (string) $state : null
                     ) ? 'warning' : 'success')
                     ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
-                    ->description(function (Venta $record): ?string {
-                        return $record->fecha_venta
-                            ? Carbon::parse($record->fecha_venta)->timezone('Europe/Madrid')->format('d/m/Y')
-                            : null;
-                    })
                     ->wrap(false)
                     ->sortable()
                     ->searchable(isIndividual: true)
-                    ->extraHeaderAttributes(['class' => 'min-w-[10rem]'])
-                    ->extraCellAttributes(['class' => 'min-w-[10rem] whitespace-nowrap']),
+                    ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[7rem] whitespace-nowrap']),
+
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1277,7 +1278,6 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->toggleable(isToggledHiddenByDefault: true)
