@@ -344,8 +344,9 @@ Route::middleware(['web', 'auth'])
         if ($docs->count() === 1) {
             $path = (string) $docs->first()['path'];
             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            if ($ext === 'pdf' && \Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
-                return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+            $pdfBytes = $ext === 'pdf' ? \App\Support\RecoveryDocumentPath::get($path) : null;
+            if ($pdfBytes !== null) {
+                return response($pdfBytes, 200, [
                     'Content-Type' => 'application/pdf',
                     'Content-Disposition' => 'inline; filename="contrato-'.($item->nro_contr_adm ?: $item->id).'.pdf"',
                 ]);
@@ -362,7 +363,8 @@ Route::middleware(['web', 'auth'])
         $images = $docs
             ->map(function (array $doc) use ($extractor): ?string {
                 $path = (string) $doc['path'];
-                if (! \Illuminate\Support\Facades\Storage::disk('local')->exists($path)) {
+                $absolutePath = \App\Support\RecoveryDocumentPath::absolute($path);
+                if ($absolutePath === null) {
                     return null;
                 }
                 $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
@@ -375,7 +377,6 @@ Route::middleware(['web', 'auth'])
                     default => 'image/jpeg',
                 };
 
-                $absolutePath = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
                 $corrected = $extractor->exifCorrectedCopy($absolutePath, $mime);
 
                 if ($corrected !== null) {
@@ -385,7 +386,7 @@ Route::middleware(['web', 'auth'])
                     return 'data:image/jpeg;base64,'.base64_encode($data);
                 }
 
-                $data = \Illuminate\Support\Facades\Storage::disk('local')->get($path);
+                $data = (string) file_get_contents($absolutePath);
 
                 return 'data:'.$mime.';base64,'.base64_encode($data);
             })
@@ -420,11 +421,12 @@ Route::middleware(['web', 'auth'])
         abort_if($doc === null, 404, 'Documento no encontrado.');
 
         $path = (string) $doc['path'];
-        abort_unless(\Illuminate\Support\Facades\Storage::disk('local')->exists($path), 404, 'El fichero original no está disponible.');
+        $absolutePath = \App\Support\RecoveryDocumentPath::absolute($path);
+        abort_unless($absolutePath !== null, 404, 'El fichero original no está disponible.');
 
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         if ($ext === 'pdf') {
-            return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+            return response((string) file_get_contents($absolutePath), 200, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="doc-'.($item->nro_contr_adm ?: $item->id).'-'.$index.'.pdf"',
             ]);
@@ -439,7 +441,6 @@ Route::middleware(['web', 'auth'])
         // Misma corrección de rotación (EXIF) que usa el pipeline OCR y el PDF, pero
         // sin pasar por dompdf: se sirve el JPEG directo, mucho más rápido de abrir.
         $extractor = app(\App\Services\ContractRecovery\ContractImageExtractor::class);
-        $absolutePath = \Illuminate\Support\Facades\Storage::disk('local')->path($path);
         $corrected = $extractor->exifCorrectedCopy($absolutePath, $mime);
 
         if ($corrected !== null) {
@@ -453,7 +454,7 @@ Route::middleware(['web', 'auth'])
             ]);
         }
 
-        return response(\Illuminate\Support\Facades\Storage::disk('local')->get($path), 200, [
+        return response((string) file_get_contents($absolutePath), 200, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="doc-'.($item->nro_contr_adm ?: $item->id).'-'.$index.'.'.$ext.'"',
             'Cache-Control' => 'private, max-age=3600',

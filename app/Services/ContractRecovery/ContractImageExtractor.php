@@ -612,18 +612,8 @@ TXT;
 
     protected function resolveAbsolutePath(string $relativePath): string
     {
-        if (str_starts_with($relativePath, DIRECTORY_SEPARATOR) || preg_match('/^[A-Za-z]:\\\\/', $relativePath)) {
-            return $relativePath;
-        }
-
-        foreach (['local', 'public'] as $disk) {
-            $full = Storage::disk($disk)->path($relativePath);
-            if (is_file($full)) {
-                return $full;
-            }
-        }
-
-        return storage_path('app/'.$relativePath);
+        return \App\Support\RecoveryDocumentPath::absolute($relativePath)
+            ?? storage_path('app/'.ltrim(str_replace('\\', '/', $relativePath), '/'));
     }
 
     /**
