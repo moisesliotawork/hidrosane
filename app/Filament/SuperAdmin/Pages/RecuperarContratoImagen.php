@@ -155,6 +155,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     /** por_recuperar (default) | recuperados */
     public string $recoveryListTab = RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
 
+    /** Búsqueda dedicada por nº contrato admin (toolbar izquierda). */
+    public ?string $nroContratoBusqueda = '';
+
     public function mount(): void
     {
         $this->uploadForm->fill();
@@ -1907,17 +1910,82 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return null;
     }
 
+    public function updatedNroContratoBusqueda(): void
+    {
+        $term = trim((string) ($this->nroContratoBusqueda ?? ''));
+
+        // Si el nº está en otra pestaña (p. ej. ya en RECUPERADOS), saltar allí.
+        if ($term !== '' && Schema::hasTable('contrato_recovery_items')) {
+            // Evitar que un mes activo oculte el contrato buscado.
+            $this->showAllMonths = true;
+            $this->selectedYearMonth = null;
+            session([
+                'recuperados.showAllMonths' => true,
+                'recuperados.selectedYearMonth' => null,
+            ]);
+
+            $inRecuperados = $this->applyNroContratoAdminFilter(
+                RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_RECUPERADOS)
+            )->exists();
+
+            if ($inRecuperados) {
+                $this->recoveryListTab = RecoveredContractsQuery::SCOPE_RECUPERADOS;
+                session(['recuperados.listTab' => $this->recoveryListTab]);
+                $this->flushCachedTableRecords();
+            } else {
+                $inPorRecuperar = $this->applyNroContratoAdminFilter(
+                    RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_POR_RECUPERAR)
+                )->exists();
+
+                if ($inPorRecuperar) {
+                    $this->recoveryListTab = RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+                    session(['recuperados.listTab' => $this->recoveryListTab]);
+                    $this->flushCachedTableRecords();
+                }
+            }
+        }
+
+        $this->resetPage();
+    }
+
     /**
      * @return \Illuminate\Database\Eloquent\Builder<\App\Models\ContratoRecoveryItem>
      */
     protected function filteredRecoveryQuery()
     {
-        return RecoveredContractsQuery::forList(
+        $query = RecoveredContractsQuery::forList(
             $this->selectedYearMonth,
             $this->showAllMonths || blank($this->selectedYearMonth),
-            null, // la búsqueda la aplica Filament vía columnas searchable
+            null, // la búsqueda global la aplica Filament vía columnas searchable
             $this->recoveryListTab,
         )->with(['customer', 'venta.customer', 'venta.ventaOfertas.oferta']);
+
+        return $this->applyNroContratoAdminFilter($query);
+    }
+
+    /**
+     * Filtro exclusivo por nº contrato admin (columna, JSON o venta vinculada).
+     *
+     * @param  Builder<ContratoRecoveryItem>  $query
+     * @return Builder<ContratoRecoveryItem>
+     */
+    protected function applyNroContratoAdminFilter(Builder $query): Builder
+    {
+        $term = trim((string) ($this->nroContratoBusqueda ?? ''));
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%'.$term.'%';
+
+        return $query->where(function (Builder $inner) use ($like): void {
+            $inner->where('nro_contr_adm', 'like', $like)
+                ->orWhere('reviewed_json->nro_contr_adm', 'like', $like)
+                ->orWhereHas(
+                    'venta',
+                    fn (Builder $ventaQuery) => $ventaQuery->where('nro_contr_adm', 'like', $like)
+                );
+        });
     }
 
     protected function recoveryFechaSqlExpression(): string

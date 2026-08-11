@@ -28,12 +28,20 @@ use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationGroup;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
 use Filament\View\PanelsRenderHook;
+use Filament\Support\Facades\FilamentView;
+use Filament\Tables\View\TablesRenderHook;
 use Illuminate\Support\Facades\Blade;
 
 class SuperAdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        FilamentView::registerRenderHook(
+            TablesRenderHook::TOOLBAR_START,
+            fn (): string => view('filament.admin.resources.venta-resource.nro-contrato-toolbar-search')->render(),
+            scopes: RecuperarContratoImagen::class,
+        );
+
         return $panel
             ->id('superAdmin')
             ->path('superAdmin')
