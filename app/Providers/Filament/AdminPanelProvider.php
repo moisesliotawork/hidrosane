@@ -22,12 +22,21 @@ use App\Filament\Admin\Pages\ViewProfile;
 use Filament\Navigation\MenuItem;
 use App\Filament\Widgets\SalesAndDeliveriesStats;
 use Filament\View\PanelsRenderHook;
+use Filament\Support\Facades\FilamentView;
+use Filament\Tables\View\TablesRenderHook;
+use App\Filament\Admin\Resources\VentaResource\Pages\ListVentas;
 use Illuminate\Support\Facades\Blade;
 
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        FilamentView::registerRenderHook(
+            TablesRenderHook::TOOLBAR_START,
+            fn (): string => view('filament.admin.resources.venta-resource.nro-contrato-toolbar-search')->render(),
+            scopes: ListVentas::class,
+        );
+
         return $panel
             ->default()
 
