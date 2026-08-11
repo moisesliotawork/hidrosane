@@ -12,7 +12,7 @@ use Closure;
 
 class CustomerSalesTable extends BaseWidget
 {
-    protected static ?string $heading = 'HISTÓRICO DE CONTRATOS"';
+    protected static ?string $heading = 'HISTÓRICO DE CONTRATOS';
     protected int|string|array $columnSpan = 'full';
 
     /** Filament inyecta el registro actual del ViewRecord */
@@ -35,9 +35,14 @@ class CustomerSalesTable extends BaseWidget
     {
         return [
             TextColumn::make('nro_contrato')
-                ->label('Contrato')
-                ->searchable()
+                ->label('#Contrato')
+                ->state(fn (Venta $r) => $this->formatContratoNumber(
+                    $r->nro_contr_adm ?: ($r->nro_contrato ?: null)
+                ))
+                ->searchable(['nro_contrato', 'nro_contr_adm'])
                 ->sortable()
+                ->badge()
+                ->color('success')
                 ->toggleable(),
 
             TextColumn::make('note.nro_nota')
@@ -113,5 +118,20 @@ class CustomerSalesTable extends BaseWidget
     protected function getTableEmptyStateHeading(): ?string
     {
         return 'Sin ventas registradas';
+    }
+
+    /** Separa las 2 primeras cifras para leer mejor (ej. 834 → 83 4, 00955 → 00 955). */
+    protected function formatContratoNumber(?string $value): string
+    {
+        $nro = trim((string) $value);
+        if ($nro === '' || $nro === '—') {
+            return '—';
+        }
+
+        if (mb_strlen($nro) <= 2) {
+            return $nro;
+        }
+
+        return mb_substr($nro, 0, 2).' '.mb_substr($nro, 2);
     }
 }
