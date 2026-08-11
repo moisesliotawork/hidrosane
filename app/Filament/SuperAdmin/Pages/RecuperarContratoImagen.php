@@ -1215,14 +1215,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 ->columns(12)
                 ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-form-4col'])
                 ->schema([
-                    // Fila 1: Nº contrato + fecha (verde, al lado) + nombre completo
+                    // Fila 1: Nº contrato + fecha contrato (verde) + nombre completo
                     Forms\Components\TextInput::make('nro_contr_adm')
                         ->label('Nº CONTRATO')
                         ->required()
                         ->inlineLabel()
                         ->extraInputAttributes([
                             'class' => 'recovery-nro-contrato-input',
-                            'style' => 'min-width:6.5rem;width:100%;',
+                            'style' => 'min-width:5rem;width:100%;',
                         ])
                         ->extraFieldWrapperAttributes(['class' => 'recovery-field-nro-contrato'])
                         ->columnSpan(['default' => 12, 'md' => 3]),
@@ -1239,7 +1239,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         })
                         ->extraInputAttributes([
                             'class' => 'recovery-fecha-verde-input',
-                            'style' => 'min-width:7.5rem;width:100%;',
+                            'style' => 'min-width:9rem;width:100%;',
                         ])
                         ->extraFieldWrapperAttributes(['class' => 'recovery-field-fecha-contrato'])
                         ->columnSpan(['default' => 12, 'md' => 3]),
@@ -1250,12 +1250,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
                         ->extraInputAttributes([
                             'class' => 'recovery-cliente-nombre-input',
-                            'style' => 'min-width:14rem;width:100%;',
+                            'style' => 'min-width:12rem;width:100%;',
                         ])
                         ->extraFieldWrapperAttributes(['class' => 'recovery-field-cliente'])
                         ->columnSpan(['default' => 12, 'md' => 6]),
 
-                    // Fila 2: resto de cabecera
+                    // Fila 2: promo + DNI + albarán
                     Forms\Components\DatePicker::make('fecha_venta')
                         ->label('FEC. PROMO')
                         ->inlineLabel()
@@ -1268,9 +1268,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         })
                         ->extraInputAttributes([
                             'class' => 'recovery-fecha-verde-input',
-                            'style' => 'min-width:7.5rem;width:100%;',
+                            'style' => 'min-width:9rem;width:100%;',
                         ])
-                        ->columnSpan(['default' => 12, 'md' => 3]),
+                        ->columnSpan(['default' => 12, 'md' => 4]),
                     Forms\Components\TextInput::make('dni')
                         ->label('DNI')
                         ->required()
@@ -1283,9 +1283,15 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         })
                         ->extraInputAttributes([
                             'class' => 'recovery-dni-input',
-                            'style' => 'min-width:8rem;width:100%;',
+                            'style' => 'min-width:9rem;width:100%;',
                         ])
-                        ->columnSpan(['default' => 12, 'md' => 3]),
+                        ->columnSpan(['default' => 12, 'md' => 4]),
+                    Forms\Components\TextInput::make('nro_albaran')
+                        ->label('ALBARÁN')
+                        ->inlineLabel()
+                        ->columnSpan(['default' => 12, 'md' => 4]),
+
+                    // Fila 3: fechas con espacio suficiente (no se colapsan)
                     Forms\Components\DatePicker::make('fecha_entrega')
                         ->label('FECHA ENTREGA')
                         ->inlineLabel()
@@ -1294,13 +1300,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->format('Y-m-d')
                         ->extraInputAttributes([
                             'class' => 'recovery-fecha-bold-input',
-                            'style' => 'min-width:7.5rem;width:100%;',
+                            'style' => 'min-width:9rem;width:100%;',
                         ])
-                        ->columnSpan(['default' => 12, 'md' => 2]),
-                    Forms\Components\TextInput::make('nro_albaran')
-                        ->label('ALBARÁN')
-                        ->inlineLabel()
-                        ->columnSpan(['default' => 12, 'md' => 2]),
+                        ->columnSpan(['default' => 12, 'md' => 6]),
                     Forms\Components\DatePicker::make('fecha_nacimiento')
                         ->label('FEC. NACIMIENTO')
                         ->inlineLabel()
@@ -1309,9 +1311,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->format('Y-m-d')
                         ->extraInputAttributes([
                             'class' => 'recovery-fecha-bold-input',
-                            'style' => 'min-width:7.5rem;width:100%;',
+                            'style' => 'min-width:9rem;width:100%;',
                         ])
-                        ->columnSpan(['default' => 12, 'md' => 2]),
+                        ->columnSpan(['default' => 12, 'md' => 6]),
                 ]),
 
             Forms\Components\Section::make('Resto de datos')

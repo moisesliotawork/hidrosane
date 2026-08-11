@@ -95,13 +95,16 @@
         .recovery-datos-form-4col .fi-input-wrp,
         .recovery-datos-form-4col .fi-fo-date-time-picker {
             width: 100% !important;
-            min-width: 0 !important;
+            min-width: 9rem !important;
         }
         .recovery-datos-form-4col input.fi-input {
             width: 100% !important;
             min-width: 0 !important;
             overflow: visible !important;
             text-overflow: clip !important;
+        }
+        .recovery-datos-highlight-form .fi-fo-date-time-picker input.fi-input {
+            min-width: 9rem !important;
         }
         .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         .recovery-datos-highlight-form label {
