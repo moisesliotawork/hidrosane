@@ -52,6 +52,13 @@ class ListVentas extends ListRecords
 
     public function updatedNroContratoBusqueda(): void
     {
+        // El buscador global se persiste en sesión y, si queda un nombre viejo,
+        // anula el filtro por nº contrato (AND). Al buscar por contrato, limpiarlo.
+        if (filled(trim((string) ($this->nroContratoBusqueda ?? '')))) {
+            $this->tableSearch = '';
+            $this->tableColumnSearches = [];
+        }
+
         $this->resetPage();
     }
 
