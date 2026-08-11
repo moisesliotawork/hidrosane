@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\Customer;
 use App\Models\Venta;
+use Carbon\Carbon;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists;
@@ -48,6 +49,7 @@ class CustomerSalesTable extends BaseWidget
                 ->color('info')
                 ->alignCenter()
                 ->grow(false)
+                ->toggleable()
                 ->action(
                     Tables\Actions\Action::make('verDatosVenta')
                         ->modalHeading('Datos de la venta')
@@ -58,11 +60,12 @@ class CustomerSalesTable extends BaseWidget
                 ),
 
             TextColumn::make('nro_contrato')
-                ->label('Contrato')
-                ->searchable()
+                ->label('#Contrato')
+                ->state(fn (Venta $r) => $r->nro_contrato ?: ($r->nro_contr_adm ?: '—'))
+                ->searchable(['nro_contrato', 'nro_contr_adm'])
                 ->sortable()
                 ->badge()
-                ->color('gray')
+                ->color('purple')
                 ->grow(false)
                 ->toggleable(),
 
@@ -74,7 +77,8 @@ class CustomerSalesTable extends BaseWidget
                 ->badge()
                 ->color('gray')
                 ->grow(false)
-                ->sortable(),
+                ->sortable()
+                ->toggleable(),
 
             TextColumn::make('fecha_venta')
                 ->label('F. Venta')
@@ -83,6 +87,7 @@ class CustomerSalesTable extends BaseWidget
                 ->color('danger')
                 ->weight(FontWeight::Bold)
                 ->grow(false)
+                ->toggleable()
                 ->action(
                     Tables\Actions\Action::make('edit_fecha_venta')
                         ->modalHeading('Editar fecha de venta')
@@ -103,7 +108,8 @@ class CustomerSalesTable extends BaseWidget
                 ->label('Importe')
                 ->money('EUR', true)
                 ->sortable()
-                ->grow(false),
+                ->grow(false)
+                ->toggleable(),
 
             TextColumn::make('modalidad_pago')
                 ->label('Modalidad')
@@ -116,7 +122,8 @@ class CustomerSalesTable extends BaseWidget
                 ->badge()
                 ->color(fn (Venta $r) => $r->estado_venta_color ?? 'gray')
                 ->grow(false)
-                ->sortable(),
+                ->sortable()
+                ->toggleable(),
 
             TextColumn::make('fecha_entrega')
                 ->label('F. Entrega')
@@ -147,9 +154,8 @@ class CustomerSalesTable extends BaseWidget
     {
         $customer = $venta->customer ?? $this->record;
         $nombre = mb_strtoupper(trim(($customer?->first_names ?? '').' '.($customer?->last_names ?? '')));
-        $fechaPromo = $venta->fecha_venta
-            ? $venta->fecha_venta->timezone('Europe/Madrid')->format('d/m/Y')
-            : '—';
+        $fechaPromo = $this->formatMadridDate($venta->fecha_venta);
+        $fechaEntrega = $this->formatMadridDate($venta->fecha_entrega);
         $nroContrato = $venta->nro_contrato ?: ($venta->nro_contr_adm ?: '—');
         $nroAdmin = $venta->nro_cliente_adm ?: ($venta->nro_contr_adm ?: '—');
 
@@ -237,7 +243,7 @@ class CustomerSalesTable extends BaseWidget
 
                     Infolists\Components\TextEntry::make('fecha_entrega')
                         ->label('F. entrega')
-                        ->state($venta->fecha_entrega?->timezone('Europe/Madrid')->format('d/m/Y') ?? '—')
+                        ->state($fechaEntrega)
                         ->badge()
                         ->color('gray'),
 
@@ -263,6 +269,21 @@ class CustomerSalesTable extends BaseWidget
                         ->html(),
                 ]),
         ];
+    }
+
+    protected function formatMadridDate(mixed $value): string
+    {
+        if (blank($value)) {
+            return '—';
+        }
+
+        try {
+            $date = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+            return $date->timezone('Europe/Madrid')->format('d/m/Y');
+        } catch (\Throwable) {
+            return is_string($value) ? $value : '—';
+        }
     }
 
     protected function isTablePaginationEnabled(): bool
