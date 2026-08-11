@@ -34,7 +34,13 @@ class CustomerSalesTable extends BaseWidget
     protected function getTableQuery(): Builder
     {
         return Venta::query()
-            ->with(['note', 'comercial', 'customer'])
+            ->with([
+                'note',
+                'comercial',
+                'customer',
+                'ventaOfertas.oferta',
+                'ventaOfertas.productos.producto',
+            ])
             ->where('customer_id', $this->record?->id)
             ->latest('fecha_venta');
     }
@@ -53,7 +59,7 @@ class CustomerSalesTable extends BaseWidget
                 ->action(
                     Tables\Actions\Action::make('verDatosVenta')
                         ->modalHeading('Datos de la venta')
-                        ->modalWidth(MaxWidth::TwoExtraLarge)
+                        ->modalWidth(MaxWidth::FourExtraLarge)
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Cerrar')
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
@@ -283,7 +289,99 @@ class CustomerSalesTable extends BaseWidget
                         ))
                         ->html(),
                 ]),
+
+            Infolists\Components\Section::make('Ofertas y productos del contrato')
+                ->compact()
+                ->columns(1)
+                ->schema([
+                    Infolists\Components\TextEntry::make('ofertas_productos')
+                        ->hiddenLabel()
+                        ->state($this->formatOfertasProductosHtml($venta))
+                        ->html()
+                        ->columnSpanFull(),
+                ]),
         ];
+    }
+
+    protected function formatOfertasProductosHtml(Venta $venta): HtmlString
+    {
+        $venta->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos.producto']);
+
+        $blocks = [];
+        foreach ($venta->ventaOfertas as $vo) {
+            $ofertaNombre = trim((string) ($vo->oferta?->nombre ?? ''));
+            if ($ofertaNombre === '') {
+                $ofertaNombre = 'Oferta #'.($vo->oferta_id ?: $vo->id);
+            }
+
+            $precio = $vo->oferta?->precio_base;
+            $precioTxt = is_numeric($precio)
+                ? number_format((float) $precio, 2, ',', '.').' €'
+                : null;
+
+            $productos = $vo->productos
+                ->map(function ($linea) {
+                    $nombre = trim((string) ($linea->producto?->nombre ?? ''));
+                    if ($nombre === '') {
+                        return null;
+                    }
+                    $qty = (int) ($linea->cantidad ?? 1);
+                    $suffix = $qty > 1 ? ' ×'.$qty : '';
+
+                    return e($nombre).$suffix;
+                })
+                ->filter()
+                ->values();
+
+            $prodHtml = $productos->isEmpty()
+                ? '<div style="font-size:0.8rem;opacity:0.65;padding-left:0.35rem;">Sin productos</div>'
+                : $productos
+                    ->map(fn (string $p) => '<div style="font-size:0.82rem;font-weight:600;line-height:1.35;padding:0.1rem 0 0.1rem 0.55rem;">› '.$p.'</div>')
+                    ->implode('');
+
+            $blocks[] = '<div style="margin-bottom:0.65rem;padding:0.55rem 0.7rem;border:1px solid rgba(148,163,184,0.35);border-radius:0.5rem;">'
+                .'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem 0.65rem;margin-bottom:0.25rem;">'
+                .'<span style="font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#16a34a;">'
+                .e($ofertaNombre)
+                .'</span>'
+                .($precioTxt
+                    ? '<span style="font-size:0.75rem;font-weight:700;color:#d97706;">'.$precioTxt.'</span>'
+                    : '')
+                .'</div>'
+                .$prodHtml
+                .'</div>';
+        }
+
+        if ($blocks === []) {
+            $externos = collect($venta->productos_externos ?? [])
+                ->map(function ($item) {
+                    if (is_string($item)) {
+                        return trim($item);
+                    }
+                    if (! is_array($item)) {
+                        return null;
+                    }
+
+                    return trim((string) ($item['nombre'] ?? $item['name'] ?? $item['producto'] ?? ''));
+                })
+                ->filter()
+                ->values();
+
+            if ($externos->isNotEmpty()) {
+                $lines = $externos
+                    ->map(fn (string $p) => '<div style="font-size:0.82rem;font-weight:600;line-height:1.35;padding:0.1rem 0 0.1rem 0.55rem;">› '.e($p).'</div>')
+                    ->implode('');
+
+                return new HtmlString(
+                    '<div style="margin-bottom:0.35rem;font-size:0.75rem;font-weight:700;color:#d97706;text-transform:uppercase;">Productos externos</div>'
+                    .$lines
+                );
+            }
+
+            return new HtmlString('<span style="opacity:0.65;font-size:0.85rem;">Sin ofertas ni productos en este contrato.</span>');
+        }
+
+        return new HtmlString(implode('', $blocks));
     }
 
     protected function formatMadridDate(mixed $value): string

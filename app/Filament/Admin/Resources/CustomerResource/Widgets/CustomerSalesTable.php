@@ -71,6 +71,13 @@ class CustomerSalesTable extends BaseWidget
                 ->color(fn (Venta $r) => $r->estado_venta_color ?? 'gray')
                 ->sortable(),
 
+            TextColumn::make('note.nro_nota')
+                ->label('# Nota')
+                ->formatStateUsing(fn ($state) => $state && strlen($state) === 5
+                    ? substr($state, 0, 3).' '.substr($state, 3, 2)
+                    : $state)
+                ->sortable(),
+
             TextColumn::make('fecha_entrega')
                 ->label('F. Entrega')
                 ->date('d/m/Y')
@@ -86,13 +93,6 @@ class CustomerSalesTable extends BaseWidget
                 ->badge()
                 ->color('success')
                 ->toggleable(isToggledHiddenByDefault: true),
-
-            TextColumn::make('note.nro_nota')
-                ->label('# Nota')
-                ->formatStateUsing(fn ($state) => $state && strlen($state) === 5
-                    ? substr($state, 0, 3).' '.substr($state, 3, 2)
-                    : $state)
-                ->sortable(),
         ];
     }
 
