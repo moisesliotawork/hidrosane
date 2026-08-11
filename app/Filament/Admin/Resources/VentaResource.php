@@ -95,24 +95,28 @@ class VentaResource extends Resource
                             ->format('d/m/Y');
                     }
 
-                    $blue = 'color:#2563eb;font-size:22px;font-weight:700;line-height:1.2;';
-                    $red = 'color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;';
+                    $blue = 'color:#2563eb;font-size:20px;font-weight:700;line-height:1.25;white-space:nowrap;';
+                    // Nº y fecha siempre completos: más compactos, sin truncar ni encoger
+                    $red = 'color:#dc2626;font-size:16px;font-weight:700;line-height:1.25;white-space:nowrap;flex-shrink:0;';
+                    $green = 'color:#16a34a;font-size:15px;font-weight:600;line-height:1.25;white-space:nowrap;flex-shrink:0;margin-left:1.25rem;';
 
                     $dato = function (string $label, string $valor): string {
-                        return '<div class="flex flex-col items-end">'
-                            .'<span class="text-gray-500 dark:text-gray-400" style="font-size:13px;font-weight:400;">'.e($label).'</span>'
-                            .'<span class="text-gray-700 dark:text-gray-300" style="font-size:16px;font-weight:700;">'.e($valor).'</span>'
+                        return '<div style="flex:0 0 auto;min-width:max-content;text-align:right;overflow:visible;">'
+                            .'<div class="text-gray-500 dark:text-gray-400" style="font-size:12px;font-weight:400;white-space:nowrap;">'.e($label).'</div>'
+                            .'<div class="text-gray-700 dark:text-gray-200" style="font-size:15px;font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;">'.e($valor).'</div>'
                             .'</div>';
                     };
 
                     return new HtmlString(
-                        '<div class="flex w-full flex-wrap items-start justify-between gap-3">'
-                        .'<div class="flex flex-wrap items-baseline" style="gap:0.35rem;">'
+                        '<div style="display:flex;width:100%;max-width:100%;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem;overflow:visible;">'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:0.35rem;min-width:max-content;flex:1 1 auto;overflow:visible;">'
                         .'<span style="'.$blue.'">'.e($nombre).'</span>'
                         .'<span style="'.$blue.'"> - </span>'
                         .'<span style="'.$red.'">'.e($nroAdm).'</span>'
+                        // Fecha del contrato en verde, al lado del nº (con espacio)
+                        .'<span style="'.$green.'">'.e($fechaContrato).'</span>'
                         .'</div>'
-                        .'<div class="flex items-start justify-end gap-4">'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:flex-end;gap:1.5rem;min-width:max-content;flex:0 0 auto;overflow:visible;">'
                         .$dato('Nº Nota', (string) $nota)
                         .$dato('Nro Contrato', $nroAdm)
                         .$dato('Fecha Contrato', $fechaContrato)
@@ -120,9 +124,14 @@ class VentaResource extends Resource
                         .'</div>'
                     );
                 })
-                ->extraAttributes([
-                    'class' => self::isSuperAdminPanel() ? 'w-full' : 'text-2xl font-bold',
-                ])
+                ->extraAttributes(fn (): array => self::isSuperAdminPanel()
+                    ? [
+                        'class' => 'w-full !max-w-none !overflow-visible',
+                        'style' => 'overflow:visible;max-width:none;width:100%;',
+                    ]
+                    : [
+                        'class' => 'text-2xl font-bold',
+                    ])
                 ->columnSpanFull(),
 
 
