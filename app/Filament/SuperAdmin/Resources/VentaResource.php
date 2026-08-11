@@ -141,6 +141,7 @@ class VentaResource extends Resource
         }
 
         return $table
+            ->defaultSort('id', 'desc')
             ->columns($allColumns)
             ->filtersLayout(Tables\Enums\FiltersLayout::Dropdown)
             ->actions([
@@ -149,8 +150,7 @@ class VentaResource extends Resource
             ])
             ->persistSearchInSession()
             ->persistColumnSearchesInSession()
-            ->persistFiltersInSession()
-            ->persistSortInSession();
+            ->persistFiltersInSession();
     }
 
     public static function getRelations(): array

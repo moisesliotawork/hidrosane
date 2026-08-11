@@ -1108,7 +1108,7 @@ class VentaResource extends Resource
                         ->orWhere('nro_contr_adm', 'not like', '%-B%');
                 });
             })
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
 
                 TextColumn::make('nro_contr_adm')
@@ -1551,7 +1551,7 @@ class VentaResource extends Resource
                                 fn (Builder $q) => $q->where('producto_id', $productoId)
                             )
                             ->reorder()
-                            ->orderBy('created_at', 'asc');
+                            ->orderBy('id', 'desc');
                     })
                     ->indicateUsing(function (array $data): ?string {
                         if (blank($data['producto_id'] ?? null)) {
