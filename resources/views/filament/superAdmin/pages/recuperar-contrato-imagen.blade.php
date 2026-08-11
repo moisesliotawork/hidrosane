@@ -201,38 +201,34 @@
             padding-top: 0.5rem;
             padding-bottom: 0.5rem;
         }
+        .recovery-rechazados-details > summary::-webkit-details-marker { display: none; }
+        .recovery-rechazados-details[open] .recovery-rechazados-chevron {
+            transform: rotate(45deg);
+            margin-top: 0.1rem;
+        }
     </style>
 
     <div class="space-y-6">
         <div class="pt-2">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
-                <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                    CONTRATOS A RECUPERAR
-                </h2>
-                <div style="display:inline-flex;align-items:center;gap:0.4rem;">
-                    <a
-                        href="{{ $this->recuperadosPdfUrl() }}"
-                        target="_blank"
-                        rel="noopener"
-                        class="recuperados-pdf-btn"
-                    >
-                        Previsualizar PDF
-                    </a>
-                    <a
-                        href="{{ $this->recuperadosPdfUrl(download: true) }}"
-                        class="recuperados-pdf-btn"
-                    >
-                        Descargar PDF
-                    </a>
-                </div>
-            </div>
-
             @php
                 $monthBadges = $this->monthBadges();
                 $selectedBadgeMonth = $this->selectedBadgeMonth();
                 $selectedBadgeYear = $this->selectedBadgeYear();
                 $showAll = $this->showAllMonths;
                 $tabYears = $this->tabYears();
+                $activeListTab = \App\Support\RecoveredContractsQuery::normalizeScope($this->recoveryListTab);
+                $isPorRecuperar = $activeListTab === \App\Support\RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+                $listTabStyle = static function (bool $active, string $kind): string {
+                    if ($kind === 'por_recuperar') {
+                        return $active
+                            ? 'background:#b91c1c;color:#fff;border:2px solid #991b1b;font-weight:900;'
+                            : 'background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;font-weight:700;';
+                    }
+
+                    return $active
+                        ? 'background:#15803d;color:#fff;border:2px solid #166534;font-weight:900;'
+                        : 'background:#f0fdf4;color:#15803d;border:1px solid #86efac;font-weight:700;';
+                };
                 $tabStyle = static function (bool $active): string {
                     return $active
                         ? 'background:#1d4ed8;color:#fff;border:1px solid #1d4ed8;font-weight:700;'
@@ -244,6 +240,47 @@
                 $hasClienteFilter = $clienteQ !== '';
                 $hasAnyActivity = $hasClienteFilter && $activityByYear !== [];
             @endphp
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+                <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                    <button
+                        type="button"
+                        wire:click="selectRecoveryListTab('por_recuperar')"
+                        style="height:2rem;padding:0 0.9rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;{{ $listTabStyle($isPorRecuperar, 'por_recuperar') }}"
+                    >
+                        POR RECUPERAR
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="selectRecoveryListTab('recuperados')"
+                        style="height:2rem;padding:0 0.9rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;{{ $listTabStyle(! $isPorRecuperar, 'recuperados') }}"
+                    >
+                        RECUPERADOS
+                    </button>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:0.4rem;">
+                    <a
+                        href="{{ $this->recuperadosPdfUrl() }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="recuperados-pdf-btn"
+                        wire:key="pdf-preview-{{ $activeListTab }}-{{ $this->selectedYearMonth ?? 'all' }}"
+                    >
+                        Previsualizar PDF
+                    </a>
+                    <a
+                        href="{{ $this->recuperadosPdfUrl(download: true) }}"
+                        class="recuperados-pdf-btn"
+                        wire:key="pdf-download-{{ $activeListTab }}-{{ $this->selectedYearMonth ?? 'all' }}"
+                    >
+                        Descargar PDF
+                    </a>
+                </div>
+            </div>
+
+            <h2 class="mb-3 text-base font-bold tracking-wide {{ $isPorRecuperar ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400' }}">
+                {{ $isPorRecuperar ? 'CONTRATOS A RECUPERAR' : 'CONTRATOS RECUPERADOS' }}
+            </h2>
 
             <style>
                 .recuperados-pdf-btn {
@@ -355,83 +392,87 @@
 
         <div class="pt-2">
             @php $rejected = $this->rejectedItems(); @endphp
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
-                <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
-                    CONTRATOS RECHAZADOS POR ESTAR YA EN APP ({{ $rejected->count() }})
-                </h2>
-            </div>
+            <details class="recovery-rechazados-details">
+                <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+                    <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100" style="display:inline-flex;align-items:center;gap:0.45rem;">
+                        <span style="display:inline-block;width:0.65rem;height:0.65rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin-top:-0.15rem;" class="recovery-rechazados-chevron"></span>
+                        CONTRATOS RECHAZADOS POR ESTAR YA EN APP ({{ $rejected->count() }})
+                    </h2>
+                    <span style="font-size:0.72rem;color:#6b7280;font-weight:600;">Clic para expandir / contraer</span>
+                </summary>
 
-            @if ($rejected->isEmpty())
-                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
-                    Ningún registro rechazado por colisión de nº de contrato.
-                </p>
-            @else
-                <div style="overflow-x: auto;">
-                    <table class="recovery-rechazados-table">
-                        <thead>
-                            <tr>
-                                <th>Nº Contrato</th>
-                                <th>Cliente</th>
-                                <th>DNI</th>
-                                <th>Motivo</th>
-                                <th>Fecha</th>
-                                <th>Contrato/PDF</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($rejected as $item)
-                                @php
-                                    $motivoFull = (string) ($item->last_error ?: 'Ya existe un contrato con ese número.');
-                                    $motivoShort = \Illuminate\Support\Str::limit($motivoFull, 20, '…');
-                                @endphp
+                @if ($rejected->isEmpty())
+                    <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
+                        Ningún registro rechazado por colisión de nº de contrato.
+                    </p>
+                @else
+                    <div style="overflow-x: auto;">
+                        <table class="recovery-rechazados-table">
+                            <thead>
                                 <tr>
-                                    <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
-                                    <td style="font-weight: 700; color: #f97316;">{{ $item->displayClienteNombre() ?? '—' }}</td>
-                                    <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
-                                    <td style="color: #b91c1c; white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis;" title="{{ e($motivoFull) }}">{{ $motivoShort }}</td>
-                                    <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
-                                    <td>
-                                        @if (filled($item->documents))
-                                            <a
-                                                href="{{ route('recovery-items.pdf', $item) }}"
-                                                target="_blank"
-                                                rel="noopener"
-                                                style="color:#1d4ed8;font-weight:700;"
-                                            >
-                                                Ver PDF
-                                            </a>
-                                        @else
-                                            —
-                                        @endif
-                                    </td>
-                                    <td style="white-space:nowrap;">
-                                        @if ($item->venta_id)
-                                            <a
-                                                href="{{ \App\Filament\SuperAdmin\Resources\VentaResource::getUrl('edit', ['record' => $item->venta_id]) }}"
-                                                target="_blank"
-                                                rel="noopener"
-                                                style="color:#1d4ed8;font-weight:700;font-size:0.75rem;margin-right:0.6rem;"
-                                            >
-                                                Ver venta existente
-                                            </a>
-                                        @endif
-                                        <button
-                                            type="button"
-                                            wire:click="deleteRejectedItem({{ $item->id }})"
-                                            wire:confirm="¿Eliminar este registro rechazado?"
-                                            style="color:#b91c1c;background:transparent;border:none;cursor:pointer;"
-                                            title="Eliminar registro"
-                                        >
-                                            <x-heroicon-o-trash class="h-4 w-4" />
-                                        </button>
-                                    </td>
+                                    <th>Nº Contrato</th>
+                                    <th>Cliente</th>
+                                    <th>DNI</th>
+                                    <th>Motivo</th>
+                                    <th>Fecha</th>
+                                    <th>Contrato/PDF</th>
+                                    <th></th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
+                            </thead>
+                            <tbody>
+                                @foreach ($rejected as $item)
+                                    @php
+                                        $motivoFull = (string) ($item->last_error ?: 'Ya existe un contrato con ese número.');
+                                        $motivoShort = \Illuminate\Support\Str::limit($motivoFull, 20, '…');
+                                    @endphp
+                                    <tr>
+                                        <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
+                                        <td style="font-weight: 700; color: #f97316;">{{ $item->displayClienteNombre() ?? '—' }}</td>
+                                        <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
+                                        <td style="color: #b91c1c; white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis;" title="{{ e($motivoFull) }}">{{ $motivoShort }}</td>
+                                        <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
+                                        <td>
+                                            @if (filled($item->documents))
+                                                <a
+                                                    href="{{ route('recovery-items.pdf', $item) }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    style="color:#1d4ed8;font-weight:700;"
+                                                >
+                                                    Ver PDF
+                                                </a>
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td style="white-space:nowrap;">
+                                            @if ($item->venta_id)
+                                                <a
+                                                    href="{{ \App\Filament\SuperAdmin\Resources\VentaResource::getUrl('edit', ['record' => $item->venta_id]) }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    style="color:#1d4ed8;font-weight:700;font-size:0.75rem;margin-right:0.6rem;"
+                                                >
+                                                    Ver venta existente
+                                                </a>
+                                            @endif
+                                            <button
+                                                type="button"
+                                                wire:click="deleteRejectedItem({{ $item->id }})"
+                                                wire:confirm="¿Eliminar este registro rechazado?"
+                                                style="color:#b91c1c;background:transparent;border:none;cursor:pointer;"
+                                                title="Eliminar registro"
+                                            >
+                                                <x-heroicon-o-trash class="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </details>
         </div>
 
         @if ($step === 'upload')

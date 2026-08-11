@@ -194,6 +194,9 @@ Route::middleware(['web', 'auth'])
         $mes = $request->query('mes');
         $showAll = blank($mes) || $request->boolean('todos');
         $search = trim((string) $request->query('q', ''));
+        $scope = \App\Support\RecoveredContractsQuery::normalizeScope(
+            (string) $request->query('scope', \App\Support\RecoveredContractsQuery::SCOPE_POR_RECUPERAR)
+        );
 
         if (! $showAll) {
             try {
@@ -208,6 +211,7 @@ Route::middleware(['web', 'auth'])
             $showAll ? null : (string) $mes,
             $showAll,
             $search !== '' ? $search : null,
+            $scope,
         )->with(['venta.customer', 'venta.ventaOfertas.oferta', 'customer']);
 
         $rows = $query->get();
@@ -224,6 +228,8 @@ Route::middleware(['web', 'auth'])
             }
         }
 
+        $periodoLabel = \App\Support\RecoveredContractsQuery::scopeLabel($scope).' · '.$periodoLabel;
+
         if ($search !== '') {
             $periodoLabel .= ' · Buscar: '.$search;
         }
@@ -233,9 +239,11 @@ Route::middleware(['web', 'auth'])
             'fechaReporte' => now('Europe/Madrid')->format('d/m/Y H:i'),
             'periodoLabel' => $periodoLabel,
             'searchQuery' => $search !== '' ? $search : null,
+            'scopeLabel' => \App\Support\RecoveredContractsQuery::scopeLabel($scope),
         ])->setPaper('a4', 'landscape');
 
-        $filename = 'recuperados-aceptados-'.now('Europe/Madrid')->format('Ymd-His').'.pdf';
+        $filename = strtolower(str_replace(' ', '-', \App\Support\RecoveredContractsQuery::scopeLabel($scope)))
+            .'-'.now('Europe/Madrid')->format('Ymd-His').'.pdf';
 
         if ($request->boolean('download')) {
             return $pdf->download($filename);

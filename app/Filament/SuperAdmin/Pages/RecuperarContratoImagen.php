@@ -82,12 +82,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             return null;
         }
 
-        return (string) ContratoRecoveryItem::query()->count();
+        $pending = RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_POR_RECUPERAR)->count();
+
+        return $pending > 0 ? (string) $pending : null;
     }
 
     public static function getNavigationBadgeColor(): string | array | null
     {
-        return 'success';
+        return 'danger';
     }
 
     protected function getHeaderActions(): array
@@ -99,7 +101,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 ->color('warning')
                 ->url(fn (): string => $this->recuperadosPdfUrl())
                 ->openUrlInNewTab()
-                ->tooltip('PDF de recuperados aceptados (filtro de mes actual)'),
+                ->tooltip('PDF de la pestaña actual (mes / búsqueda)'),
 
             Action::make('goToOrphanReattach')
                 ->label('Paso 2 · Docs huérfanos')
@@ -150,6 +152,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     public int $selectedYear = 2025;
 
+    /** por_recuperar (default) | recuperados */
+    public string $recoveryListTab = RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+
     public function mount(): void
     {
         $this->uploadForm->fill();
@@ -159,10 +164,21 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $this->selectedYear = (int) (session('recuperados.selectedYear') ?: now()->year);
         $this->selectedYearMonth = session('recuperados.selectedYearMonth');
         $this->showAllMonths = (bool) session('recuperados.showAllMonths', true);
+        $this->recoveryListTab = RecoveredContractsQuery::normalizeScope(
+            session('recuperados.listTab', RecoveredContractsQuery::SCOPE_POR_RECUPERAR)
+        );
 
         if ($this->showAllMonths) {
             $this->selectedYearMonth = null;
         }
+    }
+
+    public function selectRecoveryListTab(string $tab): void
+    {
+        $this->recoveryListTab = RecoveredContractsQuery::normalizeScope($tab);
+        session(['recuperados.listTab' => $this->recoveryListTab]);
+        $this->resetPage();
+        $this->flushCachedTableRecords();
     }
 
     protected function getForms(): array
@@ -1900,6 +1916,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             $this->selectedYearMonth,
             $this->showAllMonths || blank($this->selectedYearMonth),
             null, // la búsqueda la aplica Filament vía columnas searchable
+            $this->recoveryListTab,
         )->with(['customer', 'venta.customer', 'venta.ventaOfertas.oferta']);
     }
 
@@ -1936,7 +1953,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $years = array_map('intval', $this->tabYears());
 
         $items = RecoveredContractsQuery::applySearchFilter(
-            ContratoRecoveryItem::query()->with(['venta:id,fecha_venta']),
+            RecoveredContractsQuery::base($this->recoveryListTab)->with(['venta:id,fecha_venta']),
             $q,
         )
             ->limit(500)
@@ -2061,7 +2078,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     public function recuperadosPdfUrl(bool $download = false): string
     {
-        $params = [];
+        $params = [
+            'scope' => RecoveredContractsQuery::normalizeScope($this->recoveryListTab),
+        ];
         if ($this->showAllMonths || blank($this->selectedYearMonth)) {
             $params['todos'] = 1;
         } else {
@@ -2078,6 +2097,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         }
 
         return route('recuperados-aceptados.pdf', $params);
+    }
+
+    public function recoveryListTabLabel(): string
+    {
+        return RecoveredContractsQuery::scopeLabel($this->recoveryListTab);
     }
 
     protected function fechaContratoCarbon(ContratoRecoveryItem $record): ?Carbon

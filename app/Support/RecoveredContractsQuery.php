@@ -10,6 +10,10 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class RecoveredContractsQuery
 {
+    public const SCOPE_POR_RECUPERAR = 'por_recuperar';
+
+    public const SCOPE_RECUPERADOS = 'recuperados';
+
     /**
      * Fecha efectiva del recuperado (JSON → venta), sin literales '0000-00-00'
      * (MySQL estricto en prod lanza error 1525 con NULLIF(..., '0000-00-00')).
@@ -45,11 +49,46 @@ class RecoveredContractsQuery
     /**
      * @return Builder<ContratoRecoveryItem>
      */
-    public static function base(): Builder
+    public static function base(?string $scope = null): Builder
     {
-        return ContratoRecoveryItem::query()
-            ->where('status', '!=', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
-            ->latest('id');
+        $query = ContratoRecoveryItem::query()
+            ->where('status', '!=', ContratoRecoveryItem::STATUS_REJECTED_EXISTS);
+
+        self::applyScope($query, $scope);
+
+        return $query->latest('id');
+    }
+
+    /**
+     * @param  Builder<ContratoRecoveryItem>  $query
+     * @return Builder<ContratoRecoveryItem>
+     */
+    public static function applyScope(Builder $query, ?string $scope): Builder
+    {
+        $scope = self::normalizeScope($scope);
+
+        return match ($scope) {
+            self::SCOPE_RECUPERADOS => $query->where('status', ContratoRecoveryItem::STATUS_ADDED),
+            default => $query->whereIn('status', [
+                ContratoRecoveryItem::STATUS_PENDING_ADD,
+                ContratoRecoveryItem::STATUS_FAILED,
+                ContratoRecoveryItem::STATUS_DRAFT,
+            ]),
+        };
+    }
+
+    public static function normalizeScope(?string $scope): string
+    {
+        return $scope === self::SCOPE_RECUPERADOS
+            ? self::SCOPE_RECUPERADOS
+            : self::SCOPE_POR_RECUPERAR;
+    }
+
+    public static function scopeLabel(string $scope): string
+    {
+        return self::normalizeScope($scope) === self::SCOPE_RECUPERADOS
+            ? 'RECUPERADOS'
+            : 'POR RECUPERAR';
     }
 
     /**
@@ -115,9 +154,13 @@ class RecoveredContractsQuery
     /**
      * @return Builder<ContratoRecoveryItem>
      */
-    public static function forList(?string $yearMonth, bool $showAll, ?string $search = null): Builder
-    {
-        $query = self::base();
+    public static function forList(
+        ?string $yearMonth,
+        bool $showAll,
+        ?string $search = null,
+        ?string $scope = null,
+    ): Builder {
+        $query = self::base($scope);
         self::applyMonthFilter($query, $yearMonth, $showAll);
         self::applySearchFilter($query, $search);
 
