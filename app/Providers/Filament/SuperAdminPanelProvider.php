@@ -30,6 +30,7 @@ use App\Filament\Widgets\SalesAndDeliveriesStats;
 use Filament\View\PanelsRenderHook;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
+use App\Filament\SuperAdmin\Resources\VentaResource\Pages\ListVentas as SuperAdminListVentas;
 use Illuminate\Support\Facades\Blade;
 
 class SuperAdminPanelProvider extends PanelProvider
@@ -39,7 +40,10 @@ class SuperAdminPanelProvider extends PanelProvider
         FilamentView::registerRenderHook(
             TablesRenderHook::TOOLBAR_START,
             fn (): string => view('filament.admin.resources.venta-resource.nro-contrato-toolbar-search')->render(),
-            scopes: RecuperarContratoImagen::class,
+            scopes: [
+                RecuperarContratoImagen::class,
+                SuperAdminListVentas::class,
+            ],
         );
 
         return $panel

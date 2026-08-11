@@ -6,16 +6,11 @@ use App\Filament\Admin\Resources\VentaResource;
 use Closure;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Support\Enums\MaxWidth;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class ListVentas extends ListRecords
 {
     protected static string $resource = VentaResource::class;
-
-    /** Búsqueda dedicada por nº de contrato (toolbar izquierda). */
-    public ?string $nroContratoBusqueda = '';
 
     /**
      * Nota sobre visibilidad "oculta por defecto" (p.ej. Teléfonos_CL, Tlf_Com, CP):
@@ -48,40 +43,6 @@ class ListVentas extends ListRecords
     public function getMaxContentWidth(): MaxWidth | string | null
     {
         return MaxWidth::Full;
-    }
-
-    public function updatedNroContratoBusqueda(): void
-    {
-        // El buscador global se persiste en sesión y, si queda un nombre viejo,
-        // anula el filtro por nº contrato (AND). Al buscar por contrato, limpiarlo.
-        if (filled(trim((string) ($this->nroContratoBusqueda ?? '')))) {
-            $this->tableSearch = '';
-            $this->tableColumnSearches = [];
-        }
-
-        $this->resetPage();
-    }
-
-    public function table(Table $table): Table
-    {
-        return parent::table($table)
-            ->modifyQueryUsing(function (Builder $query): Builder {
-                $term = trim((string) ($this->nroContratoBusqueda ?? ''));
-
-                if ($term === '') {
-                    return $query;
-                }
-
-                $compact = preg_replace('/\s+/', '', $term) ?: $term;
-
-                return $query->where(function (Builder $inner) use ($term, $compact): void {
-                    $inner->where('nro_contr_adm', 'like', "%{$term}%");
-
-                    if ($compact !== $term) {
-                        $inner->orWhere('nro_contr_adm', 'like', "%{$compact}%");
-                    }
-                });
-            });
     }
 
     protected function getTableRecordUrlUsing(): ?Closure
