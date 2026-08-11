@@ -1215,16 +1215,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 ->columns(12)
                 ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-labels-top'])
                 ->schema([
-                    // Fila 1: identificación (títulos arriba)
-                    Forms\Components\TextInput::make('nro_contr_adm')
-                        ->label('Nº CONTRATO')
-                        ->required()
-                        ->extraInputAttributes([
-                            'class' => 'recovery-nro-contrato-input',
-                            'style' => 'width:100%;',
-                        ])
-                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-nro-contrato'])
-                        ->columnSpan(['default' => 12, 'md' => 2]),
+                    // Fila 1: Cliente → Nº contrato → Fecha contrato
                     Forms\Components\TextInput::make('cliente_nombre')
                         ->label('CLIENTE')
                         ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
@@ -1234,26 +1225,16 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             'style' => 'width:100%;',
                         ])
                         ->extraFieldWrapperAttributes(['class' => 'recovery-field-cliente'])
-                        ->columnSpan(['default' => 12, 'md' => 5]),
-                    Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+                    Forms\Components\TextInput::make('nro_contr_adm')
+                        ->label('Nº CONTRATO')
                         ->required()
-                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
-                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, mixed $state): void {
-                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
-                        })
                         ->extraInputAttributes([
-                            'class' => 'recovery-dni-input',
+                            'class' => 'recovery-nro-contrato-input',
                             'style' => 'width:100%;',
                         ])
-                        ->columnSpan(['default' => 12, 'md' => 3]),
-                    Forms\Components\TextInput::make('nro_albaran')
-                        ->label('ALBARÁN')
-                        ->columnSpan(['default' => 12, 'md' => 2]),
-
-                    // Fila 2: las 4 fechas en la misma fila (títulos arriba)
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-nro-contrato'])
+                        ->columnSpan(['default' => 6, 'md' => 3]),
                     Forms\Components\DatePicker::make('fecha_promo')
                         ->label('FECHA CONTRATO')
                         ->native(false)
@@ -1270,6 +1251,27 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ])
                         ->extraFieldWrapperAttributes(['class' => 'recovery-field-fecha-contrato'])
                         ->columnSpan(['default' => 6, 'md' => 3]),
+
+                    // Fila 2: DNI + albarán
+                    Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->required()
+                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
+                        })
+                        ->extraInputAttributes([
+                            'class' => 'recovery-dni-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+                    Forms\Components\TextInput::make('nro_albaran')
+                        ->label('ALBARÁN')
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+
+                    // Fila 3: resto de fechas
                     Forms\Components\DatePicker::make('fecha_venta')
                         ->label('FEC. PROMO')
                         ->native(false)
@@ -1283,7 +1285,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             'class' => 'recovery-fecha-verde-input',
                             'style' => 'width:100%;',
                         ])
-                        ->columnSpan(['default' => 6, 'md' => 3]),
+                        ->columnSpan(['default' => 6, 'md' => 4]),
                     Forms\Components\DatePicker::make('fecha_entrega')
                         ->label('FECHA ENTREGA')
                         ->native(false)
@@ -1293,7 +1295,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             'class' => 'recovery-fecha-bold-input',
                             'style' => 'width:100%;',
                         ])
-                        ->columnSpan(['default' => 6, 'md' => 3]),
+                        ->columnSpan(['default' => 6, 'md' => 4]),
                     Forms\Components\DatePicker::make('fecha_nacimiento')
                         ->label('FEC. NACIMIENTO')
                         ->native(false)
@@ -1303,7 +1305,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             'class' => 'recovery-fecha-bold-input',
                             'style' => 'width:100%;',
                         ])
-                        ->columnSpan(['default' => 6, 'md' => 3]),
+                        ->columnSpan(['default' => 12, 'md' => 4]),
                 ]),
 
             Forms\Components\Section::make('Resto de datos')

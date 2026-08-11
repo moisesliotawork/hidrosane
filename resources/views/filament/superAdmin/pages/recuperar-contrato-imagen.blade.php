@@ -204,14 +204,6 @@
     </style>
 
     <div class="space-y-6">
-        <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-            <strong>Paso 1 · Solo SuperAdmin · recuperar contrato.</strong>
-            Este módulo no altera altas comerciales, puerta fría ni repartos.
-            Flujo de este paso: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong>.
-            El re-enganche de documentos huérfanos <strong>no</strong> se hace aquí: usa el
-            <strong>Paso 2 · Docs huérfanos</strong> cuando el contrato ya esté creado.
-        </div>
-
         <div class="pt-2">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
                 <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100">
@@ -480,5 +472,13 @@
                 </div>
             </form>
         @endif
+
+        <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+            <strong>Paso 1 · Solo SuperAdmin · recuperar contrato.</strong>
+            Este módulo no altera altas comerciales, puerta fría ni repartos.
+            Flujo de este paso: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong>.
+            El re-enganche de documentos huérfanos <strong>no</strong> se hace aquí: usa el
+            <strong>Paso 2 · Docs huérfanos</strong> cuando el contrato ya esté creado.
+        </div>
     </div>
 </x-filament-panels::page>
