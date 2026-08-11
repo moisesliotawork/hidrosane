@@ -73,38 +73,36 @@
             margin-bottom: 0.75rem;
             max-width: none !important;
         }
-        .recovery-datos-form-4col .fi-fo-field-wrp {
-            gap: 0.35rem 0.5rem;
+        /* Títulos ARRIBA del dato (no al lado) */
+        .recovery-datos-labels-top .fi-fo-field-wrp {
+            gap: 0.2rem;
             min-width: 0;
         }
-        /* Etiquetas al lado del valor; el input no se encoge por debajo del contenido */
-        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid {
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid {
             display: flex !important;
-            flex-direction: row !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.25rem !important;
             min-width: 0;
         }
-        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:first-child {
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:first-child {
             flex: 0 0 auto !important;
+            width: 100% !important;
         }
-        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:last-child {
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:last-child {
             flex: 1 1 auto !important;
+            width: 100% !important;
             min-width: 0;
         }
-        .recovery-datos-form-4col .fi-input-wrp,
-        .recovery-datos-form-4col .fi-fo-date-time-picker {
-            width: 100% !important;
-            min-width: 9rem !important;
-        }
-        .recovery-datos-form-4col input.fi-input {
+        .recovery-datos-labels-top .fi-input-wrp,
+        .recovery-datos-labels-top .fi-fo-date-time-picker {
             width: 100% !important;
             min-width: 0 !important;
+        }
+        .recovery-datos-labels-top input.fi-input {
+            width: 100% !important;
             overflow: visible !important;
             text-overflow: clip !important;
-        }
-        .recovery-datos-highlight-form .fi-fo-date-time-picker input.fi-input {
-            min-width: 9rem !important;
         }
         .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         .recovery-datos-highlight-form label {
@@ -112,15 +110,18 @@
             text-transform: uppercase !important;
             color: #1d4ed8 !important;
             white-space: nowrap;
-            font-size: 0.78rem !important;
+            font-size: 0.72rem !important;
+            line-height: 1.2 !important;
         }
         html.dark .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         html.dark .recovery-datos-highlight-form label {
             color: #60a5fa !important;
         }
-        /* Nº contrato: más compacto para que se vea SIEMPRE completo */
+        .recovery-datos-labels-top .fi-fo-field-wrp-label {
+            margin-bottom: 0 !important;
+        }
         .recovery-field-nro-contrato {
-            padding-right: 0.75rem; /* ~4 espacios respecto a la fecha */
+            padding-right: 0;
         }
         .recovery-nro-contrato-input {
             font-size: 1.05rem !important;
@@ -380,7 +381,7 @@
                                 <th>Nº Contrato</th>
                                 <th>Cliente</th>
                                 <th>DNI</th>
-                                <th style="white-space: normal;">Motivo</th>
+                                <th>Motivo</th>
                                 <th>Fecha</th>
                                 <th>Contrato/PDF</th>
                                 <th></th>
@@ -388,11 +389,15 @@
                         </thead>
                         <tbody>
                             @foreach ($rejected as $item)
+                                @php
+                                    $motivoFull = (string) ($item->last_error ?: 'Ya existe un contrato con ese número.');
+                                    $motivoShort = \Illuminate\Support\Str::limit($motivoFull, 20, '…');
+                                @endphp
                                 <tr>
                                     <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
                                     <td style="font-weight: 700; color: #f97316;">{{ $item->displayClienteNombre() ?? '—' }}</td>
                                     <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
-                                    <td style="color: #b91c1c; white-space: normal;">{{ $item->last_error ?? 'Ya existe un contrato con ese número.' }}</td>
+                                    <td style="color: #b91c1c; white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis;" title="{{ e($motivoFull) }}">{{ $motivoShort }}</td>
                                     <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
                                     <td>
                                         @if (filled($item->documents))
