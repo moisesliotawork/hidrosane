@@ -248,11 +248,7 @@ class CustomerSalesTable extends BaseWidget
 
                     Infolists\Components\TextEntry::make('abrir')
                         ->label(' ')
-                        ->state(new HtmlString(
-                            '<a href="'.e(VentaResource::getUrl('edit', ['record' => $venta])).'" '
-                            .'class="fi-badge fi-color-primary" style="text-decoration:none;font-weight:700;">'
-                            .'Abrir venta</a>'
-                        ))
+                        ->state($this->abrirVentaHtml($venta))
                         ->html(),
                 ]),
 
@@ -267,6 +263,23 @@ class CustomerSalesTable extends BaseWidget
                         ->columnSpanFull(),
                 ]),
         ];
+    }
+
+    protected function abrirVentaHtml(Venta $venta): HtmlString
+    {
+        $url = e(VentaResource::getUrl('edit', ['record' => $venta]));
+
+        return new HtmlString(
+            '<style>'
+            .'@keyframes ohana-abrir-venta-blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(234,88,12,.55)}50%{opacity:.42;box-shadow:0 0 0 3px rgba(234,88,12,.15)}}'
+            .'a.ohana-abrir-venta{display:inline-flex;align-items:center;padding:.28rem .7rem;border-radius:.4rem;'
+            .'border:2px solid #ea580c;background:rgba(234,88,12,.16);color:#ea580c!important;'
+            .'font-weight:900;font-size:.8rem;letter-spacing:.03em;text-decoration:none!important;'
+            .'text-transform:uppercase;animation:ohana-abrir-venta-blink 1.05s ease-in-out infinite;}'
+            .'a.ohana-abrir-venta:hover{background:rgba(234,88,12,.28);color:#c2410c!important;}'
+            .'</style>'
+            .'<a href="'.$url.'" class="ohana-abrir-venta" target="_blank" rel="noopener">Abrir venta</a>'
+        );
     }
 
     protected function formatOfertasProductosHtml(Venta $venta): HtmlString
