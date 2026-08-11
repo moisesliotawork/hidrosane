@@ -1212,47 +1212,20 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return [
             Forms\Components\Section::make()
                 ->compact()
-                ->columns(5)
+                ->columns(12)
                 ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-form-4col'])
                 ->schema([
+                    // Fila 1: Nº contrato + fecha (verde, al lado) + nombre completo
                     Forms\Components\TextInput::make('nro_contr_adm')
                         ->label('Nº CONTRATO')
                         ->required()
                         ->inlineLabel()
-                        ->extraInputAttributes(['class' => 'recovery-nro-contrato-input'])
-                        ->columnSpan(1),
-                    Forms\Components\TextInput::make('cliente_nombre')
-                        ->label('CLIENTE')
-                        ->inlineLabel()
-                        ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
-                        ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
-                        ->extraInputAttributes(['class' => 'recovery-cliente-nombre-input'])
-                        ->columnSpan(2),
-                    Forms\Components\DatePicker::make('fecha_venta')
-                        ->label('FEC. PROMO')
-                        ->inlineLabel()
-                        ->native(false)
-                        ->displayFormat('d-m-Y')
-                        ->format('Y-m-d')
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, mixed $state): void {
-                            $set('fecha_promo', $state);
-                        })
-                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
-                        ->columnSpan(1),
-
-                    Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
-                        ->required()
-                        ->inlineLabel()
-                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
-                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, mixed $state): void {
-                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
-                        })
-                        ->extraInputAttributes(['class' => 'recovery-dni-input'])
-                        ->columnSpan(1),
+                        ->extraInputAttributes([
+                            'class' => 'recovery-nro-contrato-input',
+                            'style' => 'min-width:6.5rem;width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-nro-contrato'])
+                        ->columnSpan(['default' => 12, 'md' => 3]),
                     Forms\Components\DatePicker::make('fecha_promo')
                         ->label('FECHA CONTRATO')
                         ->inlineLabel()
@@ -1264,28 +1237,81 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->afterStateUpdated(function (Set $set, mixed $state): void {
                             $set('fecha_venta', $state);
                         })
-                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
-                        ->columnSpan(1),
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-verde-input',
+                            'style' => 'min-width:7.5rem;width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-fecha-contrato'])
+                        ->columnSpan(['default' => 12, 'md' => 3]),
+                    Forms\Components\TextInput::make('cliente_nombre')
+                        ->label('CLIENTE')
+                        ->inlineLabel()
+                        ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
+                        ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
+                        ->extraInputAttributes([
+                            'class' => 'recovery-cliente-nombre-input',
+                            'style' => 'min-width:14rem;width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-cliente'])
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+
+                    // Fila 2: resto de cabecera
+                    Forms\Components\DatePicker::make('fecha_venta')
+                        ->label('FEC. PROMO')
+                        ->inlineLabel()
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('fecha_promo', $state);
+                        })
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-verde-input',
+                            'style' => 'min-width:7.5rem;width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 3]),
+                    Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->required()
+                        ->inlineLabel()
+                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
+                        })
+                        ->extraInputAttributes([
+                            'class' => 'recovery-dni-input',
+                            'style' => 'min-width:8rem;width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 3]),
                     Forms\Components\DatePicker::make('fecha_entrega')
                         ->label('FECHA ENTREGA')
                         ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
-                        ->extraInputAttributes(['class' => 'recovery-fecha-bold-input'])
-                        ->columnSpan(1),
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-bold-input',
+                            'style' => 'min-width:7.5rem;width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 2]),
                     Forms\Components\TextInput::make('nro_albaran')
                         ->label('ALBARÁN')
                         ->inlineLabel()
-                        ->columnSpan(1),
+                        ->columnSpan(['default' => 12, 'md' => 2]),
                     Forms\Components\DatePicker::make('fecha_nacimiento')
                         ->label('FEC. NACIMIENTO')
                         ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
-                        ->extraInputAttributes(['class' => 'recovery-fecha-bold-input'])
-                        ->columnSpan(1),
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-bold-input',
+                            'style' => 'min-width:7.5rem;width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 2]),
                 ]),
 
             Forms\Components\Section::make('Resto de datos')

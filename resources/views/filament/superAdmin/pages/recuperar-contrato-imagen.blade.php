@@ -75,13 +75,33 @@
         }
         .recovery-datos-form-4col .fi-fo-field-wrp {
             gap: 0.35rem 0.5rem;
+            min-width: 0;
         }
-        /* Etiquetas al lado del valor */
+        /* Etiquetas al lado del valor; el input no se encoge por debajo del contenido */
         .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid {
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
             gap: 0.5rem !important;
+            min-width: 0;
+        }
+        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:first-child {
+            flex: 0 0 auto !important;
+        }
+        .recovery-datos-form-4col .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:last-child {
+            flex: 1 1 auto !important;
+            min-width: 0;
+        }
+        .recovery-datos-form-4col .fi-input-wrp,
+        .recovery-datos-form-4col .fi-fo-date-time-picker {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .recovery-datos-form-4col input.fi-input {
+            width: 100% !important;
+            min-width: 0 !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
         }
         .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         .recovery-datos-highlight-form label {
@@ -89,32 +109,50 @@
             text-transform: uppercase !important;
             color: #1d4ed8 !important;
             white-space: nowrap;
+            font-size: 0.78rem !important;
         }
         html.dark .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
         html.dark .recovery-datos-highlight-form label {
             color: #60a5fa !important;
         }
+        /* Nº contrato: más compacto para que se vea SIEMPRE completo */
+        .recovery-field-nro-contrato {
+            padding-right: 0.75rem; /* ~4 espacios respecto a la fecha */
+        }
         .recovery-nro-contrato-input {
-            font-size: 1.65rem !important;
-            font-weight: 900 !important;
-            line-height: 1.2 !important;
+            font-size: 1.05rem !important;
+            font-weight: 800 !important;
+            line-height: 1.25 !important;
             color: #111827 !important;
+            letter-spacing: 0.02em;
         }
         html.dark .recovery-nro-contrato-input {
             color: #f9fafb !important;
+        }
+        /* Nombre cliente: siempre completo, sin cortar */
+        .recovery-field-cliente {
+            min-width: 0;
         }
         .recovery-cliente-nombre-input {
             font-weight: 800 !important;
             text-transform: uppercase !important;
             color: #1d4ed8 !important;
-            font-size: 1.05rem !important;
+            font-size: 0.95rem !important;
+            white-space: nowrap !important;
         }
         html.dark .recovery-cliente-nombre-input {
             color: #60a5fa !important;
         }
+        /* Fecha contrato en verde, al lado del nº */
+        .recovery-field-fecha-contrato label {
+            color: #16a34a !important;
+        }
+        html.dark .recovery-field-fecha-contrato label {
+            color: #4ade80 !important;
+        }
         .recovery-fecha-verde-input {
             font-weight: 800 !important;
-            color: #14532d !important;
+            color: #16a34a !important;
         }
         html.dark .recovery-fecha-verde-input {
             color: #86efac !important;
