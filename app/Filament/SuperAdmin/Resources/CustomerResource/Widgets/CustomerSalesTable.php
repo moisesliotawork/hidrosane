@@ -61,11 +61,13 @@ class CustomerSalesTable extends BaseWidget
 
             TextColumn::make('nro_contrato')
                 ->label('#Contrato')
-                ->state(fn (Venta $r) => $r->nro_contrato ?: ($r->nro_contr_adm ?: '—'))
+                ->state(fn (Venta $r) => $this->formatContratoNumber(
+                    $r->nro_contr_adm ?: ($r->nro_contrato ?: null)
+                ))
                 ->searchable(['nro_contrato', 'nro_contr_adm'])
                 ->sortable()
                 ->badge()
-                ->color('purple')
+                ->color('success')
                 ->grow(false)
                 ->toggleable(),
 
@@ -156,14 +158,21 @@ class CustomerSalesTable extends BaseWidget
         $nombre = mb_strtoupper(trim(($customer?->first_names ?? '').' '.($customer?->last_names ?? '')));
         $fechaPromo = $this->formatMadridDate($venta->fecha_venta);
         $fechaEntrega = $this->formatMadridDate($venta->fecha_entrega);
-        $nroContrato = $venta->nro_contrato ?: ($venta->nro_contr_adm ?: '—');
-        $nroAdmin = $venta->nro_cliente_adm ?: ($venta->nro_contr_adm ?: '—');
+        // Coherencia: #Contrato = nro_contr_adm (número admin del contrato)
+        $nroContrato = $this->formatContratoNumber(
+            filled($venta->nro_contr_adm)
+                ? (string) $venta->nro_contr_adm
+                : (filled($venta->nro_contrato) ? (string) $venta->nro_contrato : null)
+        );
+        $nroClienteAdm = filled($venta->nro_cliente_adm)
+            ? (string) $venta->nro_cliente_adm
+            : (filled($customer?->nro_cliente) ? (string) $customer->nro_cliente : '—');
 
         return [
-            // Fila 1: nombre → nº contrato → fecha promo (mismo estilo badge)
+            // Fila 1: nombre completo (sin cortar) a ancho completo
             Infolists\Components\Section::make()
                 ->compact()
-                ->columns(3)
+                ->columns(1)
                 ->schema([
                     Infolists\Components\TextEntry::make('cliente_nombre')
                         ->label('Cliente')
@@ -171,11 +180,17 @@ class CustomerSalesTable extends BaseWidget
                         ->weight(FontWeight::ExtraBold)
                         ->color('primary')
                         ->extraAttributes([
-                            'style' => 'text-transform:uppercase;font-size:0.95rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+                            'style' => 'text-transform:uppercase;font-size:1rem;line-height:1.3;white-space:normal;overflow:visible;word-break:break-word;',
                         ]),
+                ]),
 
+            // Fila 2: #Contrato (admin) verde · fecha promo · nº cliente admin
+            Infolists\Components\Section::make()
+                ->compact()
+                ->columns(3)
+                ->schema([
                     Infolists\Components\TextEntry::make('nro_contrato_show')
-                        ->label('Nº contrato')
+                        ->label('#Contrato')
                         ->state($nroContrato)
                         ->badge()
                         ->color('success')
@@ -187,9 +202,16 @@ class CustomerSalesTable extends BaseWidget
                         ->badge()
                         ->color('success')
                         ->weight(FontWeight::Bold),
+
+                    Infolists\Components\TextEntry::make('nro_cliente_adm')
+                        ->label('Nº cliente admin')
+                        ->state($nroClienteAdm)
+                        ->badge()
+                        ->color('info')
+                        ->weight(FontWeight::Bold),
                 ]),
 
-            // Fila 2: DNI · nº admin · fecha contrato (roja)
+            // Fila 3: DNI · fecha contrato (roja)
             Infolists\Components\Section::make()
                 ->compact()
                 ->columns(3)
@@ -199,13 +221,6 @@ class CustomerSalesTable extends BaseWidget
                         ->state(filled($customer?->dni) ? $customer->dni : '—')
                         ->badge()
                         ->color('gray')
-                        ->weight(FontWeight::Bold),
-
-                    Infolists\Components\TextEntry::make('nro_cliente_adm')
-                        ->label('Nº contrato admin')
-                        ->state($nroAdmin)
-                        ->badge()
-                        ->color('info')
                         ->weight(FontWeight::Bold),
 
                     Infolists\Components\TextEntry::make('fecha_contrato')
@@ -284,6 +299,21 @@ class CustomerSalesTable extends BaseWidget
         } catch (\Throwable) {
             return is_string($value) ? $value : '—';
         }
+    }
+
+    /** Separa las 2 primeras cifras para leer mejor (ej. 834 → 83 4, 00955 → 00 955). */
+    protected function formatContratoNumber(?string $value): string
+    {
+        $nro = trim((string) $value);
+        if ($nro === '' || $nro === '—') {
+            return '—';
+        }
+
+        if (mb_strlen($nro) <= 2) {
+            return $nro;
+        }
+
+        return mb_substr($nro, 0, 2).' '.mb_substr($nro, 2);
     }
 
     protected function isTablePaginationEnabled(): bool
