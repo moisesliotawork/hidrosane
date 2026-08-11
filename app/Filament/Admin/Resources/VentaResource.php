@@ -1104,10 +1104,34 @@ class VentaResource extends Resource
 
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
-                    ->badge()
-                    ->color('success')
+                    ->html()
+                    ->wrap(false)
                     ->sortable()
-                    ->searchable(isIndividual: true),
+                    ->searchable(isIndividual: true)
+                    ->extraHeaderAttributes(['class' => 'min-w-[14rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[14rem] whitespace-nowrap'])
+                    ->formatStateUsing(function ($state, Venta $record) {
+                        $nro = e((string) ($state ?: '—'));
+                        $fecha = $record->fecha_venta
+                            ? e(Carbon::parse($record->fecha_venta)->timezone('Europe/Madrid')->format('d/m/Y'))
+                            : null;
+
+                        // Badge compacto sin truncar: el nº completo siempre visible
+                        $nroHtml = '<span class="inline-flex whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset bg-success-50 text-success-600 ring-success-600/10 dark:bg-success-400/10 dark:text-success-400 dark:ring-success-400/30">'
+                            . $nro
+                            . '</span>';
+
+                        if (! $fecha) {
+                            return $nroHtml;
+                        }
+
+                        // Más espacio entre nº contrato y fecha (en verde, un poco más pequeña)
+                        return '<span class="inline-flex items-center whitespace-nowrap">'
+                            . $nroHtml
+                            . '<span class="inline-block w-6 shrink-0" aria-hidden="true"></span>'
+                            . '<span class="whitespace-nowrap text-[11px] font-medium text-success-600 dark:text-success-400">' . $fecha . '</span>'
+                            . '</span>';
+                    }),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1480,6 +1504,16 @@ class VentaResource extends Resource
                             ->send();
                     }),
 
+                // 👇 BORRAR SELECCIÓN DE FILAS
+                Action::make('borrar_seleccion')
+                    ->label('Borrar la selección')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->disabled(fn ($livewire): bool => blank($livewire->selectedTableRecords))
+                    ->action(function ($livewire): void {
+                        $livewire->deselectAllTableRecords();
+                    }),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -1603,6 +1637,7 @@ class VentaResource extends Resource
                     }),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
+            ->selectable()
             ->bulkActions([]);  // sin bulk delete
     }
 
