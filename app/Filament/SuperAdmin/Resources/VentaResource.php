@@ -9,12 +9,15 @@ use App\Filament\SuperAdmin\Resources\VentaResource\RelationManagers\PdfDescarga
 use App\Filament\Support\SuperAdminVentaCustomerId;
 use App\Filament\SuperAdmin\Resources\VentaResource\Pages;
 use App\Models\Venta;
+use App\Support\Filament\VentaDatosInfolist;
 use App\Support\Filament\VentaSoftDeleteTableAction;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class VentaResource extends Resource
@@ -96,11 +99,40 @@ class VentaResource extends Resource
             }
         }
 
-        $allColumns = array_values(array_filter([
-            SuperAdminVentaCustomerId::tableColumn(),
-            $nameColumn,
-            ...array_values($columns),
-        ]));
+        $ordered = [];
+        $ordered[] = SuperAdminVentaCustomerId::tableColumn();
+        if ($nameColumn) {
+            $ordered[] = $nameColumn;
+        }
+
+        foreach (array_values($columns) as $column) {
+            $ordered[] = $column;
+
+            // Justo a la derecha de Nº Contrato (+ fecha): mismo modal que Posición Global.
+            if ($column->getName() === 'nro_contr_adm') {
+                $ordered[] = TextColumn::make('ver_datos')
+                    ->label('Ver Datos')
+                    ->state('VER DATOS')
+                    ->badge()
+                    ->color('info')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->action(
+                        Tables\Actions\Action::make('verDatosVenta')
+                            ->modalHeading(fn (Venta $record): string => 'Datos de la venta — '
+                                .(filled($record->nro_contr_adm) ? (string) $record->nro_contr_adm : '#'.$record->id))
+                            ->modalWidth(MaxWidth::FourExtraLarge)
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Cerrar')
+                            ->infolist(fn (Venta $record): array => VentaDatosInfolist::schema(
+                                $record,
+                                static::getUrl('edit', ['record' => $record]),
+                            ))
+                    );
+            }
+        }
+
+        $allColumns = array_values(array_filter($ordered));
 
         foreach ($allColumns as $column) {
             // Preserva el "oculto por defecto" ya definido en la columna (p.ej. Teléfonos_CL,
