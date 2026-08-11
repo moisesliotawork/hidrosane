@@ -1125,8 +1125,18 @@ class VentaResource extends Resource
                             ? e(Carbon::parse($record->fecha_venta)->timezone('Europe/Madrid')->format('d/m/Y'))
                             : null;
 
-                        // Badge compacto sin truncar: el nº completo siempre visible
-                        $nroHtml = '<span class="inline-flex whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset bg-success-50 text-success-600 ring-success-600/10 dark:bg-success-400/10 dark:text-success-400 dark:ring-success-400/30">'
+                        // Recuperados → nº en amarillo; resto en verde.
+                        $isRecuperado = \App\Models\ContratoRecuperado::isRecuperado(
+                            filled($state) ? (string) $state : null
+                        );
+                        $nroBadgeClass = $isRecuperado
+                            ? 'bg-warning-50 text-warning-600 ring-warning-600/10 dark:bg-warning-400/10 dark:text-warning-400 dark:ring-warning-400/30'
+                            : 'bg-success-50 text-success-600 ring-success-600/10 dark:bg-success-400/10 dark:text-success-400 dark:ring-success-400/30';
+                        $fechaClass = $isRecuperado
+                            ? 'text-warning-600 dark:text-warning-400'
+                            : 'text-success-600 dark:text-success-400';
+
+                        $nroHtml = '<span class="inline-flex whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium ring-1 ring-inset '.$nroBadgeClass.'">'
                             . $nro
                             . '</span>';
 
@@ -1134,11 +1144,10 @@ class VentaResource extends Resource
                             return $nroHtml;
                         }
 
-                        // Más espacio entre nº contrato y fecha (en verde, un poco más pequeña)
                         return '<span class="inline-flex items-center whitespace-nowrap">'
                             . $nroHtml
                             . '<span class="inline-block w-6 shrink-0" aria-hidden="true"></span>'
-                            . '<span class="whitespace-nowrap text-[11px] font-medium text-success-600 dark:text-success-400">' . $fecha . '</span>'
+                            . '<span class="whitespace-nowrap text-[11px] font-medium '.$fechaClass.'">' . $fecha . '</span>'
                             . '</span>';
                     }),
 

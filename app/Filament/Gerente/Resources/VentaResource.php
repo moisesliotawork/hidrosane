@@ -765,7 +765,9 @@ class VentaResource extends Resource
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
                     ->badge()
-                    ->color('success')
+                    ->color(fn (?string $state): string => \App\Models\ContratoRecuperado::isRecuperado($state)
+                        ? 'warning'
+                        : 'success')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
