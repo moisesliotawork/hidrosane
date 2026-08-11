@@ -1254,7 +1254,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->recordAction(null)
             ->recordUrl(null)
             ->striped()
-            ->defaultSort('id', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->paginated([10, 25, 50]);
     }
 

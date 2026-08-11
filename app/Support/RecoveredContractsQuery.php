@@ -56,7 +56,8 @@ class RecoveredContractsQuery
 
         self::applyScope($query, $scope);
 
-        return $query->latest('id');
+        // Último recuperado / tocado primero (updated_at), no por id de staging.
+        return $query->orderByDesc('updated_at')->orderByDesc('id');
     }
 
     /**
