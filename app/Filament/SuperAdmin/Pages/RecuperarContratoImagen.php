@@ -950,7 +950,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
                         $data['dni'] = $dni;
                         $data['cliente_nombre'] = mb_strtoupper(trim((string) ($data['cliente_nombre'] ?? ''))) ?: null;
-                        $data['fecha_venta'] = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+                        $data['fecha_venta'] = $this->resolveFechaVentaFromForm($record, $data);
                         $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
                         unset($data['fecha_promo']);
 
@@ -2167,5 +2167,27 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     protected function normalizeDateForPicker(mixed $value): ?string
     {
         return app(ContractImageExtractor::class)->normalizeDate($value);
+    }
+
+    /**
+     * "FEC. PROMO" (fecha_venta) y "FECHA CONTRATO" (fecha_promo) del formulario son el
+     * mismo dato mostrado dos veces (por maquetación) y se sincronizan por JS al editar
+     * cualquiera de los dos. Si esa sincronización no llega a tiempo (ej. el usuario
+     * cambia la fecha y pulsa "Guardar" sin que el campo pierda el foco), no podemos
+     * fiarnos a ciegas de 'fecha_venta': puede seguir teniendo el valor viejo mientras
+     * 'fecha_promo' ya tiene el que el usuario acaba de elegir. Nos quedamos con el que
+     * de verdad cambió respecto al valor ya guardado en BD.
+     */
+    protected function resolveFechaVentaFromForm(ContratoRecoveryItem $record, array $data): ?string
+    {
+        $old = $this->normalizeDateForPicker(data_get($record->reviewedData(), 'fecha_venta'));
+        $fechaVenta = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+        $fechaPromo = $this->normalizeDateForPicker($data['fecha_promo'] ?? null);
+
+        if ($fechaPromo !== null && $fechaPromo !== $old) {
+            return $fechaPromo;
+        }
+
+        return $fechaVenta ?? $fechaPromo;
     }
 }
