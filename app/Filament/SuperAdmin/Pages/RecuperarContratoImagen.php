@@ -2175,6 +2175,23 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return RecoveredContractsQuery::scopeLabel($this->recoveryListTab);
     }
 
+    /**
+     * Contadores globales de las pestañas POR RECUPERAR / RECUPERADOS (sin filtro de mes).
+     *
+     * @return array{por_recuperar: int, recuperados: int}
+     */
+    public function recoveryListTabCounts(): array
+    {
+        return [
+            RecoveredContractsQuery::SCOPE_POR_RECUPERAR => RecoveredContractsQuery::base(
+                RecoveredContractsQuery::SCOPE_POR_RECUPERAR
+            )->count(),
+            RecoveredContractsQuery::SCOPE_RECUPERADOS => RecoveredContractsQuery::base(
+                RecoveredContractsQuery::SCOPE_RECUPERADOS
+            )->count(),
+        ];
+    }
+
     protected function fechaContratoCarbon(ContratoRecoveryItem $record): ?Carbon
     {
         $raw = $record->displayFechaVentaRaw();

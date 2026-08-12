@@ -239,6 +239,9 @@
                 $activityByYear = $clienteQ !== '' ? $this->clienteActivityByYear() : [];
                 $hasClienteFilter = $clienteQ !== '';
                 $hasAnyActivity = $hasClienteFilter && $activityByYear !== [];
+                $listTabCounts = $this->recoveryListTabCounts();
+                $porRecuperarCount = (int) ($listTabCounts['por_recuperar'] ?? 0);
+                $recuperadosCount = (int) ($listTabCounts['recuperados'] ?? 0);
             @endphp
 
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
@@ -246,16 +249,22 @@
                     <button
                         type="button"
                         wire:click="selectRecoveryListTab('por_recuperar')"
-                        style="height:2rem;padding:0 0.9rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;{{ $listTabStyle($isPorRecuperar, 'por_recuperar') }}"
+                        style="height:2rem;padding:0 0.75rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:0.45rem;{{ $listTabStyle($isPorRecuperar, 'por_recuperar') }}"
                     >
-                        POR RECUPERAR
+                        <span>POR RECUPERAR</span>
+                        <span
+                            style="display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;height:1.2rem;padding:0 0.35rem;border-radius:9999px;font-size:0.7rem;font-weight:800;line-height:1;{{ $isPorRecuperar ? 'background:#fff;color:#b91c1c;' : 'background:#b91c1c;color:#fff;' }}"
+                        >{{ $porRecuperarCount }}</span>
                     </button>
                     <button
                         type="button"
                         wire:click="selectRecoveryListTab('recuperados')"
-                        style="height:2rem;padding:0 0.9rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;{{ $listTabStyle(! $isPorRecuperar, 'recuperados') }}"
+                        style="height:2rem;padding:0 0.75rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:0.45rem;{{ $listTabStyle(! $isPorRecuperar, 'recuperados') }}"
                     >
-                        RECUPERADOS
+                        <span>RECUPERADOS</span>
+                        <span
+                            style="display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;height:1.2rem;padding:0 0.35rem;border-radius:9999px;font-size:0.7rem;font-weight:800;line-height:1;{{ ! $isPorRecuperar ? 'background:#fff;color:#15803d;' : 'background:#15803d;color:#fff;' }}"
+                        >{{ $recuperadosCount }}</span>
                     </button>
                 </div>
                 <div style="display:inline-flex;align-items:center;gap:0.4rem;">
