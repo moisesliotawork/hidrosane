@@ -3,6 +3,7 @@
 namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 
 use App\Filament\SuperAdmin\Resources\VentaResource;
+use App\Models\ContratoRecuperado;
 use App\Models\Customer;
 use App\Models\Venta;
 use Carbon\Carbon;
@@ -48,6 +49,18 @@ class CustomerSalesTable extends BaseWidget
     protected function getTableColumns(): array
     {
         return [
+            TextColumn::make('nro_contrato')
+                ->label('#Contrato')
+                ->state(fn (Venta $r) => $this->formatContratoNumber(
+                    $r->nro_contr_adm ?: ($r->nro_contrato ?: null)
+                ))
+                ->searchable(['nro_contrato', 'nro_contr_adm'])
+                ->sortable()
+                ->badge()
+                ->color(fn (Venta $r) => $this->isContratoRecuperado($r) ? 'warning' : 'success')
+                ->grow(false)
+                ->toggleable(),
+
             TextColumn::make('ver_datos')
                 ->label('Ver Datos')
                 ->state('Datos/Vta')
@@ -64,18 +77,6 @@ class CustomerSalesTable extends BaseWidget
                         ->modalCancelActionLabel('Cerrar')
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
                 ),
-
-            TextColumn::make('nro_contrato')
-                ->label('#Contrato')
-                ->state(fn (Venta $r) => $this->formatContratoNumber(
-                    $r->nro_contr_adm ?: ($r->nro_contrato ?: null)
-                ))
-                ->searchable(['nro_contrato', 'nro_contr_adm'])
-                ->sortable()
-                ->badge()
-                ->color('success')
-                ->grow(false)
-                ->toggleable(),
 
             TextColumn::make('note.nro_nota')
                 ->label('# Nota')
@@ -173,6 +174,7 @@ class CustomerSalesTable extends BaseWidget
         $nroClienteAdm = filled($venta->nro_cliente_adm)
             ? (string) $venta->nro_cliente_adm
             : (filled($customer?->nro_cliente) ? (string) $customer->nro_cliente : '—');
+        $contratoColor = $this->isContratoRecuperado($venta) ? 'warning' : 'success';
 
         return [
             // Fila 1: nombre completo (sin cortar) a ancho completo
@@ -190,7 +192,7 @@ class CustomerSalesTable extends BaseWidget
                         ]),
                 ]),
 
-            // Fila 2: #Contrato (admin) verde · fecha promo · nº cliente admin
+            // Fila 2: #Contrato (admin) · fecha promo · nº cliente admin
             Infolists\Components\Section::make()
                 ->compact()
                 ->columns(3)
@@ -199,7 +201,7 @@ class CustomerSalesTable extends BaseWidget
                         ->label('#Contrato')
                         ->state($nroContrato)
                         ->badge()
-                        ->color('success')
+                        ->color($contratoColor)
                         ->weight(FontWeight::Bold),
 
                     Infolists\Components\TextEntry::make('fecha_promo')
@@ -412,6 +414,13 @@ class CustomerSalesTable extends BaseWidget
         }
 
         return mb_substr($nro, 0, 2).' '.mb_substr($nro, 2);
+    }
+
+    protected function isContratoRecuperado(Venta $venta): bool
+    {
+        return ContratoRecuperado::isRecuperado(
+            trim((string) ($venta->nro_contr_adm ?: $venta->nro_contrato ?: ''))
+        );
     }
 
     protected function isTablePaginationEnabled(): bool
