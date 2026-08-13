@@ -2,7 +2,7 @@
 
 namespace App\Filament\SuperAdmin\Resources;
 
-use App\Filament\SuperAdmin\Resources\ContratosBorradosResource\Pages;
+use App\Filament\SuperAdmin\Resources\ContratosReservaResource\Pages;
 use App\Models\Scopes\NotMergedScope;
 use App\Models\Venta;
 use App\Support\Filament\ContratosBorradosTable;
@@ -11,54 +11,55 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
-class ContratosBorradosResource extends Resource
+class ContratosReservaResource extends Resource
 {
     protected static ?string $model = Venta::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-archive-box-x-mark';
+    protected static ?string $navigationIcon = 'heroicon-o-archive-box';
 
-    protected static ?string $navigationLabel = 'Contratos borrados';
+    protected static ?string $navigationLabel = 'RESERVA';
 
-    protected static ?string $modelLabel = 'Contrato borrado';
+    protected static ?string $modelLabel = 'Contrato en reserva';
 
-    protected static ?string $pluralModelLabel = 'Contratos borrados';
+    protected static ?string $pluralModelLabel = 'RESERVA';
 
-    protected static ?string $breadcrumb = 'Contratos borrados';
+    protected static ?string $breadcrumb = 'RESERVA';
 
-    protected static ?string $slug = 'contratos-borrados';
+    protected static ?string $slug = 'contratos-reserva';
 
     protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
 
-    protected static ?int $navigationSort = 94;
+    protected static ?int $navigationSort = 95;
 
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
             ->onlyTrashed()
-            ->enContratosBorrados()
+            ->enReserva()
             ->with([
                 'customer' => fn ($query) => $query
                     ->withoutGlobalScope(NotMergedScope::class)
                     ->withTrashed(),
                 'deletedBy',
+                'reservadoBy',
             ]);
     }
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getModel()::onlyTrashed()->enContratosBorrados()->count();
+        return (string) static::getModel()::onlyTrashed()->enReserva()->count();
     }
 
     public static function getNavigationBadgeColor(): string | array | null
     {
-        return static::getModel()::onlyTrashed()->enContratosBorrados()->count() > 0 ? 'danger' : 'success';
+        return static::getModel()::onlyTrashed()->enReserva()->count() > 0 ? 'warning' : 'success';
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('deleted_at', 'desc')
-            ->columns(ContratosBorradosTable::columns())
+            ->defaultSort('reservado_at', 'desc')
+            ->columns(ContratosBorradosTable::columns(reserva: true))
             ->actions([])
             ->bulkActions([]);
     }
@@ -66,7 +67,7 @@ class ContratosBorradosResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListContratosBorrados::route('/'),
+            'index' => Pages\ListContratosReserva::route('/'),
         ];
     }
 

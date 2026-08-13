@@ -1666,6 +1666,16 @@ class VentaResource extends Resource
         return true;
     }
 
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
+    }
+
     protected static function recalcTotales(Get $get, Set $set): void
     {
         $importe = (float) ($get('importe_total') ?? 0);

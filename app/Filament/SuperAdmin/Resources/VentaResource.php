@@ -263,4 +263,14 @@ class VentaResource extends Resource
     {
         return true;
     }
+
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
+    }
 }

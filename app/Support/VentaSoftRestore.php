@@ -13,6 +13,8 @@ final class VentaSoftRestore
 
         $venta->forceFill([
             'deleted_by_user_id' => null,
+            'reservado_at' => null,
+            'reservado_by_user_id' => null,
         ])->saveQuietly();
 
         ContratosPorMesStats::recordVariationItem(
