@@ -10,12 +10,14 @@ use Filament\Resources\Components\Tab;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Attributes\Session;
 
 class ListVentas extends BaseListVentas
 {
     protected static string $resource = VentaResource::class;
 
     /** Búsqueda dedicada por nº de contrato (toolbar izquierda, solo SuperAdmin). */
+    #[Session(key: 'superadmin.contratos.nro_contrato_busqueda')]
     public ?string $nroContratoBusqueda = '';
 
     public function updatedNroContratoBusqueda(): void
@@ -28,6 +30,14 @@ class ListVentas extends BaseListVentas
         }
 
         $this->resetPage();
+    }
+
+    public function booted(): void
+    {
+        if (filled(trim((string) ($this->nroContratoBusqueda ?? '')))) {
+            $this->tableSearch = '';
+            $this->tableColumnSearches = [];
+        }
     }
 
     public function getDefaultActiveTab(): string|int|null
