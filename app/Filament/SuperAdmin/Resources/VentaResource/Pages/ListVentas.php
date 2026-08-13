@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\VentaResource\Pages\ListVentas as BaseListVenta
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecuperado;
 use App\Models\ContratoRecoveryItem;
+use App\Support\NroContratoAdmin;
 use Filament\Resources\Components\Tab;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,15 +92,7 @@ class ListVentas extends BaseListVentas
                     return $query;
                 }
 
-                $compact = preg_replace('/\s+/', '', $term) ?: $term;
-
-                return $query->where(function (Builder $inner) use ($term, $compact): void {
-                    $inner->where('nro_contr_adm', 'like', "%{$term}%");
-
-                    if ($compact !== $term) {
-                        $inner->orWhere('nro_contr_adm', 'like', "%{$compact}%");
-                    }
-                });
+                return $query->whereIn('nro_contr_adm', NroContratoAdmin::searchValues($term));
             });
     }
 

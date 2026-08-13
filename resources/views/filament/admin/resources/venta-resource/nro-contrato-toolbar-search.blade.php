@@ -9,7 +9,7 @@
     <input
         id="nro-contrato-admin-busqueda"
         type="search"
-        placeholder="Ej: 834"
+        placeholder="Ej: 1 o 001"
         autocomplete="off"
         wire:model.live.debounce.400ms="nroContratoBusqueda"
         class="fi-input block w-40 rounded-lg border-0 bg-white py-1.5 text-sm text-gray-950 shadow-sm outline-none transition duration-75 placeholder:text-gray-400 focus:ring-2 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 sm:text-sm sm:leading-6"
