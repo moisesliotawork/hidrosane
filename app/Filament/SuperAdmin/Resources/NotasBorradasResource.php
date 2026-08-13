@@ -51,7 +51,7 @@ class NotasBorradasResource extends Resource
 
     public static function getNavigationBadgeColor(): string | array | null
     {
-        return static::getModel()::onlyTrashed()->count() > 0 ? 'danger' : 'success';
+        return static::getModel()::onlyTrashed()->count() > 0 ? 'warning' : 'success';
     }
 
     public static function table(Table $table): Table

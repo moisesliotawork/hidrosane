@@ -121,13 +121,29 @@ class VentaResource extends Resource
             }
         }
 
-        // Orden SuperAdmin: Nº Contrato primero; ID-CL justo después de CF.
-        $ordered = [];
+        // Orden SuperAdmin: Nº Contrato, Nombre, Fecha…; ID-CL justo después de CF.
+        $nombreColumn = null;
+        $columnsWithoutNombre = [];
 
         foreach (array_values($columns) as $column) {
+            if ($column->getName() === 'customer.name') {
+                $nombreColumn = $column;
+                continue;
+            }
+
+            $columnsWithoutNombre[] = $column;
+        }
+
+        $ordered = [];
+
+        foreach ($columnsWithoutNombre as $column) {
             $ordered[] = $column;
 
-            // Tras Nº Contrato + Fecha: Ver Datos e Imagen (solo SuperAdmin).
+            if ($column->getName() === 'nro_contr_adm' && $nombreColumn) {
+                $ordered[] = $nombreColumn;
+            }
+
+            // Tras Nº Contrato + Nombre + Fecha: Ver Datos e Imagen (solo SuperAdmin).
             if ($column->getName() === 'fecha_venta') {
                 $ordered[] = TextColumn::make('ver_datos')
                     ->label('Ver Datos')
