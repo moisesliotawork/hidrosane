@@ -177,6 +177,25 @@ class VentaResource extends Resource
                     ->tooltip('Foto original usada para recuperar este contrato')
                     ->alignCenter()
                     ->grow(false);
+
+                $ordered[] = TextColumn::make('pgc')
+                    ->label('PGC')
+                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'VerCL' : '—')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'VerCL' ? 'info' : 'gray')
+                    ->url(function (Venta $record): ?string {
+                        if (! filled($record->customer_id)) {
+                            return null;
+                        }
+
+                        return CustomerResource::getUrl('view', [
+                            'record' => $record->customer_id,
+                        ], panel: 'superAdmin');
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Posición Global de este cliente')
+                    ->alignCenter()
+                    ->grow(false);
             }
 
             if ($column->getName() === 'cf') {

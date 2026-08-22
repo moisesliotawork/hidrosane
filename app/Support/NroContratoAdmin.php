@@ -19,12 +19,15 @@ final class NroContratoAdmin
         }
 
         $compact = preg_replace('/\s+/', '', $term) ?: $term;
-        $suffix = '';
+        $bOnly = false;
         $base = $compact;
 
         if (preg_match('/^(.*)-([Bb])$/', $compact, $matches)) {
             $base = $matches[1];
-            $suffix = '-B';
+            $bOnly = true;
+        } elseif (preg_match('/^(\d+)[Bb]$/', $compact, $matches)) {
+            // Abby a veces guardó el titular como 382B (sin guion).
+            $base = $matches[1];
         }
 
         $out = [$term, $compact];
@@ -41,13 +44,17 @@ final class NroContratoAdmin
             }
 
             foreach (array_unique($variants) as $variant) {
-                if ($suffix !== '') {
+                if ($bOnly) {
                     $out[] = $variant.'-B';
                     $out[] = $variant.'-b';
+                    $out[] = $variant.'B';
+                    $out[] = $variant.'b';
                 } else {
                     $out[] = $variant;
                     $out[] = $variant.'-B';
                     $out[] = $variant.'-b';
+                    $out[] = $variant.'B';
+                    $out[] = $variant.'b';
                 }
             }
         }
