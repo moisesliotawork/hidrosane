@@ -22,13 +22,13 @@ class ListContractResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static ?string $navigationLabel = 'ListContract';
+    protected static ?string $navigationLabel = 'Lista/Contratos';
 
-    protected static ?string $modelLabel = 'ListContract';
+    protected static ?string $modelLabel = 'Lista/Contratos';
 
-    protected static ?string $pluralModelLabel = 'ListContract';
+    protected static ?string $pluralModelLabel = 'Lista/Contratos';
 
-    protected static ?string $breadcrumb = 'ListContract';
+    protected static ?string $breadcrumb = 'Lista/Contratos';
 
     protected static ?string $navigationGroup = 'RECUPERACION CONTRATOS';
 
@@ -43,6 +43,16 @@ class ListContractResource extends Resource
                 'customer:id,first_names,last_names,dni',
                 'comercial:id,empleado_id,name,last_name',
             ]);
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) static::getModel()::query()->count();
+    }
+
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return 'info';
     }
 
     public static function form(Form $form): Form

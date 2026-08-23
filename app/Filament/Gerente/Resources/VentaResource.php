@@ -760,18 +760,29 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
                     ->badge()
-                    ->color('success')
+                    ->color(fn ($state): string => \App\Models\ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
-                    ->color(fn(EstadoVenta $state): string => $state->color())
+                    ->color(fn (EstadoVenta $state, Venta $record): string => \App\Models\ContratoRecuperado::estadoBadgeColor(
+                        $state,
+                        $record->nro_contr_adm,
+                    ))
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
@@ -850,7 +861,6 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: false),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))

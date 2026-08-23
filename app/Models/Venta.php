@@ -177,11 +177,14 @@ class Venta extends Model
 
         'contrato_firmado_at',
         'deleted_by_user_id',
+        'reservado_at',
+        'reservado_by_user_id',
 
     ];
 
     protected $casts = [
         'contrato_firmado_at' => 'datetime',
+        'reservado_at' => 'datetime',
         'fecha_venta' => 'datetime',
         'en_app' => 'boolean',
         'importe_total' => 'decimal:2',
@@ -365,7 +368,9 @@ class Venta extends Model
         });
 
         static::forceDeleting(function () {
-            return false;
+            throw new \RuntimeException(
+                'El borrado definitivo de contratos está bloqueado. El contrato debe quedar en Contratos borrados o RESERVA hasta que SuperAdmin lo apruebe.'
+            );
         });
     }
 
@@ -462,6 +467,21 @@ class Venta extends Model
         return $this->belongsTo(User::class, 'deleted_by_user_id');
     }
 
+    public function reservadoBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reservado_by_user_id');
+    }
+
+    public function scopeEnContratosBorrados($query)
+    {
+        return $query->whereNull('reservado_at');
+    }
+
+    public function scopeEnReserva($query)
+    {
+        return $query->whereNotNull('reservado_at');
+    }
+
     public function companion(): BelongsTo
     {
         return $this->belongsTo(User::class, 'companion_id');
@@ -470,6 +490,12 @@ class Venta extends Model
     public function ventaOfertas(): HasMany   // alias “ofertas()” si lo prefieres
     {
         return $this->hasMany(VentaOferta::class);
+    }
+
+    /** Histórico de copias de PDF archivadas al descargar el contrato (solo visible en SuperAdmin). */
+    public function pdfDownloads(): HasMany
+    {
+        return $this->hasMany(VentaPdfDownload::class)->latest();
     }
 
     public function repartidor(): BelongsTo

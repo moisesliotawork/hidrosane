@@ -12,21 +12,38 @@ final class ContratosBorradosTable
     /**
      * @return array<int, TextColumn>
      */
-    public static function columns(): array
+    public static function columns(bool $reserva = false): array
     {
-        return [
+        $restore = BorradosRestoreColumn::make(
+            modalHeading: 'Restaurar contrato',
+            modalDescription: $reserva
+                ? 'El contrato saldrá de RESERVA y volverá a aparecer en Contratos.'
+                : 'El contrato volverá a aparecer en Contratos.',
+            successNotificationTitle: 'Contrato restaurado',
+            using: fn (Venta $record) => VentaSoftRestore::restore($record),
+        );
+
+        return array_values(array_filter([
             TextColumn::make('customer.name')
                 ->label('Cliente')
                 ->searchable(['first_names', 'last_names'])
                 ->sortable()
                 ->weight('bold'),
 
-            BorradosRestoreColumn::make(
-                modalHeading: 'Restaurar contrato',
-                modalDescription: 'El contrato volverá a aparecer en Contratos.',
-                successNotificationTitle: 'Contrato restaurado',
-                using: fn (Venta $record) => VentaSoftRestore::restore($record),
-            ),
+            $restore,
+
+            $reserva ? null : BorradosReservaColumn::make(),
+
+            TextColumn::make('reservado_at')
+                ->label('Fecha reserva')
+                ->date('d/m/Y')
+                ->sortable()
+                ->visible($reserva),
+
+            TextColumn::make('reservadoBy.display_name')
+                ->label('Usuario reserva')
+                ->state(fn (Venta $record): string => $record->reservadoBy?->display_name ?? '—')
+                ->visible($reserva),
 
             TextColumn::make('deleted_at')
                 ->label('Fecha borrado')
@@ -90,6 +107,6 @@ final class ContratosBorradosTable
                 ->label('ID venta')
                 ->badge()
                 ->sortable(),
-        ];
+        ]));
     }
 }

@@ -13,6 +13,7 @@ use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
 use App\Services\VentaNotesCustomerSync;
+use App\Services\VentaPdfArchiver;
 use App\Support\VentaFechaVenta;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -37,8 +38,14 @@ class EditVenta extends EditRecord
     {
         return Notification::make()
             ->success()
-            ->title('Contrato guardado')
-            ->body('Los cambios se han guardado correctamente.');
+            ->title('Guardado')
+            ->body('Los cambios del contrato se han guardado correctamente.')
+            ->duration(6000);
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Guardado';
     }
 
     /**
@@ -365,8 +372,12 @@ class EditVenta extends EditRecord
             ->loadView('pdf_pos', compact('venta', 'bg1', 'bg2'))
             ->setPaper('a4', 'portrait');
 
+        $bytes = $pdf->output();
+
+        VentaPdfArchiver::archive($venta, $bytes, 'normal', 'descarga');
+
         return response()->streamDownload(
-            fn() => print ($pdf->output()),
+            fn() => print ($bytes),
             'contrato-' . ($venta->note?->nro_nota ?? $venta->id) . '.pdf'
         );
     }
@@ -389,8 +400,12 @@ class EditVenta extends EditRecord
             ->loadView('pdf_pos_b', compact('venta'))
             ->setPaper('a4', 'portrait');
 
+        $bytes = $pdf->output();
+
+        VentaPdfArchiver::archive($venta, $bytes, 'B', 'descarga');
+
         return response()->streamDownload(
-            fn() => print ($pdf->output()),
+            fn() => print ($bytes),
             'contrato-' . $venta->nro_contr_adm . '.pdf'
         );
     }
@@ -414,17 +429,16 @@ class EditVenta extends EditRecord
                 Reparto::create(['venta_id' => $venta->id, 'estado_entrega' => EstadoEntrega::NO_ENTREGADO]);
             }
         } catch (Throwable $exception) {
+            // No relanzar: el contrato ya se guardó; permitir redirect + alerta «Guardado».
             Notification::make()
-                ->danger()
-                ->title('Guardado parcial')
+                ->warning()
+                ->title('Guardado con aviso')
                 ->body(
-                    'El contrato se actualizó, pero falló un paso posterior: '
+                    'El contrato se guardó, pero falló un paso posterior: '
                     .str($exception->getMessage())->limit(200)->toString()
                 )
-                ->persistent()
+                ->duration(8000)
                 ->send();
-
-            throw $exception;
         }
     }
 }

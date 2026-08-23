@@ -45,8 +45,8 @@
                             </span>
                         </td>
                         <td style="font-weight: 700;">{{ $item->nro_contr_adm ?? '—' }}</td>
-                        <td>{{ $item->cliente_nombre ?? '—' }}</td>
-                        <td style="font-weight: 700;">{{ $item->dni ?? '—' }}</td>
+                        <td style="font-weight: 700; color: #f97316; white-space: nowrap;">{{ $item->cliente_nombre ?? '—' }}</td>
+                        <td style="font-weight: 700; white-space: nowrap;">{{ $item->dni ? implode(' ', str_split((string) $item->dni, 4)) : '—' }}</td>
                         <td>
                             @if ($mesBadge)
                                 <span

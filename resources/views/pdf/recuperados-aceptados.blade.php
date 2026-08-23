@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="utf-8">
-    <title>Recuperados aceptados</title>
+    <title>{{ $scopeLabel ?? 'Recuperados' }}</title>
     <style>
         @page { margin: 16px 14px; }
         body {
@@ -34,7 +34,7 @@
     </style>
 </head>
 <body>
-    <h1>Recuperados aceptados</h1>
+    <h1>{{ $scopeLabel ?? 'Recuperados' }}</h1>
     <p class="meta">
         Periodo: <strong>{{ $periodoLabel ?? 'Todos' }}</strong>
         · Generado: {{ $fechaReporte }} · Registros: {{ $rows->count() }}

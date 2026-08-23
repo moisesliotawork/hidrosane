@@ -147,7 +147,7 @@ class CustomerResource extends Resource
                     ->weight('bold')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
                     ->searchable(['first_names', 'last_names'])
-                    ->wrap(),
+                    ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                 TextColumn::make('nro_cliente')
                     ->label('ID/Cliente')
@@ -191,21 +191,33 @@ class CustomerResource extends Resource
                 TextColumn::make('phones')
                     ->label('TELEFONOS')
                     ->state(function (Customer $r): string {
-                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        $fmt = fn (?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+
                         return collect([$r->phone, $r->secondary_phone, $r->third_phone])
-                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                            ->filter()
+                            ->map($fmt)
+                            ->map(fn (string $p) => e($p))
+                            ->join('<br>') ?: '—';
                     })
+                    ->html()
+                    ->wrap()
                     ->color('warning')
                     ->weight(\Filament\Support\Enums\FontWeight::Bold)
-                    ->searchable(['phone', 'secondary_phone']),
+                    ->searchable(['phone', 'secondary_phone', 'third_phone']),
 
                 TextColumn::make('phones_commercial')
                     ->label('TEL. COMERCIAL')
                     ->state(function (Customer $r): string {
-                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        $fmt = fn (?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+
                         return collect([$r->phone1_commercial, $r->phone2_commercial])
-                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                            ->filter()
+                            ->map($fmt)
+                            ->map(fn (string $p) => e($p))
+                            ->join('<br>') ?: '—';
                     })
+                    ->html()
+                    ->wrap()
                     ->color('warning')
                     ->weight(\Filament\Support\Enums\FontWeight::Bold)
                     ->searchable(query: function (Builder $query, string $search): Builder {

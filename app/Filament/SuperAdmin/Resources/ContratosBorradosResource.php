@@ -9,6 +9,7 @@ use App\Support\Filament\ContratosBorradosTable;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class ContratosBorradosResource extends Resource
 {
@@ -34,6 +35,7 @@ class ContratosBorradosResource extends Resource
     {
         return parent::getEloquentQuery()
             ->onlyTrashed()
+            ->enContratosBorrados()
             ->with([
                 'customer' => fn ($query) => $query
                     ->withoutGlobalScope(NotMergedScope::class)
@@ -44,12 +46,12 @@ class ContratosBorradosResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getModel()::onlyTrashed()->count();
+        return (string) static::getModel()::onlyTrashed()->enContratosBorrados()->count();
     }
 
     public static function getNavigationBadgeColor(): string | array | null
     {
-        return static::getModel()::onlyTrashed()->count() > 0 ? 'danger' : 'success';
+        return static::getModel()::onlyTrashed()->enContratosBorrados()->count() > 0 ? 'danger' : 'success';
     }
 
     public static function table(Table $table): Table
@@ -79,6 +81,16 @@ class ContratosBorradosResource extends Resource
     }
 
     public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
     {
         return false;
     }

@@ -34,6 +34,9 @@ class ContratoRecoveryItem extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    /** Rechazado en staging: ya existe una venta ACTIVA con ese nº de contrato admin. */
+    public const STATUS_REJECTED_EXISTS = 'rejected_exists';
+
     protected $table = 'contrato_recovery_items';
 
     protected $fillable = [
@@ -86,6 +89,7 @@ class ContratoRecoveryItem extends Model
             self::STATUS_PENDING_ADD => 'PendxAgregar',
             self::STATUS_ADDED => 'Agregado',
             self::STATUS_FAILED => 'Error',
+            self::STATUS_REJECTED_EXISTS => 'Ya existe en app',
             default => $this->status,
         };
     }
@@ -166,6 +170,25 @@ class ContratoRecoveryItem extends Model
         $fromCol = trim((string) ($this->cliente_nombre ?? ''));
 
         return $fromCol !== '' ? $fromCol : null;
+    }
+
+    public function displayDireccion(): ?string
+    {
+        $this->loadMissing(['venta.customer', 'customer']);
+
+        $fromVentaCustomer = trim((string) ($this->venta?->customer?->primary_address ?? ''));
+        if ($fromVentaCustomer !== '') {
+            return $fromVentaCustomer;
+        }
+
+        $fromCustomer = trim((string) ($this->customer?->primary_address ?? ''));
+        if ($fromCustomer !== '') {
+            return $fromCustomer;
+        }
+
+        $fromJson = trim((string) (data_get($this->reviewedData(), 'direccion') ?? ''));
+
+        return $fromJson !== '' ? $fromJson : null;
     }
 
     public function displayCustomerId(): ?int

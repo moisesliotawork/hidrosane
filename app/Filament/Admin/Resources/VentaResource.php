@@ -96,24 +96,28 @@ class VentaResource extends Resource
                             ->format('d/m/Y');
                     }
 
-                    $blue = 'color:#2563eb;font-size:22px;font-weight:700;line-height:1.2;';
-                    $red = 'color:#dc2626;font-size:22px;font-weight:700;line-height:1.2;';
+                    $blue = 'color:#2563eb;font-size:20px;font-weight:700;line-height:1.25;white-space:nowrap;';
+                    // Nº y fecha siempre completos: más compactos, sin truncar ni encoger
+                    $red = 'color:#dc2626;font-size:16px;font-weight:700;line-height:1.25;white-space:nowrap;flex-shrink:0;';
+                    $green = 'color:#16a34a;font-size:15px;font-weight:600;line-height:1.25;white-space:nowrap;flex-shrink:0;margin-left:1.25rem;';
 
                     $dato = function (string $label, string $valor): string {
-                        return '<div class="flex flex-col items-end">'
-                            .'<span class="text-gray-500 dark:text-gray-400" style="font-size:13px;font-weight:400;">'.e($label).'</span>'
-                            .'<span class="text-gray-700 dark:text-gray-300" style="font-size:16px;font-weight:700;">'.e($valor).'</span>'
+                        return '<div style="flex:0 0 auto;min-width:max-content;text-align:right;overflow:visible;">'
+                            .'<div class="text-gray-500 dark:text-gray-400" style="font-size:12px;font-weight:400;white-space:nowrap;">'.e($label).'</div>'
+                            .'<div class="text-gray-700 dark:text-gray-200" style="font-size:15px;font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;">'.e($valor).'</div>'
                             .'</div>';
                     };
 
                     return new HtmlString(
-                        '<div class="flex w-full flex-wrap items-start justify-between gap-3">'
-                        .'<div class="flex flex-wrap items-baseline" style="gap:0.35rem;">'
+                        '<div style="display:flex;width:100%;max-width:100%;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem;overflow:visible;">'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:0.35rem;min-width:max-content;flex:1 1 auto;overflow:visible;">'
                         .'<span style="'.$blue.'">'.e($nombre).'</span>'
                         .'<span style="'.$blue.'"> - </span>'
                         .'<span style="'.$red.'">'.e($nroAdm).'</span>'
+                        // Fecha del contrato en verde, al lado del nº (con espacio)
+                        .'<span style="'.$green.'">'.e($fechaContrato).'</span>'
                         .'</div>'
-                        .'<div class="flex items-start justify-end gap-4">'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:flex-end;gap:1.5rem;min-width:max-content;flex:0 0 auto;overflow:visible;">'
                         .$dato('Nº Nota', (string) $nota)
                         .$dato('Nro Contrato', $nroAdm)
                         .$dato('Fecha Contrato', $fechaContrato)
@@ -121,9 +125,14 @@ class VentaResource extends Resource
                         .'</div>'
                     );
                 })
-                ->extraAttributes([
-                    'class' => self::isSuperAdminPanel() ? 'w-full' : 'text-2xl font-bold',
-                ])
+                ->extraAttributes(fn (): array => self::isSuperAdminPanel()
+                    ? [
+                        'class' => 'w-full !max-w-none !overflow-visible',
+                        'style' => 'overflow:visible;max-width:none;width:100%;',
+                    ]
+                    : [
+                        'class' => 'text-2xl font-bold',
+                    ])
                 ->columnSpanFull(),
 
 
@@ -1100,15 +1109,28 @@ class VentaResource extends Resource
                         ->orWhere('nro_contr_adm', 'not like', '%-B%');
                 });
             })
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
 
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
                     ->badge()
-                    ->color('success')
+                    // Recuperados → amarillo (warning); resto → verde.
+                    ->color(fn ($state): string => \App\Models\ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
+                    ->wrap(false)
                     ->sortable()
-                    ->searchable(isIndividual: true),
+                    ->searchable(isIndividual: true)
+                    ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[7rem] whitespace-nowrap']),
+
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1257,7 +1279,6 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->toggleable(isToggledHiddenByDefault: true)
@@ -1344,6 +1365,21 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('d/m/Y H:i') : '—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                // Solo en el recurso Contratos de Admin: acceso rápido al PDF sin
+                // tener que entrar a editar el contrato.
+                TextColumn::make('ver_pdf')
+                    ->label('Ver_pdf')
+                    ->state('VerContrato')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn(Venta $record) => str_ends_with((string) $record->nro_contr_adm, '-B')
+                        ? route('ventas.preview-b', $record)
+                        : route('ventas.preview', $record))
+                    ->openUrlInNewTab()
+                    ->sortable(false)
+                    ->searchable(false)
+                    ->tooltip('Ver el último PDF de este contrato'),
 
             ])
             ->headerActions([
@@ -1465,6 +1501,16 @@ class VentaResource extends Resource
                             ->send();
                     }),
 
+                // 👇 BORRAR SELECCIÓN DE FILAS
+                Action::make('borrar_seleccion')
+                    ->label('Borrar la selección')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->disabled(fn ($livewire): bool => blank($livewire->selectedTableRecords))
+                    ->action(function ($livewire): void {
+                        $livewire->deselectAllTableRecords();
+                    }),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -1493,7 +1539,7 @@ class VentaResource extends Resource
                                 fn (Builder $q) => $q->where('producto_id', $productoId)
                             )
                             ->reorder()
-                            ->orderBy('created_at', 'asc');
+                            ->orderBy('id', 'desc');
                     })
                     ->indicateUsing(function (array $data): ?string {
                         if (blank($data['producto_id'] ?? null)) {
@@ -1588,6 +1634,7 @@ class VentaResource extends Resource
                     }),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
+            ->selectable()
             ->bulkActions([]);  // sin bulk delete
     }
 
@@ -1617,6 +1664,16 @@ class VentaResource extends Resource
     public static function canViewAny(): bool
     {
         return true;
+    }
+
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
     }
 
     protected static function recalcTotales(Get $get, Set $set): void
@@ -1698,7 +1755,10 @@ class VentaResource extends Resource
                     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
                     $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true);
 
-                    $preview = $isImage
+                    // SuperAdmin: el propio FileUpload ya muestra una miniatura justo
+                    // debajo (imagePreviewHeight 200); esta imagen grande sobra y solo
+                    // ocupa espacio. En el resto de paneles se mantiene.
+                    $preview = ($isImage && ! self::isSuperAdminPanel())
                         ? '<img src="'.e($url).'" alt="'.e($name).'" class="mt-2 max-h-48 rounded border border-gray-600 object-contain" />'
                         : '';
 

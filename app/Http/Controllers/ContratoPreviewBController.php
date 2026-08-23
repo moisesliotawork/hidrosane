@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Venta;
+use App\Services\VentaPdfArchiver;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ContratoPreviewBController extends Controller
@@ -23,8 +24,15 @@ class ContratoPreviewBController extends Controller
             ->loadView('pdf_pos_b', ['venta' => $venta])
             ->setPaper('a4');
 
-        return $pdf->stream(
-            'contrato-' . $venta->nro_contr_adm . '.pdf'
-        );
+        $bytes = $pdf->output();
+
+        VentaPdfArchiver::archive($venta, $bytes, 'B', 'vista_previa');
+
+        $filename = 'contrato-' . $venta->nro_contr_adm . '.pdf';
+
+        return response($bytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+        ]);
     }
 }

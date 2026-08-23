@@ -3,8 +3,10 @@
 namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 
 use App\Filament\SuperAdmin\Resources\VentaResource;
+use App\Models\ContratoRecuperado;
 use App\Models\Customer;
 use App\Models\Venta;
+use Carbon\Carbon;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists;
@@ -33,7 +35,13 @@ class CustomerSalesTable extends BaseWidget
     protected function getTableQuery(): Builder
     {
         return Venta::query()
-            ->with(['note', 'comercial', 'customer'])
+            ->with([
+                'note',
+                'comercial',
+                'customer',
+                'ventaOfertas.oferta',
+                'ventaOfertas.productos.producto',
+            ])
             ->where('customer_id', $this->record?->id)
             ->latest('fecha_venta');
     }
@@ -41,6 +49,18 @@ class CustomerSalesTable extends BaseWidget
     protected function getTableColumns(): array
     {
         return [
+            TextColumn::make('nro_contrato')
+                ->label('#Contrato')
+                ->state(fn (Venta $r) => $this->formatContratoNumber(
+                    $r->nro_contr_adm ?: ($r->nro_contrato ?: null)
+                ))
+                ->searchable(['nro_contrato', 'nro_contr_adm'])
+                ->sortable()
+                ->badge()
+                ->color(fn (Venta $r) => $this->isContratoRecuperado($r) ? 'warning' : 'success')
+                ->grow(false)
+                ->toggleable(),
+
             TextColumn::make('ver_datos')
                 ->label('Ver Datos')
                 ->state('Datos/Vta')
@@ -48,23 +68,15 @@ class CustomerSalesTable extends BaseWidget
                 ->color('info')
                 ->alignCenter()
                 ->grow(false)
+                ->toggleable()
                 ->action(
                     Tables\Actions\Action::make('verDatosVenta')
                         ->modalHeading('Datos de la venta')
-                        ->modalWidth(MaxWidth::TwoExtraLarge)
+                        ->modalWidth(MaxWidth::FourExtraLarge)
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Cerrar')
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
                 ),
-
-            TextColumn::make('nro_contrato')
-                ->label('Contrato')
-                ->searchable()
-                ->sortable()
-                ->badge()
-                ->color('gray')
-                ->grow(false)
-                ->toggleable(),
 
             TextColumn::make('note.nro_nota')
                 ->label('# Nota')
@@ -74,7 +86,8 @@ class CustomerSalesTable extends BaseWidget
                 ->badge()
                 ->color('gray')
                 ->grow(false)
-                ->sortable(),
+                ->sortable()
+                ->toggleable(),
 
             TextColumn::make('fecha_venta')
                 ->label('F. Venta')
@@ -83,6 +96,7 @@ class CustomerSalesTable extends BaseWidget
                 ->color('danger')
                 ->weight(FontWeight::Bold)
                 ->grow(false)
+                ->toggleable()
                 ->action(
                     Tables\Actions\Action::make('edit_fecha_venta')
                         ->modalHeading('Editar fecha de venta')
@@ -103,7 +117,8 @@ class CustomerSalesTable extends BaseWidget
                 ->label('Importe')
                 ->money('EUR', true)
                 ->sortable()
-                ->grow(false),
+                ->grow(false)
+                ->toggleable(),
 
             TextColumn::make('modalidad_pago')
                 ->label('Modalidad')
@@ -116,7 +131,8 @@ class CustomerSalesTable extends BaseWidget
                 ->badge()
                 ->color(fn (Venta $r) => $r->estado_venta_color ?? 'gray')
                 ->grow(false)
-                ->sortable(),
+                ->sortable()
+                ->toggleable(),
 
             TextColumn::make('fecha_entrega')
                 ->label('F. Entrega')
@@ -147,17 +163,24 @@ class CustomerSalesTable extends BaseWidget
     {
         $customer = $venta->customer ?? $this->record;
         $nombre = mb_strtoupper(trim(($customer?->first_names ?? '').' '.($customer?->last_names ?? '')));
-        $fechaPromo = $venta->fecha_venta
-            ? $venta->fecha_venta->timezone('Europe/Madrid')->format('d/m/Y')
-            : '—';
-        $nroContrato = $venta->nro_contrato ?: ($venta->nro_contr_adm ?: '—');
-        $nroAdmin = $venta->nro_cliente_adm ?: ($venta->nro_contr_adm ?: '—');
+        $fechaPromo = $this->formatMadridDate($venta->fecha_venta);
+        $fechaEntrega = $this->formatMadridDate($venta->fecha_entrega);
+        // Coherencia: #Contrato = nro_contr_adm (número admin del contrato)
+        $nroContrato = $this->formatContratoNumber(
+            filled($venta->nro_contr_adm)
+                ? (string) $venta->nro_contr_adm
+                : (filled($venta->nro_contrato) ? (string) $venta->nro_contrato : null)
+        );
+        $nroClienteAdm = filled($venta->nro_cliente_adm)
+            ? (string) $venta->nro_cliente_adm
+            : (filled($customer?->nro_cliente) ? (string) $customer->nro_cliente : '—');
+        $contratoColor = $this->isContratoRecuperado($venta) ? 'warning' : 'success';
 
         return [
-            // Fila 1: nombre → nº contrato → fecha promo (mismo estilo badge)
+            // Fila 1: nombre completo (sin cortar) a ancho completo
             Infolists\Components\Section::make()
                 ->compact()
-                ->columns(3)
+                ->columns(1)
                 ->schema([
                     Infolists\Components\TextEntry::make('cliente_nombre')
                         ->label('Cliente')
@@ -165,14 +188,20 @@ class CustomerSalesTable extends BaseWidget
                         ->weight(FontWeight::ExtraBold)
                         ->color('primary')
                         ->extraAttributes([
-                            'style' => 'text-transform:uppercase;font-size:0.95rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+                            'style' => 'text-transform:uppercase;font-size:1rem;line-height:1.3;white-space:normal;overflow:visible;word-break:break-word;',
                         ]),
+                ]),
 
+            // Fila 2: #Contrato (admin) · fecha promo · nº cliente admin
+            Infolists\Components\Section::make()
+                ->compact()
+                ->columns(3)
+                ->schema([
                     Infolists\Components\TextEntry::make('nro_contrato_show')
-                        ->label('Nº contrato')
+                        ->label('#Contrato')
                         ->state($nroContrato)
                         ->badge()
-                        ->color('success')
+                        ->color($contratoColor)
                         ->weight(FontWeight::Bold),
 
                     Infolists\Components\TextEntry::make('fecha_promo')
@@ -181,9 +210,16 @@ class CustomerSalesTable extends BaseWidget
                         ->badge()
                         ->color('success')
                         ->weight(FontWeight::Bold),
+
+                    Infolists\Components\TextEntry::make('nro_cliente_adm')
+                        ->label('Nº cliente admin')
+                        ->state($nroClienteAdm)
+                        ->badge()
+                        ->color('info')
+                        ->weight(FontWeight::Bold),
                 ]),
 
-            // Fila 2: DNI · nº admin · fecha contrato (roja)
+            // Fila 3: DNI · fecha contrato (roja)
             Infolists\Components\Section::make()
                 ->compact()
                 ->columns(3)
@@ -193,13 +229,6 @@ class CustomerSalesTable extends BaseWidget
                         ->state(filled($customer?->dni) ? $customer->dni : '—')
                         ->badge()
                         ->color('gray')
-                        ->weight(FontWeight::Bold),
-
-                    Infolists\Components\TextEntry::make('nro_cliente_adm')
-                        ->label('Nº contrato admin')
-                        ->state($nroAdmin)
-                        ->badge()
-                        ->color('info')
                         ->weight(FontWeight::Bold),
 
                     Infolists\Components\TextEntry::make('fecha_contrato')
@@ -237,7 +266,7 @@ class CustomerSalesTable extends BaseWidget
 
                     Infolists\Components\TextEntry::make('fecha_entrega')
                         ->label('F. entrega')
-                        ->state($venta->fecha_entrega?->timezone('Europe/Madrid')->format('d/m/Y') ?? '—')
+                        ->state($fechaEntrega)
                         ->badge()
                         ->color('gray'),
 
@@ -262,7 +291,136 @@ class CustomerSalesTable extends BaseWidget
                         ))
                         ->html(),
                 ]),
+
+            Infolists\Components\Section::make('Ofertas y productos del contrato')
+                ->compact()
+                ->columns(1)
+                ->schema([
+                    Infolists\Components\TextEntry::make('ofertas_productos')
+                        ->hiddenLabel()
+                        ->state($this->formatOfertasProductosHtml($venta))
+                        ->html()
+                        ->columnSpanFull(),
+                ]),
         ];
+    }
+
+    protected function formatOfertasProductosHtml(Venta $venta): HtmlString
+    {
+        $venta->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos.producto']);
+
+        $blocks = [];
+        foreach ($venta->ventaOfertas as $vo) {
+            $ofertaNombre = trim((string) ($vo->oferta?->nombre ?? ''));
+            if ($ofertaNombre === '') {
+                $ofertaNombre = 'Oferta #'.($vo->oferta_id ?: $vo->id);
+            }
+
+            $precio = $vo->oferta?->precio_base;
+            $precioTxt = is_numeric($precio)
+                ? number_format((float) $precio, 2, ',', '.').' €'
+                : null;
+
+            $productos = $vo->productos
+                ->map(function ($linea) {
+                    $nombre = trim((string) ($linea->producto?->nombre ?? ''));
+                    if ($nombre === '') {
+                        return null;
+                    }
+                    $qty = (int) ($linea->cantidad ?? 1);
+                    $suffix = $qty > 1 ? ' ×'.$qty : '';
+
+                    return e($nombre).$suffix;
+                })
+                ->filter()
+                ->values();
+
+            $prodHtml = $productos->isEmpty()
+                ? '<div style="font-size:0.8rem;opacity:0.65;padding-left:0.35rem;">Sin productos</div>'
+                : $productos
+                    ->map(fn (string $p) => '<div style="font-size:0.82rem;font-weight:600;line-height:1.35;padding:0.1rem 0 0.1rem 0.55rem;">› '.$p.'</div>')
+                    ->implode('');
+
+            $blocks[] = '<div style="margin-bottom:0.65rem;padding:0.55rem 0.7rem;border:1px solid rgba(148,163,184,0.35);border-radius:0.5rem;">'
+                .'<div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem 0.65rem;margin-bottom:0.25rem;">'
+                .'<span style="font-size:0.85rem;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;color:#16a34a;">'
+                .e($ofertaNombre)
+                .'</span>'
+                .($precioTxt
+                    ? '<span style="font-size:0.75rem;font-weight:700;color:#d97706;">'.$precioTxt.'</span>'
+                    : '')
+                .'</div>'
+                .$prodHtml
+                .'</div>';
+        }
+
+        if ($blocks === []) {
+            $externos = collect($venta->productos_externos ?? [])
+                ->map(function ($item) {
+                    if (is_string($item)) {
+                        return trim($item);
+                    }
+                    if (! is_array($item)) {
+                        return null;
+                    }
+
+                    return trim((string) ($item['nombre'] ?? $item['name'] ?? $item['producto'] ?? ''));
+                })
+                ->filter()
+                ->values();
+
+            if ($externos->isNotEmpty()) {
+                $lines = $externos
+                    ->map(fn (string $p) => '<div style="font-size:0.82rem;font-weight:600;line-height:1.35;padding:0.1rem 0 0.1rem 0.55rem;">› '.e($p).'</div>')
+                    ->implode('');
+
+                return new HtmlString(
+                    '<div style="margin-bottom:0.35rem;font-size:0.75rem;font-weight:700;color:#d97706;text-transform:uppercase;">Productos externos</div>'
+                    .$lines
+                );
+            }
+
+            return new HtmlString('<span style="opacity:0.65;font-size:0.85rem;">Sin ofertas ni productos en este contrato.</span>');
+        }
+
+        return new HtmlString(implode('', $blocks));
+    }
+
+    protected function formatMadridDate(mixed $value): string
+    {
+        if (blank($value)) {
+            return '—';
+        }
+
+        try {
+            $date = $value instanceof Carbon ? $value : Carbon::parse($value);
+
+            return $date->timezone('Europe/Madrid')->format('d/m/Y');
+        } catch (\Throwable) {
+            return is_string($value) ? $value : '—';
+        }
+    }
+
+    /** Separa las 2 primeras cifras para leer mejor (ej. 834 → 83 4, 00955 → 00 955). */
+    protected function formatContratoNumber(?string $value): string
+    {
+        $nro = trim((string) $value);
+        if ($nro === '' || $nro === '—') {
+            return '—';
+        }
+
+        if (mb_strlen($nro) <= 2) {
+            return $nro;
+        }
+
+        return mb_substr($nro, 0, 2).' '.mb_substr($nro, 2);
+    }
+
+    protected function isContratoRecuperado(Venta $venta): bool
+    {
+        return ContratoRecuperado::isRecuperado(
+            trim((string) ($venta->nro_contr_adm ?: $venta->nro_contrato ?: ''))
+        );
     }
 
     protected function isTablePaginationEnabled(): bool

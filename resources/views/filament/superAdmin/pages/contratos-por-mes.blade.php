@@ -471,6 +471,76 @@
         </div>
     </div>
 
+    {{-- Contratos recuperados --}}
+    <div
+        class="contratos-mes-section"
+        x-data="{ open: @entangle('recuperadosOpen') }"
+    >
+        <button type="button" class="contratos-mes-section__header" @click="open = !open">
+            <span>CONTRATOS RECUPERADOS ({{ count($this->contratosRecuperadosNumeros) }})</span>
+            <span x-text="open ? '▾' : '▸'"></span>
+        </button>
+
+        <div class="contratos-mes-section__body" x-show="open" x-cloak>
+            <form
+                class="contratos-mes-recuperados-form"
+                wire:submit.prevent="addContratoRecuperado"
+            >
+                <input
+                    type="text"
+                    wire:model="nuevoContratoRecuperado"
+                    placeholder="Nº contrato admin recuperado"
+                    autocomplete="off"
+                >
+                <button type="submit">Agregar</button>
+            </form>
+
+            @if (count($this->contratosRecuperadosNumeros) === 0)
+                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
+                    Aún no hay contratos recuperados. Añade un nº de contrato admin arriba.
+                </p>
+            @else
+                @php
+                    $numsRec = collect($this->contratosRecuperadosNumeros)->values();
+                    $colsRec = 10;
+                    $porColRec = (int) ceil(max(1, $numsRec->count()) / $colsRec);
+                    $columnasRec = [];
+                    for ($c = 0; $c < $colsRec; $c++) {
+                        $columnasRec[$c] = $numsRec->slice($c * $porColRec, $porColRec)->values();
+                    }
+                    $filasRec = max(1, ...array_map(fn ($col) => $col->count(), $columnasRec));
+                @endphp
+                <div style="overflow-x: auto;">
+                    <table class="contratos-mes-solo-nums-table">
+                        <tbody>
+                            @for ($i = 0; $i < $filasRec; $i++)
+                                <tr>
+                                    @for ($c = 0; $c < $colsRec; $c++)
+                                        @php $valor = $columnasRec[$c]->get($i); @endphp
+                                        @if (filled($valor))
+                                            <td
+                                                class="is-clickable"
+                                                x-data="{ mark: 0 }"
+                                                @click="mark = (mark + 1) % 3"
+                                                :class="{
+                                                    'mark-yellow': mark === 1,
+                                                    'mark-red': mark === 2
+                                                }"
+                                                title="Clic: amarillo → rojo → normal"
+                                            >{{ $valor }}</td>
+                                        @else
+                                            <td></td>
+                                        @endif
+                                    @endfor
+                                </tr>
+                            @endfor
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>
+
     {{-- Resumen mensual (colapsable) --}}
     <div
         class="contratos-mes-section"
@@ -639,76 +709,6 @@
                                 <tr>
                                     @for ($c = 0; $c < $cols; $c++)
                                         @php $valor = $columnas[$c]->get($i); @endphp
-                                        @if (filled($valor))
-                                            <td
-                                                class="is-clickable"
-                                                x-data="{ mark: 0 }"
-                                                @click="mark = (mark + 1) % 3"
-                                                :class="{
-                                                    'mark-yellow': mark === 1,
-                                                    'mark-red': mark === 2
-                                                }"
-                                                title="Clic: amarillo → rojo → normal"
-                                            >{{ $valor }}</td>
-                                        @else
-                                            <td></td>
-                                        @endif
-                                    @endfor
-                                </tr>
-                            @endfor
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- Contratos recuperados --}}
-    <div
-        class="contratos-mes-section"
-        x-data="{ open: @entangle('recuperadosOpen') }"
-    >
-        <button type="button" class="contratos-mes-section__header" @click="open = !open">
-            <span>CONTRATOS RECUPERADOS ({{ count($this->contratosRecuperadosNumeros) }})</span>
-            <span x-text="open ? '▾' : '▸'"></span>
-        </button>
-
-        <div class="contratos-mes-section__body" x-show="open" x-cloak>
-            <form
-                class="contratos-mes-recuperados-form"
-                wire:submit.prevent="addContratoRecuperado"
-            >
-                <input
-                    type="text"
-                    wire:model="nuevoContratoRecuperado"
-                    placeholder="Nº contrato admin recuperado"
-                    autocomplete="off"
-                >
-                <button type="submit">Agregar</button>
-            </form>
-
-            @if (count($this->contratosRecuperadosNumeros) === 0)
-                <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
-                    Aún no hay contratos recuperados. Añade un nº de contrato admin arriba.
-                </p>
-            @else
-                @php
-                    $numsRec = collect($this->contratosRecuperadosNumeros)->values();
-                    $colsRec = 10;
-                    $porColRec = (int) ceil(max(1, $numsRec->count()) / $colsRec);
-                    $columnasRec = [];
-                    for ($c = 0; $c < $colsRec; $c++) {
-                        $columnasRec[$c] = $numsRec->slice($c * $porColRec, $porColRec)->values();
-                    }
-                    $filasRec = max(1, ...array_map(fn ($col) => $col->count(), $columnasRec));
-                @endphp
-                <div style="overflow-x: auto;">
-                    <table class="contratos-mes-solo-nums-table">
-                        <tbody>
-                            @for ($i = 0; $i < $filasRec; $i++)
-                                <tr>
-                                    @for ($c = 0; $c < $colsRec; $c++)
-                                        @php $valor = $columnasRec[$c]->get($i); @endphp
                                         @if (filled($valor))
                                             <td
                                                 class="is-clickable"

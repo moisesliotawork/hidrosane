@@ -82,12 +82,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             return null;
         }
 
-        return (string) ContratoRecoveryItem::query()->count();
+        $pending = RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_POR_RECUPERAR)->count();
+
+        return $pending > 0 ? (string) $pending : null;
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        return 'success';
+        return 'danger';
     }
 
     protected function getHeaderActions(): array
@@ -99,7 +101,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 ->color('warning')
                 ->url(fn (): string => $this->recuperadosPdfUrl())
                 ->openUrlInNewTab()
-                ->tooltip('PDF de recuperados aceptados (filtro de mes actual)'),
+                ->tooltip('PDF de la pestaña actual (mes / búsqueda)'),
 
             Action::make('goToOrphanReattach')
                 ->label('Paso 2 · Docs huérfanos')
@@ -150,6 +152,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     public int $selectedYear = 2025;
 
+    /** por_recuperar (default) | recuperados */
+    public string $recoveryListTab = RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+
+    /** Búsqueda dedicada por nº contrato admin (toolbar izquierda). */
+    public ?string $nroContratoBusqueda = '';
+
     public function mount(): void
     {
         $this->uploadForm->fill();
@@ -159,10 +167,21 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $this->selectedYear = (int) (session('recuperados.selectedYear') ?: now()->year);
         $this->selectedYearMonth = session('recuperados.selectedYearMonth');
         $this->showAllMonths = (bool) session('recuperados.showAllMonths', true);
+        $this->recoveryListTab = RecoveredContractsQuery::normalizeScope(
+            session('recuperados.listTab', RecoveredContractsQuery::SCOPE_POR_RECUPERAR)
+        );
 
         if ($this->showAllMonths) {
             $this->selectedYearMonth = null;
         }
+    }
+
+    public function selectRecoveryListTab(string $tab): void
+    {
+        $this->recoveryListTab = RecoveredContractsQuery::normalizeScope($tab);
+        session(['recuperados.listTab' => $this->recoveryListTab]);
+        $this->resetPage();
+        $this->flushCachedTableRecords();
     }
 
     protected function getForms(): array
@@ -180,6 +199,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->schema([
                 Forms\Components\Section::make('Documentos (máximo 3)')
                     ->description('Puedes subir contrato de app, albarán y/u otro documento. Al menos uno es obligatorio. No modifica el flujo comercial.')
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         Forms\Components\FileUpload::make('doc_app')
                             ->label('1. Contrato app (foto/PDF)')
@@ -217,6 +238,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return $form
             ->schema([
                 Forms\Components\Section::make('DATOS POR VOZ')
+                    ->collapsible()
+                    ->collapsed()
                     ->description('Dicta con el micrófono (Mac/navegador), pega texto o sube un audio. Revisa el escrito y luego Procesar dictado (OpenAI).')
                     ->schema([
                         Forms\Components\View::make('filament.superAdmin.pages.partials.voice-dictation')
@@ -259,6 +282,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('nro_contr_adm')->label('Cod.Contrato (nº contrato admin)')->required(),
                         Forms\Components\TextInput::make('cliente_nombre')->label('Nombre (extraído)'),
                         Forms\Components\TextInput::make('nro_albaran')->label('Nº albarán'),
+                        Forms\Components\DatePicker::make('fecha_nacimiento')
+                            ->label('Fecha nacimiento (cliente)')
+                            ->native(false)
+                            ->displayFormat('d-m-Y')
+                            ->format('Y-m-d'),
                         Forms\Components\DatePicker::make('fecha_venta')
                             ->label('Fec.Promo. (fecha contrato admin)')
                             ->native(false)
@@ -290,11 +318,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         Forms\Components\TextInput::make('iban')->label('IBAN'),
                         Forms\Components\Textarea::make('productos_texto')
                             ->label('Texto OCR / manuscrito (pista)')
-                            ->helperText('Úsalo para mapear al catálogo en Oferta y productos (obligatorio al Agregar Contrato).')
+                            ->helperText('Se intenta match automático con el catálogo (OFxAsignar). Si no hay match → producto «Por asignar»; luego lo sustituyes a mano.')
                             ->rows(3)
                             ->columnSpanFull(),
                         ...$this->ofertaProductosFormSchema(),
                         Forms\Components\Textarea::make('direccion')->label('Dirección')->rows(2),
+                        Forms\Components\TextInput::make('codigo_postal')->label('CP / Código Postal'),
                         Forms\Components\TextInput::make('telefonos')->label('Teléfonos'),
                         Forms\Components\Textarea::make('observaciones')->label('Observaciones')->rows(2)->columnSpanFull(),
                         Forms\Components\Placeholder::make('customer_match')
@@ -436,13 +465,17 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ? $this->guessEmpleadoId((string) $merged['repartidor_code'])
             : null;
 
-        $this->reviewForm->fill(array_merge($this->emptyReview(), $merged, [
+        $filled = array_merge($this->emptyReview(), $merged, [
             'comercial_id' => $comercialId,
             'repartidor_id' => $repartidorId,
             'fecha_venta' => $this->normalizeDateForPicker($merged['fecha_venta'] ?? null),
             'fecha_entrega' => $this->normalizeDateForPicker($merged['fecha_entrega'] ?? null),
             '_transcript' => $this->lastTranscript ?? ($merged['_transcript'] ?? null),
-        ]));
+        ]);
+        // Match productos_texto → catálogo (sin match = «Por asignar»)
+        $filled = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($filled);
+
+        $this->reviewForm->fill($filled);
 
         $this->step = 'review';
     }
@@ -458,6 +491,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $data = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults(
             $this->reviewForm->getState()
         );
+        unset($data['_product_match']);
         $dni = mb_strtoupper(trim((string) ($data['dni'] ?? '')));
         $nro = trim((string) ($data['nro_contr_adm'] ?? ''));
 
@@ -500,8 +534,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->orderBy('id')
             ->first();
 
+        // Chequeo temprano: si ya hay una venta ACTIVA con ese nº, no tiene sentido
+        // dejarlo como "pendiente de agregar" — va a la tabla de rechazados.
+        $existingVenta = app(ContractFromImageRecovery::class)->findActiveVentaByNro($nro);
+
         ContratoRecoveryItem::query()->create([
-            'status' => ContratoRecoveryItem::STATUS_PENDING_ADD,
+            'status' => $existingVenta
+                ? ContratoRecoveryItem::STATUS_REJECTED_EXISTS
+                : ContratoRecoveryItem::STATUS_PENDING_ADD,
             'documents' => $stableDocs,
             'extracted_json' => $data,
             'reviewed_json' => $data,
@@ -509,18 +549,61 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             'nro_contr_adm' => $nro,
             'cliente_nombre' => $data['cliente_nombre'] ?? null,
             'customer_id' => $customer?->id,
+            'venta_id' => $existingVenta?->id,
             'comercial_id' => $data['comercial_id'] ?? null,
             'created_by_user_id' => auth()->id(),
+            'last_error' => $existingVenta
+                ? "YA EXISTE UN CONTRATO con ese número (venta #{$existingVenta->id})."
+                : null,
         ]);
 
-        Notification::make()
-            ->title('Aceptado')
-            ->body('Quedó en la tabla pendiente. Usa «Agregar Contrato» para crear la venta.')
-            ->success()
-            ->send();
+        if ($existingVenta) {
+            Notification::make()
+                ->title('YA EXISTE UN CONTRATO con ese número')
+                ->body("Venta #{$existingVenta->id} ya está activa en la app. Se movió a «Contratos rechazados por estar ya en app».")
+                ->danger()
+                ->persistent()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Aceptado')
+                ->body('Quedó en la tabla pendiente. Usa «Agregar Contrato» para crear la venta.')
+                ->success()
+                ->send();
+        }
 
         $this->resetReview();
         $this->resetTable();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, ContratoRecoveryItem>
+     */
+    public function rejectedItems(): \Illuminate\Support\Collection
+    {
+        if (! Schema::hasTable('contrato_recovery_items')) {
+            return collect();
+        }
+
+        return ContratoRecoveryItem::query()
+            ->where('status', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
+            ->with('venta')
+            ->latest('id')
+            ->limit(200)
+            ->get();
+    }
+
+    public function deleteRejectedItem(int $id): void
+    {
+        $item = ContratoRecoveryItem::query()
+            ->where('status', ContratoRecoveryItem::STATUS_REJECTED_EXISTS)
+            ->find($id);
+
+        $item?->delete();
+
+        Notification::make()
+            ->title($item ? 'Registro eliminado' : 'No encontrado')
+            ->send();
     }
 
     public function cancelReview(): void
@@ -551,6 +634,8 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('nro_contr_adm')
                     ->label('#Contr.')
                     ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayNroContrAdm())
+                    ->badge()
+                    ->color('warning')
                     ->searchable(
                         query: function (Builder $query, string $search): void {
                             RecoveredContractsQuery::applySearchFilter($query, $search);
@@ -576,14 +661,62 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->searchable(isGlobal: false)
                     ->forceSearchCaseInsensitive()
                     ->badge()
-                    ->color('warning')
+                    ->color('info')
                     ->weight('bold')
                     ->formatStateUsing(fn (?string $state): string => $this->formatDniGroupedEvery4($state)),
+                Tables\Columns\TextColumn::make('contrato_pdf')
+                    ->label('Contrato/PDF')
+                    ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver PDF' : '—')
+                    ->color(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'primary' : 'gray')
+                    ->weight('bold')
+                    ->url(fn (ContratoRecoveryItem $record): ?string => filled($record->documents)
+                        ? route('recovery-items.pdf', $record)
+                        : null)
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto(s) originales con las que se extrajeron los datos del contrato'),
+                Tables\Columns\TextColumn::make('ver_imagen')
+                    ->label('Imagen')
+                    ->state(fn (ContratoRecoveryItem $record): string => filled($record->documents) ? 'Ver Imagen' : '—')
+                    ->badge()
+                    ->color('warning')
+                    ->url(function (ContratoRecoveryItem $record): ?string {
+                        $docs = collect($record->documents ?? [])
+                            ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+                            ->values();
+
+                        if ($docs->isEmpty()) {
+                            return null;
+                        }
+
+                        // Primera imagen/PDF original en pestaña nueva (rápido, sin modal)
+                        return route('recovery-items.image', ['item' => $record, 'index' => 0]);
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Abre la imagen original en otra pestaña del navegador'),
+                Tables\Columns\TextColumn::make('editar_datos')
+                    ->label('Editar/Datos')
+                    ->state('Editar')
+                    ->badge()
+                    ->color(Color::Pink)
+                    ->weight('bold')
+                    ->action(Tables\Actions\Action::make('verDatos'))
+                    ->tooltip('Editar los datos extraídos de este contrato'),
+                Tables\Columns\TextColumn::make('domicilio')
+                    ->label('Domicilio')
+                    ->state(fn (ContratoRecoveryItem $record): ?string => $record->displayDireccion())
+                    ->formatStateUsing(function (?string $state): string {
+                        if (blank($state)) {
+                            return '—';
+                        }
+
+                        return mb_strlen($state) > 14 ? mb_substr($state, 0, 14).'...' : $state;
+                    })
+                    ->tooltip(fn (ContratoRecoveryItem $record): ?string => $record->displayDireccion()),
                 Tables\Columns\TextColumn::make('fecha_contrato')
                     ->label('Fecha/Contrato')
                     ->state(fn (ContratoRecoveryItem $record): string => $this->fechaContratoFormatted($record) ?? '—')
                     ->badge()
-                    ->color('warning')
+                    ->color(fn (ContratoRecoveryItem $record) => $this->mesContratoColor($record))
                     ->sortable(query: function ($query, string $direction) {
                         return $query->orderByRaw(
                             "COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reviewed_json, '$.fecha_venta')), '') {$direction}"
@@ -616,7 +749,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->state(function (ContratoRecoveryItem $record): string {
                         $estado = $record->venta?->estado_venta
                             ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
-                            ?? EstadoVenta::POR_ASIGNAR;
+                            ?? EstadoVenta::EN_REVISION;
 
                         return $estado->label();
                     })
@@ -624,9 +757,10 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ->color(function (ContratoRecoveryItem $record): string {
                         $estado = $record->venta?->estado_venta
                             ?? EstadoVenta::tryFrom((string) data_get($record->reviewedData(), 'estado_venta', ''))
-                            ?? EstadoVenta::POR_ASIGNAR;
+                            ?? EstadoVenta::EN_REVISION;
 
-                        return $estado->color();
+                        // En esta pantalla todo es recuperación: «En revisión» → gris.
+                        return $estado === EstadoVenta::EN_REVISION ? 'gray' : $estado->color();
                     }),
                 Tables\Columns\TextColumn::make('ofertas_de_la_venta')
                     ->label('OfertasDeLaVenta')
@@ -783,6 +917,28 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         $this->flushCachedTableRecords();
                     }),
 
+                Tables\Actions\Action::make('verImagenes')
+                    ->label('VER IMAGEN')
+                    ->icon('heroicon-o-photo')
+                    ->color('gray')
+                    ->modalHeading(fn (ContratoRecoveryItem $record): string => 'Documentos originales — '.$record->nro_contr_adm)
+                    ->modalDescription('Vista rápida de las fotos/PDF con los que se extrajeron los datos (sin generar PDF, más rápido).')
+                    ->modalWidth(MaxWidth::ThreeExtraLarge)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Cerrar')
+                    ->visible(fn (ContratoRecoveryItem $record): bool => filled($record->documents))
+                    ->form(fn (ContratoRecoveryItem $record): array => [
+                        Forms\Components\View::make('filament.superAdmin.components.recovery-documents-lightbox')
+                            ->viewData([
+                                'photos' => collect($record->documents ?? [])
+                                    ->filter(fn ($d) => is_array($d) && filled($d['path'] ?? null))
+                                    ->values()
+                                    ->keys()
+                                    ->map(fn (int $index): string => route('recovery-items.image', ['item' => $record, 'index' => $index]))
+                                    ->all(),
+                            ]),
+                    ]),
+
                 Tables\Actions\Action::make('verDatos')
                     ->label('VER DATOS')
                     ->icon('heroicon-o-pencil-square')
@@ -796,7 +952,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                             data_get($record->reviewedData(), 'fecha_venta')
                         );
 
-                        return array_merge(
+                        $filled = array_merge(
                             $this->emptyReview(),
                             $record->reviewedData(),
                             [
@@ -818,8 +974,13 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 'fecha_entrega' => $this->normalizeDateForPicker(
                                     data_get($record->reviewedData(), 'fecha_entrega')
                                 ),
+                                'fecha_nacimiento' => $this->normalizeDateForPicker(
+                                    data_get($record->reviewedData(), 'fecha_nacimiento')
+                                ),
                             ],
                         );
+
+                        return app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($filled);
                     })
                     ->form($this->recoveredDataFormSchema())
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
@@ -837,9 +998,11 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
                         $data['dni'] = $dni;
                         $data['cliente_nombre'] = mb_strtoupper(trim((string) ($data['cliente_nombre'] ?? ''))) ?: null;
-                        $data['fecha_venta'] = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+                        $data['fecha_venta'] = $this->resolveFechaVentaFromForm($record, $data);
                         $data['fecha_entrega'] = $this->normalizeDateForPicker($data['fecha_entrega'] ?? null);
                         unset($data['fecha_promo']);
+                        $data = app(ContractFromImageRecovery::class)->ensureRecoveryDefaults($data);
+                        unset($data['_product_match']);
 
                         $customer = Customer::query()
                             ->whereNull('deleted_at')
@@ -893,6 +1056,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 'fecha_promo' => $fechaVenta,
                                 'fecha_entrega' => $this->normalizeDateForPicker(
                                     data_get($record->reviewedData(), 'fecha_entrega')
+                                ),
+                                'fecha_nacimiento' => $this->normalizeDateForPicker(
+                                    data_get($record->reviewedData(), 'fecha_nacimiento')
                                 ),
                             ],
                         );
@@ -961,7 +1127,18 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                     ])
                     ->action(function (ContratoRecoveryItem $record, array $data): void {
                         $svc = app(ContractFromImageRecovery::class);
-                        $ofertaError = $svc->validateOfertaProductos($record->reviewedData());
+                        // OFxAsignar + match productos_texto → «Por asignar» si no hay match
+                        $reviewed = $svc->ensureRecoveryDefaults($record->reviewedData());
+                        $record->forceFill([
+                            'reviewed_json' => array_merge($record->reviewedData(), [
+                                'ventaOfertas' => $reviewed['ventaOfertas'] ?? [],
+                                'estado_venta' => $reviewed['estado_venta'] ?? null,
+                                'productos_externos' => $reviewed['productos_externos']
+                                    ?? data_get($record->reviewedData(), 'productos_externos'),
+                            ]),
+                        ])->save();
+
+                        $ofertaError = $svc->validateOfertaProductos($reviewed);
                         if ($ofertaError !== null) {
                             Notification::make()
                                 ->title('Falta oferta / productos')
@@ -973,7 +1150,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         }
 
                         $result = $svc->addContract(
-                            $record,
+                            $record->fresh() ?? $record,
                             (bool) ($data['update_iban'] ?? false),
                         );
 
@@ -1085,7 +1262,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
             ->recordAction(null)
             ->recordUrl(null)
             ->striped()
-            ->defaultSort('id', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->paginated([10, 25, 50]);
     }
 
@@ -1097,50 +1274,31 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return [
             Forms\Components\Section::make()
                 ->compact()
-                ->columns(4)
-                ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-form-4col'])
+                ->columns(12)
+                ->extraAttributes(['class' => 'recovery-datos-highlight-form recovery-datos-labels-top'])
                 ->schema([
+                    // Fila 1: Cliente → Nº contrato → Fecha contrato
+                    Forms\Components\TextInput::make('cliente_nombre')
+                        ->label('CLIENTE')
+                        ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
+                        ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
+                        ->extraInputAttributes([
+                            'class' => 'recovery-cliente-nombre-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-cliente'])
+                        ->columnSpan(['default' => 12, 'md' => 6]),
                     Forms\Components\TextInput::make('nro_contr_adm')
                         ->label('Nº CONTRATO')
                         ->required()
-                        ->inlineLabel()
-                        ->extraInputAttributes(['class' => 'recovery-nro-contrato-input'])
-                        ->columnSpan(1),
-                    Forms\Components\TextInput::make('cliente_nombre')
-                        ->label('CLIENTE')
-                        ->inlineLabel()
-                        ->formatStateUsing(fn (?string $state): string => mb_strtoupper(trim((string) $state)))
-                        ->dehydrateStateUsing(fn (?string $state): ?string => ($t = trim((string) $state)) !== '' ? mb_strtoupper($t) : null)
-                        ->extraInputAttributes(['class' => 'recovery-cliente-nombre-input'])
-                        ->columnSpan(2),
-                    Forms\Components\DatePicker::make('fecha_venta')
-                        ->label('FEC. PROMO')
-                        ->inlineLabel()
-                        ->native(false)
-                        ->displayFormat('d-m-Y')
-                        ->format('Y-m-d')
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, mixed $state): void {
-                            $set('fecha_promo', $state);
-                        })
-                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
-                        ->columnSpan(1),
-
-                    Forms\Components\TextInput::make('dni')
-                        ->label('DNI')
-                        ->required()
-                        ->inlineLabel()
-                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
-                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
-                        ->live(onBlur: true)
-                        ->afterStateUpdated(function (Set $set, mixed $state): void {
-                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
-                        })
-                        ->extraInputAttributes(['class' => 'recovery-dni-input'])
-                        ->columnSpan(1),
+                        ->extraInputAttributes([
+                            'class' => 'recovery-nro-contrato-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-nro-contrato'])
+                        ->columnSpan(['default' => 6, 'md' => 3]),
                     Forms\Components\DatePicker::make('fecha_promo')
                         ->label('FECHA CONTRATO')
-                        ->inlineLabel()
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
@@ -1149,73 +1307,109 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->afterStateUpdated(function (Set $set, mixed $state): void {
                             $set('fecha_venta', $state);
                         })
-                        ->extraInputAttributes(['class' => 'recovery-fecha-verde-input'])
-                        ->columnSpan(1),
-                    Forms\Components\DatePicker::make('fecha_entrega')
-                        ->label('FECHA ENTREGA')
-                        ->inlineLabel()
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-verde-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->extraFieldWrapperAttributes(['class' => 'recovery-field-fecha-contrato'])
+                        ->columnSpan(['default' => 6, 'md' => 3]),
+
+                    // Fila 2: DNI + albarán
+                    Forms\Components\TextInput::make('dni')
+                        ->label('DNI')
+                        ->required()
+                        ->formatStateUsing(fn (?string $state): string => $this->formatDniGrouped($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => $this->normalizeDniInput($state))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('dni', $this->formatDniGrouped(is_string($state) ? $state : null));
+                        })
+                        ->extraInputAttributes([
+                            'class' => 'recovery-dni-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+                    Forms\Components\TextInput::make('nro_albaran')
+                        ->label('ALBARÁN')
+                        ->columnSpan(['default' => 12, 'md' => 6]),
+
+                    // Fila 3: resto de fechas
+                    Forms\Components\DatePicker::make('fecha_venta')
+                        ->label('FEC. PROMO')
                         ->native(false)
                         ->displayFormat('d-m-Y')
                         ->format('Y-m-d')
-                        ->extraInputAttributes(['class' => 'recovery-fecha-bold-input'])
-                        ->columnSpan(1),
-                    Forms\Components\TextInput::make('nro_albaran')
-                        ->label('ALBARÁN')
-                        ->inlineLabel()
-                        ->columnSpan(1),
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $set('fecha_promo', $state);
+                        })
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-verde-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->columnSpan(['default' => 6, 'md' => 4]),
+                    Forms\Components\DatePicker::make('fecha_entrega')
+                        ->label('FECHA ENTREGA')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-bold-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->columnSpan(['default' => 6, 'md' => 4]),
+                    Forms\Components\DatePicker::make('fecha_nacimiento')
+                        ->label('FEC. NACIMIENTO')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->format('Y-m-d')
+                        ->extraInputAttributes([
+                            'class' => 'recovery-fecha-bold-input',
+                            'style' => 'width:100%;',
+                        ])
+                        ->columnSpan(['default' => 12, 'md' => 4]),
                 ]),
 
             Forms\Components\Section::make('Resto de datos')
                 ->compact()
                 ->columns(4)
-                ->extraAttributes(['class' => 'recovery-datos-form-4col'])
+                ->extraAttributes(['class' => 'recovery-datos-labels-top'])
                 ->schema([
                     Forms\Components\TextInput::make('horario_entrega')
-                        ->label('Hora Entr.')
-                        ->inlineLabel(),
+                        ->label('Hora Entr.'),
                     Forms\Components\TextInput::make('comercial_codes')
-                        ->label('Com. (códigos)')
-                        ->inlineLabel(),
+                        ->label('Com. (códigos)'),
                     Forms\Components\Select::make('comercial_id')
                         ->label('Comercial')
-                        ->inlineLabel()
                         ->options(fn () => $this->empleadoOptions())
                         ->searchable()
                         ->preload(),
                     Forms\Components\TextInput::make('repartidor_code')
-                        ->label('Rep. código')
-                        ->inlineLabel(),
+                        ->label('Rep. código'),
                     Forms\Components\Select::make('repartidor_id')
                         ->label('Repartidor')
-                        ->inlineLabel()
                         ->options(fn () => $this->empleadoOptions())
                         ->searchable()
                         ->preload(),
                     Forms\Components\TextInput::make('importe_total')
                         ->label('Total')
-                        ->inlineLabel()
                         ->numeric(),
                     Forms\Components\TextInput::make('entrada')
                         ->label('Entrada')
-                        ->inlineLabel()
                         ->numeric(),
                     Forms\Components\TextInput::make('cuota_mensual')
                         ->label('Cuota')
-                        ->inlineLabel()
                         ->numeric(),
                     Forms\Components\TextInput::make('num_cuotas')
                         ->label('Nº cuotas')
-                        ->inlineLabel()
                         ->numeric()
                         ->integer(),
                     Forms\Components\TextInput::make('iban')
                         ->label('IBAN')
-                        ->inlineLabel()
                         ->extraInputAttributes(['class' => 'recovery-iban-input'])
                         ->columnSpan(2),
                     Forms\Components\TextInput::make('telefonos')
                         ->label('Teléfonos')
-                        ->inlineLabel()
                         ->columnSpan(2),
                     Forms\Components\Textarea::make('direccion')
                         ->label('Dirección')
@@ -1227,7 +1421,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         ->columnSpan(2),
                     Forms\Components\Textarea::make('productos_texto')
                         ->label('Texto OCR / manuscrito (pista)')
-                        ->helperText('Úsalo para mapear al catálogo. Oferta + productos son obligatorios al Agregar Contrato.')
+                        ->helperText('Match automático al guardar / Agregar Contrato. Sin coincidencia → «Por asignar» bajo oferta OFxAsignar.')
                         ->rows(3)
                         ->columnSpanFull(),
                 ]),
@@ -1245,7 +1439,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     {
         return [
             Forms\Components\Section::make('Oferta y productos')
-                ->description('Obligatorio antes de «Agregar Contrato». El texto OCR arriba es solo pista (a menudo manuscrito).')
+                ->description('Por defecto: oferta OFxAsignar. Match automático desde el texto OCR; si falla → producto «Por asignar» (lo sustituyes después).')
                 ->schema([
                     Forms\Components\Repeater::make('ventaOfertas')
                         ->label(false)
@@ -1264,8 +1458,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                 Forms\Components\Select::make('oferta_id')
                                     ->label('Oferta')
                                     ->options(function () {
+                                        // Asegura OFxAsignar en catálogo / lista
+                                        app(ContractFromImageRecovery::class)->ensureOfxAsignarOferta();
+
                                         return Oferta::query()
-                                            ->orderBy('nombre')
+                                            ->orderByRaw(
+                                                'CASE WHEN nombre = ? THEN 0 ELSE 1 END, nombre',
+                                                [ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE]
+                                            )
                                             ->get()
                                             ->mapWithKeys(function (Oferta $oferta) {
                                                 if ($oferta->nombre === ContractFromImageRecovery::OFERTA_POR_ASIGNAR_NOMBRE) {
@@ -1273,7 +1473,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                                         $oferta->id => new HtmlString(
                                                             '<span style="color:#dc2626;font-weight:800;">'
                                                             .e($oferta->nombre)
-                                                            .'</span>'
+                                                            .' (Por/asignar)</span>'
                                                         ),
                                                     ];
                                                 }
@@ -1323,11 +1523,18 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     Forms\Components\Grid::make(4)->schema([
                                         Forms\Components\Select::make('producto_id')
                                             ->label('Producto')
-                                            ->options(fn () => Producto::query()
-                                                ->where('delete', false)
-                                                ->orderBy('nombre')
-                                                ->pluck('nombre', 'id')
-                                                ->all())
+                                            ->options(function () {
+                                                app(ContractFromImageRecovery::class)->ensurePorAsignarProducto();
+
+                                                return Producto::query()
+                                                    ->where('delete', false)
+                                                    ->orderByRaw(
+                                                        'CASE WHEN nombre = ? THEN 0 ELSE 1 END, nombre',
+                                                        [ContractFromImageRecovery::PRODUCTO_POR_ASIGNAR_NOMBRE]
+                                                    )
+                                                    ->pluck('nombre', 'id')
+                                                    ->all();
+                                            })
                                             ->searchable()
                                             ->preload()
                                             ->required()
@@ -1652,7 +1859,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return app(ContractImageExtractor::class)->emptyPayload() + [
             'comercial_id' => null,
             'repartidor_id' => null,
-            'estado_venta' => $defaults['estado_venta'] ?? EstadoVenta::POR_ASIGNAR->value,
+            'estado_venta' => $defaults['estado_venta'] ?? EstadoVenta::EN_REVISION->value,
             'ventaOfertas' => $defaults['ventaOfertas'] ?? [],
             'productos_externos' => [],
             '_conflicts' => [],
@@ -1714,16 +1921,82 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return null;
     }
 
+    public function updatedNroContratoBusqueda(): void
+    {
+        $term = trim((string) ($this->nroContratoBusqueda ?? ''));
+
+        // Si el nº está en otra pestaña (p. ej. ya en RECUPERADOS), saltar allí.
+        if ($term !== '' && Schema::hasTable('contrato_recovery_items')) {
+            // Evitar que un mes activo oculte el contrato buscado.
+            $this->showAllMonths = true;
+            $this->selectedYearMonth = null;
+            session([
+                'recuperados.showAllMonths' => true,
+                'recuperados.selectedYearMonth' => null,
+            ]);
+
+            $inRecuperados = $this->applyNroContratoAdminFilter(
+                RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_RECUPERADOS)
+            )->exists();
+
+            if ($inRecuperados) {
+                $this->recoveryListTab = RecoveredContractsQuery::SCOPE_RECUPERADOS;
+                session(['recuperados.listTab' => $this->recoveryListTab]);
+                $this->flushCachedTableRecords();
+            } else {
+                $inPorRecuperar = $this->applyNroContratoAdminFilter(
+                    RecoveredContractsQuery::base(RecoveredContractsQuery::SCOPE_POR_RECUPERAR)
+                )->exists();
+
+                if ($inPorRecuperar) {
+                    $this->recoveryListTab = RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+                    session(['recuperados.listTab' => $this->recoveryListTab]);
+                    $this->flushCachedTableRecords();
+                }
+            }
+        }
+
+        $this->resetPage();
+    }
+
     /**
      * @return \Illuminate\Database\Eloquent\Builder<\App\Models\ContratoRecoveryItem>
      */
     protected function filteredRecoveryQuery()
     {
-        return RecoveredContractsQuery::forList(
+        $query = RecoveredContractsQuery::forList(
             $this->selectedYearMonth,
             $this->showAllMonths || blank($this->selectedYearMonth),
-            null, // la búsqueda la aplica Filament vía columnas searchable
+            null, // la búsqueda global la aplica Filament vía columnas searchable
+            $this->recoveryListTab,
         )->with(['customer', 'venta.customer', 'venta.ventaOfertas.oferta']);
+
+        return $this->applyNroContratoAdminFilter($query);
+    }
+
+    /**
+     * Filtro exclusivo por nº contrato admin (columna, JSON o venta vinculada).
+     *
+     * @param  Builder<ContratoRecoveryItem>  $query
+     * @return Builder<ContratoRecoveryItem>
+     */
+    protected function applyNroContratoAdminFilter(Builder $query): Builder
+    {
+        $term = trim((string) ($this->nroContratoBusqueda ?? ''));
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%'.$term.'%';
+
+        return $query->where(function (Builder $inner) use ($like): void {
+            $inner->where('nro_contr_adm', 'like', $like)
+                ->orWhere('reviewed_json->nro_contr_adm', 'like', $like)
+                ->orWhereHas(
+                    'venta',
+                    fn (Builder $ventaQuery) => $ventaQuery->where('nro_contr_adm', 'like', $like)
+                );
+        });
     }
 
     protected function recoveryFechaSqlExpression(): string
@@ -1759,7 +2032,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $years = array_map('intval', $this->tabYears());
 
         $items = RecoveredContractsQuery::applySearchFilter(
-            ContratoRecoveryItem::query()->with(['venta:id,fecha_venta']),
+            RecoveredContractsQuery::base($this->recoveryListTab)->with(['venta:id,fecha_venta']),
             $q,
         )
             ->limit(500)
@@ -1884,7 +2157,9 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
 
     public function recuperadosPdfUrl(bool $download = false): string
     {
-        $params = [];
+        $params = [
+            'scope' => RecoveredContractsQuery::normalizeScope($this->recoveryListTab),
+        ];
         if ($this->showAllMonths || blank($this->selectedYearMonth)) {
             $params['todos'] = 1;
         } else {
@@ -1901,6 +2176,28 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         }
 
         return route('recuperados-aceptados.pdf', $params);
+    }
+
+    public function recoveryListTabLabel(): string
+    {
+        return RecoveredContractsQuery::scopeLabel($this->recoveryListTab);
+    }
+
+    /**
+     * Contadores globales de las pestañas POR RECUPERAR / RECUPERADOS (sin filtro de mes).
+     *
+     * @return array{por_recuperar: int, recuperados: int}
+     */
+    public function recoveryListTabCounts(): array
+    {
+        return [
+            RecoveredContractsQuery::SCOPE_POR_RECUPERAR => RecoveredContractsQuery::base(
+                RecoveredContractsQuery::SCOPE_POR_RECUPERAR
+            )->count(),
+            RecoveredContractsQuery::SCOPE_RECUPERADOS => RecoveredContractsQuery::base(
+                RecoveredContractsQuery::SCOPE_RECUPERADOS
+            )->count(),
+        ];
     }
 
     protected function fechaContratoCarbon(ContratoRecoveryItem $record): ?Carbon
@@ -2044,5 +2341,27 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
     protected function normalizeDateForPicker(mixed $value): ?string
     {
         return app(ContractImageExtractor::class)->normalizeDate($value);
+    }
+
+    /**
+     * "FEC. PROMO" (fecha_venta) y "FECHA CONTRATO" (fecha_promo) del formulario son el
+     * mismo dato mostrado dos veces (por maquetación) y se sincronizan por JS al editar
+     * cualquiera de los dos. Si esa sincronización no llega a tiempo (ej. el usuario
+     * cambia la fecha y pulsa "Guardar" sin que el campo pierda el foco), no podemos
+     * fiarnos a ciegas de 'fecha_venta': puede seguir teniendo el valor viejo mientras
+     * 'fecha_promo' ya tiene el que el usuario acaba de elegir. Nos quedamos con el que
+     * de verdad cambió respecto al valor ya guardado en BD.
+     */
+    protected function resolveFechaVentaFromForm(ContratoRecoveryItem $record, array $data): ?string
+    {
+        $old = $this->normalizeDateForPicker(data_get($record->reviewedData(), 'fecha_venta'));
+        $fechaVenta = $this->normalizeDateForPicker($data['fecha_venta'] ?? null);
+        $fechaPromo = $this->normalizeDateForPicker($data['fecha_promo'] ?? null);
+
+        if ($fechaPromo !== null && $fechaPromo !== $old) {
+            return $fechaPromo;
+        }
+
+        return $fechaVenta ?? $fechaPromo;
     }
 }

@@ -210,4 +210,48 @@ class ContractFromImageRecoveryOfertaTest extends TestCase
             ])
         );
     }
+
+    public function test_parse_productos_texto_splits_lines_and_commas(): void
+    {
+        $svc = new ContractFromImageRecovery;
+
+        $this->assertSame(
+            ['TV 32', 'Depurador Vita', 'Horno'],
+            $svc->parseProductosTexto("TV 32\nDepurador Vita, Horno")
+        );
+
+        $this->assertSame([], $svc->parseProductosTexto('  '));
+    }
+
+    public function test_ensure_recovery_defaults_matches_catalog_or_falls_back(): void
+    {
+        $svc = new ContractFromImageRecovery;
+        $oferta = $svc->ensureOfxAsignarOferta();
+        $fallback = $svc->ensurePorAsignarProducto();
+
+        $producto = Producto::query()->create([
+            'nombre' => 'Depurador Vita Match '.uniqid(),
+            'puntos' => 2,
+            'delete' => false,
+        ]);
+
+        // Match exacto (ignorando mayúsculas / acentos)
+        $matched = $svc->ensureRecoveryDefaults([
+            'productos_texto' => $producto->nombre,
+        ]);
+
+        $this->assertSame($oferta->id, $matched['ventaOfertas'][0]['oferta_id']);
+        $this->assertSame($producto->id, $matched['ventaOfertas'][0]['productos'][0]['producto_id']);
+        $this->assertSame([], $matched['_product_match']['unmatched'] ?? []);
+
+        // Sin match → Por asignar + nombre en productos_externos
+        $unmatched = $svc->ensureRecoveryDefaults([
+            'productos_texto' => 'Producto inventado xyz '.uniqid(),
+        ]);
+
+        $this->assertSame($oferta->id, $unmatched['ventaOfertas'][0]['oferta_id']);
+        $this->assertSame($fallback->id, $unmatched['ventaOfertas'][0]['productos'][0]['producto_id']);
+        $this->assertNotEmpty($unmatched['_product_match']['unmatched'] ?? []);
+        $this->assertNotEmpty($unmatched['productos_externos'] ?? []);
+    }
 }

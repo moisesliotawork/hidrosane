@@ -2,12 +2,12 @@
 
 namespace App\Services\ContractRecovery;
 
+use App\Support\RecoveryDocumentPath;
+use App\Support\Storage\DocumentStorage;
+use App\Support\Storage\LocalCopy;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use App\Support\Storage\DocumentStorage;
-use App\Support\Storage\LocalCopy;
 use Throwable;
 
 /**
@@ -95,7 +95,9 @@ final class ContractImageExtractor
         try {
             $prompt = $this->promptFor($type);
 
-            $model = (string) config('services.openai.vision_model', 'gpt-4o-mini');
+            // gpt-4o-mini clasifica bien pero lee mal letra pequeña (DNI, IBAN...);
+            // usamos el modelo completo para la extracción de datos en sí.
+            $model = (string) config('services.openai.extraction_model', 'gpt-4o');
 
             $response = Http::withToken($apiKey)
                 ->timeout(90)
@@ -112,7 +114,7 @@ final class ContractImageExtractor
                             'role' => 'user',
                             'content' => [
                                 ['type' => 'text', 'text' => $prompt],
-                                ['type' => 'image_url', 'image_url' => ['url' => $dataUrl]],
+                                ['type' => 'image_url', 'image_url' => ['url' => $dataUrl, 'detail' => 'high']],
                             ],
                         ],
                     ],
@@ -147,17 +149,143 @@ final class ContractImageExtractor
     public function normalizeExtracted(array $data): array
     {
         $data['nro_contr_adm'] = $this->normalizeNroContrato($data['nro_contr_adm'] ?? null);
-        $data['fecha_venta'] = $this->normalizeDate($data['fecha_venta'] ?? null);
-        $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null);
+        // Fec.Promo./Fec.Entr. del contrato casi nunca llevan año: cuando falta, es de la
+        // campaña 2025 (ver normalizeDate: día/mes SIEMPRE, nunca mes/día).
+        $data['fecha_venta'] = $this->normalizeDate($data['fecha_venta'] ?? null, 2025);
+        $data['fecha_entrega'] = $this->normalizeDate($data['fecha_entrega'] ?? null, 2025);
         $data['comercial_codes'] = $this->normalizeComercialCodes($data['comercial_codes'] ?? null);
         $data['repartidor_code'] = $this->normalizeEmpleadoCode($data['repartidor_code'] ?? null);
+        $data['fecha_nacimiento'] = $this->normalizeDate($data['fecha_nacimiento'] ?? null);
         $data['horario_entrega'] = $this->normalizeHorario($data['horario_entrega'] ?? null);
         $data['dni'] = $this->normalizeSpanishId($data['dni'] ?? null)
             ?? $this->normalizeSpanishId($data['mrz_raw'] ?? null)
             ?? $this->normalizeSpanishId($data['observaciones'] ?? null);
+        // El DNI/NIE español tiene letra de control determinista (dígitos mod 23).
+        // Si no cuadra, es un dato erróneo (OCR o alucinación del modelo): mejor
+        // dejarlo en blanco para revisión manual que guardar un DNI falso.
+        if ($data['dni'] !== null && ! $this->isValidSpanishId($data['dni'])) {
+            $data['dni'] = null;
+        }
+        // "12345678Z"/"12345678A" es el DNI de ejemplo típico de tutoriales (y de
+        // hecho la Z sí cuadra con el checksum, por eso lo eligen). Si el modelo
+        // lo repite igual en varios contratos de personas distintas es alucinación,
+        // no un dato real: lo saneamos igualmente.
+        if ($data['dni'] !== null && str_starts_with($data['dni'], '12345678')) {
+            $data['dni'] = null;
+        }
         $data['documento_tipo'] = $this->normalizeDocumentoTipo($data['documento_tipo'] ?? null);
+        $data['codigo_postal'] = $this->normalizePostalCode($data['codigo_postal'] ?? null)
+            ?? $this->normalizePostalCode($data['direccion'] ?? null);
+        // "C. IMPORTE Y FORMA DE PAGO": el modelo suele copiar el número tal cual está impreso
+        // (formato español, ej. "2.628,60 €"). El formulario usa inputs numéricos (punto decimal,
+        // sin símbolo de moneda), así que lo normalizamos aquí para que se vea el dato en vez de
+        // quedar vacío por no ser un número JS/HTML válido.
+        $data['importe_total'] = $this->normalizeMoney($data['importe_total'] ?? null);
+        $data['entrada'] = $this->normalizeMoney($data['entrada'] ?? null);
+        $data['cuota_mensual'] = $this->normalizeMoney($data['cuota_mensual'] ?? null);
+        $data['num_cuotas'] = $this->normalizeNumCuotas($data['num_cuotas'] ?? null);
+        // El modelo suele copiar el "Domicilio:" tal cual, con el CP pegado dentro
+        // (ej. "Avda. Castelao 67 9ºB 36209"). Una vez extraído el CP por separado,
+        // lo quitamos de la dirección para que quede limpia (solo calle/piso), que
+        // es el formato con el que se guarda al cliente en la app (primary_address
+        // y postal_code son columnas separadas).
+        $data['direccion'] = $this->stripPostalCodeFromDireccion($data['direccion'] ?? null, $data['codigo_postal']);
 
         return $data;
+    }
+
+    /**
+     * Código postal español (5 dígitos). Acepta el valor directo o lo detecta
+     * dentro de un texto libre (ej. dentro de "direccion" si Vision no lo separó).
+     */
+    public function normalizePostalCode(mixed $value): ?string
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = (string) $value;
+        if (preg_match('/\b(\d{5})\b/', $raw, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Quita el código postal (si aparece) de la línea de dirección, dejando solo
+     * calle/número/piso. No toca nada si no hay CP o la dirección viene vacía.
+     */
+    public function stripPostalCodeFromDireccion(mixed $direccion, ?string $codigoPostal): ?string
+    {
+        if (! filled($direccion)) {
+            return null;
+        }
+
+        $raw = trim((string) $direccion);
+        if ($codigoPostal !== null) {
+            $raw = preg_replace('/\b'.preg_quote($codigoPostal, '/').'\b/', '', $raw) ?? $raw;
+        }
+
+        // Limpia comas/guiones sueltos y espacios dobles que deja el hueco del CP.
+        $raw = preg_replace('/\s{2,}/', ' ', $raw) ?? $raw;
+        $raw = preg_replace('/\s*,\s*,/', ',', $raw) ?? $raw;
+        $raw = trim($raw, " \t\n\r\0\x0B,-");
+
+        return $raw !== '' ? $raw : null;
+    }
+
+    /**
+     * Importe en euros de la tabla "C. IMPORTE Y FORMA DE PAGO" (entrada, cuota_mensual,
+     * importe_total). Acepta formato español tal cual viene impreso ("2.628,60 €", "87,62€",
+     * "0,00") y también JSON numérico plano (2628.6). Devuelve siempre con punto decimal y
+     * sin símbolo, listo para un input numérico (ej. "2628.60"). Null si no es un importe válido.
+     */
+    public function normalizeMoney(mixed $value): ?string
+    {
+        if (! filled($value) && $value !== 0 && $value !== '0') {
+            return null;
+        }
+
+        $raw = trim(preg_replace('/[€\s]/u', '', (string) $value) ?? '');
+        if ($raw === '') {
+            return null;
+        }
+
+        if (preg_match('/^-?\d{1,3}(\.\d{3})+,\d{1,2}$/', $raw)) {
+            // Miles con punto + decimales con coma: "2.628,60" → "2628.60"
+            $raw = str_replace(['.', ','], ['', '.'], $raw);
+        } elseif (preg_match('/^-?\d{1,3}(,\d{3})+\.\d{1,2}$/', $raw)) {
+            // Formato EEUU (a veces lo devuelve así el modelo): "3,564.00" → "3564.00"
+            $raw = str_replace(',', '', $raw);
+        } elseif (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $raw)) {
+            // Solo miles con punto, sin decimales: "1.234" → "1234"
+            $raw = str_replace('.', '', $raw);
+        } elseif (preg_match('/^-?\d+,\d{1,2}$/', $raw)) {
+            // Solo coma decimal: "87,62" → "87.62"
+            $raw = str_replace(',', '.', $raw);
+        } elseif (! preg_match('/^-?\d+(\.\d{1,2})?$/', $raw)) {
+            // No es un importe reconocible: mejor null que un dato inventado.
+            return null;
+        }
+
+        return is_numeric($raw) ? number_format((float) $raw, 2, '.', '') : null;
+    }
+
+    /**
+     * Nº de cuotas de la misma tabla "C. IMPORTE Y FORMA DE PAGO" (columna "Nº DE CUOTAS").
+     */
+    public function normalizeNumCuotas(mixed $value): ?string
+    {
+        if (! filled($value) && $value !== 0 && $value !== '0') {
+            return null;
+        }
+
+        if (preg_match('/(\d{1,3})/', (string) $value, $m)) {
+            return (string) (int) $m[1];
+        }
+
+        return null;
     }
 
     /**
@@ -192,6 +320,33 @@ final class ContractImageExtractor
         return null;
     }
 
+    /**
+     * Valida el dígito/letra de control del DNI (8 dígitos + letra) o NIE
+     * (X/Y/Z + 7 dígitos + letra) con el algoritmo oficial: número mod 23
+     * indexa la tabla "TRWAGMYFPDXBNJZSQVHLCKE". Sirve para detectar
+     * alucinaciones o errores de OCR: un DNI real siempre cuadra.
+     */
+    public function isValidSpanishId(string $value): bool
+    {
+        $letters = 'TRWAGMYFPDXBNJZSQVHLCKE';
+        $value = mb_strtoupper(trim($value));
+
+        if (preg_match('/^(\d{8})([A-Z])$/', $value, $m)) {
+            $number = (int) $m[1];
+
+            return $letters[$number % 23] === $m[2];
+        }
+
+        if (preg_match('/^([XYZ])(\d{7})([A-Z])$/', $value, $m)) {
+            $prefix = ['X' => '0', 'Y' => '1', 'Z' => '2'][$m[1]];
+            $number = (int) ($prefix.$m[2]);
+
+            return $letters[$number % 23] === $m[3];
+        }
+
+        return false;
+    }
+
     public function normalizeDocumentoTipo(mixed $value): ?string
     {
         if (! filled($value)) {
@@ -221,13 +376,37 @@ final class ContractImageExtractor
         return $digits !== '' ? ltrim($digits, '0') ?: '0' : null;
     }
 
-    public function normalizeDate(mixed $value): ?string
+    /**
+     * @param  int|null  $defaultYear  Año a usar cuando la fecha NO trae año (ej. "2/7").
+     *                                 Sin este valor, una fecha sin año se descarta (null)
+     *                                 en vez de arriesgarse a adivinar mal.
+     */
+    public function normalizeDate(mixed $value, ?int $defaultYear = null): ?string
     {
         if (! filled($value)) {
             return null;
         }
 
         $raw = trim((string) $value);
+
+        // Fechas SIN año (ej. "2/7", "02-07"): en los contratos Ohana el formato es
+        // SIEMPRE día/mes (español), NUNCA mes/día (americano) — a diferencia de
+        // Carbon::parse()/strtotime, que interpretarían "2/7" como 7 de febrero.
+        if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})$/', $raw, $m)) {
+            $day = (int) $m[1];
+            $month = (int) $m[2];
+
+            if ($day < 1 || $day > 31 || $month < 1 || $month > 12 || $defaultYear === null) {
+                return null;
+            }
+
+            try {
+                return \Illuminate\Support\Carbon::create($defaultYear, $month, $day)->format('Y-m-d');
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
         foreach (['d-m-Y', 'd/m/Y', 'd-m-y', 'd/m/y', 'Y-m-d'] as $fmt) {
             try {
                 $dt = \Illuminate\Support\Carbon::createFromFormat($fmt, $raw);
@@ -314,6 +493,7 @@ final class ContractImageExtractor
                 if ($current === null || $current === '') {
                     $merged[$key] = $incoming;
                     $sources[$key] = $doc['type'];
+
                     continue;
                 }
                 if ((string) $current !== (string) (is_array($incoming) ? json_encode($incoming) : $incoming)
@@ -347,6 +527,7 @@ final class ContractImageExtractor
             'horario_entrega' => null,
             'comercial_codes' => null,
             'repartidor_code' => null,
+            'fecha_nacimiento' => null,
             'importe_total' => null,
             'entrada' => null,
             'cuota_mensual' => null,
@@ -354,6 +535,7 @@ final class ContractImageExtractor
             'iban' => null,
             'productos_texto' => null,
             'direccion' => null,
+            'codigo_postal' => null,
             'telefonos' => null,
             'observaciones' => null,
         ];
@@ -366,13 +548,51 @@ final class ContractImageExtractor
         $headerMap = <<<'TXT'
 Encabezado típico del CONTRATO Ohana (mapeo OBLIGATORIO):
 - "Cod.Contrato" / "Cod. Contrato" → nro_contr_adm (número del contrato admin; ej. 1189). Solo el número.
-- "Fec.Promo." / "Fec. Promo." → fecha_venta (fecha del contrato admin / promo). Formato YYYY-MM-DD. Ej. 02-10-2025 → 2025-10-02.
-- "Fec.Entr." / "Fec. Entr." → fecha_entrega. Formato YYYY-MM-DD. Ej. 03-10-2025 → 2025-10-03.
+- "Fec.Promo." / "Fec. Promo." → fecha_venta (fecha del contrato admin / promo).
+  CASI SIEMPRE aparece SIN año, solo día/mes (ej. "2/7"): el PRIMER número es el DÍA,
+  el SEGUNDO es el MES (formato español día/mes, NUNCA mes/día). Si no ves año, asume
+  2025. Devuelve siempre YYYY-MM-DD. Ej. "2/7" → 2025-07-02. Ej. con año "02-10-2025" → 2025-10-02.
+- "Fec.Entr." / "Fec. Entr." → fecha_entrega. Mismo formato y misma regla día/mes (nunca
+  mes/día) que Fec.Promo. Ej. "3/7" → 2025-07-03. Ej. con año "03-10-2025" → 2025-10-03.
 - "Com." / "Com:" → comercial_codes: los 1 o 2 códigos de comercial del contrato, separados por coma.
   Ej. "008 - 004" → "008,004". No confundir con "Rep." (repartidor).
 - "Rep." / "Rep:" → repartidor_code: id de empleado del repartidor del contrato (ej. 005). Un solo código. No es comercial.
 - "Hora Entr." → horario_entrega (ej. TD, TM).
 - "Cód.Cliente" NO es nro_contr_adm.
+- "Domicilio" → direccion: copia la línea completa de "Domicilio:" tal cual aparece (calle,
+  número, piso/puerta). Es habitual que el código postal (5 dígitos) esté pegado al final de esa
+  misma línea, con o sin ciudad detrás (ej. "Avda. Castelao 67 9ºB 36209" o "36213 Vigo
+  (Pontevedra)"): en ambos casos extrae esos 5 dígitos también por separado en codigo_postal
+  (ej. "36209" / "36213"). Si no hay código postal visible, usa null.
+- IMPORTANTE — nro_contr_adm SOLO si está ETIQUETADO como "Cod.Contrato" / "Cod. Contrato".
+  Muchos albaranes/notas de entrega llevan un número de serie propio impreso arriba (del propio
+  talonario), SIN esa etiqueta: eso NO es el número de contrato, es solo el correlativo del papel.
+  Si ves un número grande o destacado pero SIN la palabra "Cod.Contrato" al lado, deja nro_contr_adm
+  en null — mejor vacío para revisión manual que un número de contrato falso.
+- DNI/NIE (MUY IMPORTANTE, no te lo saltes): en la sección "A. DATOS PERSONALES DEL CLIENTE" hay una
+  línea con la etiqueta "DNI/NIE" (o "NIF/NIE"), justo debajo de "Nombre y apellidos" y encima de
+  "Fecha nacimiento". Contiene el documento del cliente: 8 dígitos + 1 letra final (ej. 36008542H) o
+  NIE (letra X/Y/Z + 7 dígitos + letra). Lee esa línea dígito a dígito, con mucho cuidado de no
+  transponer cifras ni confundirla con "Cód.Cliente" (que es un número aparte, más corto, en el
+  encabezado) ni con los teléfonos de la línea de abajo. Si la línea existe pero un dígito no se ve
+  con total claridad, aun así devuelve tu mejor lectura completa (no la dejes en null solo por duda:
+  para eso existe la validación posterior).
+- "Fecha nacimiento" → fecha_nacimiento: en esa misma sección "A. DATOS PERSONALES DEL CLIENTE",
+  justo debajo de la línea "DNI/NIE", hay una línea "Fecha nacimiento" con la fecha de nacimiento
+  del cliente (formato dd-mm-aaaa). Devuélvela en formato YYYY-MM-DD (ej. 02-05-1953 → 1953-05-02).
+  No la confundas con "Fec.Promo." ni "Fec.Entr." del encabezado (esas son del contrato, no del
+  cliente).
+- "C. IMPORTE Y FORMA DE PAGO" (MUY IMPORTANTE, no te lo saltes): es una tabla con 5 columnas, justo
+  debajo de "B. RELACIÓN DE ARTÍCULOS". Lee cada celda de esa fila y mapea exactamente así (no
+  confundas estas cifras con ninguna otra del documento):
+  - Columna "ENTRADA" → entrada (importe en euros, ej. "0,00 €" → 0.00).
+  - Columna "Nº DE CUOTAS" → num_cuotas (número entero de cuotas, ej. 30).
+  - Columna "CUOTA MENSUAL" → cuota_mensual (importe en euros, ej. "87,62 €" → 87.62).
+  - Columna "IMPORTE TOTAL" (la última, más a la derecha) → importe_total (importe en euros, ej.
+    "2.628,60 €" → 2628.60).
+  Copia el número tal cual está impreso en cada celda (con su coma decimal si la lleva); no
+  redondees, no inventes ni mezcles columnas. Si una celda está vacía o no se lee con claridad, usa
+  null solo en esa clave.
 TXT;
 
         $dniCard = <<<'TXT'
@@ -393,9 +613,9 @@ TXT;
 
         return match ($type) {
             self::TYPE_APP => "Documento: contrato impreso Ohana (app). Extrae JSON con claves: {$keys}.\n{$headerMap}",
-            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento. productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato.",
+            self::TYPE_ALBARAN => "Documento: albarán / información precontractual manuscrita Ohana. Extrae JSON con claves: {$keys}. dni = NIF. nro_albaran = número del documento (el correlativo propio del talonario, impreso arriba SIN etiqueta). productos_texto = lista de artículos. Si aparece Com./códigos comercial → comercial_codes. Si aparece Rep. → repartidor_code. Si hay Fec.Promo./Fec.Entr./Cod.Contrato usa el mismo mapeo del contrato. nro_contr_adm SOLO si ves literalmente la etiqueta \"Cod.Contrato\"; el número de serie del propio albarán (arriba, sin etiquetar) va en nro_albaran, NUNCA en nro_contr_adm.",
             self::TYPE_DNI_CARD => str_replace('{$keys}', $keys, $dniCard),
-            default => "Documento relacionado con un contrato Ohana (puede ser DNI, precontractual, contrato, titularidad…). Extrae JSON con claves: {$keys}.\n{$headerMap}\nSi es DNI/NIE: rellena dni (8 dígitos+letra o NIE), documento_tipo (dni_anverso|dni_reverso) y mrz_raw si hay MRZ. Prioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.",
+            default => "Documento relacionado con un contrato Ohana (puede ser DNI, precontractual/albarán, contrato, titularidad…). Extrae JSON con claves: {$keys}.\n{$headerMap}\nSi es DNI/NIE: rellena dni (8 dígitos+letra o NIE), documento_tipo (dni_anverso|dni_reverso) y mrz_raw si hay MRZ. Prioriza DNI, Cod.Contrato, Fec.Promo., Fec.Entr., Com., Rep., IBAN e importes.\nCLASIFICA SIEMPRE documento_tipo (obligatorio, aparte de DNI):\n- \"precontractual\": hoja AMARILLA titulada \"INFORMACIÓN PRECONTRACTUAL\"/\"DATOS PERSONALES DEL CLIENTE\" a mano, con un \"DOCUMENTO: NNNNNN\" impreso arriba (ese número NO es nro_contr_adm, es el correlativo del talonario). Es el albarán.\n- \"contrato\": hoja BLANCA impresa titulada \"CONTRATO\", con \"Cod.Contrato: NNNN\" impreso arriba (ese SÍ es nro_contr_adm).\n- \"documento_titularidad\": recibo/factura de luz, agua, etc.\n- \"otro\": cualquier otro caso (nómina, pensión...).",
         };
     }
 
@@ -419,11 +639,11 @@ TXT;
             return $copy;
         }
 
-        // Ficheros de trabajo internos (disco 'local'), fuera del almacén de documentos.
-        $working = Storage::disk('local')->path($relativePath);
-
+        // Ficheros de trabajo internos (disco 'local' y lotes antiguos sueltos en
+        // storage/app/…), fuera del almacén de documentos: siguen siendo locales.
         return LocalCopy::existing(
-            is_file($working) ? $working : storage_path('app/'.$relativePath)
+            RecoveryDocumentPath::absolute($relativePath)
+                ?? storage_path('app/'.ltrim(str_replace('\\', '/', $relativePath), '/'))
         );
     }
 
@@ -438,6 +658,13 @@ TXT;
         $ext = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
 
         if ($this->isSupportedImageMime($mime, $ext)) {
+            $corrected = $this->exifCorrectedCopy($absolute, $mime);
+            if ($corrected !== null) {
+                $b64 = base64_encode((string) file_get_contents($corrected));
+
+                return ['data:image/jpeg;base64,'.$b64, $corrected];
+            }
+
             $mime = $mime !== '' && str_starts_with($mime, 'image/') ? $mime : $this->mimeFromExtension($ext);
             $b64 = base64_encode((string) file_get_contents($absolute));
 
@@ -454,6 +681,58 @@ TXT;
         throw new \RuntimeException(
             "Tipo no soportado para OCR ({$mime}/.{$ext}). Solo imágenes o PDF."
         );
+    }
+
+    /**
+     * Las fotos de móvil suelen guardar la rotación como flag EXIF Orientation
+     * en vez de rotar los píxeles (p.ej. Orientation=6 = "girar 90° al
+     * mostrar"). La API de Vision de OpenAI decodifica el buffer de píxeles
+     * tal cual y NO aplica ese flag, así que sin este paso, cualquier foto con
+     * Orientation distinto de 1 llega girada al modelo (aunque en el Finder o
+     * la app Fotos se vea perfectamente derecha), causando errores al leer el
+     * nº de contrato y el DNI. Devuelve la ruta de una copia ya corregida y
+     * sin flag EXIF pendiente, o null si no hacía falta corregir nada.
+     */
+    public function exifCorrectedCopy(string $absolutePath, string $mime): ?string
+    {
+        if ($mime !== 'image/jpeg' || ! function_exists('exif_read_data') || ! extension_loaded('gd')) {
+            return null;
+        }
+
+        $exif = @exif_read_data($absolutePath);
+        $orientation = (int) ($exif['Orientation'] ?? 1);
+
+        if (! in_array($orientation, [3, 6, 8], true)) {
+            return null;
+        }
+
+        $src = @imagecreatefromjpeg($absolutePath);
+        if (! $src) {
+            return null;
+        }
+
+        // Grados en sentido horario que corrigen cada valor EXIF estándar.
+        $degrees = match ($orientation) {
+            3 => 180,
+            6 => 90,
+            8 => 270,
+            default => 0,
+        };
+
+        // imagerotate() gira en sentido antihorario: invertimos el ángulo para
+        // que $degrees siga significando "corrección en sentido horario".
+        $rotated = imagerotate($src, -$degrees, 0);
+        imagedestroy($src);
+
+        if (! $rotated) {
+            return null;
+        }
+
+        $out = sys_get_temp_dir().'/ohana_exif_'.uniqid('', true).'.jpg';
+        imagejpeg($rotated, $out, 92);
+        imagedestroy($rotated);
+
+        return is_file($out) ? $out : null;
     }
 
     protected function isSupportedImageMime(string $mime, string $ext): bool

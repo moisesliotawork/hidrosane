@@ -222,7 +222,13 @@ class NoteDeleteProtectsVentaTest extends TestCase
         VentaSoftDelete::delete($venta);
 
         $archived = Venta::onlyTrashed()->findOrFail($venta->id);
-        $archived->forceDelete();
+
+        try {
+            $archived->forceDelete();
+            $this->fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('bloqueado', $e->getMessage());
+        }
 
         $this->assertNotNull(Venta::onlyTrashed()->find($venta->id));
     }
