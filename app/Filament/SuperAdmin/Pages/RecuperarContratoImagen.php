@@ -2,9 +2,9 @@
 
 namespace App\Filament\SuperAdmin\Pages;
 
-use App\Exports\RecoveredContractsExport;
 use App\Enums\EstadoVenta;
 use App\Enums\VendidoPor;
+use App\Exports\RecoveredContractsExport;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecoveryItem;
 use App\Models\Customer;
@@ -24,7 +24,6 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Infolists;
-use Filament\Infolists\Infolist;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Colors\Color;
@@ -86,7 +85,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         return (string) ContratoRecoveryItem::query()->count();
     }
 
-    public static function getNavigationBadgeColor(): string | array | null
+    public static function getNavigationBadgeColor(): string|array|null
     {
         return 'success';
     }
@@ -384,7 +383,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
         $manual = trim((string) ($state['transcript_manual'] ?? ''));
 
         if (! filled($audio) && $manual === '') {
-                Notification::make()
+            Notification::make()
                 ->title('Sube un audio, dicta con el micrófono o escribe el texto')
                 ->warning()
                 ->send();
@@ -665,11 +664,12 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                 Tables\Columns\ImageColumn::make('reference_photos')
                     ->label('Referencias')
                     ->getStateUsing(function (ContratoRecoveryItem $record): array {
+                        // Host del request actual (evita miniaturas rotas si APP_URL ≠ dominio real)
                         $base = rtrim(request()->getSchemeAndHttpHost().request()->getBasePath(), '/');
 
                         return collect($record->reference_photos ?? [])
                             ->filter(fn ($p) => filled($p) && is_string($p))
-                            ->map(function (string $path) use ($base): string {
+                            ->map(function (string $path) use ($base): ?string {
                                 if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                                     return $path;
                                 }
@@ -678,8 +678,14 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                                     $path = substr($path, strlen('storage/'));
                                 }
 
+                                // Disco remoto privado: no hay URL pública, sólo temporaryUrl() firmada.
+                                if (DocumentStorage::driverFor() === 's3') {
+                                    return DocumentStorage::url($path);
+                                }
+
                                 return $base.'/storage/'.$path;
                             })
+                            ->filter()
                             ->values()
                             ->all();
                     })
@@ -1058,6 +1064,7 @@ class RecuperarContratoImagen extends Page implements HasForms, HasTable
                         foreach ($records as $record) {
                             if (! $record instanceof ContratoRecoveryItem || ! $record->canSyncFromVenta()) {
                                 $fail++;
+
                                 continue;
                             }
                             $result = $svc->syncFromVenta($record);
