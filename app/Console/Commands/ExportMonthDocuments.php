@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Venta;
+use App\Support\Storage\DocumentStorage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -88,7 +89,7 @@ class ExportMonthDocuments extends Command
 
         $this->info('Ventas del periodo: '.$ventas->count());
 
-        $publicRoot = Storage::disk('public')->path('');
+        /** @var array<string, string> $entries ruta relativa => disco donde está */
         $entries = [];
         $missing = 0;
 
@@ -98,27 +99,27 @@ class ExportMonthDocuments extends Command
                 if (! filled($raw)) {
                     continue;
                 }
-                $rel = ltrim((string) $raw, '/');
-                $abs = $publicRoot.$rel;
-                if (! is_file($abs)) {
-                    // paths a veces sin prefijo ventas/
-                    $alt = $publicRoot.'ventas/'.basename($rel);
-                    if (is_file($alt)) {
-                        $rel = 'ventas/'.basename($rel);
-                        $abs = $alt;
-                    } else {
-                        $missing++;
-                        $this->warn("Falta en disco: venta {$venta->id} {$col}={$raw}");
 
-                        continue;
-                    }
+                $found = DocumentStorage::locate((string) $raw);
+
+                if ($found === null) {
+                    // paths a veces sin prefijo ventas/
+                    $found = DocumentStorage::locate('ventas/'.basename(str_replace('\\', '/', (string) $raw)));
                 }
-                $entries[$rel] = true;
+
+                if ($found === null) {
+                    $missing++;
+                    $this->warn("Falta en disco: venta {$venta->id} {$col}={$raw}");
+
+                    continue;
+                }
+
+                $entries[$found['path']] = $found['name'];
             }
         }
 
+        ksort($entries);
         $paths = array_keys($entries);
-        sort($paths);
 
         $listPath = (string) ($this->option('list') ?: "/tmp/docs_{$label}.txt");
         $tarPath = (string) ($this->option('output') ?: "/tmp/docs_{$label}.tar.gz");
@@ -135,28 +136,140 @@ class ExportMonthDocuments extends Command
             return self::SUCCESS;
         }
 
-        $cwd = getcwd();
-        chdir($publicRoot);
-        $cmd = sprintf(
-            'tar -czf %s -T %s 2>&1',
-            escapeshellarg($tarPath),
-            escapeshellarg($listPath)
-        );
-        exec($cmd, $output, $code);
-        chdir($cwd ?: $publicRoot);
+        $root = $this->singleLocalRoot($entries);
 
-        if ($code !== 0 || ! is_file($tarPath)) {
-            $this->error('Falló tar: '.implode(' ', $output));
+        if ($root === null) {
+            // Al menos un documento vive en un disco remoto: hay que bajarlos a
+            // un directorio de staging antes de empaquetar.
+            $root = $this->stage($entries, $label);
 
-            return self::FAILURE;
+            if ($root === null) {
+                return self::FAILURE;
+            }
         }
 
-        $this->info('Paquete: '.$tarPath.' ('.$this->humanSize(filesize($tarPath)).')');
+        try {
+            $cwd = getcwd();
+            chdir($root);
+            $cmd = sprintf(
+                'tar -czf %s -T %s 2>&1',
+                escapeshellarg($tarPath),
+                escapeshellarg($listPath)
+            );
+            exec($cmd, $output, $code);
+            chdir($cwd ?: $root);
+
+            if ($code !== 0 || ! is_file($tarPath)) {
+                $this->error('Falló tar: '.implode(' ', $output));
+
+                return self::FAILURE;
+            }
+        } finally {
+            $this->cleanupStaging($label);
+        }
+
+        $this->info('Paquete: '.$tarPath.' ('.$this->humanSize((int) filesize($tarPath)).')');
         $this->line('En el Mac:');
         $this->line("  mkdir -p ~/Desktop/docs_{$label}_bd && cd ~/Desktop/docs_{$label}_bd");
         $this->line("  scp forge@SERVIDOR:{$tarPath} . && tar -xzf ".basename($tarPath).' && open .');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Raíz del filesystem si TODOS los documentos están en un mismo disco local.
+     *
+     * En ese caso se empaqueta directamente desde ahí, como siempre: no tiene
+     * sentido copiar gigas de un sitio a otro del mismo disco.
+     *
+     * @param  array<string, string>  $entries
+     */
+    protected function singleLocalRoot(array $entries): ?string
+    {
+        $disks = array_values(array_unique(array_values($entries)));
+
+        if (count($disks) !== 1 || DocumentStorage::driverFor($disks[0]) !== 'local') {
+            return null;
+        }
+
+        return Storage::disk($disks[0])->path('');
+    }
+
+    /**
+     * Baja los documentos remotos a un directorio temporal conservando la ruta
+     * relativa, para que el tar salga con la misma estructura de siempre.
+     *
+     * @param  array<string, string>  $entries
+     */
+    protected function stage(array $entries, string $label): ?string
+    {
+        $root = $this->stagingPath($label);
+
+        $this->cleanupStaging($label);
+
+        if (! @mkdir($root, 0700, true) && ! is_dir($root)) {
+            $this->error("No se pudo crear el directorio temporal {$root}");
+
+            return null;
+        }
+
+        $this->info('Descargando '.count($entries).' documentos a '.$root.' …');
+        $bar = $this->output->createProgressBar(count($entries));
+
+        foreach ($entries as $rel => $diskName) {
+            $target = $root.'/'.$rel;
+            $dir = dirname($target);
+
+            if (! is_dir($dir) && ! @mkdir($dir, 0700, true) && ! is_dir($dir)) {
+                $bar->finish();
+                $this->newLine();
+                $this->error("No se pudo crear {$dir}");
+
+                return null;
+            }
+
+            // Se lee del disco donde locate() lo encontró: pasar por
+            // DocumentStorage::get() volvería a resolverlo y, en Spaces, eso es
+            // una petición extra por documento.
+            try {
+                $contents = Storage::disk($diskName)->get($rel);
+            } catch (\Throwable $e) {
+                report($e);
+                $contents = null;
+            }
+
+            if ($contents === null) {
+                $bar->finish();
+                $this->newLine();
+                $this->error("No se pudo leer {$rel} de {$diskName}");
+
+                return null;
+            }
+
+            file_put_contents($target, $contents);
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine();
+
+        return $root;
+    }
+
+    protected function stagingPath(string $label): string
+    {
+        return rtrim(sys_get_temp_dir(), '/')."/export_docs_{$label}";
+    }
+
+    protected function cleanupStaging(string $label): void
+    {
+        $root = $this->stagingPath($label);
+
+        if (! is_dir($root)) {
+            return;
+        }
+
+        exec(sprintf('rm -rf %s', escapeshellarg($root)));
     }
 
     protected function humanSize(int $bytes): string
