@@ -6,7 +6,6 @@ use App\Models\Venta;
 use App\Services\ContractRecovery\ContractImageExtractor;
 use App\Support\Storage\DocumentStorage;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -76,9 +75,6 @@ class ListOrphanPrecontractuals extends Command
             $orphans = array_slice($orphans, 0, $limit);
         }
 
-        // Solo lo usa la rama --ocr, que sigue pendiente de migrar (ver TODO abajo).
-        $disk = Storage::disk('public');
-
         $doOcr = (bool) $this->option('ocr');
         if ($doOcr && ! filled(config('services.openai.api_key'))) {
             $this->error('Falta OPENAI_API_KEY. Genera el CSV sin --ocr o configura la key.');
@@ -131,12 +127,11 @@ class ListOrphanPrecontractuals extends Command
 
             if ($doOcr) {
                 try {
-                    // TODO(migración Spaces): sin migrar a propósito. $disk->path()
-                    // solo devuelve una ruta de filesystem real en un disco local,
-                    // así que con DOCUMENTS_DISK=spaces esta rama deja de funcionar.
-                    $absolute = $disk->path(preg_replace('#^public/#', '', $rel));
+                    // Ruta relativa al disco de documentos: extractOne() la
+                    // resuelve por DocumentStorage y, si vive en Spaces, se la
+                    // baja a un temporal que borra al terminar.
                     // PDF → JPG (1ª página) dentro de extractOne
-                    $data = $this->extractWithRateLimitRetry($extractor, $absolute);
+                    $data = $this->extractWithRateLimitRetry($extractor, $rel);
                     $row[4] = (string) ($data['cliente_nombre'] ?? '');
                     $row[5] = (string) ($data['dni'] ?? '');
                     $row[6] = (string) ($data['fecha_venta'] ?? '');
@@ -222,12 +217,12 @@ class ListOrphanPrecontractuals extends Command
     /**
      * @return array<string, mixed>
      */
-    protected function extractWithRateLimitRetry(ContractImageExtractor $extractor, string $absolute): array
+    protected function extractWithRateLimitRetry(ContractImageExtractor $extractor, string $path): array
     {
         $attempts = 0;
         while (true) {
             try {
-                return $extractor->extractOne(ContractImageExtractor::TYPE_ALBARAN, $absolute);
+                return $extractor->extractOne(ContractImageExtractor::TYPE_ALBARAN, $path);
             } catch (Throwable $e) {
                 $attempts++;
                 $msg = $e->getMessage();

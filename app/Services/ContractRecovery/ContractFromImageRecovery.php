@@ -5,14 +5,15 @@ namespace App\Services\ContractRecovery;
 use App\Enums\EstadoVenta;
 use App\Enums\VendidoPor;
 use App\Models\ContratoMesVariacionItem;
-use App\Models\ContratoRecuperado;
 use App\Models\ContratoRecoveryItem;
+use App\Models\ContratoRecuperado;
 use App\Models\Customer;
 use App\Models\Oferta;
 use App\Models\Producto;
 use App\Models\User;
 use App\Models\Venta;
 use App\Support\ContratosPorMesStats;
+use App\Support\Storage\DocumentStorage;
 use App\Support\VentaSoftRestore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -741,7 +742,9 @@ final class ContractFromImageRecovery
 
             $ext = pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg';
             $dest = 'ventas/'.now()->format('YmdHis').'_recovery_'.$venta->id.'_'.Str::random(6).'.'.$ext;
-            Storage::disk('public')->put($dest, Storage::disk('local')->get($path));
+            // Escribe en el disco de documentos, no en el local: la ruta se
+            // guarda en la venta y el resto de la app la lee por DocumentStorage.
+            DocumentStorage::put($dest, Storage::disk('local')->get($path));
 
             // Siempre anexar primero en contrato firmado (documento recuperado).
             if (blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
@@ -761,8 +764,8 @@ final class ContractFromImageRecovery
             } elseif (blank($venta->foto_sorteo) && empty($updates['foto_sorteo'])) {
                 $updates['foto_sorteo'] = $dest;
             }
-            // Si todos los slots están ocupados, se deja el archivo en disco público
-            // pero NO se sobrescribe ninguna ruta de la venta.
+            // Si todos los slots están ocupados, se deja el archivo en el disco
+            // de documentos pero NO se sobrescribe ninguna ruta de la venta.
         }
 
         if ($updates !== []) {
