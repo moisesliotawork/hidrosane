@@ -19,6 +19,7 @@ use Filament\Infolists\Components\TextEntry;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Support\Colors\Color;
 use App\Models\Venta;
 
 class CustomerResource extends Resource
@@ -180,6 +181,31 @@ class CustomerResource extends Resource
                     ->badge()
                     ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray'),
 
+                TextColumn::make('ver_vta')
+                    ->label('VerVTA')
+                    ->state(fn (Customer $r): string => static::latestVenta($r) ? 'IrVTA' : '—')
+                    ->badge()
+                    ->color(fn (string $state) => $state === 'IrVTA' ? Color::Pink : 'gray')
+                    ->url(function (Customer $r): ?string {
+                        $venta = static::latestVenta($r);
+
+                        return $venta
+                            ? VentaResource::getUrl('edit', ['record' => $venta], panel: 'admin')
+                            : null;
+                    })
+                    ->tooltip(function (Customer $r): ?string {
+                        $venta = static::latestVenta($r);
+                        if (! $venta) {
+                            return null;
+                        }
+
+                        $nro = filled($venta->nro_contr_adm) ? (string) $venta->nro_contr_adm : '#'.$venta->id;
+
+                        return 'Abrir formulario del contrato '.$nro;
+                    })
+                    ->alignCenter()
+                    ->grow(false),
+
                 TextColumn::make('inhabilitado')
                     ->label('INHAB')
                     ->state(fn(Customer $r) => $r->inhabilitado ? '☠️' : '')
@@ -230,6 +256,7 @@ class CustomerResource extends Resource
 
             ])
             ->defaultSort('id', 'desc')
+            ->persistSearchInSession()
             ->actions([
                 Tables\Actions\ViewAction::make(), // Ver “Vision Global del Cliente”
             ])
@@ -254,6 +281,20 @@ class CustomerResource extends Resource
             'index' => Pages\ListCustomers::route('/'),
             'view' => Pages\ViewCustomer::route('/{record}'),
         ];
+    }
+
+    protected static function latestVenta(Customer $customer): ?Venta
+    {
+        $ventas = $customer->relationLoaded('ventas')
+            ? $customer->ventas
+            : $customer->ventas()
+                ->whereNotNull('nro_contr_adm')
+                ->where('nro_contr_adm', '!=', '')
+                ->orderByDesc('fecha_venta')
+                ->orderByDesc('id')
+                ->get();
+
+        return $ventas->first();
     }
 
     public static function canCreate(): bool
