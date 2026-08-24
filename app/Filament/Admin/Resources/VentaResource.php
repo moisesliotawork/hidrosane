@@ -1126,6 +1126,37 @@ class VentaResource extends Resource
                     ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
                     ->extraCellAttributes(['class' => 'min-w-[7rem] whitespace-nowrap']),
 
+                TextColumn::make('ver_cont')
+                    ->label('Ver/Cont')
+                    ->state('Ver/cont')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn (Venta $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->tooltip('Abrir formulario de este contrato')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->toggleable(),
+
+                TextColumn::make('pgc')
+                    ->label('PGC')
+                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'VerCL' : '—')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'VerCL' ? 'info' : 'gray')
+                    ->url(function (Venta $record): ?string {
+                        if (! filled($record->customer_id)) {
+                            return null;
+                        }
+
+                        return CustomerResource::getUrl('view', [
+                            'record' => $record->customer_id,
+                        ], panel: 'admin');
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Posición Global de este cliente')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->toggleable(),
+
                 TextColumn::make('fecha_venta')
                     ->label('Fecha')
                     ->date('d/m/Y')

@@ -81,6 +81,8 @@ class VentaResource extends Resource
         // Columnas exclusivas del recurso Contratos de Admin (no deben verse en SuperAdmin).
         $columnsOnlyInAdmin = [
             'ver_pdf',
+            'ver_cont',
+            'pgc',
         ];
 
         foreach ($columns as $key => $column) {
@@ -175,6 +177,16 @@ class VentaResource extends Resource
                     ->url(fn (Venta $record): ?string => static::contratoImagenUrl($record))
                     ->openUrlInNewTab()
                     ->tooltip('Foto original usada para recuperar este contrato')
+                    ->alignCenter()
+                    ->grow(false);
+
+                $ordered[] = TextColumn::make('ver_cont')
+                    ->label('Ver/Cont')
+                    ->state('Ver/cont')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn (Venta $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->tooltip('Abrir formulario de este contrato')
                     ->alignCenter()
                     ->grow(false);
 

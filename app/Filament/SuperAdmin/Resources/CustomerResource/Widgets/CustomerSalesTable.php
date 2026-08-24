@@ -2,7 +2,6 @@
 
 namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 
-use App\Filament\SuperAdmin\Resources\CustomerResource;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecuperado;
 use App\Models\Customer;
@@ -79,22 +78,15 @@ class CustomerSalesTable extends BaseWidget
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
                 ),
 
-            TextColumn::make('pgc')
-                ->label('PGC')
-                ->state(fn (Venta $record): string => filled($record->customer_id) ? 'VerCL' : '—')
+            TextColumn::make('ver_cont')
+                ->label('Ver/Cont')
+                ->state('Ver/cont')
                 ->badge()
-                ->color(fn (string $state): string => $state === 'VerCL' ? 'info' : 'gray')
-                ->url(function (Venta $record): ?string {
-                    if (! filled($record->customer_id)) {
-                        return null;
-                    }
-
-                    return CustomerResource::getUrl('view', [
-                        'record' => $record->customer_id,
-                    ], panel: 'superAdmin');
-                })
-                ->openUrlInNewTab()
-                ->tooltip('Posición Global de este cliente')
+                ->color('info')
+                ->url(fn (Venta $record): string => VentaResource::getUrl('edit', [
+                    'record' => $record,
+                ], panel: 'superAdmin'))
+                ->tooltip('Abrir formulario de este contrato')
                 ->alignCenter()
                 ->grow(false)
                 ->toggleable(),

@@ -100,6 +100,19 @@ class CustomerSalesTable extends BaseWidget
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
                 ),
 
+            TextColumn::make('ver_cont')
+                ->label('Ver/Cont')
+                ->state('Ver/cont')
+                ->badge()
+                ->color('info')
+                ->url(fn (Venta $record): string => VentaResource::getUrl('edit', [
+                    'record' => $record,
+                ], panel: 'admin'))
+                ->tooltip('Abrir formulario de este contrato')
+                ->alignCenter()
+                ->grow(false)
+                ->toggleable(),
+
             TextColumn::make('note.nro_nota')
                 ->label('# Nota')
                 ->formatStateUsing(fn ($state) => $state && strlen($state) === 5
