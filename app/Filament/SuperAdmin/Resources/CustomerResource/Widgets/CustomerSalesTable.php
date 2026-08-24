@@ -2,6 +2,7 @@
 
 namespace App\Filament\SuperAdmin\Resources\CustomerResource\Widgets;
 
+use App\Filament\SuperAdmin\Resources\CustomerResource;
 use App\Filament\SuperAdmin\Resources\VentaResource;
 use App\Models\ContratoRecuperado;
 use App\Models\Customer;
@@ -77,6 +78,26 @@ class CustomerSalesTable extends BaseWidget
                         ->modalCancelActionLabel('Cerrar')
                         ->infolist(fn (Venta $record): array => $this->ventaDatosInfolist($record))
                 ),
+
+            TextColumn::make('pgc')
+                ->label('PGC')
+                ->state(fn (Venta $record): string => filled($record->customer_id) ? 'VerCL' : '—')
+                ->badge()
+                ->color(fn (string $state): string => $state === 'VerCL' ? 'info' : 'gray')
+                ->url(function (Venta $record): ?string {
+                    if (! filled($record->customer_id)) {
+                        return null;
+                    }
+
+                    return CustomerResource::getUrl('view', [
+                        'record' => $record->customer_id,
+                    ], panel: 'superAdmin');
+                })
+                ->openUrlInNewTab()
+                ->tooltip('Posición Global de este cliente')
+                ->alignCenter()
+                ->grow(false)
+                ->toggleable(),
 
             TextColumn::make('note.nro_nota')
                 ->label('# Nota')
