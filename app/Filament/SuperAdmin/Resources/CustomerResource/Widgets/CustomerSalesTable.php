@@ -86,6 +86,7 @@ class CustomerSalesTable extends BaseWidget
                 ->url(fn (Venta $record): string => VentaResource::getUrl('edit', [
                     'record' => $record,
                 ], panel: 'superAdmin'))
+                ->openUrlInNewTab()
                 ->tooltip('Abrir formulario de este contrato')
                 ->alignCenter()
                 ->grow(false)

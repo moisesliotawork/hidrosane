@@ -773,9 +773,9 @@ class VentaResource extends Resource
                     ->searchable(),
                 TextColumn::make('pgc')
                     ->label('PGC')
-                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'VerCL' : '—')
+                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'Ir_PGC' : '—')
                     ->badge()
-                    ->color(fn (string $state): string => $state === 'VerCL' ? 'info' : 'gray')
+                    ->color(fn (string $state): string => $state === 'Ir_PGC' ? 'info' : 'gray')
                     ->url(function (Venta $record): ?string {
                         if (! filled($record->customer_id)) {
                             return null;
