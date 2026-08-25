@@ -5,14 +5,9 @@ namespace App\Support\Filament;
 use App\Models\User;
 use App\Support\ContractsCommercialUser;
 use App\Support\Storage\DocumentStorage;
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
 use Filament\Forms\Components\View;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -196,43 +191,14 @@ class VentaDocumentUpload
     }
 
     /**
-     * Título + subtítulo de cada documento, foto grande si hay imagen,
-     * y FileUpload oculto para no duplicar recuadros.
+     * Título + subtítulo, y miniatura FilePond (abrir, descargar, borrar) como en móvil.
      */
     public static function card(string $field, string $label, FileUpload $upload): Group
     {
-        $hasImage = fn (Get $get, ?Model $record = null): bool => self::imagePreviewUrl(
-            $get($field),
-            $record,
-            $field,
-        ) !== null;
-
         return Group::make([
             View::make('filament.forms.venta-document-large-preview')
-                ->viewData(fn (Get $get, ?Model $record = null): array => [
-                    'url' => self::imagePreviewUrl($get($field), $record, $field),
-                    'label' => $label,
-                ]),
-            Actions::make([
-                Action::make("{$field}_quitar_preview")
-                    ->label('Quitar')
-                    ->icon('heroicon-m-x-mark')
-                    ->color('danger')
-                    ->link()
-                    ->action(function (Set $set) use ($field): void {
-                        $set($field, null);
-                    }),
-            ])
-                ->visible($hasImage),
-            $upload
-                ->hiddenLabel()
-                ->extraFieldWrapperAttributes(function (Get $get, ?Model $record = null) use ($field): array {
-                    if (self::imagePreviewUrl($get($field), $record, $field) === null) {
-                        return [];
-                    }
-
-                    return ['class' => 'hidden'];
-                }),
+                ->viewData(['label' => $label]),
+            $upload->hiddenLabel(),
         ])->columns(1);
     }
 
