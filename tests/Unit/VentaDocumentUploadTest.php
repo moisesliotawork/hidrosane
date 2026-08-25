@@ -100,21 +100,20 @@ class VentaDocumentUploadTest extends TestCase
         $this->assertFalse(VentaDocumentUpload::isOfficeContractsPanel());
     }
 
-    public function test_image_preview_skips_pdf_and_empty_state(): void
+    public function test_mime_from_path_detects_images_and_pdfs(): void
     {
-        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(null));
-        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(''));
-        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup('ventas/contrato.pdf'));
-        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(['ventas/contrato.pdf']));
+        $this->assertSame('image/jpeg', VentaDocumentUpload::mimeFromPath('ventas/foto.jpg'));
+        $this->assertSame('image/png', VentaDocumentUpload::mimeFromPath('ventas/dni.png'));
+        $this->assertSame('application/pdf', VentaDocumentUpload::mimeFromPath('ventas/contrato.pdf'));
+        $this->assertNull(VentaDocumentUpload::mimeFromPath('ventas/archivo.bin'));
     }
 
-    public function test_image_preview_tag_shows_a_piece_of_the_image(): void
+    public function test_browser_preview_url_stays_on_app_origin(): void
     {
-        $html = VentaDocumentUpload::imagePreviewTag('https://cdn.example/foto.jpg');
+        $url = VentaDocumentUpload::browserPreviewUrl('ventas/foto.jpg');
 
-        $this->assertStringContainsString('<img src="https://cdn.example/foto.jpg"', $html);
-        $this->assertStringContainsString('href="https://cdn.example/foto.jpg"', $html);
-        $this->assertStringContainsString('max-h-48', $html);
-        $this->assertStringContainsString('object-contain', $html);
+        $this->assertNotNull($url);
+        $this->assertStringContainsString('/ventas/documentos/preview', $url);
+        $this->assertStringContainsString('path=ventas%2Ffoto.jpg', $url);
     }
 }

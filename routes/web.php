@@ -10,6 +10,7 @@ use App\Support\ContratosPorMesStats;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\CreamTransferController;
+use App\Http\Controllers\VentaDocumentPreviewController;
 
 Route::middleware(['auth'])    // añade otros middlewares si los usas (verified, etc.)
     ->prefix('comercial')
@@ -31,6 +32,10 @@ Route::middleware(['auth'])    // añade otros middlewares si los usas (verified
 Route::get('/', function () {
     return redirect('/admin');
 });
+
+Route::middleware(['web', 'auth'])
+    ->get('/ventas/documentos/preview', VentaDocumentPreviewController::class)
+    ->name('venta-documents.preview');
 
 Route::middleware(['auth', 'verified'])          // los mismos middlewares de tu panel
     ->prefix('admin/ventas')                   // coincide con la URL de Filament («admin»)

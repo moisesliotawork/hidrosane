@@ -5,15 +5,8 @@ namespace App\Support\Filament;
 use App\Models\User;
 use App\Support\ContractsCommercialUser;
 use App\Support\Storage\DocumentStorage;
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -197,58 +190,13 @@ class VentaDocumentUpload
     }
 
     /**
-     * Miniatura con la etiqueta del documento. El FileUpload (recuadro vacío) se oculta
-     * mientras haya imagen, para no duplicar cajas.
+     * Un solo recuadro: FileUpload de Filament (miniatura FilePond, abrir, descargar, borrar).
      */
     public static function card(string $field, string $label, FileUpload $upload): Group
     {
-        $hasPreview = fn (Get $get, ?Model $record = null): bool => self::hasImagePreview(
-            $get($field),
-            $record,
-            $field,
-        );
-
         return Group::make([
-            self::imagePreview($field, $label),
-            Actions::make([
-                Action::make("{$field}_quitar_preview")
-                    ->label('Quitar')
-                    ->icon('heroicon-m-x-mark')
-                    ->color('danger')
-                    ->link()
-                    ->action(function (Set $set) use ($field): void {
-                        $set($field, null);
-                    }),
-            ])
-                ->visible($hasPreview),
-            $upload
-                ->label($label)
-                ->extraFieldWrapperAttributes(function (Get $get, ?Model $record = null) use ($field): array {
-                    if (! self::hasImagePreview($get($field), $record, $field)) {
-                        return [];
-                    }
-
-                    return ['class' => 'hidden'];
-                }),
+            $upload->label($label),
         ])->columns(1);
-    }
-
-    public static function imagePreview(string $field, ?string $label = null): Placeholder
-    {
-        $placeholder = Placeholder::make("{$field}_image_preview")
-            ->content(function (Get $get, ?Model $record) use ($field): HtmlString {
-                return new HtmlString(self::imagePreviewMarkup($get($field), $record, $field));
-            })
-            ->visible(fn (Get $get, ?Model $record) => self::hasImagePreview($get($field), $record, $field));
-
-        return $label === null
-            ? $placeholder->hiddenLabel()
-            : $placeholder->label($label);
-    }
-
-    public static function hasImagePreview(mixed $state, mixed $record = null, string $field = ''): bool
-    {
-        return self::imagePreviewMarkup($state, $record, $field) !== '';
     }
 
     /**
@@ -259,48 +207,33 @@ class VentaDocumentUpload
         return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
     }
 
-    public static function imagePreviewMarkup(mixed $state, mixed $record = null, string $field = ''): string
+    public static function mimeFromPath(string $path): ?string
     {
-        if (is_array($state)) {
-            $state = $state[0] ?? null;
-        }
-
-        if ($state instanceof TemporaryUploadedFile) {
-            $mime = (string) $state->getMimeType();
-            if (! str_starts_with($mime, 'image/')) {
-                return '';
-            }
-
-            try {
-                return self::imagePreviewTag($state->temporaryUrl());
-            } catch (\Throwable) {
-                return '';
-            }
-        }
-
-        $path = is_string($state) && $state !== ''
-            ? $state
-            : (is_object($record) ? ($record->{$field} ?? null) : null);
-
-        if (! is_string($path) || $path === '') {
-            return '';
-        }
-
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        if (! in_array($ext, self::previewableImageExtensions(), true)) {
-            return '';
-        }
-
-        $url = DocumentStorage::url($path);
-
-        return $url ? self::imagePreviewTag($url) : '';
+        return match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+            'heic' => 'image/heic',
+            'heif' => 'image/heif',
+            'pdf' => 'application/pdf',
+            default => null,
+        };
     }
 
-    public static function imagePreviewTag(string $url): string
+    public static function browserPreviewUrl(string $path): ?string
     {
-        return '<a href="'.e($url).'" target="_blank" rel="noopener">'
-            .'<img src="'.e($url).'" alt="" class="mt-1 max-h-48 w-full rounded-lg border border-gray-600 object-contain bg-gray-900" />'
-            .'</a>';
+        $path = DocumentStorage::normalize($path);
+
+        if ($path === null) {
+            return null;
+        }
+
+        try {
+            return route('venta-documents.preview', ['path' => $path]);
+        } catch (\Throwable) {
+            return DocumentStorage::url($path);
+        }
     }
 
     public static function acceptAttribute(bool $allowPdf = false): string
@@ -358,7 +291,8 @@ class VentaDocumentUpload
             // Evita que Filament “pierda” ficheros existentes al fallar el probe de mime/size
             // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).
             ->fetchFileInformation(false)
-            ->imagePreviewHeight('200')
+            ->imagePreviewHeight('120')
+            ->previewable()
             ->openable()
             ->downloadable()
             ->required($required)
@@ -368,9 +302,28 @@ class VentaDocumentUpload
             // Sin ->image(): la regla image de Laravel rechaza HEIC en iPhone.
             ->extraInputAttributes($extraInputAttributes)
             ->extraAttributes([
-                'class' => 'border-2 border-dashed py-8 venta-document-upload',
+                'class' => 'venta-document-upload',
                 'data-venta-document-upload' => '1',
             ])
+            ->getUploadedFileUsing(function (string $file, string|array|null $storedFileNames = null): ?array {
+                $path = DocumentStorage::normalize($file) ?? $file;
+                $url = self::browserPreviewUrl($path);
+
+                if ($url === null) {
+                    return null;
+                }
+
+                $name = is_string($storedFileNames) && $storedFileNames !== ''
+                    ? $storedFileNames
+                    : (is_array($storedFileNames) ? ($storedFileNames[$file] ?? basename($path)) : basename($path));
+
+                return [
+                    'name' => $name,
+                    'size' => 0,
+                    'type' => self::mimeFromPath($path) ?? 'application/octet-stream',
+                    'url' => $url,
+                ];
+            })
             ->afterStateHydrated(function (FileUpload $component, mixed $state) use ($field): void {
                 // Filament itera el state con foreach: debe ser array, nunca string suelto.
                 if (is_string($state) && $state !== '') {
