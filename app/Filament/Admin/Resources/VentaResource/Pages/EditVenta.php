@@ -214,6 +214,10 @@ class EditVenta extends EditRecord
         /* 1. Nunca tocar el Nº de nota */
         Arr::forget($data, 'note.nro_nota');
 
+        if (array_key_exists('note_id', $data) && ! filled($data['note_id'])) {
+            $data['note_id'] = null;
+        }
+
         /* 2. Reglas de modalidad de pago */
         $modalidad = $data['modalidad_pago'] ?? 'Financiado';
 

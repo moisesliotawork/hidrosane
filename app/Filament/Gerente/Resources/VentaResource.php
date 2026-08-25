@@ -83,8 +83,8 @@ class VentaResource extends Resource
                 ->searchable()
                 ->columnSpanFull(),
 
-            /* guarda la relación con la nota; no se muestra */
-            Hidden::make('note_id')->required(),
+            /* Relación con la nota (oculta). Opcional: no todos los contratos tienen nota. */
+            Hidden::make('note_id')->nullable(),
 
 
             Section::make('Informe al repartidor')
