@@ -45,7 +45,6 @@ use App\Filament\Support\CustomerPhoneForm;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaCustomerRelationshipSection;
 use App\Support\Filament\VentaDocumentUpload;
-use App\Support\Storage\DocumentStorage;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -1729,103 +1728,28 @@ class VentaResource extends Resource
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(
-                    fn(Get $get, ?Venta $record) =>
-                    $required
-                    && ! self::isSuperAdminPanel()
-                    && !request()->routeIs('filament.*.resources.ventas*.create-b')
-                    && !self::isContratoB($record)
-                    && blank($get($field))
-                    && blank($record?->{$field})
-                ),
-
-            Placeholder::make("{$field}_linked_preview")
-                ->label('')
-                ->content(function (Get $get, ?Venta $record) use ($field): HtmlString {
-                    $path = $get($field) ?: $record?->{$field};
-                    if (is_array($path)) {
-                        $path = $path[0] ?? null;
-                    }
-                    if (! is_string($path) || $path === '') {
-                        return new HtmlString('');
-                    }
-
-                    $path = ltrim($path, '/');
-                    $url = DocumentStorage::url($path);
-
-                    if ($url === null) {
-                        return new HtmlString(
-                            '<div class="text-sm text-warning-600">Ruta en BD sin fichero en disco: '
-                            .e($path).'</div>'
-                        );
-                    }
-
-                    $name = basename($path);
-                    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-                    $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'], true);
-
-                    // SuperAdmin: el propio FileUpload ya muestra una miniatura justo
-                    // debajo (imagePreviewHeight 200); esta imagen grande sobra y solo
-                    // ocupa espacio. En el resto de paneles se mantiene.
-                    $preview = ($isImage && ! self::isSuperAdminPanel())
-                        ? '<img src="'.e($url).'" alt="'.e($name).'" class="mt-2 max-h-48 rounded border border-gray-600 object-contain" />'
-                        : '';
-
-                    return new HtmlString(
-                        '<div class="mb-3 rounded-lg bg-gray-800 text-gray-100 p-3 text-sm">'
-                        .'<div class="font-semibold">Archivo actual: '.e($name).'</div>'
-                        .'<a class="text-primary-400 underline" href="'.e($url).'" target="_blank" rel="noopener">Abrir / descargar</a>'
-                        .$preview
-                        .'</div>'
-                    );
-                })
-                ->visible(function (Get $get, ?Venta $record) use ($field): bool {
-                    $path = $get($field) ?: $record?->{$field};
-                    if (is_array($path)) {
-                        $path = $path[0] ?? null;
-                    }
-
-                    return filled($path);
-                }),
-
-            VentaDocumentUpload::configure(
-                FileUpload::make($field),
-                $field,
-                false,
-                true,  // Admin: PDF en cualquier documento (p. ej. contrato firmado)
-                false, // sin capture: en PC bloquea el selector de archivos
+        $upload = VentaDocumentUpload::configure(
+            FileUpload::make($field),
+            $field,
+            false,
+            true,  // Admin: PDF en cualquier documento (p. ej. contrato firmado)
+            false, // sin capture: en PC bloquea el selector de archivos
+        )
+            ->required(
+                fn (?Venta $record) =>
+                $required
+                && ! self::isSuperAdminPanel()
+                && filled($record)
+                && ! self::isContratoB($record)
             )
-                ->required(
-                    fn(?Venta $record) =>
-                    $required
-                    && ! self::isSuperAdminPanel() // SuperAdmin Contratos: precontractual opcional
-                    && filled($record)           // solo en EDIT
-                    && !self::isContratoB($record) // y que NO sea contrato -B
-                )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
-                ->columnSpanFull(),
+            ->validationMessages([
+                'required' => "El documento {$label} es obligatorio.",
+            ])
+            ->columnSpanFull();
+
+        // Contratos (Admin / SuperAdmin): un recuadro por documento (miniatura, abrir, descargar, borrar).
+        return Group::make([
+            $upload->label($label),
         ])->columns(1);
     }
 

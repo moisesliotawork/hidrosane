@@ -7,13 +7,9 @@ use Filament\Resources\Pages\Page;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Forms\Components\{Section, Group, FileUpload, Placeholder};
+use Filament\Forms\Components\{Section, Group, FileUpload};
 use Filament\Notifications\Notification;
 use App\Models\Venta;
-use Illuminate\Support\Str;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Illuminate\Support\HtmlString;
-use Filament\Forms\Get;
 use App\Support\Filament\VentaDocumentUpload;
 
 
@@ -87,27 +83,6 @@ class GestionDocumentos extends Page implements HasForms
         bool $soloCamara = true,
     ): Group {
         return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
-
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,
@@ -115,6 +90,7 @@ class GestionDocumentos extends Page implements HasForms
                 null,
                 $soloCamara,
             )
+                ->label($label)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

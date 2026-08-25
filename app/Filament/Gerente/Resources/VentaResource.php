@@ -33,7 +33,6 @@ use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
 use App\Enums\Financiera;
 use Carbon\Carbon;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Database\Eloquent\Builder;
@@ -975,27 +974,6 @@ class VentaResource extends Resource
         bool $soloCamara = true,
     ): Group {
         return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
-
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,
@@ -1003,6 +981,7 @@ class VentaResource extends Resource
                 true,
                 false,
             )
+                ->label($label)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])

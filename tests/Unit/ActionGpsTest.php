@@ -2,8 +2,10 @@
 
 namespace Tests\Unit;
 
+use App\Models\Note;
 use App\Models\User;
 use App\Support\ActionGps;
+use App\Support\Filament\GpsActionForm;
 use Mockery;
 use Tests\TestCase;
 
@@ -131,5 +133,21 @@ class ActionGpsTest extends TestCase
 
         $this->assertNull($coords['lat']);
         $this->assertNull($coords['lng']);
+    }
+
+    public function test_fill_from_note_uses_note_gps_so_venta_modal_is_ready(): void
+    {
+        $note = new Note([
+            'lat' => null,
+            'lng' => null,
+            'lat_dentro' => '42.721077696046',
+            'lng_dentro' => '-8.7159809730851',
+        ]);
+
+        $filled = GpsActionForm::fillFromNote($note);
+
+        $this->assertSame('42.721077696046', $filled['gps_lat']);
+        $this->assertSame('-8.7159809730851', $filled['gps_lng']);
+        $this->assertSame([], GpsActionForm::fillFromNote(null));
     }
 }

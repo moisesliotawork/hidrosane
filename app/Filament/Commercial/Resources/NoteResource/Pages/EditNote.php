@@ -386,12 +386,16 @@ class EditNote extends EditRecord
                         return;
                     }
 
-                    // Guardar GPS de la venta en la nota (CreateVenta lo copiará al venta)
-                    if (!empty($data['gps_lat']) && !empty($data['gps_lng'])) {
-                        $this->record->lat = $data['gps_lat'];
-                        $this->record->lng = $data['gps_lng'];
-                        $this->record->save();
-                    }
+                    ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::assertCoordsForVentaOrFail(
+                        $this->record->lat ?? $this->record->lat_dentro,
+                        $this->record->lng ?? $this->record->lng_dentro,
+                        $data,
+                        auth()->user(),
+                    );
+
+                    $this->record->lat = $ventaLat;
+                    $this->record->lng = $ventaLng;
+                    $this->record->save();
 
                     Notification::make()
                         ->title('Continúa con el contrato')

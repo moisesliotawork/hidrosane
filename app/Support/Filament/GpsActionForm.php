@@ -2,6 +2,7 @@
 
 namespace App\Support\Filament;
 
+use App\Models\Note;
 use App\Support\ActionGps;
 use Filament\Actions\Action;
 use Filament\Actions\StaticAction;
@@ -18,12 +19,18 @@ class GpsActionForm
         }
 
         return [
+            // No usar ->required(): el hidden falla en silencio si el GPS del
+            // navegador tarda o si la nota ya tiene coordenadas (Confirmada / DENTRO).
             Forms\Components\Hidden::make('gps_lat')
-                ->required()
-                ->dehydrated(),
+                ->dehydrated()
+                ->default(fn ($livewire = null) => self::fillFromNote(
+                    is_object($livewire) ? ($livewire->record ?? null) : null
+                )['gps_lat'] ?? null),
             Forms\Components\Hidden::make('gps_lng')
-                ->required()
-                ->dehydrated(),
+                ->dehydrated()
+                ->default(fn ($livewire = null) => self::fillFromNote(
+                    is_object($livewire) ? ($livewire->record ?? null) : null
+                )['gps_lng'] ?? null),
             Forms\Components\View::make('filament.commercial.components.gps-capture-action'),
         ];
     }
@@ -110,6 +117,10 @@ class GpsActionForm
             return false;
         }
 
+        if (isset($livewire->record) && self::fillFromNote($livewire->record) !== []) {
+            return true;
+        }
+
         if (is_array($livewire->data ?? null) && self::gpsReadyOnForm($livewire->data)) {
             return true;
         }
@@ -154,5 +165,29 @@ class GpsActionForm
         $row = $livewire->mountedActionsData[$key] ?? null;
 
         return is_array($row) && self::gpsReadyOnForm($row);
+    }
+
+    /**
+     * GPS ya guardado en la nota (venta, confirmada, DENTRO) para no bloquear el modal.
+     *
+     * @return array{gps_lat: string, gps_lng: string}|array{}
+     */
+    public static function fillFromNote(mixed $note): array
+    {
+        if (! $note instanceof Note) {
+            return [];
+        }
+
+        $validated = ActionGps::validateOperatingCoords($note->lat, $note->lng)
+            ?? ActionGps::validateOperatingCoords($note->lat_dentro, $note->lng_dentro);
+
+        if ($validated === null) {
+            return [];
+        }
+
+        return [
+            'gps_lat' => $validated['lat'],
+            'gps_lng' => $validated['lng'],
+        ];
     }
 }

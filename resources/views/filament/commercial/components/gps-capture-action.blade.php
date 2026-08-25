@@ -1,11 +1,22 @@
 @php
     $registerGps = \App\Support\ActionGps::shouldRegisterGps();
+    $livewire = $getLivewire();
+    $noteHasGps = false;
+
+    if ($registerGps && is_object($livewire) && isset($livewire->record)) {
+        $filled = \App\Support\Filament\GpsActionForm::fillFromNote($livewire->record);
+        $noteHasGps = $filled !== [];
+    }
 @endphp
 
 <div
     x-data="{
-        gpsReady: @js(! $registerGps),
-        gpsStatus: @js($registerGps ? 'Obteniendo ubicación…' : ''),
+        gpsReady: @js(! $registerGps || $noteHasGps),
+        gpsStatus: @js(
+            ! $registerGps
+                ? ''
+                : ($noteHasGps ? 'Ubicación ya registrada en la nota.' : 'Obteniendo ubicación…')
+        ),
         syncSubmit() {
             if (! @js($registerGps)) {
                 return;
@@ -36,6 +47,7 @@
         $watch('gpsReady', () => syncSubmit());
 
         if (gpsReady) {
+            syncSubmit();
             return;
         }
 
@@ -50,10 +62,26 @@
             function (pos) {
                 const lat = String(pos.coords.latitude);
                 const lng = String(pos.coords.longitude);
-                gpsStatus = 'Ubicación capturada.';
-                gpsReady = true;
-                syncSubmit();
-                $wire.dispatch('gpsCapturadoParaAccionNota', { lat, lng });
+
+                const save = (typeof $wire.setGpsParaAccion === 'function')
+                    ? $wire.setGpsParaAccion(lat, lng)
+                    : $wire.dispatch('gpsCapturadoParaAccionNota', { lat, lng });
+
+                Promise.resolve(save).then((ok) => {
+                    if (ok === false) {
+                        gpsStatus = 'La ubicación no es válida. Permite el GPS e inténtalo de nuevo.';
+                        gpsReady = false;
+                        syncSubmit();
+                        return;
+                    }
+
+                    gpsStatus = 'Ubicación capturada.';
+                    gpsReady = true;
+                    syncSubmit();
+                }).catch(() => {
+                    gpsStatus = 'No se pudo registrar la ubicación. Recarga e inténtalo de nuevo.';
+                    syncSubmit();
+                });
             },
             function (err) {
                 gpsStatus = 'Sin GPS: permite la ubicación en el navegador (' + (err.message || 'denegado') + ').';
