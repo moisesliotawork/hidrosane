@@ -784,6 +784,7 @@ class HistoricoContratosResource extends Resource
         bool $soloCamara = true,
     ): Group {
         return Group::make([
+            VentaDocumentUpload::imagePreview($field),
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,

@@ -6,6 +6,10 @@ use App\Models\User;
 use App\Support\ContractsCommercialUser;
 use App\Support\Storage\DocumentStorage;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Get;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -186,6 +190,71 @@ class VentaDocumentUpload
         $panelId = filament()->getCurrentPanel()?->getId();
 
         return in_array($panelId, ['admin', 'gerente', 'superAdmin'], true);
+    }
+
+    /**
+     * Miniatura de la imagen ya cargada, sin caja de «Archivo actual» ni textos extra.
+     */
+    public static function imagePreview(string $field): Placeholder
+    {
+        return Placeholder::make("{$field}_image_preview")
+            ->hiddenLabel()
+            ->content(function (Get $get, ?Model $record) use ($field): HtmlString {
+                return new HtmlString(self::imagePreviewMarkup($get($field), $record, $field));
+            })
+            ->visible(function (Get $get, ?Model $record) use ($field): bool {
+                return self::imagePreviewMarkup($get($field), $record, $field) !== '';
+            });
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function previewableImageExtensions(): array
+    {
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'];
+    }
+
+    public static function imagePreviewMarkup(mixed $state, mixed $record = null, string $field = ''): string
+    {
+        if (is_array($state)) {
+            $state = $state[0] ?? null;
+        }
+
+        if ($state instanceof TemporaryUploadedFile) {
+            $mime = (string) $state->getMimeType();
+            if (! str_starts_with($mime, 'image/')) {
+                return '';
+            }
+
+            try {
+                return self::imagePreviewTag($state->temporaryUrl());
+            } catch (\Throwable) {
+                return '';
+            }
+        }
+
+        $path = is_string($state) && $state !== ''
+            ? $state
+            : (is_object($record) ? ($record->{$field} ?? null) : null);
+
+        if (! is_string($path) || $path === '') {
+            return '';
+        }
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (! in_array($ext, self::previewableImageExtensions(), true)) {
+            return '';
+        }
+
+        $url = DocumentStorage::url($path);
+
+        return $url ? self::imagePreviewTag($url) : '';
+    }
+
+    public static function imagePreviewTag(string $url): string
+    {
+        return '<img src="'.e($url).'" alt="" class="mt-1 mb-2 max-h-48 w-full rounded-lg border border-gray-600 object-contain bg-gray-900" />';
     }
 
     public static function acceptAttribute(bool $allowPdf = false): string

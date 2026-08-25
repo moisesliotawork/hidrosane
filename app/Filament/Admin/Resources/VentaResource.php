@@ -1747,8 +1747,9 @@ class VentaResource extends Resource
             ])
             ->columnSpanFull();
 
-        // Contratos (Admin / SuperAdmin): un recuadro por documento (miniatura, abrir, descargar, borrar).
+        // Contratos: miniatura de la imagen + recuadro FileUpload (abrir, descargar, borrar).
         return Group::make([
+            VentaDocumentUpload::imagePreview($field),
             $upload->label($label),
         ])->columns(1);
     }

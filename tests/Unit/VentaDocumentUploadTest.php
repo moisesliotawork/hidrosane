@@ -99,4 +99,21 @@ class VentaDocumentUploadTest extends TestCase
         filament()->setCurrentPanel(filament()->getPanel('comercial'));
         $this->assertFalse(VentaDocumentUpload::isOfficeContractsPanel());
     }
+
+    public function test_image_preview_skips_pdf_and_empty_state(): void
+    {
+        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(null));
+        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(''));
+        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup('ventas/contrato.pdf'));
+        $this->assertSame('', VentaDocumentUpload::imagePreviewMarkup(['ventas/contrato.pdf']));
+    }
+
+    public function test_image_preview_tag_shows_a_piece_of_the_image(): void
+    {
+        $html = VentaDocumentUpload::imagePreviewTag('https://cdn.example/foto.jpg');
+
+        $this->assertStringContainsString('<img src="https://cdn.example/foto.jpg"', $html);
+        $this->assertStringContainsString('max-h-48', $html);
+        $this->assertStringContainsString('object-contain', $html);
+    }
 }
