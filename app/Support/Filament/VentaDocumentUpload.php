@@ -291,7 +291,7 @@ class VentaDocumentUpload
             // Evita que Filament “pierda” ficheros existentes al fallar el probe de mime/size
             // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).
             ->fetchFileInformation(false)
-            ->imagePreviewHeight('120')
+            ->imagePreviewHeight('280')
             ->previewable()
             ->openable()
             ->downloadable()
