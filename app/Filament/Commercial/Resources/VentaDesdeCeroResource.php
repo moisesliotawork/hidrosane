@@ -376,7 +376,7 @@ class VentaDesdeCeroResource extends Resource
                                         : ($diff > 0 ? "+{$diff} sobre el límite" : "{$diff} por debajo");
                                 }),
                         ]),
-                        Section::make('Productos de la oferta')->collapsed()->schema([
+                        Section::make('Productos de la oferta')->collapsible()->schema([
                             Repeater::make('productos')->relationship()->minItems(1)
                                 ->validationMessages([
                                     'min' => 'Debes agregar al menos un producto a la oferta.',

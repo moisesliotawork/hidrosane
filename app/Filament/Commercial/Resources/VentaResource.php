@@ -55,7 +55,9 @@ class VentaResource extends Resource
             /* ---------- Cliente (editable) ---------- */
             Section::make('Información del cliente')
                     ->schema([
-                        Hidden::make('note_id')->required(),
+                        Hidden::make('note_id')
+                            ->dehydrated()
+                            ->nullable(),
 
                         Grid::make([
                             'default' => 1,   // móviles
@@ -385,7 +387,7 @@ class VentaResource extends Resource
                                 /* ─────────── Detalle de productos ─────────── */
 
                                 Section::make('Productos de la oferta')
-                                    ->collapsed()
+                                    ->collapsible()
                                     ->schema([
                                         Repeater::make('productos')
                                             ->relationship()

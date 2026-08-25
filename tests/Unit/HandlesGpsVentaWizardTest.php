@@ -83,6 +83,44 @@ class HandlesGpsVentaWizardTest extends TestCase
     }
 
     #[Test]
+    public function test_set_gps_para_venta_wizard_rejects_coords_outside_operating_zone(): void
+    {
+        $this->actingAs($this->mockCommercialUser());
+
+        $component = new class extends Component implements HasForms
+        {
+            use HandlesGpsVentaWizard;
+            use InteractsWithForms;
+
+            public ?array $data = [];
+
+            public function mount(): void
+            {
+                $this->form->fill([
+                    'gps_lat' => null,
+                    'gps_lng' => null,
+                ]);
+            }
+
+            public function form(Form $form): Form
+            {
+                return $form
+                    ->schema(GpsActionForm::ventaWizardFields())
+                    ->statePath('data');
+            }
+        };
+
+        $component->mount();
+        $ok = $component->setGpsParaVentaWizard(
+            (string) ActionGps::LEGACY_INVALID_LAT,
+            (string) ActionGps::LEGACY_INVALID_LNG,
+        );
+
+        $this->assertFalse($ok);
+        $this->assertNull($component->form->getRawState()['gps_lat'] ?? null);
+    }
+
+    #[Test]
     public function test_set_gps_para_venta_wizard_is_noop_when_gps_exempt(): void
     {
         $exempt = Mockery::mock(User::class)->makePartial();

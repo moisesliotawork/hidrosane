@@ -208,6 +208,66 @@ class CreateVenta extends CreateRecord
         }
 
         $this->seedWizardGpsFromNote($note->fresh());
+
+        $this->data['note_id'] = $this->noteId;
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['note_id'] = $this->noteId;
+
+        return $data;
+    }
+
+    public function create(bool $another = false): void
+    {
+        try {
+            parent::create($another);
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->danger()
+                ->title('No se pudo guardar la venta')
+                ->body($this->formatCommercialValidationBody($exception))
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        }
+    }
+
+    protected function formatCommercialValidationBody(ValidationException $exception): string
+    {
+        $labels = [
+            'note_id' => 'Nota asociada',
+            'gps_lat' => 'Ubicación GPS',
+            'gps_lng' => 'Ubicación GPS',
+            'fecha_nac' => 'Fecha de nacimiento',
+            'last_names' => 'Apellidos',
+            'iban' => 'IBAN',
+            'precontractual' => 'Precontractual',
+            'foto_sorteo' => 'Foto sorteo',
+            'ventaOfertas' => 'Ofertas',
+            'producto_id' => 'Producto de la oferta',
+            'fecha_entrega' => 'Fecha de entrega',
+            'horario_entrega' => 'Horario de entrega',
+            'motivo_venta' => 'Motivo de venta',
+            'motivo_horario' => 'Motivo del horario',
+        ];
+
+        $lines = [];
+        foreach ($exception->errors() as $field => $messages) {
+            $key = str_replace(['data.', 'data/'], '', (string) $field);
+            $base = explode('.', str_replace(['/', '.'], '.', $key))[0] ?? $key;
+            $label = $labels[$key] ?? $labels[$base] ?? str($base)->replace('_', ' ')->title()->toString();
+            $text = is_array($messages) ? (string) ($messages[0] ?? '') : (string) $messages;
+            $lines[] = $text !== '' ? "{$label}: {$text}" : $label;
+        }
+
+        if ($lines === []) {
+            return 'Revisa los campos obligatorios. Algunos pueden estar en el paso anterior o en una sección plegada (productos / documentos).';
+        }
+
+        return "Completa estos campos para poder guardar:\n".collect($lines)->take(8)->map(fn (string $line) => '• '.$line)->implode("\n");
     }
 
     protected function handleRecordCreation(array $data): Venta

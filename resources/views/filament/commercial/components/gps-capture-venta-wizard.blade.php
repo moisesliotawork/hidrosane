@@ -85,7 +85,14 @@
                 const lat = String(pos.coords.latitude);
                 const lng = String(pos.coords.longitude);
 
-                captureGpsOnServer(lat, lng).then(() => {
+                captureGpsOnServer(lat, lng).then((ok) => {
+                    if (ok === false) {
+                        gpsStatus = 'La ubicación no es válida para registrar la venta. Recarga e inténtalo de nuevo.';
+                        gpsReady = false;
+                        syncCreateButton();
+                        return;
+                    }
+
                     markGpsReady('Ubicación capturada para la venta.');
                 }).catch(() => {
                     gpsStatus = 'No se pudo registrar la ubicación en el servidor. Recarga e inténtalo de nuevo.';

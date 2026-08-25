@@ -168,7 +168,18 @@ class CreateVentaDesdeCero extends CreateRecord
     {
         $this->assertPuertaFriaLookupCompleted();
 
-        parent::create($another);
+        try {
+            parent::create($another);
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->danger()
+                ->title('No se pudo guardar la venta')
+                ->body('Revisa los campos obligatorios. Algunos pueden estar en el paso anterior o en una sección plegada (productos / documentos).')
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        }
     }
 
     protected function assertPuertaFriaLookupCompleted(): void

@@ -58,7 +58,9 @@ class HistoricoContratosResource extends Resource
         return $form
             ->schema([
                 // 👇 este hidden queda a nivel Venta (fuera de la sección del cliente)
-                Hidden::make('note_id')->required(),
+                Hidden::make('note_id')
+                    ->dehydrated()
+                    ->nullable(),
 
                 /* ---------- Cliente (editable) ---------- */
                 Section::make('Información del cliente')
@@ -263,7 +265,7 @@ class HistoricoContratosResource extends Resource
                                 /* ─────────── Detalle de productos ─────────── */
 
                                 Section::make('Productos de la oferta')
-                                    ->collapsed()
+                                    ->collapsible()
                                     ->schema([
                                         Repeater::make('productos')
                                             ->relationship()

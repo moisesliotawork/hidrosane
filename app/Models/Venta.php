@@ -18,6 +18,7 @@ use App\Models\CreamDailyControl;
 use Carbon\Carbon;
 use Illuminate\Filesystem\FilesystemAdapter;
 use App\Enums\OrigenVenta;
+use App\Support\NextNroContrAdm;
 use App\Support\Storage\DocumentStorage;
 
 /**
@@ -247,25 +248,20 @@ class Venta extends Model
 
     protected $guarded = [];
 
+    public static function nextNroContrAdm(): string
+    {
+        return NextNroContrAdm::fromExisting(
+            static::query()->whereNotNull('nro_contr_adm')->pluck('nro_contr_adm')
+        );
+    }
 
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($venta) {
-            if (!$venta->nro_contr_adm) {
-                // Buscar el nro_contrato más alto
-                $max = self::max('nro_contr_adm');
-
-                // Convertir a número entero (si existe) y sumar 1
-                if ($max) {
-                    $next = (int) ltrim($max, '0') + 1;
-                } else {
-                    $next = 1023; // 🚀 primer contrato en producción
-                }
-
-                // Rellenar con ceros hasta 5 caracteres
-                $venta->nro_contr_adm = str_pad($next, 5, '0', STR_PAD_LEFT);
+            if (! $venta->nro_contr_adm) {
+                $venta->nro_contr_adm = static::nextNroContrAdm();
             }
         });
 
