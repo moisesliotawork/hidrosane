@@ -121,5 +121,7 @@ class GestionDocumentos extends Page implements HasForms
             ->title('Documentos del contrato actualizados')
             ->success()
             ->send();
+
+        $this->redirect(HistoricoContratosResource::getUrl('index', panel: 'comercial'));
     }
 }

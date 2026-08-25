@@ -679,26 +679,11 @@ class HistoricoContratosResource extends Resource
                 // ID / Nº de Nota
                 TextColumn::make('note.nro_nota')
                     ->label('ID Nota')
-                    ->badge()
-                    ->formatStateUsing(fn($state) => $state ? "Nota {$state}" : '-')
                     ->searchable(),
 
-                // Fecha de declaración
-                TextColumn::make('fecha_venta')
-                    ->label('Fecha declaración')
-                    ->dateTime('Y-m-d H:i'),
-
-                TextColumn::make('nro_contr_adm')
-                    ->label('Nº Contr. ADM')
-                    ->badge()
-                    ->alignCenter()
-                    ->sortable()
-                    ->searchable()
-                    ->formatStateUsing(fn($state) => $state ? str_pad((string) $state, 5, '0', STR_PAD_LEFT) : '—'),
-
-                // Cliente (nombre completo)
                 TextColumn::make('cliente')
                     ->label('Cliente')
+                    ->weight('bold')
                     ->state(function (Venta $record) {
                         $c = $record->note?->customer;
                         return trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
@@ -714,6 +699,20 @@ class HistoricoContratosResource extends Resource
                             });
                         }
                     ),
+
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha declaración')
+                    ->dateTime('Y-m-d H:i')
+                    ->badge()
+                    ->color('orange'),
+
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contr. ADM')
+                    ->badge()
+                    ->alignCenter()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(fn($state) => $state ? str_pad((string) $state, 5, '0', STR_PAD_LEFT) : '—'),
 
                 TextColumn::make('note.customer.dni')
                     ->label('DNI')
