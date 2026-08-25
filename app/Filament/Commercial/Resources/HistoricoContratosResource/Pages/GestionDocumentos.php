@@ -40,6 +40,7 @@ class GestionDocumentos extends Page implements HasForms
 
         $this->form->fill([
             'precontractual' => $record->precontractual,
+            'foto_sorteo' => $record->foto_sorteo,
             'dni_anverso' => $record->dni_anverso,
             'dni_reverso' => $record->dni_reverso,
             'documento_titularidad' => $record->documento_titularidad,
@@ -63,6 +64,7 @@ class GestionDocumentos extends Page implements HasForms
 
                         //RESTO: CÁMARA
                         self::docCard('precontractual', 'Precontractual', true, true),
+                        self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
                         self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                         self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                         self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
@@ -105,6 +107,7 @@ class GestionDocumentos extends Page implements HasForms
 
         $this->record->fill([
             'precontractual' => $data['precontractual'] ?? $this->record->precontractual,
+            'foto_sorteo' => $data['foto_sorteo'] ?? $this->record->foto_sorteo,
             'dni_anverso' => $data['dni_anverso'] ?? $this->record->dni_anverso,
             'dni_reverso' => $data['dni_reverso'] ?? $this->record->dni_reverso,
             'documento_titularidad' => $data['documento_titularidad'] ?? $this->record->documento_titularidad,
