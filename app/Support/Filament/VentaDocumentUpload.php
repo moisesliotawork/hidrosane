@@ -5,9 +5,13 @@ namespace App\Support\Filament;
 use App\Models\User;
 use App\Support\ContractsCommercialUser;
 use App\Support\Storage\DocumentStorage;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Group;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -193,18 +197,58 @@ class VentaDocumentUpload
     }
 
     /**
-     * Miniatura de la imagen ya cargada, sin caja de «Archivo actual» ni textos extra.
+     * Miniatura con la etiqueta del documento. El FileUpload (recuadro vacío) se oculta
+     * mientras haya imagen, para no duplicar cajas.
      */
-    public static function imagePreview(string $field): Placeholder
+    public static function card(string $field, string $label, FileUpload $upload): Group
     {
-        return Placeholder::make("{$field}_image_preview")
-            ->hiddenLabel()
+        $hasPreview = fn (Get $get, ?Model $record = null): bool => self::hasImagePreview(
+            $get($field),
+            $record,
+            $field,
+        );
+
+        return Group::make([
+            self::imagePreview($field, $label),
+            Actions::make([
+                Action::make("{$field}_quitar_preview")
+                    ->label('Quitar')
+                    ->icon('heroicon-m-x-mark')
+                    ->color('danger')
+                    ->link()
+                    ->action(function (Set $set) use ($field): void {
+                        $set($field, null);
+                    }),
+            ])
+                ->visible($hasPreview),
+            $upload
+                ->label($label)
+                ->extraFieldWrapperAttributes(function (Get $get, ?Model $record = null) use ($field): array {
+                    if (! self::hasImagePreview($get($field), $record, $field)) {
+                        return [];
+                    }
+
+                    return ['class' => 'hidden'];
+                }),
+        ])->columns(1);
+    }
+
+    public static function imagePreview(string $field, ?string $label = null): Placeholder
+    {
+        $placeholder = Placeholder::make("{$field}_image_preview")
             ->content(function (Get $get, ?Model $record) use ($field): HtmlString {
                 return new HtmlString(self::imagePreviewMarkup($get($field), $record, $field));
             })
-            ->visible(function (Get $get, ?Model $record) use ($field): bool {
-                return self::imagePreviewMarkup($get($field), $record, $field) !== '';
-            });
+            ->visible(fn (Get $get, ?Model $record) => self::hasImagePreview($get($field), $record, $field));
+
+        return $label === null
+            ? $placeholder->hiddenLabel()
+            : $placeholder->label($label);
+    }
+
+    public static function hasImagePreview(mixed $state, mixed $record = null, string $field = ''): bool
+    {
+        return self::imagePreviewMarkup($state, $record, $field) !== '';
     }
 
     /**
@@ -254,7 +298,9 @@ class VentaDocumentUpload
 
     public static function imagePreviewTag(string $url): string
     {
-        return '<img src="'.e($url).'" alt="" class="mt-1 mb-2 max-h-48 w-full rounded-lg border border-gray-600 object-contain bg-gray-900" />';
+        return '<a href="'.e($url).'" target="_blank" rel="noopener">'
+            .'<img src="'.e($url).'" alt="" class="mt-1 max-h-48 w-full rounded-lg border border-gray-600 object-contain bg-gray-900" />'
+            .'</a>';
     }
 
     public static function acceptAttribute(bool $allowPdf = false): string

@@ -783,8 +783,9 @@ class HistoricoContratosResource extends Resource
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            VentaDocumentUpload::imagePreview($field),
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,
@@ -792,12 +793,11 @@ class HistoricoContratosResource extends Resource
                 null,
                 $soloCamara,
             )
-                ->label($label)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
     protected static function isSalesManager(): bool
     {

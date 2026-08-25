@@ -863,19 +863,19 @@ class VentaResource extends Resource
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            VentaDocumentUpload::imagePreview($field),
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,
                 $required,
             )
-                ->label($label)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
 
 }// prueba//

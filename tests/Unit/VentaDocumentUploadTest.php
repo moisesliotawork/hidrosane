@@ -113,6 +113,7 @@ class VentaDocumentUploadTest extends TestCase
         $html = VentaDocumentUpload::imagePreviewTag('https://cdn.example/foto.jpg');
 
         $this->assertStringContainsString('<img src="https://cdn.example/foto.jpg"', $html);
+        $this->assertStringContainsString('href="https://cdn.example/foto.jpg"', $html);
         $this->assertStringContainsString('max-h-48', $html);
         $this->assertStringContainsString('object-contain', $html);
     }

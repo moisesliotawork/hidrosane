@@ -1747,11 +1747,7 @@ class VentaResource extends Resource
             ])
             ->columnSpanFull();
 
-        // Contratos: miniatura de la imagen + recuadro FileUpload (abrir, descargar, borrar).
-        return Group::make([
-            VentaDocumentUpload::imagePreview($field),
-            $upload->label($label),
-        ])->columns(1);
+        return VentaDocumentUpload::card($field, $label, $upload);
     }
 
     protected static function isContratoB(?Venta $record): bool

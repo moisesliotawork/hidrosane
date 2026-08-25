@@ -82,8 +82,9 @@ class GestionDocumentos extends Page implements HasForms
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            VentaDocumentUpload::imagePreview($field),
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
             VentaDocumentUpload::configure(
                 FileUpload::make($field),
                 $field,
@@ -91,12 +92,11 @@ class GestionDocumentos extends Page implements HasForms
                 null,
                 $soloCamara,
             )
-                ->label($label)
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
 
     public function save(): void
