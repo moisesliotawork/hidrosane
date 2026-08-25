@@ -5,8 +5,14 @@ namespace App\Support\Filament;
 use App\Models\User;
 use App\Support\ContractsCommercialUser;
 use App\Support\Storage\DocumentStorage;
+use Filament\Forms\Components\Actions;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Group;
+use Filament\Forms\Components\View;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -190,13 +196,79 @@ class VentaDocumentUpload
     }
 
     /**
-     * Un solo recuadro: FileUpload de Filament (miniatura FilePond, abrir, descargar, borrar).
+     * Título + subtítulo de cada documento, foto grande si hay imagen,
+     * y FileUpload oculto para no duplicar recuadros.
      */
     public static function card(string $field, string $label, FileUpload $upload): Group
     {
+        $hasImage = fn (Get $get, ?Model $record = null): bool => self::imagePreviewUrl(
+            $get($field),
+            $record,
+            $field,
+        ) !== null;
+
         return Group::make([
-            $upload->label($label),
+            View::make('filament.forms.venta-document-large-preview')
+                ->viewData(fn (Get $get, ?Model $record = null): array => [
+                    'url' => self::imagePreviewUrl($get($field), $record, $field),
+                    'label' => $label,
+                ]),
+            Actions::make([
+                Action::make("{$field}_quitar_preview")
+                    ->label('Quitar')
+                    ->icon('heroicon-m-x-mark')
+                    ->color('danger')
+                    ->link()
+                    ->action(function (Set $set) use ($field): void {
+                        $set($field, null);
+                    }),
+            ])
+                ->visible($hasImage),
+            $upload
+                ->hiddenLabel()
+                ->extraFieldWrapperAttributes(function (Get $get, ?Model $record = null) use ($field): array {
+                    if (self::imagePreviewUrl($get($field), $record, $field) === null) {
+                        return [];
+                    }
+
+                    return ['class' => 'hidden'];
+                }),
         ])->columns(1);
+    }
+
+    public static function imagePreviewUrl(mixed $state, mixed $record = null, string $field = ''): ?string
+    {
+        if (is_array($state)) {
+            $state = $state[0] ?? null;
+        }
+
+        if ($state instanceof TemporaryUploadedFile) {
+            $mime = (string) $state->getMimeType();
+            if (! str_starts_with($mime, 'image/')) {
+                return null;
+            }
+
+            try {
+                return $state->temporaryUrl();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        $path = is_string($state) && $state !== ''
+            ? $state
+            : (is_object($record) ? ($record->{$field} ?? null) : null);
+
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        $mime = self::mimeFromPath($path);
+        if ($mime === null || ! str_starts_with($mime, 'image/')) {
+            return null;
+        }
+
+        return self::browserPreviewUrl($path);
     }
 
     /**

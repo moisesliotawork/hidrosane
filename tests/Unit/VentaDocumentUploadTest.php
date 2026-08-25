@@ -116,4 +116,11 @@ class VentaDocumentUploadTest extends TestCase
         $this->assertStringContainsString('/ventas/documentos/preview', $url);
         $this->assertStringContainsString('path=ventas%2Ffoto.jpg', $url);
     }
+
+    public function test_image_preview_url_skips_pdfs(): void
+    {
+        $this->assertNull(VentaDocumentUpload::imagePreviewUrl('ventas/contrato.pdf'));
+        $this->assertNull(VentaDocumentUpload::imagePreviewUrl(null));
+        $this->assertNotNull(VentaDocumentUpload::imagePreviewUrl('ventas/foto.jpg'));
+    }
 }
