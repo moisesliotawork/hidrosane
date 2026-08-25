@@ -16,6 +16,7 @@ use App\Support\PuertaFriaCustomerSearch;
 use App\Support\VentaFechaVenta;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
@@ -40,6 +41,7 @@ class PuertaFriaCommercial911Test extends TestCase
             'last_name' => 'CONTR',
         ]);
 
+        Role::findOrCreate('commercial');
         $user->assignRole('commercial');
 
         return $user->fresh();

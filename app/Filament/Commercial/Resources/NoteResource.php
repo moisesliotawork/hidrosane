@@ -230,7 +230,8 @@ class NoteResource extends Resource
                             ])
                     ])
                     ->collapsible()
-                    ->hidden(fn(string $operation): bool => $operation === 'create'),
+                    ->hidden(fn (string $operation): bool => $operation === 'create'
+                        || (auth()->user()?->hasAnyRole(['commercial', 'team_leader']) ?? false)),
 
 
                 Forms\Components\Repeater::make('observations')
