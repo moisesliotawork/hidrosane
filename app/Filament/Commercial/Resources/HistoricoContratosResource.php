@@ -732,6 +732,11 @@ class HistoricoContratosResource extends Resource
                     ->color(fn(Venta $r) => $r->estado_venta?->color()),
             ])
             ->defaultSort('id', 'desc')
+            ->recordUrl(fn (Venta $record): string => static::getUrl(
+                'docs',
+                ['record' => $record],
+                panel: 'comercial',
+            ))
             ->actions([
 
                 Tables\Actions\EditAction::make()
