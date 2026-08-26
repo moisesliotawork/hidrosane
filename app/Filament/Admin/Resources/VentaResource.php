@@ -45,6 +45,7 @@ use App\Filament\Support\CustomerPhoneForm;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaCustomerRelationshipSection;
 use App\Support\Filament\VentaDocumentUpload;
+use App\Support\Filament\VentaSoftDeleteTableAction;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -1542,6 +1543,9 @@ class VentaResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                // Solo Abby (admin) puede archivar desde este listado; el resto de admins no ve la papelera.
+                // La recuperación se hace en SuperAdmin → Contratos borrados.
+                VentaSoftDeleteTableAction::makeForAbbyOnly(),
             ])
             ->filters([
 

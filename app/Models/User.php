@@ -155,6 +155,14 @@ class User extends Authenticatable implements FilamentUser, HasName
         };
     }
 
+    /**
+     * Usuario Abby (admin): única excepción del panel Admin autorizada a soft-delete
+     * contratos desde el listado de Contratos. La recuperación sigue siendo solo en SuperAdmin.
+     */
+    public function isAbby(): bool
+    {
+        return strcasecmp((string) $this->email, 'abbyvj@gmail.com') === 0;
+    }
 
     public function notes()
     {
