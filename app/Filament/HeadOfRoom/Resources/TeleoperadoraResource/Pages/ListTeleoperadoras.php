@@ -3,8 +3,10 @@
 namespace App\Filament\HeadOfRoom\Resources\TeleoperadoraResource\Pages;
 
 use App\Enums\EstadoTerminal;
+use App\Filament\HeadOfRoom\Pages\UnlockTeleoperadoras;
 use App\Filament\HeadOfRoom\Resources\TeleoperadoraResource;
 use App\Filament\HeadOfRoom\Widgets\DailyProductionTablesWidget;
+use App\Support\HeadOfRoom\TeleoperadorasAccess;
 use Carbon\Carbon;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
@@ -14,6 +16,15 @@ use Illuminate\Database\Eloquent\Builder;
 class ListTeleoperadoras extends ListRecords
 {
     protected static string $resource = TeleoperadoraResource::class;
+
+    public function mount(): void
+    {
+        if (! TeleoperadorasAccess::isUnlocked()) {
+            $this->redirect(UnlockTeleoperadoras::getUrl());
+
+            return;
+        }
+    }
 
     public function getMaxContentWidth(): MaxWidth | string | null
     {
