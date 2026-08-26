@@ -17,7 +17,25 @@ final class VentaSoftDeleteTableAction
             ->color('danger')
             ->requiresConfirmation()
             ->modalHeading('Eliminar contrato')
-            ->modalDescription('El contrato se archivará y dejará de aparecer en Contratos. Podrá consultarse en Contratos borrados.')
+            ->modalDescription(function (Venta $record): string {
+                $record->loadMissing('customer');
+
+                $cliente = trim((string) ($record->customer?->name ?? ''));
+                if ($cliente === '') {
+                    $cliente = '—';
+                }
+
+                $fecha = $record->fecha_venta
+                    ? $record->fecha_venta->timezone('Europe/Madrid')->format('d/m/Y')
+                    : '—';
+
+                $nro = trim((string) ($record->nro_contr_adm ?? ''));
+                $nroLinea = $nro !== '' ? "Nº contrato: {$nro}. " : '';
+
+                return "Cliente: {$cliente}. Fecha contrato: {$fecha}. {$nroLinea}"
+                    .'El contrato se archivará y dejará de aparecer en Contratos. '
+                    .'Podrá consultarse en Contratos borrados.';
+            })
             ->successNotificationTitle('Contrato archivado')
             ->action(fn (Venta $record) => VentaSoftDelete::delete($record));
     }
