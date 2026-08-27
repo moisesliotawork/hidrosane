@@ -27,15 +27,12 @@ return [
     /*
     | Color primario de Filament. Acepta el nombre de una paleta de
     | Filament\Support\Colors\Color (Lime, Sky, Blue, Emerald…) o un hex
-    | (#0284c7). Cubre todo el chrome de los siete paneles.
+    | (#0284c7). Cubre el chrome de los siete paneles.
     |
-    | Cubre todo lo que realmente se pinta. Las clases Tailwind sueltas de
-    | acento que hay en algunos blades (bg-sky-*, bg-lime-*, bg-orange-*…)
-    | NO tienen CSS detrás: la app no compila Tailwind propio y el CSS
-    | precompilado de Filament solo trae las paletas gray y primary. Son
-    | inertes hoy, tanto aquí como en Ohana. Si algún día se añade un tema
-    | propio de Filament (viteTheme), empezarían a pintar y habría que
-    | repasarlas.
+    | Las utilidades Tailwind sueltas que se escriben en los blades
+    | (bg-sky-600, text-green-600…) las genera el tema compilado de
+    | resources/css/filament/, no esta variable: son literales en el código y
+    | no siguen a BRAND_COLOR. Si cambias de color de marca, repásalas a mano.
     */
     'color' => env('BRAND_COLOR', 'Lime'),
 

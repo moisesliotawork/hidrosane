@@ -51,6 +51,7 @@ class SuperAdminPanelProvider extends PanelProvider
             ->path('superAdmin')
             ->login()
             ->favicon(asset('favicon.ico'))
+            ->viteTheme('resources/css/filament/theme.css')
             ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->userMenuItems([

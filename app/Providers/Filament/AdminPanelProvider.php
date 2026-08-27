@@ -36,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->favicon(asset('favicon.ico'))
+            ->viteTheme('resources/css/filament/theme.css')
             ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()

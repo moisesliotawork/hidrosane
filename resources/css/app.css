@@ -1,7 +1,12 @@
 @tailwind components;
 @tailwind utilities;
 
-@theme {
+/*
+ * Hoja de las páginas sueltas (fuera de los paneles de Filament).
+ * El tema de los paneles vive en resources/css/filament/theme.css.
+ */
+
+:root {
     --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";

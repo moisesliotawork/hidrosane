@@ -1,3 +1,26 @@
+## Hidrosane — despliegue
+
+**El deploy tiene que compilar los assets.** Los siete paneles cargan su CSS
+desde un tema propio de Filament (`resources/css/filament/theme.css`), que se
+resuelve por el manifiesto de Vite. `public/build` está en `.gitignore`, así
+que sin build el panel no se queda feo: revienta con "Unable to locate file in
+Vite manifest".
+
+En el script de deploy de Forge, después de `composer install`:
+
+```bash
+npm ci && npm run build
+```
+
+El tema existe porque el CSS que publica Filament sólo trae las paletas `gray`
+y la primaria dinámica: cualquier utilidad Tailwind suelta escrita en un blade
+(`bg-sky-600`, `text-green-600`…) se quedaba sin regla y no pintaba nada.
+
+Variables de entorno propias del proyecto (marca, acceso de demostración,
+Spaces, notificaciones): ver `.env.example`.
+
+---
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
