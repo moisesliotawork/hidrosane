@@ -17,6 +17,7 @@ class NoteHorResource extends Resource
 
     protected static ?string $navigationIcon   = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel  = 'Notas HOR';
+    protected static ?string $navigationGroup  = 'Asignación de Notas';
     protected static ?string $modelLabel       = 'Nota HOR';
     protected static ?string $pluralModelLabel = 'Notas HOR';
     protected static ?string $breadcrumb       = 'Notas HOR';
@@ -41,19 +42,40 @@ class NoteHorResource extends Resource
             ->formatStateUsing(fn($state) => $state instanceof FuenteNotas ? $state->getLabel() : $state)
             ->action(
                 Action::make('rotateFuente')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Note $record): string => 'Cambiar fuente — nota ' . $record->nro_nota)
+                    ->modalDescription(function (Note $record): string {
+                        [$current, $next] = self::nextFuenteRotation($record);
+
+                        $currentLabel = $current?->getLabel() ?? 'Sin definir';
+                        $nextLabel = $next->getLabel();
+
+                        return "¿Confirmas cambiar la fuente de «{$currentLabel}» a «{$nextLabel}»?";
+                    })
+                    ->modalSubmitActionLabel('Sí, cambiar fuente')
+                    ->modalCancelActionLabel('Cancelar')
                     ->action(function (Note $record): void {
-                        $cases   = FuenteNotas::cases();
-                        $current = $record->fuente instanceof FuenteNotas ? $record->fuente : null;
-                        $idx     = $current !== null ? array_search($current, $cases, true) : false;
-                        $next    = $cases[$idx !== false ? ($idx + 1) % count($cases) : 0];
+                        [, $next] = self::nextFuenteRotation($record);
                         $record->update(['fuente' => $next->value]);
                     })
             );
 
         $existingColumns = array_values($table->getColumns());
+
         array_splice($existingColumns, 1, 0, [$fuenteColumn]);
 
-        return $table->columns($existingColumns);
+        return $table->columns(array_values($existingColumns));
+    }
+
+    /** @return array{0: ?FuenteNotas, 1: FuenteNotas} */
+    private static function nextFuenteRotation(Note $record): array
+    {
+        $cases = FuenteNotas::cases();
+        $current = $record->fuente instanceof FuenteNotas ? $record->fuente : null;
+        $idx = $current !== null ? array_search($current, $cases, true) : false;
+        $next = $cases[$idx !== false ? ($idx + 1) % count($cases) : 0];
+
+        return [$current, $next];
     }
 
     public static function getRelations(): array

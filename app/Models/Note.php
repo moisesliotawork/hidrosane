@@ -10,10 +10,13 @@ use App\Enums\EstadoTerminal;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\NoteSalaEvent;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\NoteNullReason;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\NoteSalaObservation;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property int $id
@@ -72,7 +75,7 @@ use App\Models\NoteSalaObservation;
  */
 class Note extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -83,6 +86,7 @@ class Note extends Model
         'user_id',
         'customer_id',
         'comercial_id',
+        'assigned_by_user_id',
         'fuente',
         'nro_nota',
         'status',
@@ -102,6 +106,7 @@ class Note extends Model
         'printed',
         'reten',
         'fecha_declaracion',
+        'deleted_by_user_id',
     ];
 
     /**
@@ -140,8 +145,8 @@ class Note extends Model
 
         static::creating(function ($note) {
             if (empty($note->nro_nota)) {
-                // Buscar el nro_nota más alto
-                $max = self::max('nro_nota');
+                // Incluir soft-deleted para no reutilizar números
+                $max = self::withTrashed()->max('nro_nota');
 
                 if ($max) {
                     // Si ya hay notas en BD, tomamos el último +1
@@ -186,6 +191,23 @@ class Note extends Model
                 }
             }
         });
+
+        // Soft-delete: registrar quién borra. Nunca archivar contratos/ventas.
+        static::deleting(function (Note $note) {
+            if ($note->isForceDeleting()) {
+                return false;
+            }
+
+            if (blank($note->deleted_by_user_id)) {
+                $note->forceFill([
+                    'deleted_by_user_id' => auth()->id(),
+                ])->saveQuietly();
+            }
+        });
+
+        static::forceDeleting(function () {
+            return false;
+        });
     }
 
 
@@ -198,11 +220,22 @@ class Note extends Model
         return $this->belongsTo(User::class, "user_id");
     }
 
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
+    }
+
     public function comercial()
     {
         return $this->belongsTo(User::class, 'comercial_id')->withDefault([
             'name' => 'Sin Asignar'
         ]);
+    }
+
+    /** Usuario (Jefe de Sala / etc.) que asignó la nota al comercial. */
+    public function assignedBy()
+    {
+        return $this->belongsTo(User::class, 'assigned_by_user_id');
     }
 
     public function customer()
@@ -363,6 +396,11 @@ class Note extends Model
         return $this->hasMany(\App\Models\AbsentHistory::class, 'note_id');
     }
 
+    public function reassignmentLogs(): HasMany
+    {
+        return $this->hasMany(NoteReassignmentLog::class, 'note_id');
+    }
+
     public function nullReasons()
     {
         return $this->hasMany(\App\Models\NoteNullReason::class);
@@ -421,6 +459,140 @@ class Note extends Model
     public function scopeUnprinted($q)
     {
         return $q->where('printed', false);
+    }
+
+    public const BUSINESS_TIMEZONE = 'Europe/Madrid';
+
+    public static function businessTimezone(): string
+    {
+        return self::BUSINESS_TIMEZONE;
+    }
+
+    public static function businessToday(): Carbon
+    {
+        return now(self::businessTimezone())->startOfDay();
+    }
+
+    /** Columna para pestañas RETEN (fecha de envío/asignación a retén). */
+    public const RETEN_TAB_DATE_COLUMN = 'assignment_date';
+
+    /**
+     * @return array{today: string, yesterday: string}
+     */
+    public static function retenTabDates(): array
+    {
+        $today = self::businessToday();
+
+        return [
+            'today' => $today->toDateString(),
+            'yesterday' => $today->copy()->subDay()->toDateString(),
+        ];
+    }
+
+    /**
+     * Fecha de asignación comercial como día de calendario de negocio (Europe/Madrid).
+     * Se guarda como Y-m-d 00:00:00 en el timezone de la app para que whereDate / pestañas HOY no pierdan el día por UTC.
+     */
+    public static function normalizeCommercialAssignmentDate(mixed $date = null): Carbon
+    {
+        $dateString = filled($date)
+            ? Carbon::parse($date, self::businessTimezone())->toDateString()
+            : self::businessToday()->toDateString();
+
+        return Carbon::parse($dateString.' 00:00:00', config('app.timezone'));
+    }
+
+    /** Notas con comercial asignado (Asign.Comercial). */
+    public function scopeAssignedToCommercial($query)
+    {
+        return $query->whereNotNull('comercial_id');
+    }
+
+    /** Fecha efectiva en Asign.Comercial: asignación o visita si aún no hay asignación. */
+    public function effectiveAssignmentDate(): ?Carbon
+    {
+        return $this->assignment_date ?? $this->visit_date;
+    }
+
+    /**
+     * Filtra por el día de negocio (Europe/Madrid), aunque assignment_date esté guardado en UTC.
+     */
+    public function scopeWhereEffectiveAssignmentDate($query, Carbon|string $date)
+    {
+        $dateString = $date instanceof Carbon
+            ? $date->timezone(self::businessTimezone())->toDateString()
+            : Carbon::parse($date, self::businessTimezone())->toDateString();
+
+        // Convertir el día de negocio a instantes en TZ de la app (p. ej. UTC),
+        // porque el query binder serializa Carbon con su offset local sin convertir.
+        $appTz = config('app.timezone', 'UTC');
+        $start = Carbon::parse($dateString, self::businessTimezone())->startOfDay()->timezone($appTz);
+        $end = Carbon::parse($dateString, self::businessTimezone())->endOfDay()->timezone($appTz);
+
+        return $query->where(function ($q) use ($start, $end) {
+            $q->whereBetween('assignment_date', [$start, $end])
+                ->orWhere(function ($q2) use ($start, $end) {
+                    $q2->whereNull('assignment_date')
+                        ->whereNotNull('visit_date')
+                        ->whereBetween('visit_date', [$start, $end]);
+                });
+        });
+    }
+
+    /**
+     * Ventana visible en Notas (Comercial): hoy-5 … hoy según assignment_date.
+     * La fecha de visita programada (visit_date) no determina visibilidad.
+     */
+    public function scopeVisibleInCommercialNotas($query)
+    {
+        return $query
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->whereDate('assignment_date', '<=', today());
+    }
+
+    /** Notas visibles en Reasignar Visitas (misma lógica que NotasDeComercial). */
+    public function scopeForReasignarVisitas(Builder $query): Builder
+    {
+        return $query
+            ->where(function ($q) {
+                $q->whereNull('estado_terminal')
+                    ->orWhere('estado_terminal', '')
+                    ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
+            })
+            ->whereDoesntHave('venta')
+            ->where(function ($q) {
+                $q->whereNull('reten')->orWhere('reten', false);
+            });
+    }
+
+    public function scopeReasignarVisitasEnVentana(Builder $query): Builder
+    {
+        return $query
+            ->forReasignarVisitas()
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay())
+            ->whereDate('assignment_date', '<=', today());
+    }
+
+    /** Fecha que ve el comercial en NOTAS: asignación, no visita futura. */
+    public function commercialVisibleDate(): ?Carbon
+    {
+        return $this->assignment_date ?? $this->visit_date;
+    }
+
+    public function scopeCommercialVisibleDateToday($query)
+    {
+        return $query
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', today());
+    }
+
+    public function scopeCommercialVisibleDatePrevious($query)
+    {
+        return $query
+            ->whereNotNull('assignment_date')
+            ->whereDate('assignment_date', '<', today())
+            ->whereDate('assignment_date', '>=', now()->subDays(5)->startOfDay());
     }
 
     public function salaEvents()

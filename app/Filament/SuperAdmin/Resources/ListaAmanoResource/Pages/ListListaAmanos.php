@@ -1,0 +1,273 @@
+<?php
+
+namespace App\Filament\SuperAdmin\Resources\ListaAmanoResource\Pages;
+
+use App\Exports\ListaAmanoExport;
+use App\Filament\SuperAdmin\Resources\ListaAmanoResource;
+use App\Models\ListaAmano;
+use Filament\Actions;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Enums\MaxWidth;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Facades\Excel;
+
+class ListListaAmanos extends ListRecords
+{
+    protected static string $resource = ListaAmanoResource::class;
+
+    protected static string $view = 'filament.super-admin.resources.lista-amano.list-lista-amanos';
+
+    /** Mes seleccionado (Y-m). Null + showAllMonths = Todos. */
+    public ?string $selectedYearMonth = null;
+
+    public bool $showAllMonths = true;
+
+    public int $selectedYear;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $this->selectedYear = (int) (session('lista_amano.selectedYear') ?: now()->year);
+        $this->selectedYearMonth = session('lista_amano.selectedYearMonth');
+        $this->showAllMonths = (bool) session('lista_amano.showAllMonths', true);
+
+        if ($this->showAllMonths) {
+            $this->selectedYearMonth = null;
+        }
+    }
+
+    public function getMaxContentWidth(): MaxWidth|string|null
+    {
+        return MaxWidth::Full;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('previewPdf')
+                ->label('Previsualizar PDF')
+                ->icon('heroicon-o-eye')
+                ->color('warning')
+                ->url(fn (): string => $this->listaAmanoPdfUrl())
+                ->openUrlInNewTab(),
+
+            Actions\Action::make('downloadExcel')
+                ->label('Descargar Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $filters = $this->exportFilterState();
+                    $suffix = $filters['showAll']
+                        ? 'todos'
+                        : str_replace('-', '', (string) $filters['yearMonth']);
+                    $filename = 'lista-amano-'.$suffix.'-'.now('Europe/Madrid')->format('Ymd-His').'.xlsx';
+
+                    return Excel::download(
+                        new ListaAmanoExport(
+                            yearMonth: $filters['yearMonth'],
+                            clienteQ: $filters['clienteQ'],
+                            showAll: $filters['showAll'],
+                        ),
+                        $filename
+                    );
+                }),
+
+            Actions\CreateAction::make()
+                ->label('Nuevo registro'),
+        ];
+    }
+
+    /**
+     * @return array{yearMonth: ?string, clienteQ: ?string, showAll: bool}
+     */
+    protected function exportFilterState(): array
+    {
+        $showAll = $this->showAllMonths || blank($this->selectedYearMonth);
+        $clienteQ = $this->clienteSearchQuery();
+
+        return [
+            'yearMonth' => $showAll ? null : $this->selectedYearMonth,
+            'clienteQ' => $clienteQ !== '' ? $clienteQ : null,
+            'showAll' => $showAll,
+        ];
+    }
+
+    public function listaAmanoPdfUrl(): string
+    {
+        $filters = $this->exportFilterState();
+        $params = [];
+
+        if ($filters['showAll']) {
+            $params['todos'] = 1;
+        } else {
+            $params['mes'] = $filters['yearMonth'];
+        }
+
+        if (filled($filters['clienteQ'])) {
+            $params['q'] = $filters['clienteQ'];
+        }
+
+        return route('lista-amano.pdf', $params);
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        $query = parent::getTableQuery();
+
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return $query;
+        }
+
+        try {
+            [$year, $month] = array_map('intval', explode('-', $this->selectedYearMonth));
+        } catch (\Throwable) {
+            return $query;
+        }
+
+        return $query
+            ->where('anio', $year)
+            ->where('mes', $month);
+    }
+
+    /**
+     * Recarga la tabla sin borrar el filtro de cliente.
+     */
+    protected function refreshTableKeepingFilters(): void
+    {
+        $this->resetPage();
+        $this->flushCachedTableRecords();
+    }
+
+    protected function persistMonthSelection(): void
+    {
+        session([
+            'lista_amano.selectedYear' => $this->selectedYear,
+            'lista_amano.selectedYearMonth' => $this->selectedYearMonth,
+            'lista_amano.showAllMonths' => $this->showAllMonths,
+        ]);
+    }
+
+    /**
+     * Años mostrados en las filas de tabs (arriba → abajo).
+     *
+     * @return list<int>
+     */
+    public function tabYears(): array
+    {
+        return [2025, 2026];
+    }
+
+    public function clienteSearchQuery(): string
+    {
+        return trim((string) data_get($this->tableFilters, 'cliente_nombre.q', ''));
+    }
+
+    /**
+     * Meses (1-12) con actividad del cliente buscado, por año.
+     *
+     * @return array<int, list<int>>
+     */
+    public function clienteActivityByYear(): array
+    {
+        $q = $this->clienteSearchQuery();
+        if ($q === '') {
+            return [];
+        }
+
+        $rows = ListaAmano::query()
+            ->whereIn('anio', $this->tabYears())
+            ->where('cliente', 'like', '%'.$q.'%')
+            ->select('anio', 'mes')
+            ->distinct()
+            ->orderBy('anio')
+            ->orderBy('mes')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int) $row->anio][] = (int) $row->mes;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return array<int, array{label: string, full: string, bg: string, border: string, text: string}>
+     */
+    public function monthBadges(): array
+    {
+        return [
+            1 => ['label' => 'ENE', 'full' => 'Enero', 'bg' => '#fde8e8', 'border' => '#f5c2c2', 'text' => '#9f1239'],
+            2 => ['label' => 'FEB', 'full' => 'Febrero', 'bg' => '#fce7f3', 'border' => '#f0abcf', 'text' => '#9d174d'],
+            3 => ['label' => 'MAR', 'full' => 'Marzo', 'bg' => '#f3e8ff', 'border' => '#d8b4fe', 'text' => '#6b21a8'],
+            4 => ['label' => 'ABR', 'full' => 'Abril', 'bg' => '#ede9fe', 'border' => '#c4b5fd', 'text' => '#5b21b6'],
+            5 => ['label' => 'MAY', 'full' => 'Mayo', 'bg' => '#e0e7ff', 'border' => '#a5b4fc', 'text' => '#3730a3'],
+            6 => ['label' => 'JUN', 'full' => 'Junio', 'bg' => '#e0f2fe', 'border' => '#7dd3fc', 'text' => '#075985'],
+            7 => ['label' => 'JUL', 'full' => 'Julio', 'bg' => '#ccfbf1', 'border' => '#5eead4', 'text' => '#115e59'],
+            8 => ['label' => 'AGO', 'full' => 'Agosto', 'bg' => '#d1fae5', 'border' => '#6ee7b7', 'text' => '#065f46'],
+            9 => ['label' => 'SEP', 'full' => 'Septiembre', 'bg' => '#ecfccb', 'border' => '#bef264', 'text' => '#3f6212'],
+            10 => ['label' => 'OCT', 'full' => 'Octubre', 'bg' => '#fef9c3', 'border' => '#fde047', 'text' => '#854d0e'],
+            11 => ['label' => 'NOV', 'full' => 'Noviembre', 'bg' => '#ffedd5', 'border' => '#fdba74', 'text' => '#9a3412'],
+            12 => ['label' => 'DIC', 'full' => 'Diciembre', 'bg' => '#fee2e2', 'border' => '#fca5a5', 'text' => '#991b1b'],
+        ];
+    }
+
+    public function selectedBadgeMonth(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[1];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectedBadgeYear(): ?int
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return null;
+        }
+
+        try {
+            return (int) explode('-', $this->selectedYearMonth)[0];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    public function selectCalendarMonth(int $year, int $month): void
+    {
+        $month = max(1, min(12, $month));
+        $this->selectedYear = $year;
+        $this->selectedYearMonth = sprintf('%04d-%02d', $year, $month);
+        $this->showAllMonths = false;
+        $this->persistMonthSelection();
+        $this->refreshTableKeepingFilters();
+    }
+
+    public function showAllPayments(): void
+    {
+        $this->showAllMonths = true;
+        $this->selectedYearMonth = null;
+        $this->persistMonthSelection();
+        $this->refreshTableKeepingFilters();
+    }
+
+    public function selectedPeriodLabel(): ?string
+    {
+        if ($this->showAllMonths || blank($this->selectedYearMonth)) {
+            return 'Todos los registros';
+        }
+
+        $badges = $this->monthBadges();
+        $month = $this->selectedBadgeMonth();
+        $year = $this->selectedBadgeYear() ?? $this->selectedYear;
+        $label = $badges[$month]['full'] ?? ($badges[$month]['label'] ?? 'MES');
+
+        return $label.' '.$year;
+    }
+}

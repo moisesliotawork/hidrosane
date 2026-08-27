@@ -4,6 +4,7 @@ namespace App\Filament\Gerente\Resources;
 
 use App\Filament\Gerente\Resources\CustomerResource\Pages;
 use App\Filament\Gerente\Resources\CustomerResource\RelationManagers;
+use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Forms;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
 
@@ -38,6 +40,11 @@ class CustomerResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return CustomerPosicionGlobalTable::applyEagerLoads(parent::getEloquentQuery());
+    }
+
     public static function infolist(Infolist $infolist): Infolist
     {
         return $infolist->schema([
@@ -46,7 +53,9 @@ class CustomerResource extends Resource
                 ->schema([
                     TextEntry::make('name')
                         ->label('Nombre de Cliente')
-                        ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names))),
+                        ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
+                        ->color('success')
+                        ->weight(\Filament\Support\Enums\FontWeight::ExtraBold),
 
                     TextEntry::make('nro_cliente')
                         ->label('ID/Cliente')
@@ -68,21 +77,40 @@ class CustomerResource extends Resource
 
                     TextEntry::make('fecha_nac')
                         ->label('F. Nac')
-                        ->state(
-                            fn(Customer $r) =>
-                            blank($r->fecha_nac)
-                            ? '—'
-                            : Carbon::parse($r->fecha_nac)->format('d/m/Y')
-                        )
+                        ->state(fn (Customer $r) => $r->fechaNacDisplay('d/m/Y') ?? '—')
                         ->suffix(function (Customer $r) {
-                            if (blank($r->fecha_nac))
+                            $fechaNac = $r->safeFechaNac();
+
+                            if ($fechaNac === null) {
                                 return null;
-                            $d = Carbon::parse($r->fecha_nac)->diff(now());
+                            }
+
+                            $d = $fechaNac->diff(now());
+
                             return " ({$d->y} años {$d->m} meses y {$d->d} días)";
                         }),
 
                 ])
                 ->columnSpan(6),
+
+            // Alerta grande cuando el cliente está inhabilitado
+            Section::make('')
+                ->columnSpan(6)
+                ->visible(fn(Customer $r) => (bool) $r->inhabilitado)
+                ->schema([
+                    TextEntry::make('inhabilitado_alert')
+                        ->label('')
+                        ->state(fn() => '')
+                        ->extraAttributes(['class' => 'hidden'])
+                        ->helperText(new HtmlString(
+                            '<div style="background:#7f1d1d;border:3px solid #dc2626;border-radius:12px;padding:24px 32px;text-align:center;">'
+                            . '<div style="font-size:64px;line-height:1;">☠️</div>'
+                            . '<div style="color:#fca5a5;font-size:22px;font-weight:900;margin-top:12px;letter-spacing:1px;">'
+                            . 'ESTE CLIENTE YA NO PUEDE SER CONTACTADO POR LA EMPRESA</div>'
+                            . '<div style="color:#f87171;font-size:18px;font-weight:700;margin-top:8px;">ESTÁ DESCARTADO</div>'
+                            . '</div>'
+                        )),
+                ]),
 
             Section::make('Teléfonos')
                 ->columns(2)
@@ -120,7 +148,7 @@ class CustomerResource extends Resource
                     ->label('Nombre de Cliente')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
                     ->searchable(['first_names', 'last_names'])
-                    ->wrap(),
+                    ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                 TextColumn::make('nro_cliente')
                     ->label('ID/Cliente')
@@ -153,24 +181,44 @@ class CustomerResource extends Resource
                     ->badge()
                     ->color(fn(int $state): string => $state > 0 ? 'success' : 'gray'),
 
+                TextColumn::make('inhabilitado')
+                    ->label('INHAB')
+                    ->state(fn(Customer $r) => $r->inhabilitado ? '☠️' : '')
+                    ->color(fn(Customer $r) => $r->inhabilitado ? 'danger' : null)
+                    ->weight(fn(Customer $r) => $r->inhabilitado ? \Filament\Support\Enums\FontWeight::Bold : null)
+                    ->alignCenter()
+                    ->sortable(),
+
                 TextColumn::make('phones')
                     ->label('TELEFONOS')
                     ->state(function (Customer $r): string {
-                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        $fmt = fn (?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+
                         return collect([$r->phone, $r->secondary_phone, $r->third_phone])
-                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                            ->filter()
+                            ->map($fmt)
+                            ->map(fn (string $p) => e($p))
+                            ->join('<br>') ?: '—';
                     })
+                    ->html()
+                    ->wrap()
                     ->color('warning')
                     ->weight(\Filament\Support\Enums\FontWeight::Bold)
-                    ->searchable(['phone', 'secondary_phone']),
+                    ->searchable(['phone', 'secondary_phone', 'third_phone']),
 
                 TextColumn::make('phones_commercial')
                     ->label('TEL. COMERCIAL')
                     ->state(function (Customer $r): string {
-                        $fmt = fn(?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+                        $fmt = fn (?string $p): string => $p ? implode(' ', str_split(preg_replace('/\D+/', '', $p), 3)) : '';
+
                         return collect([$r->phone1_commercial, $r->phone2_commercial])
-                            ->filter()->map($fmt)->join(' | ') ?: '—';
+                            ->filter()
+                            ->map($fmt)
+                            ->map(fn (string $p) => e($p))
+                            ->join('<br>') ?: '—';
                     })
+                    ->html()
+                    ->wrap()
                     ->color('warning')
                     ->weight(\Filament\Support\Enums\FontWeight::Bold)
                     ->searchable(query: function (Builder $query, string $search): Builder {
@@ -178,6 +226,8 @@ class CustomerResource extends Resource
                                      ->orWhere('phone2_commercial', 'like', "%{$search}%");
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                CustomerPosicionGlobalTable::gpsDentroColumn(),
 
             ])
             ->defaultSort('id', 'desc')

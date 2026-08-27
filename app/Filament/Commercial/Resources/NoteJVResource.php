@@ -11,8 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Models\Note;
+use App\Filament\Support\CustomerPhoneForm;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -43,7 +43,6 @@ class NoteJVResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
@@ -78,27 +77,9 @@ class NoteJVResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()

@@ -27,6 +27,8 @@ use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 
@@ -47,17 +49,20 @@ class VentaDesdeCeroResource extends Resource
         return true;
     }
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-        // COPIADO 1:1 de tu versión Comercial
-        return $form->schema([
+        return [
             /* ==================== CLIENTE ==================== */
             Section::make('Información del cliente')->schema([
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required(),
-                    TextInput::make('dni')->label('DNI')->columnSpanFull(),
-                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
+                    TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
+                    FechaNacimientoField::configureDatePicker(
+                        DatePicker::make('fecha_nac')
+                            ->label('Fec. nac.'),
+                    ),
                     TextInput::make('age')->numeric()->label('Edad'),
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
@@ -171,15 +176,7 @@ class VentaDesdeCeroResource extends Resource
                             fn() => collect(range(1, 10))->mapWithKeys(fn($n) => [$n => (string) $n])->toArray()
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
-                    TextInput::make('iban')->label('IBAN')->columnSpanFull()
-                        ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
-                        ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
-                        ->afterStateUpdated(function (string $state, \Filament\Forms\Set $set) {
-                            $plain = str_replace(' ', '', strtoupper($state ?? ''));
-                            $formatted = implode(' ', str_split($plain, 4));
-                            if ($formatted !== $state)
-                                $set('iban', $formatted);
-                        }),
+
                 ]),
             ]),
 
@@ -443,6 +440,17 @@ class VentaDesdeCeroResource extends Resource
                 Toggle::make('crema')
                     ->label('¿Incluye crema?')
                     ->default(false),
+
+                TextInput::make('iban')->label('IBAN')->columnSpanFull()
+                    ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                    ->formatStateUsing(fn(?string $state) => $state ? implode(' ', str_split(strtoupper($state), 4)) : null)
+                    ->dehydrateStateUsing(fn(?string $state) => $state ? str_replace(' ', '', strtoupper($state)) : null)
+                    ->afterStateUpdated(function (string $state, \Filament\Forms\Set $set) {
+                        $plain = str_replace(' ', '', strtoupper($state ?? ''));
+                        $formatted = implode(' ', str_split($plain, 4));
+                        if ($formatted !== $state)
+                            $set('iban', $formatted);
+                    }),
             ])->columns(2),
 
             Section::make('Informe al REPARTIDOR')->schema([
@@ -471,6 +479,13 @@ class VentaDesdeCeroResource extends Resource
                 Textarea::make('observaciones_repartidor')->label('Observaciones adicionales para el repartidor')->rows(3)->columnSpanFull(),
             ])->columns(2),
 
+        ];
+    }
+
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
             Section::make('Gestión Documentos')
                 ->schema([
                     //SOLO FOTOTECA (sin capture, solo accept)
@@ -489,6 +504,14 @@ class VentaDesdeCeroResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
         ]);
     }
 
@@ -505,7 +528,7 @@ class VentaDesdeCeroResource extends Resource
         ];
     }
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,
@@ -533,44 +556,16 @@ class VentaDesdeCeroResource extends Resource
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                null,
+                $soloCamara,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
         ])->columns(1);
     }

@@ -4,6 +4,8 @@ namespace App\Filament\Gerente\Pages;
 
 use App\Models\User;
 use Filament\Pages\Page;
+use Filament\Support\Enums\ActionSize;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Contracts\HasTable;
@@ -38,16 +40,19 @@ class ComercialesVerNotas extends Page implements HasTable
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre')
-                    ->formatStateUsing(fn($record) => trim($record->name . ' ' . ($record->last_name ?? '')))
-                    ->searchable(),
+                    ->formatStateUsing(fn ($record) => trim($record->name . ' ' . ($record->last_name ?? '')))
+                    ->searchable()
+                    ->weight(FontWeight::Bold)
+                    ->extraAttributes(['class' => 'reasignar-visitas-nombre']),
             ])
             ->actions([
                 Tables\Actions\Action::make('ver_notas')
                     ->label('Ver notas')
                     ->button()
                     ->outlined()
+                    ->size(ActionSize::Medium)
                     ->color('primary')
-                    ->url(fn($record) => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
+                    ->url(fn ($record) => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => $record->id],
                         panel: 'gerente'
                     ))
@@ -57,9 +62,10 @@ class ComercialesVerNotas extends Page implements HasTable
                 Tables\Actions\Action::make('ver_reten')
                     ->label('Notas RETEN')
                     ->button()
-                    ->color('orange')
+                    ->size(ActionSize::Small)
+                    ->color('warning')
                     ->icon('heroicon-o-document-text')
-                    ->url(fn() => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
+                    ->url(fn () => \App\Filament\Gerente\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => 'reten'],
                         panel: 'gerente'
                     ))
@@ -68,6 +74,6 @@ class ComercialesVerNotas extends Page implements HasTable
             ->striped()
             ->paginated(true)
             ->defaultPaginationPageOption(25)
-            ->defaultSort('name');
+            ->defaultSort('empleado_id');
     }
 }

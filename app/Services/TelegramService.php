@@ -14,6 +14,7 @@ class TelegramService
         // Elegimos grupo según el target
         $chatId = match ($target) {
             'cantico' => config('services.telegram.chat_id_canticos'),
+            'accion_ohana' => config('services.telegram.chat_id_accion_ohana'),
             default => config('services.telegram.chat_id_ventas'),
         };
 
@@ -64,6 +65,78 @@ class TelegramService
             ]);
 
             // Si quieres que el job falle:
+            throw $e;
+        }
+    }
+
+    public function sendMessageWithInlineUrlButton(
+        string $message,
+        string $buttonText,
+        string $url,
+        string $target = 'accion_ohana'
+    ): void {
+        $token = config('services.telegram.bot_token');
+
+        $chatId = match ($target) {
+            'cantico' => config('services.telegram.chat_id_canticos'),
+            'accion_ohana' => config('services.telegram.chat_id_accion_ohana'),
+            default => config('services.telegram.chat_id_ventas'),
+        };
+
+        if (blank($token) || blank($chatId)) {
+            Log::warning("Telegram no configurado correctamente para el grupo '{$target}'", [
+                'target' => $target,
+                'token_empty' => blank($token),
+                'chat_id_empty' => blank($chatId),
+            ]);
+
+            return;
+        }
+
+        Log::info('TelegramService: enviando mensaje con botón inline', [
+            'target' => $target,
+            'chat_id' => $chatId,
+            'message_preview' => mb_substr($message, 0, 120),
+            'button_text' => $buttonText,
+            'url' => $url,
+        ]);
+
+        try {
+            $response = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
+                'chat_id' => $chatId,
+                'text' => $message,
+                'parse_mode' => 'Markdown',
+                'reply_markup' => [
+                    'inline_keyboard' => [[
+                        [
+                            'text' => $buttonText,
+                            'url' => $url,
+                        ],
+                    ]],
+                ],
+            ]);
+
+            if ($response->successful()) {
+                Log::info('TelegramService: mensaje con botón enviado correctamente', [
+                    'target' => $target,
+                    'status' => $response->status(),
+                ]);
+            } else {
+                Log::error('TelegramService: error HTTP al enviar mensaje con botón', [
+                    'target' => $target,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                $response->throw();
+            }
+        } catch (\Throwable $e) {
+            Log::error("TelegramService: excepción enviando mensaje con botón a Telegram ({$target})", [
+                'target' => $target,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             throw $e;
         }
     }

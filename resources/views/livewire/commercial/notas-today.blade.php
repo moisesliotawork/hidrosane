@@ -316,9 +316,15 @@
 
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
-                                De Camino
-                            </button>
+                            @if($note['de_camino'] ?? false)
+                                <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @else
+                                <button class="action-button" onclick="toggleDeCaminoConGps({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @endif
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
@@ -347,130 +353,5 @@
             </div>
         </div>
     </div>
-    <script>
-        function getUbicacion(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                // Si no está en HTTPS, guardar ubicación fija (Caracas)
-                Livewire.dispatch('guardarUbicacion', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Estás en entorno local, se usó ubicación de Caracas.');
-                return;
-            }
-
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-
-                        Livewire.dispatch('guardarUbicacion', {
-                            notaId: notaId,
-                            lat: lat,
-                            lng: lng
-                        });
-                    },
-                    function (error) {
-                        // Si hay error, usar Caracas como fallback
-                        Livewire.dispatch('guardarUbicacion', {
-                            notaId: notaId,
-                            lat: 10.4806,
-                            lng: -66.9036
-                        });
-                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                // Geolocalización no soportada
-                Livewire.dispatch('guardarUbicacion', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Geolocalización no soportada, se usó Caracas.');
-            }
-        }
-
-        function getUbicacionDentro(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                Livewire.dispatch('guardarUbicacionDentro', {
-                    notaId: notaId,
-                    lat: 10.4806,   // Caracas
-                    lng: -66.9036
-                });
-                alert('Entorno no HTTPS, se usó ubicación de Caracas (DENTRO).');
-                return;
-            }
-
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-
-                        Livewire.dispatch('guardarUbicacionDentro', {
-                            notaId: notaId,
-                            lat: lat,
-                            lng: lng
-                        });
-                    },
-                    function (error) {
-                        Livewire.dispatch('guardarUbicacionDentro', {
-                            notaId: notaId,
-                            lat: 10.4806,
-                            lng: -66.9036
-                        });
-                        alert('No se pudo obtener ubicación (DENTRO), se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                Livewire.dispatch('guardarUbicacionDentro', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
-            }
-        }
-
-        function llevarme(notaId, lat, lng) {
-            // ¿Tenemos coordenadas DENTRO?
-            if (!lat || !lng)
-            {
-                // Notificar desde backend con Filament Notifications
-                Livewire.dispatch('avisarSinDentro', { notaId: notaId });
-                return;
-            }
-
-            // 1) Intento abrir app nativa (Android/iOS) con esquema geo:
-            //    geo:lat,lng?q=lat,lng (funciona muy bien en móviles)
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile)
-            {
-                const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
-                // Abrimos la app si está disponible
-                window.location.href = geoUrl;
-
-                // Fallback a web (si no hay app)
-                setTimeout(() => {
-                    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-                    window.open(webUrl, '_blank');
-                }, 600);
-                return;
-            }
-
-            // 2) En desktop (o si no quieres esquema geo), abre Google Maps Web directamente:
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-            window.open(webUrl, '_blank');
-        }
-    </script>
-
+@include('components.gps-livewire-nota-scripts')
 </div>

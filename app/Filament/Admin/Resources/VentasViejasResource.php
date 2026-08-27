@@ -141,7 +141,7 @@ class VentasViejasResource extends Resource
 
                 TextColumn::make('hora_venta')
                     ->label('Hora')
-                    ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
+                    ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 

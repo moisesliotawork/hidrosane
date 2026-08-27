@@ -20,9 +20,13 @@ class AbsentHistoryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clock';
     protected static ?string $navigationLabel = 'Ausentes';
+    protected static ?string $navigationGroup = 'OTROS';
     protected static ?string $pluralModelLabel = 'Ausentes';
     protected static ?string $modelLabel = 'Ausente';
     protected static ?string $slug = 'ausentes';
+
+    /** Al final del menú */
+    protected static ?int $navigationSort = 100;
 
     public static function form(Form $form): Form
     {

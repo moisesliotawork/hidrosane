@@ -6,6 +6,7 @@ use App\Filament\Gerente\Resources\TeamResource\Pages;
 use App\Filament\Gerente\Resources\TeamResource\RelationManagers;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Storage\DocumentStorage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -39,8 +40,8 @@ class TeamResource extends Resource
                 ->image()
                 ->imagePreviewHeight('200')
                 ->directory('equipos')
-                ->disk('public')
-                ->visibility('public')
+                ->disk(DocumentStorage::diskName())
+                ->visibility(DocumentStorage::uploadVisibility())
                 ->columnSpanFull(),
 
 

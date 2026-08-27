@@ -3,7 +3,6 @@
 namespace App\Filament\HeadOfRoom\Pages;
 
 use App\Models\Note;
-use App\Enums\EstadoTerminal;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -11,8 +10,10 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Illuminate\Database\Eloquent\Builder;
 
-use Filament\Actions\Action;
 use App\Filament\HeadOfRoom\Resources\NoteResource;
+use Filament\Actions\Action;
+use App\Support\TeleoperatorCustomerNoteGuard;
+use Filament\Notifications\Notification;
 
 class NotasDireccionPage extends Page implements HasTable
 {
@@ -29,9 +30,30 @@ class NotasDireccionPage extends Page implements HasTable
 
     public ?string $phone = null;
 
+    public ?string $createBlockedMessage = null;
+
     public function mount(): void
     {
         $this->phone = request()->get('phone');
+
+        $digits = TeleoperatorCustomerNoteGuard::normalizePhoneDigits($this->phone);
+
+        if ($digits === null) {
+            return;
+        }
+
+        $evaluation = app(TeleoperatorCustomerNoteGuard::class)->evaluateForPhone($digits);
+
+        if (! $evaluation->allowed) {
+            $this->createBlockedMessage = $evaluation->message;
+
+            Notification::make()
+                ->title('NO SE PUEDE LLAMAR')
+                ->body($evaluation->message)
+                ->danger()
+                ->persistent()
+                ->send();
+        }
     }
 
     protected function getHeaderActions(): array
@@ -47,10 +69,23 @@ class NotasDireccionPage extends Page implements HasTable
                 ->label('Seguir')
                 ->icon('heroicon-o-arrow-right')
                 ->color('warning')
-                ->disabled(fn() => blank($this->phone))
-                ->url(fn() => NoteResource::getUrl('create', [
-                    'phone' => $this->phone,
-                ])),
+                ->disabled(fn () => blank($this->phone) || filled($this->createBlockedMessage))
+                ->action(function () {
+                    if (filled($this->createBlockedMessage)) {
+                        Notification::make()
+                            ->title('NO SE PUEDE LLAMAR')
+                            ->body($this->createBlockedMessage)
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
+
+                    return redirect()->to(NoteResource::getUrl('create', [
+                        'phone' => $this->phone,
+                    ]));
+                }),
         ];
     }
 
@@ -66,27 +101,28 @@ class NotasDireccionPage extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        $from = now()->startOfMonth()->subMonthsNoOverflow(4);
-        $todayEnd = now()->endOfDay();            // incluye hoy completo
-        $tomorrow = now()->addDay()->startOfDay(); // futuro desde mañana
+        $from     = now()->startOfMonth()->subMonthsNoOverflow(4);
+        $todayEnd = now()->endOfDay();
+        $tomorrow = now()->addDay()->startOfDay();
 
         return Note::query()
             ->with(['customer'])
             ->where(function (Builder $q) use ($from, $todayEnd, $tomorrow) {
-                // (A) Histórico: 4 meses -> hoy, con filtro de estados
-                $q->where(function (Builder $h) use ($from, $todayEnd) {
-                    $h->where('visit_date', '>=', $from)
-                        ->where('visit_date', '<=', $todayEnd)
-                        ->whereIn('estado_terminal', [
-                            EstadoTerminal::NUL->value,
-                            EstadoTerminal::VENTA->value,
-                            EstadoTerminal::CONFIRMADO->value,
-                        ]);
+                // (A) visit_date futura (cualquier estado)
+                $q->where('visit_date', '>=', $tomorrow)
+
+                // (B) visit_date en los últimos 4 meses (cualquier estado)
+                ->orWhere(function (Builder $h) use ($from, $todayEnd) {
+                    $h->whereNotNull('visit_date')
+                        ->where('visit_date', '>=', $from)
+                        ->where('visit_date', '<=', $todayEnd);
                 })
 
-                    // (B) Futuro: mañana en adelante, sin importar estado_terminal
-                    ->orWhere(function (Builder $f) use ($tomorrow) {
-                    $f->where('visit_date', '>=', $tomorrow);
+                // (C) assignment_date en los últimos 4 meses (sin importar visit_date ni estado)
+                ->orWhere(function (Builder $c) use ($from, $todayEnd) {
+                    $c->whereNotNull('assignment_date')
+                        ->where('assignment_date', '>=', $from)
+                        ->where('assignment_date', '<=', $todayEnd);
                 });
             });
     }
@@ -101,60 +137,29 @@ class NotasDireccionPage extends Page implements HasTable
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->label('Nombre Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
-                            });
-                        });
-                    }),
+                    ->label('Nombre Cliente'),
 
                 Tables\Columns\TextColumn::make('customer.primary_address')
                     ->label('Dirección')
                     ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('primary_address', 'like', "%{$search}%");
+                        $term = '%' . mb_strtolower($search) . '%';
+                        return $query->whereHas('customer', function (Builder $q) use ($term) {
+                            $q->whereRaw('LOWER(primary_address) LIKE ?', [$term]);
                         });
                     })
                     ->wrap(),
 
                 Tables\Columns\TextColumn::make('customer.postal_code')
-                    ->label('CP')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('postal_code', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('CP'),
 
                 Tables\Columns\TextColumn::make('customer.provincia')
-                    ->label('Provincia')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('provincia', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Provincia'),
 
                 Tables\Columns\TextColumn::make('customer.ciudad')
-                    ->label('Ciudad')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('ciudad', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Ciudad'),
 
                 Tables\Columns\TextColumn::make('customer.nro_piso')
-                    ->label('Nro Piso')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('nro_piso', 'like', "%{$search}%");
-                        });
-                    }),
+                    ->label('Nro Piso'),
             ])
             ->filters([
                 Tables\Filters\Filter::make('primary_address')
@@ -167,8 +172,9 @@ class NotasDireccionPage extends Page implements HasTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         if (filled($data['value'] ?? null)) {
-                            $query->whereHas('customer', function (Builder $q) use ($data) {
-                                $q->where('primary_address', 'like', '%' . $data['value'] . '%');
+                            $term = '%' . mb_strtolower($data['value']) . '%';
+                            $query->whereHas('customer', function (Builder $q) use ($term) {
+                                $q->whereRaw('LOWER(primary_address) LIKE ?', [$term]);
                             });
                         }
                         return $query;

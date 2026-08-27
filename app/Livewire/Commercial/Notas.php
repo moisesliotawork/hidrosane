@@ -14,9 +14,14 @@ use App\Models\NoteSalaEvent;
 use App\Enums\NoteStatus;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Support\NoteRouteGps;
+use App\Support\ActionGps;
+use App\Support\NoteSalaActions;
+use App\Livewire\Concerns\ValidatesLivewireGps;
 
 class Notas extends Component
 {
+    use ValidatesLivewireGps;
     public array $selectedNotes = [];
     public string $search = '';
     public ?string $statusFilter = null;
@@ -27,6 +32,7 @@ class Notas extends Component
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
+        'toggleDeCamino' => 'toggleDeCamino',
     ];
 
     public function resetFilters(): void
@@ -49,10 +55,6 @@ class Notas extends Component
         if (!$user?->hasRole('team_leader')) {
             return [];
         }
-
-        // rango hoy-5 a hoy
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
 
         // tab activo
         $active = request()->query('activeTab', 'todas');
@@ -78,11 +80,10 @@ class Notas extends Component
         };
 
         // helper para contar
-        $countFor = function ($idsOrId) use ($desde, $hasta, $estadoFiltro) {
+        $countFor = function ($idsOrId) use ($estadoFiltro) {
             $q = Note::query()
                 ->whereDoesntHave('venta')
-                ->whereNotNull('assignment_date')
-                ->whereBetween(DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                ->commercialVisibleDateToday()
                 ->where('reten', false)
                 ->where($estadoFiltro);
 
@@ -178,6 +179,10 @@ class Notas extends Component
     {
         $user = auth()->user();
 
+        if ($note->assignment_date?->toDateString() > now()->toDateString()) {
+            return false;
+        }
+
         if ($user->hasRole('sales_manager')) {
             return true;
         }
@@ -198,27 +203,33 @@ class Notas extends Component
 
     public function guardarUbicacion($notaId, $lat, $lng): void
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note || !$this->canAccessNote($note)) {
             Notification::make()->title('Acceso denegado')->danger()->send();
             return;
         }
 
-        $note->lat = $lat;
-        $note->lng = $lng;
+        $note->lat = $coords['lat'];
+        $note->lng = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
-            'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación capturada: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación capturada')
             ->success()
-            ->body("Ubicación guardada para la nota #$notaId: [$lat, $lng]")
+            ->body("Ubicación guardada para la nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
 
         $this->dispatch('notaActualizada');
@@ -226,33 +237,39 @@ class Notas extends Component
 
     public function guardarUbicacionDentro($notaId, $lat, $lng): void
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note || !$this->canAccessNote($note)) {
             Notification::make()->title('Acceso denegado')->danger()->send();
             return;
         }
 
-        $note->lat_dentro = $lat;
-        $note->lng_dentro = $lng;
+        $note->lat_dentro = $coords['lat'];
+        $note->lng_dentro = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'DENTRO',
-            'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación DENTRO: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación DENTRO capturada')
             ->success()
-            ->body("Guardada para nota #$notaId: [$lat, $lng]")
+            ->body("Guardada para nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
 
         $this->dispatch('notaActualizada');
     }
 
-    public function toggleDeCamino($noteId): void
+    public function toggleDeCamino($noteId, $lat = null, $lng = null): void
     {
         $note = Note::find($noteId);
 
@@ -265,22 +282,23 @@ class Notas extends Component
             return;
         }
 
-        $nuevoEstado = !$note->de_camino;
-        $note->de_camino = $nuevoEstado;
-        $note->save();
+        $enCamino = ! $note->de_camino;
 
-        AnotacionVisita::create([
-            'nota_id' => $noteId,
-            'author_id' => auth()->id(),
-            'asunto' => 'DE CAMINO',
-            'cuerpo' => $nuevoEstado ? "Va de camino" : "No va de camino",
-        ]);
+        if (! NoteRouteGps::toggleDeCamino($note, auth()->id(), $lat, $lng)) {
+            Notification::make()
+                ->title('GPS requerido')
+                ->warning()
+                ->body('Debes permitir la geolocalización para marcar DE CAMINO.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
-                    ->title('Estado actualizado')
-                    ->body($nuevoEstado ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
-            ->{$nuevoEstado ? 'success' : 'warning'}()
-                ->send();
+            ->title('Estado actualizado')
+            ->body($enCamino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
+            ->{$enCamino ? 'success' : 'warning'}()
+            ->send();
 
         $this->dispatch('notaActualizada');
     }
@@ -373,7 +391,7 @@ class Notas extends Component
     /**
      * ✅ Masivo: Enviar a Oficina (SALA) (igual que bulkAction del Resource)
      */
-    public function bulkEnviarASala(): void
+    public function bulkEnviarASala(?string $lat = null, ?string $lng = null): void
     {
         $allIds = $this->getSelectedNoteIds();
 
@@ -427,63 +445,9 @@ class Notas extends Component
             return;
         }
 
-        \DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
+        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolveFromCoords($lat, $lng);
 
-            // 1) Actualizar todas las notas elegibles
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // 2) Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 2.5) Agregar observación automática si son 2 o más
-            if (count($eligible) >= 2) {
-                $obsRows = [];
-                foreach ($eligible as $noteId) {
-                    $obsRows[] = [
-                        'note_id' => $noteId,
-                        'author_id' => $userId,
-                        'observation' => 'Envío Masivo a sala',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                if (!empty($obsRows)) {
-                    \App\Models\NoteSalaObservation::insert($obsRows);
-                }
-            }
-
-            // 3) Evento afterCommit (igual)
-            \DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
+        NoteSalaActions::sendBulkToOffice($eligible, auth()->id(), $lat, $lng);
 
         Notification::make()
             ->title('Notas enviadas a Oficina')
@@ -497,15 +461,14 @@ class Notas extends Component
 
 
     /**
-     * ✅ ESTE es el query “de arriba” pero en Livewire.
+     * Query base compartido (filtros comerciales, búsqueda, estado).
      */
-    public function getNotesProperty()
+    protected function baseNotesQuery()
     {
         $user = auth()->user();
 
         $query = Note::query()->with(['customer', 'comercial', 'user']);
 
-        // 1) Filtro por comercial (commercial / team_leader)
         if (!$user->hasRole('sales_manager')) {
             $ids = $this->allowedComercialIds();
             $query->whereIn('comercial_id', $ids);
@@ -518,7 +481,6 @@ class Notas extends Component
                 }
             }
         } else {
-            // sales_manager también puede filtrar por activeTab
             $active = request()->query('activeTab', '');
             if (Str::startsWith($active, 'com_')) {
                 $comId = (int) Str::after($active, 'com_');
@@ -528,33 +490,22 @@ class Notas extends Component
             }
         }
 
-        // 2) Estado terminal: null, '', o AUSENTE (case/trim)
         $query->where(function ($q) {
             $q->whereNull('estado_terminal')
                 ->orWhere('estado_terminal', '')
                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
         })->whereDoesntHave('venta');
 
-        // 3) Rango de fecha: hoy-5 hasta hoy (INCLUSIVO)
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
-
-        // 4) Sin reten
         $query->where('reten', false);
 
-        // 5) ✅ BÚSQUEDA (reactiva)
         $term = trim((string) $this->search);
 
         if ($term !== '') {
             $term = preg_replace('/\s+/', ' ', $term);
 
             $query->where(function ($q) use ($term) {
-
-                // Nota: nro_nota (búsqueda parcial)
                 $q->where('nro_nota', 'like', "%{$term}%");
 
-                // Customer (tu BD usa first_names / last_names)
                 $q->orWhereHas('customer', function ($qc) use ($term) {
                     $qc->where(function ($w) use ($term) {
                         $w->where('first_names', 'like', "%{$term}%")
@@ -572,7 +523,6 @@ class Notas extends Component
                     });
                 });
 
-                // Teleoperadora (user): empleado_id
                 $q->orWhereHas('user', function ($qu) use ($term) {
                     $qu->where('empleado_id', 'like', "%{$term}%")
                         ->orWhere('name', 'like', "%{$term}%")
@@ -586,89 +536,113 @@ class Notas extends Component
             $query->where('status', $this->statusFilter);
         }
 
+        return $query;
+    }
 
-        return $query
+    private function mapNote(Note $note): array
+    {
+        $customer = $note->customer;
+
+        $primary = trim((string) ($customer->primary_address ?? ''));
+        $nroPiso = trim((string) ($customer->nro_piso ?? ''));
+        $postalCode = trim((string) ($customer->postal_code ?? ''));
+        $city = trim((string) ($customer->ciudad ?? ''));
+        $province = trim((string) ($customer->provincia ?? ''));
+        $ayto = trim((string) ($customer->ayuntamiento ?? ''));
+
+        $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
+        $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
+
+        $provinceFormatted = $province ? "($province)" : null;
+
+        $dirL1 = $primary;
+
+        $dirL2Parts = [];
+        if ($nroPiso !== '') {
+            $dirL2Parts[] = $nroPiso;
+        }
+        if ($cpCity !== '') {
+            $dirL2Parts[] = $cpCity;
+        }
+        if ($ayto !== '') {
+            $dirL2Parts[] = $ayto;
+        }
+
+        $dirL2 = implode(' - ', $dirL2Parts);
+        if ($provinceFormatted) {
+            $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
+        }
+
+        $toTitleCase = function (?string $text): string {
+            $t = trim((string) $text);
+            if ($t === '') {
+                return '';
+            }
+            $t = mb_strtolower($t, 'UTF-8');
+            return mb_convert_case($t, MB_CASE_TITLE, 'UTF-8');
+        };
+
+        $dirL1 = $toTitleCase($dirL1);
+        $dirL2 = $toTitleCase($dirL2);
+
+        $dirOneLine = trim(
+            preg_replace('/\s+/', ' ', trim($dirL1 . ($dirL2 ? ' - ' . $dirL2 : ''))),
+            ' -'
+        );
+
+        $fullAddress = $dirOneLine !== '' ? $dirOneLine : 'Sin dirección';
+
+        $postalCodeSimple = $customer->postal_code ?? null;
+        $citySimple = $customer->ciudad ?? null;
+        $addressInfo = $postalCodeSimple && $citySimple
+            ? "$postalCodeSimple, $citySimple"
+            : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
+
+        return [
+            'id' => $note->id,
+            'nro_nota' => $note->nro_nota,
+            'customer' => $customer->name ?? 'Sin cliente',
+            'full_address' => $fullAddress,
+            'primary_address' => $customer->primary_address ?? 'Sin dirección',
+            'address_info' => $addressInfo,
+            'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
+            'visit_date' => $note->commercialVisibleDate()
+                ? $note->commercialVisibleDate()->format('d/m/Y')
+                : '--/--/----',
+            'visit_schedule' => $note->visit_schedule ?? '--:--',
+            'observations' => $note->observations,
+            'fuente' => $note->fuente->value,
+            'fuente_label' => $note->fuente->getLabel(),
+            'fuente_puntaje' => $note->fuente->getPuntaje(),
+            'de_camino' => $note->de_camino,
+            'show_phone' => $note->show_phone,
+            'phone' => $customer->phone ?? null,
+            'secondary_phone' => $customer->secondary_phone ?? null,
+            'lat_dentro' => $note->lat_dentro,
+            'lng' => $note->lng,
+            'lat' => $note->lat,
+            'lng_dentro' => $note->lng_dentro,
+        ];
+    }
+
+    /** Notas de hoy */
+    public function getNotesTodayProperty()
+    {
+        return $this->baseNotesQuery()
+            ->commercialVisibleDateToday()
             ->latest('assignment_date')
             ->get()
-            ->map(function ($note) {
-                $customer = $note->customer;
+            ->map(fn (Note $note) => $this->mapNote($note));
+    }
 
-                // ==== misma lógica de dirección formateada ====
-                $primary = trim((string) ($customer->primary_address ?? ''));
-                $nroPiso = trim((string) ($customer->nro_piso ?? ''));
-                $postalCode = trim((string) ($customer->postal_code ?? ''));
-                $city = trim((string) ($customer->ciudad ?? ''));
-                $province = trim((string) ($customer->provincia ?? ''));
-                $ayto = trim((string) ($customer->ayuntamiento ?? ''));
-
-                $cpCity = trim(implode(' ', array_filter([$postalCode, $city])));
-                $cpCity = preg_replace('/^(\d{4,5})\s+[A-ZÁÉÍÓÚÑ]\b\s+/u', '$1 ', $cpCity);
-
-                $provinceFormatted = $province ? "($province)" : null;
-
-                $dirL1 = $primary;
-
-                $dirL2Parts = [];
-                if ($nroPiso !== '')
-                    $dirL2Parts[] = $nroPiso;
-                if ($cpCity !== '')
-                    $dirL2Parts[] = $cpCity;
-                if ($ayto !== '')
-                    $dirL2Parts[] = $ayto;
-
-                $dirL2 = implode(' - ', $dirL2Parts);
-                if ($provinceFormatted)
-                    $dirL2 = trim($dirL2 . ' ' . $provinceFormatted);
-
-                $toTitleCase = function (?string $text): string {
-                    $t = trim((string) $text);
-                    if ($t === '')
-                        return '';
-                    $t = mb_strtolower($t, 'UTF-8');
-                    return mb_convert_case($t, MB_CASE_TITLE, 'UTF-8');
-                };
-
-                $dirL1 = $toTitleCase($dirL1);
-                $dirL2 = $toTitleCase($dirL2);
-
-                $dirOneLine = trim(
-                    preg_replace('/\s+/', ' ', trim($dirL1 . ($dirL2 ? ' - ' . $dirL2 : ''))),
-                    ' -'
-                );
-
-                $fullAddress = $dirOneLine !== '' ? $dirOneLine : 'Sin dirección';
-
-                $postalCodeSimple = $customer->postal_code ?? null;
-                $citySimple = $customer->ciudad ?? null;
-                $addressInfo = $postalCodeSimple && $citySimple
-                    ? "$postalCodeSimple, $citySimple"
-                    : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
-                // ============================================
-
-                return [
-                    'id' => $note->id,
-                    'nro_nota' => $note->nro_nota,
-                    'customer' => $customer->name ?? 'Sin cliente',
-                    'full_address' => $fullAddress,
-                    'primary_address' => $customer->primary_address ?? 'Sin dirección',
-                    'address_info' => $addressInfo,
-                    'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
-                    'visit_date' => $note->visit_date ? \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y') : '--/--/----',
-                    'visit_schedule' => $note->visit_schedule ?? '--:--',
-                    'observations' => $note->observations,
-                    'fuente' => $note->fuente->value,
-                    'fuente_label' => $note->fuente->getLabel(),
-                    'fuente_puntaje' => $note->fuente->getPuntaje(),
-                    'de_camino' => $note->de_camino,
-                    'show_phone' => $note->show_phone,
-                    'phone' => $customer->phone ?? null,
-                    'secondary_phone' => $customer->secondary_phone ?? null,
-                    'lat_dentro' => $note->lat_dentro,
-                    'lng' => $note->lng,
-                    'lat' => $note->lat,
-                    'lng_dentro' => $note->lng_dentro,
-                ];
-            });
+    /** Notas anteriores (hoy-5 … ayer) */
+    public function getNotesPreviousProperty()
+    {
+        return $this->baseNotesQuery()
+            ->commercialVisibleDatePrevious()
+            ->latest('assignment_date')
+            ->get()
+            ->map(fn (Note $note) => $this->mapNote($note));
     }
 
     public function render()

@@ -25,6 +25,8 @@ use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
 use App\Models\NoteSalaEvent;
+use App\Support\Filament\GpsActionForm;
+use App\Filament\Support\CustomerPhoneForm;
 
 class NoteResource extends Resource
 {
@@ -32,11 +34,23 @@ class NoteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationLabel = 'Notas';
+    protected static ?string $navigationLabel = 'Notas (listado)';
+
+    protected static ?int $navigationSort = 0;
 
     protected static ?string $modelLabel = 'Nota';
 
-    protected static ?string $pluralModelLabel = 'Notas';
+    protected static ?string $pluralModelLabel = 'Notas (listado)';
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Notas (listado)';
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Form $form): Form
     {
@@ -63,39 +77,28 @@ class NoteResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        // Teléfono
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('phone')
+                                ->disabled()
+                                ->label('Teléfono')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                            required: true,
+                        ),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('secondary_phone')
+                                ->disabled()
+                                ->label('Teléfono secundario (opcional)')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                        ),
 
                         Forms\Components\TextInput::make('email')
                             ->email()
@@ -227,7 +230,8 @@ class NoteResource extends Resource
                             ])
                     ])
                     ->collapsible()
-                    ->hidden(fn(string $operation): bool => $operation === 'create'),
+                    ->hidden(fn (string $operation): bool => $operation === 'create'
+                        || (auth()->user()?->hasAnyRole(['commercial', 'team_leader']) ?? false)),
 
 
                 Forms\Components\Repeater::make('observations')
@@ -557,7 +561,11 @@ class NoteResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('Enviar a Oficina')
                     ->modalDescription('Se enviarán a OFICINA las notas seleccionadas que no tengan estado terminal o su estado terminal sea AUSENTE. Las notas con VENTA / CONFIRMADO / NULO se omitirán.')
-                    ->action(function (iterable $records): void {
+                    ->form([
+                        ...GpsActionForm::fields(),
+                    ])
+                    ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
+                    ->action(function (iterable $records, array $data): void {
                         $allIds = collect($records)->pluck('id')->all();
 
                         // Elegibles: sin venta y TN ∈ { null, '', 'ausente' }
@@ -583,63 +591,14 @@ class NoteResource extends Resource
                             return;
                         }
 
-                        \DB::transaction(function () use ($eligible) {
-                            $now = now();
-                            $userId = auth()->id();
+                        ['lat' => $lat, 'lng' => $lng] = \App\Support\ActionGps::resolve($data);
 
-                            // 1) Actualizar todas las notas elegibles
-                            Note::whereIn('id', $eligible)->update([
-                                'estado_terminal' => EstadoTerminal::SALA->value,
-                                'printed' => false,
-                                'reten' => false,
-                                'sent_to_sala_at' => $now,
-                                'fecha_declaracion' => $now,
-                            ]);
-
-                            // 2) Crear historial de envíos a sala (masivo)
-                            $rows = [];
-                            foreach ($eligible as $noteId) {
-                                $rows[] = [
-                                    'note_id' => $noteId,
-                                    'sent_by_user_id' => $userId,
-                                    'via' => 'masivo',
-                                    'sent_at' => $now,
-                                    'created_at' => $now,
-                                    'updated_at' => $now,
-                                ];
-                            }
-
-                            if (!empty($rows)) {
-                                NoteSalaEvent::insert($rows);
-                            }
-
-                            // 2.5) Agregar observación automática si son 2 o más
-                            if (count($eligible) >= 2) {
-                                $obsRows = [];
-                                foreach ($eligible as $noteId) {
-                                    $obsRows[] = [
-                                        'note_id' => $noteId,
-                                        'author_id' => $userId,
-                                        'observation' => 'Envío Masivo a sala',
-                                        'created_at' => $now,
-                                        'updated_at' => $now,
-                                    ];
-                                }
-                                if (!empty($obsRows)) {
-                                    \App\Models\NoteSalaObservation::insert($obsRows);
-                                }
-                            }
-
-                            // 3) Lanzar evento de siempre después del commit
-                            \DB::afterCommit(function () use ($eligible) {
-                                $comercial = auth()->user();
-
-                                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                                    $eligible,
-                                    $comercial
-                                ));
-                            });
-                        });
+                        \App\Support\NoteSalaActions::sendBulkToOffice(
+                            $eligible,
+                            auth()->id(),
+                            $lat,
+                            $lng,
+                        );
 
                         Notification::make()
                             ->title('Notas enviadas a Oficina')
@@ -731,9 +690,7 @@ class NoteResource extends Resource
         })
             ->whereDoesntHave('venta');
 
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
-        $query->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta]);
+        $query->visibleInCommercialNotas();
 
         $query->where('reten', false);
 

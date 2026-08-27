@@ -1,0 +1,1155 @@
+<?php
+
+namespace App\Services\ContractRecovery;
+
+use App\Enums\EstadoVenta;
+use App\Enums\VendidoPor;
+use App\Models\ContratoMesVariacionItem;
+use App\Models\ContratoRecoveryItem;
+use App\Models\ContratoRecuperado;
+use App\Models\Customer;
+use App\Models\Oferta;
+use App\Models\Producto;
+use App\Models\User;
+use App\Models\Venta;
+use App\Support\ContratosPorMesStats;
+use App\Support\Storage\DocumentStorage;
+use App\Support\VentaSoftRestore;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
+
+/**
+ * Crea/restaura una venta SOLO desde SuperAdmin recovery.
+ *
+ * GARANTÍAS DE SEGURIDAD (contratos no se pierden):
+ * - Nunca llama delete / forceDelete / soft-delete sobre ventas.
+ * - Si ya existe un contrato ACTIVO con ese nº admin → aborta (no toca nada).
+ * - Si existe SOFT-DELETED → solo restaura si el cliente del contrato coincide con el DNI
+ *   recuperado; no reasigna el contrato a otro cliente.
+ * - Al adjuntar docs, no sobrescribe rutas de documentos ya existentes.
+ * - No modifica otras ventas distintas del nº admin objetivo.
+ */
+final class ContractFromImageRecovery
+{
+    public const OFERTA_POR_ASIGNAR_NOMBRE = 'OFxAsignar';
+
+    public const PRODUCTO_POR_ASIGNAR_NOMBRE = 'Por asignar';
+
+    /**
+     * @return array{ok: bool, message: string, venta_id?: int}
+     */
+    public function addContract(ContratoRecoveryItem $item, bool $updateCustomerIban = false): array
+    {
+        if ($item->status === ContratoRecoveryItem::STATUS_ADDED && $item->venta_id) {
+            return [
+                'ok' => false,
+                'message' => 'Este registro ya tiene contrato agregado (#'.$item->venta_id.').',
+                'venta_id' => (int) $item->venta_id,
+            ];
+        }
+
+        $data = $this->ensureRecoveryDefaults($item->reviewedData());
+        $dni = $this->normalizeDni((string) ($data['dni'] ?? $item->dni ?? ''));
+        $nro = $this->normalizeNro((string) ($data['nro_contr_adm'] ?? $item->nro_contr_adm ?? ''));
+
+        if ($dni === '') {
+            return ['ok' => false, 'message' => 'Falta DNI para enlazar el cliente.'];
+        }
+
+        if ($nro === '') {
+            return ['ok' => false, 'message' => 'Falta nº de contrato admin.'];
+        }
+
+        $customer = Customer::query()
+            ->whereNull('deleted_at')
+            ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
+            ->orderBy('id')
+            ->first();
+
+        if (! $customer) {
+            return ['ok' => false, 'message' => "No hay cliente activo con DNI {$dni}. Los clientes no se crean desde aquí."];
+        }
+
+        $comercialId = (int) ($item->comercial_id ?: ($data['comercial_id'] ?? 0));
+        if ($comercialId <= 0) {
+            $comercialId = (int) ($this->resolveComercialId($data['comercial_codes'] ?? null) ?? 0);
+        }
+        if ($comercialId <= 0) {
+            return ['ok' => false, 'message' => 'Indica un comercial (obligatorio en ventas). Selecciónalo en Editar.'];
+        }
+
+        $ofertaError = $this->validateOfertaProductos($data);
+        if ($ofertaError !== null) {
+            return ['ok' => false, 'message' => $ofertaError];
+        }
+
+        // Persistir defaults (Por Asignar / OFxAsignar) en el staging
+        $item->forceFill(['reviewed_json' => array_merge($item->reviewedData(), [
+            'ventaOfertas' => $data['ventaOfertas'],
+            'estado_venta' => $data['estado_venta'] ?? EstadoVenta::EN_REVISION->value,
+        ])])->save();
+
+        try {
+            $venta = DB::transaction(function () use ($item, $customer, $nro, $data, $comercialId, $updateCustomerIban, $dni) {
+                // Bloqueo pesimista: evita carreras que dupliquen / pisen contratos
+                $existing = $this->findVentaByNroLocked($nro);
+
+                if ($existing && ! $existing->trashed()) {
+                    throw new RuntimeException(
+                        "PROTEGIDO: ya existe un contrato ACTIVO con nº admin «{$nro}» (venta #{$existing->id}). ".
+                        'No se modifica ni se borra. Usa otro nº o revisa el existente.'
+                    );
+                }
+
+                if ($existing && $existing->trashed()) {
+                    $this->assertSoftDeletedBelongsToSameCustomer($existing, $customer, $dni, $nro);
+
+                    VentaSoftRestore::restore($existing);
+                    $venta = Venta::query()->whereKey($existing->id)->lockForUpdate()->first()
+                        ?? $existing->fresh()
+                        ?? $existing;
+
+                    // Solo rellena campos vacíos / metadatos de recuperación; no cambia nº ni cliente ajeno
+                    $this->applyFieldsSafely($venta, $customer, $data, $comercialId, isNew: false);
+                    $venta->save();
+                    $createdNew = false;
+                } else {
+                    // Doble check por variantes de padding antes de insertar
+                    $collision = $this->findAnyNroCollision($nro);
+                    if ($collision) {
+                        throw new RuntimeException(
+                            "PROTEGIDO: el nº «{$nro}» colisiona con venta #{$collision->id} ".
+                            "(nro_contr_adm={$collision->nro_contr_adm}".($collision->trashed() ? ', archivado' : ', activo').'). '.
+                            'No se crea ni se borra nada.'
+                        );
+                    }
+
+                    $venta = new Venta;
+                    $this->applyFieldsSafely($venta, $customer, $data, $comercialId, isNew: true);
+                    $venta->nro_contr_adm = $nro;
+                    $venta->save();
+                    $createdNew = true;
+
+                    // Verificación post-insert: el nº sigue siendo el nuestro
+                    $venta->refresh();
+                    if ($this->normalizeNro((string) $venta->nro_contr_adm) !== $nro) {
+                        throw new RuntimeException(
+                            'PROTEGIDO: el nº de contrato cambió al guardar. Se aborta la transacción (rollback).'
+                        );
+                    }
+                }
+
+                $this->attachOfertaProductos($venta, $data, $createdNew);
+                $this->attachDocumentsWithoutOverwrite($venta, $item->documents ?? []);
+
+                if ($updateCustomerIban && filled($data['iban'] ?? null)) {
+                    $customer->forceFill([
+                        'iban' => preg_replace('/\s+/', '', (string) $data['iban']),
+                    ])->saveQuietly();
+                }
+
+                // Dirección/CP/fecha de nacimiento del contrato → columnas reales del cliente
+                // (primary_address / postal_code / fecha_nac), igual que en el resto de la app.
+                // Solo rellena huecos: nunca pisa un dato que el cliente ya tuviera.
+                $this->fillCustomerAddressIfBlank($customer, $data);
+
+                ContratoRecuperado::query()->firstOrCreate(
+                    ['nro_contr_adm' => $nro],
+                    ['created_by_user_id' => auth()->id()],
+                );
+
+                if ($createdNew) {
+                    ContratosPorMesStats::recordVariationItem(
+                        $venta->fresh() ?? $venta,
+                        ContratoMesVariacionItem::ESTADO_NUEVO,
+                        auth()->id(),
+                    );
+                }
+
+                $item->forceFill([
+                    'status' => ContratoRecoveryItem::STATUS_ADDED,
+                    'customer_id' => $customer->id,
+                    'venta_id' => $venta->id,
+                    'comercial_id' => $comercialId,
+                    'dni' => $dni,
+                    'nro_contr_adm' => $nro,
+                    'last_error' => null,
+                ])->save();
+
+                return $venta;
+            });
+
+            $matchNote = $this->formatProductMatchNote($data['_product_match'] ?? null);
+
+            return [
+                'ok' => true,
+                'message' => "Contrato {$nro} agregado con seguridad (venta #{$venta->id}). Ningún otro contrato fue borrado."
+                    .($matchNote !== '' ? ' '.$matchNote : ''),
+                'venta_id' => (int) $venta->id,
+            ];
+        } catch (Throwable $e) {
+            $item->forceFill([
+                'status' => ContratoRecoveryItem::STATUS_FAILED,
+                'last_error' => $e->getMessage(),
+            ])->save();
+
+            return ['ok' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Copia datos actuales de la venta (y cliente) al snapshot del recovery item.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function syncFromVenta(ContratoRecoveryItem $item): array
+    {
+        if (! $item->venta_id) {
+            return ['ok' => false, 'message' => 'Este registro aún no tiene venta enlazada.'];
+        }
+
+        $venta = Venta::withTrashed()
+            ->with(['customer', 'ventaOfertas.productos'])
+            ->find($item->venta_id);
+
+        if (! $venta) {
+            return ['ok' => false, 'message' => 'No se encontró la venta #'.$item->venta_id.'.'];
+        }
+
+        $customer = $venta->customer;
+        $dni = $this->normalizeDni((string) ($customer?->dni ?? $item->dni ?? ''));
+        $nro = $this->normalizeNro((string) ($venta->nro_contr_adm ?? $item->nro_contr_adm ?? ''));
+        $clienteNombre = trim((string) ($customer?->name ?? $item->cliente_nombre ?? ''));
+        if ($clienteNombre !== '') {
+            $clienteNombre = mb_strtoupper($clienteNombre);
+        }
+
+        $fechaVenta = null;
+        if (filled($venta->fecha_venta)) {
+            $fechaVenta = $venta->fecha_venta instanceof \Illuminate\Support\Carbon
+                ? $venta->fecha_venta->timezone('Europe/Madrid')->format('Y-m-d')
+                : (string) $venta->fecha_venta;
+        }
+
+        $ventaOfertas = [];
+        foreach ($venta->ventaOfertas as $vo) {
+            $productos = [];
+            foreach ($vo->productos as $line) {
+                $productos[] = [
+                    'producto_id' => (int) $line->producto_id,
+                    'cantidad' => max(1, (int) ($line->cantidad ?? 1)),
+                    'puntos_linea' => (int) ($line->puntos_linea ?? 0),
+                    'vendido_por' => (string) ($line->vendido_por ?? VendidoPor::Comercial->value),
+                ];
+            }
+
+            $ventaOfertas[] = [
+                'oferta_id' => (int) $vo->oferta_id,
+                'puntos' => (int) ($vo->puntos ?? 0),
+                'productos' => $productos,
+            ];
+        }
+
+        $estado = $venta->estado_venta;
+        $estadoValue = $estado instanceof EstadoVenta
+            ? $estado->value
+            : (string) ($estado ?? EstadoVenta::EN_REVISION->value);
+
+        $reviewed = array_merge($item->reviewedData(), array_filter([
+            'dni' => $dni !== '' ? $dni : null,
+            'nro_contr_adm' => $nro !== '' ? $nro : null,
+            'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : null,
+            'fecha_venta' => $fechaVenta,
+            'importe_total' => $venta->importe_total,
+            'entrada' => $venta->entrada ?? data_get($item->reviewedData(), 'entrada'),
+            'cuota_mensual' => $venta->cuota_mensual ?? data_get($item->reviewedData(), 'cuota_mensual'),
+            'num_cuotas' => $venta->num_cuotas ?? data_get($item->reviewedData(), 'num_cuotas'),
+            'comercial_id' => $venta->comercial_id,
+            'estado_venta' => $estadoValue,
+            'ventaOfertas' => $ventaOfertas !== [] ? $ventaOfertas : data_get($item->reviewedData(), 'ventaOfertas'),
+        ], fn ($v) => $v !== null));
+
+        $item->forceFill([
+            'dni' => $dni !== '' ? $dni : $item->dni,
+            'nro_contr_adm' => $nro !== '' ? $nro : $item->nro_contr_adm,
+            'cliente_nombre' => $clienteNombre !== '' ? $clienteNombre : $item->cliente_nombre,
+            'customer_id' => $venta->customer_id ?: $item->customer_id,
+            'comercial_id' => $venta->comercial_id ?: $item->comercial_id,
+            'reviewed_json' => $reviewed,
+            'last_error' => null,
+        ])->save();
+
+        return [
+            'ok' => true,
+            'message' => 'Snapshot sincronizado desde venta #'.$venta->id
+                .($nro !== '' ? " (nº {$nro})" : '').'.',
+        ];
+    }
+
+    /**
+     * Chequeo de colisión SIN bloqueo (solo lectura), para decidir en staging
+     * si un nº de contrato admin ya existe como venta ACTIVA en la app.
+     * No lanza excepciones ni modifica nada.
+     */
+    public function findActiveVentaByNro(string $nro): ?Venta
+    {
+        $nro = $this->normalizeNro($nro);
+        if ($nro === '') {
+            return null;
+        }
+
+        return Venta::query()
+            ->whereIn('nro_contr_adm', $this->nroCandidates($nro))
+            ->orderBy('id')
+            ->first();
+    }
+
+    protected function findVentaByNroLocked(string $nro): ?Venta
+    {
+        $candidates = $this->nroCandidates($nro);
+
+        return Venta::withTrashed()
+            ->whereIn('nro_contr_adm', $candidates)
+            ->orderByRaw('CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->first();
+    }
+
+    protected function findAnyNroCollision(string $nro): ?Venta
+    {
+        return Venta::withTrashed()
+            ->whereIn('nro_contr_adm', $this->nroCandidates($nro))
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function nroCandidates(string $nro): array
+    {
+        $nro = $this->normalizeNro($nro);
+        $out = [$nro];
+
+        if (ctype_digit($nro)) {
+            $out[] = ltrim($nro, '0') ?: '0';
+            $out[] = str_pad((string) (int) $nro, 5, '0', STR_PAD_LEFT);
+            $out[] = str_pad((string) (int) $nro, 4, '0', STR_PAD_LEFT);
+        }
+
+        return array_values(array_unique(array_filter($out, fn ($v) => $v !== '')));
+    }
+
+    protected function assertSoftDeletedBelongsToSameCustomer(
+        Venta $existing,
+        Customer $customer,
+        string $dni,
+        string $nro,
+    ): void {
+        if (! $existing->customer_id) {
+            return;
+        }
+
+        if ((int) $existing->customer_id === (int) $customer->id) {
+            return;
+        }
+
+        $existing->loadMissing('customer');
+        $existingDni = $this->normalizeDni((string) ($existing->customer?->dni ?? ''));
+
+        if ($existingDni !== '' && $existingDni === $dni) {
+            return;
+        }
+
+        throw new RuntimeException(
+            "PROTEGIDO: el contrato archivado «{$nro}» (venta #{$existing->id}) pertenece a otro cliente ".
+            "(customer_id={$existing->customer_id}".($existingDni !== '' ? ", DNI {$existingDni}" : '').'). '.
+            "El DNI recuperado es {$dni}. No se restaura ni se reasigna. Ningún contrato se borra."
+        );
+    }
+
+    /**
+     * Rellena estado Por Asignar + oferta OFxAsignar y intenta match de productos
+     * desde productos_texto. Si no hay match, usa el producto «Por asignar»
+     * (no bloquea el alta; se corrige después a mano).
+     *
+     * No pisa ofertas/productos reales ya elegidos manualmente.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function ensureRecoveryDefaults(array $data): array
+    {
+        if (blank($data['estado_venta'] ?? null)) {
+            $data['estado_venta'] = EstadoVenta::EN_REVISION->value;
+        }
+
+        // Catálogo placeholder siempre disponible en lista / BD
+        $oferta = $this->ensureOfxAsignarOferta();
+        $productoFallback = $this->ensurePorAsignarProducto();
+
+        if ($this->hasManualOfertaProductos($data, $oferta->id, $productoFallback->id)) {
+            return $data;
+        }
+
+        $built = $this->buildProductosFromTexto(
+            $data['productos_texto'] ?? null,
+            $productoFallback,
+        );
+
+        $data['ventaOfertas'] = [[
+            'oferta_id' => $oferta->id,
+            'puntos' => (int) collect($built['productos'])->sum('puntos_linea'),
+            'productos' => $built['productos'],
+        ]];
+
+        // Nombres sin match → pista en productos_externos (si aún no hay lista)
+        if ($built['unmatched'] !== [] && $this->normalizeProductosExternos($data) === []) {
+            $data['productos_externos'] = $built['unmatched'];
+        }
+
+        $data['_product_match'] = [
+            'matched' => $built['matched'],
+            'unmatched' => $built['unmatched'],
+        ];
+
+        return $data;
+    }
+
+    /**
+     * ¿El usuario (o un match previo) ya eligió oferta/productos reales?
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function hasManualOfertaProductos(array $data, int $ofertaPlaceholderId, int $productoPlaceholderId): bool
+    {
+        $rows = $data['ventaOfertas'] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return false;
+        }
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $ofertaId = (int) ($row['oferta_id'] ?? 0);
+            if ($ofertaId <= 0) {
+                continue;
+            }
+
+            $products = $row['productos'] ?? [];
+            if (! is_array($products)) {
+                continue;
+            }
+
+            foreach ($products as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+                $pid = (int) ($line['producto_id'] ?? 0);
+                if ($pid <= 0) {
+                    continue;
+                }
+
+                // Oferta real (no OFxAsignar) con producto → manual
+                if ($ofertaId !== $ofertaPlaceholderId) {
+                    return true;
+                }
+
+                // Bajo OFxAsignar, cualquier producto distinto de «Por asignar» → ya hay match/manual
+                if ($pid !== $productoPlaceholderId) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Parte productos_texto y hace match best-effort contra el catálogo.
+     * Sin match → línea con producto «Por asignar» (nunca falla el alta).
+     *
+     * @return array{
+     *     productos: list<array{producto_id: int, cantidad: int, puntos_linea: int, vendido_por: string}>,
+     *     matched: list<string>,
+     *     unmatched: list<string>
+     * }
+     */
+    public function buildProductosFromTexto(mixed $productosTexto, ?Producto $fallback = null): array
+    {
+        $fallback ??= $this->ensurePorAsignarProducto();
+        $names = $this->parseProductosTexto($productosTexto);
+
+        if ($names === []) {
+            return [
+                'productos' => [$this->productoLine($fallback->id, 0)],
+                'matched' => [],
+                'unmatched' => [],
+            ];
+        }
+
+        $catalog = Producto::query()
+            ->where('delete', false)
+            ->whereNotIn('nombre', [
+                self::PRODUCTO_POR_ASIGNAR_NOMBRE,
+                'Producto Externo',
+            ])
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'puntos']);
+
+        $productos = [];
+        $matched = [];
+        $unmatched = [];
+        $usedIds = [];
+
+        foreach ($names as $rawName) {
+            $hit = $this->matchProductoByNombre($rawName, $catalog);
+            if ($hit && ! isset($usedIds[$hit->id])) {
+                $usedIds[$hit->id] = true;
+                $productos[] = $this->productoLine(
+                    (int) $hit->id,
+                    (int) ($hit->puntos ?? 0),
+                );
+                $matched[] = $rawName.' → '.$hit->nombre;
+                continue;
+            }
+
+            $unmatched[] = $rawName;
+        }
+
+        if ($productos === []) {
+            // Ningún match: un «Por asignar» y los nombres quedan en unmatched
+            $productos[] = $this->productoLine((int) $fallback->id, 0);
+        } elseif ($unmatched !== []) {
+            // Match parcial: añadir también «Por asignar» para los que fallaron
+            $productos[] = $this->productoLine((int) $fallback->id, 0);
+        }
+
+        return [
+            'productos' => $productos,
+            'matched' => $matched,
+            'unmatched' => $unmatched,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function parseProductosTexto(mixed $texto): array
+    {
+        $raw = trim((string) $texto);
+        if ($raw === '') {
+            return [];
+        }
+
+        $parts = preg_split('/[\n\r;|+]+|\s*,\s*|\s+y\s+/iu', $raw) ?: [];
+
+        return collect($parts)
+            ->map(fn ($p) => trim((string) $p))
+            ->filter(fn ($p) => mb_strlen($p) >= 2)
+            ->unique(fn ($p) => $this->normalizeProductName($p))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Producto>  $catalog
+     */
+    public function matchProductoByNombre(string $raw, $catalog): ?Producto
+    {
+        $needle = $this->normalizeProductName($raw);
+        if ($needle === '' || mb_strlen($needle) < 2) {
+            return null;
+        }
+
+        $exact = null;
+        $contains = null;
+        $bestSimilar = null;
+        $bestPct = 0.0;
+
+        foreach ($catalog as $producto) {
+            $hay = $this->normalizeProductName((string) $producto->nombre);
+            if ($hay === '') {
+                continue;
+            }
+
+            if ($hay === $needle) {
+                $exact = $producto;
+                break;
+            }
+
+            if (
+                (str_contains($hay, $needle) || str_contains($needle, $hay))
+                && mb_strlen($needle) >= 4
+                && mb_strlen($hay) >= 4
+            ) {
+                // Preferir el nombre de catálogo más corto (más específico)
+                if (
+                    $contains === null
+                    || mb_strlen($hay) < mb_strlen($this->normalizeProductName((string) $contains->nombre))
+                ) {
+                    $contains = $producto;
+                }
+            }
+
+            similar_text($needle, $hay, $pct);
+            if ($pct >= 78.0 && $pct > $bestPct) {
+                $bestPct = $pct;
+                $bestSimilar = $producto;
+            }
+        }
+
+        return $exact ?? $contains ?? $bestSimilar;
+    }
+
+    public function normalizeProductName(string $value): string
+    {
+        $value = Str::upper(Str::ascii(trim($value)));
+        $value = preg_replace('/[^A-Z0-9]+/u', ' ', $value) ?? $value;
+
+        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+    }
+
+    /**
+     * @return array{producto_id: int, cantidad: int, puntos_linea: int, vendido_por: string}
+     */
+    protected function productoLine(int $productoId, int $puntosLinea): array
+    {
+        return [
+            'producto_id' => $productoId,
+            'cantidad' => 1,
+            'puntos_linea' => $puntosLinea,
+            'vendido_por' => VendidoPor::Comercial->value,
+        ];
+    }
+
+    /**
+     * @param  array{matched?: list<string>, unmatched?: list<string>}|null  $match
+     */
+    protected function formatProductMatchNote(?array $match): string
+    {
+        if (! is_array($match)) {
+            return '';
+        }
+
+        $matched = count($match['matched'] ?? []);
+        $unmatched = count($match['unmatched'] ?? []);
+
+        if ($matched === 0 && $unmatched === 0) {
+            return 'Productos: oferta OFxAsignar + «Por asignar» (sin texto OCR para match).';
+        }
+
+        $parts = [];
+        if ($matched > 0) {
+            $parts[] = "{$matched} match";
+        }
+        if ($unmatched > 0) {
+            $parts[] = "{$unmatched} sin match → «Por asignar»";
+        }
+
+        return 'Productos (OFxAsignar): '.implode(', ', $parts).'.';
+    }
+
+    public function ensureOfxAsignarOferta(): Oferta
+    {
+        $oferta = Oferta::withTrashed()->firstOrCreate(
+            ['nombre' => self::OFERTA_POR_ASIGNAR_NOMBRE],
+            [
+                'puntos_base' => 0,
+                'precio_base' => 0,
+                'descripcion' => 'Oferta provisional al recuperar contrato (asignar después)',
+                'visible' => true,
+            ]
+        );
+
+        if ($oferta->trashed()) {
+            $oferta->restore();
+        }
+
+        return $oferta;
+    }
+
+    public function ensurePorAsignarProducto(): Producto
+    {
+        return Producto::query()->firstOrCreate(
+            ['nombre' => self::PRODUCTO_POR_ASIGNAR_NOMBRE],
+            [
+                'puntos' => 0,
+                'delete' => false,
+                'visible_for_commercials' => false,
+            ]
+        );
+    }
+
+    /**
+     * Valida oferta + productos en reviewed_json antes de Agregar Contrato.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function validateOfertaProductos(array $data): ?string
+    {
+        $rows = $data['ventaOfertas'] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return 'Indica al menos una oferta con productos (Editar → Oferta y productos).';
+        }
+
+        $hasValid = false;
+        $productoIds = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row) || (int) ($row['oferta_id'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $products = $row['productos'] ?? [];
+            if (! is_array($products) || $products === []) {
+                return 'Cada oferta debe tener al menos un producto.';
+            }
+
+            $anyProduct = false;
+            foreach ($products as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+                $pid = (int) ($line['producto_id'] ?? 0);
+                if ($pid <= 0) {
+                    continue;
+                }
+                $anyProduct = true;
+                $hasValid = true;
+                $productoIds[] = $pid;
+            }
+
+            if (! $anyProduct) {
+                return 'Cada oferta debe tener al menos un producto.';
+            }
+        }
+
+        if (! $hasValid) {
+            return 'Indica al menos una oferta con productos (Editar → Oferta y productos).';
+        }
+
+        $needsExternos = Producto::query()
+            ->whereIn('id', array_values(array_unique($productoIds)))
+            ->where('nombre', 'Producto Externo')
+            ->exists();
+
+        if ($needsExternos && $this->normalizeProductosExternos($data) === []) {
+            return 'Hay «Producto Externo»: indica el nombre en Productos externos.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function attachOfertaProductos(Venta $venta, array $data, bool $isNew): void
+    {
+        $rows = $data['ventaOfertas'] ?? [];
+        if (! is_array($rows) || $rows === []) {
+            return;
+        }
+
+        if (! $isNew) {
+            $venta->loadMissing('ventaOfertas');
+            if ($venta->ventaOfertas->isNotEmpty()) {
+                return;
+            }
+        }
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $ofertaId = (int) ($row['oferta_id'] ?? 0);
+            if ($ofertaId <= 0) {
+                continue;
+            }
+
+            $puntos = isset($row['puntos'])
+                ? (int) $row['puntos']
+                : (int) (Oferta::query()->whereKey($ofertaId)->value('puntos_base') ?? 0);
+
+            $vo = $venta->ventaOfertas()->create([
+                'oferta_id' => $ofertaId,
+                'puntos' => $puntos,
+            ]);
+
+            foreach ($row['productos'] ?? [] as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+
+                $productoId = (int) ($line['producto_id'] ?? 0);
+                if ($productoId <= 0) {
+                    continue;
+                }
+
+                $vendidoPor = $line['vendido_por'] ?? VendidoPor::Comercial->value;
+                if ($vendidoPor instanceof VendidoPor) {
+                    $vendidoPor = $vendidoPor->value;
+                }
+
+                $vo->productos()->create([
+                    'producto_id' => $productoId,
+                    'cantidad' => max(1, (int) ($line['cantidad'] ?? 1)),
+                    'puntos_linea' => (int) ($line['puntos_linea'] ?? 0),
+                    'vendido_por' => (string) $vendidoPor,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    protected function normalizeProductosExternos(array $data): array
+    {
+        $fromForm = collect($data['productos_externos'] ?? [])
+            ->map(function ($row) {
+                if (is_string($row) || is_numeric($row)) {
+                    return trim((string) $row);
+                }
+                if (is_array($row)) {
+                    return trim((string) ($row['value'] ?? $row['descripcion'] ?? ''));
+                }
+
+                return '';
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($fromForm !== []) {
+            return $fromForm;
+        }
+
+        if (filled($data['productos_texto'] ?? null)) {
+            return [trim((string) $data['productos_texto'])];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function applyFieldsSafely(
+        Venta $venta,
+        Customer $customer,
+        array $data,
+        int $comercialId,
+        bool $isNew,
+    ): void {
+        $fechaVenta = $this->parseDate($data['fecha_venta'] ?? null) ?? ($isNew ? now() : $venta->fecha_venta);
+        $fechaEntrega = $this->parseDate($data['fecha_entrega'] ?? null);
+
+        $productosExternos = $this->normalizeProductosExternos($data);
+        $productos = $productosExternos !== [] ? $productosExternos : null;
+
+        $repartidorId = (int) ($data['repartidor_id'] ?? 0);
+        if ($repartidorId <= 0) {
+            $repartidorId = (int) ($this->resolveComercialId($data['repartidor_code'] ?? null) ?? 0);
+        }
+
+        if ($isNew) {
+            $venta->forceFill([
+                'customer_id' => $customer->id,
+                'comercial_id' => $comercialId,
+                'repartidor_id' => $repartidorId > 0 ? $repartidorId : null,
+                'fecha_venta' => $fechaVenta,
+                'fecha_entrega' => $fechaEntrega,
+                'horario_entrega' => $data['horario_entrega'] ?? null,
+                'importe_total' => $this->toMoney($data['importe_total'] ?? null) ?? 0,
+                'entrada' => $this->toMoney($data['entrada'] ?? null) ?? 0,
+                'cuota_mensual' => $this->toMoney($data['cuota_mensual'] ?? null),
+                'num_cuotas' => isset($data['num_cuotas']) ? (int) $data['num_cuotas'] : null,
+                'total_final' => $this->toMoney($data['importe_total'] ?? null) ?? 0,
+                'productos_externos' => $productos,
+                'list_descripcion' => 'Recuperado desde imagen (SuperAdmin)',
+                'en_app' => false,
+                'estado_venta' => EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
+                    ?? EstadoVenta::EN_REVISION,
+                'nro_cliente_adm' => $customer->nro_cliente,
+                'observaciones_repartidor' => $this->recoveryObservaciones($data['observaciones'] ?? null),
+            ]);
+
+            return;
+        }
+
+        // Restore path: NUNCA cambia nro_contr_adm ni customer_id si ya hay uno distinto
+        $patch = [
+            'list_descripcion' => $venta->list_descripcion ?: 'Recuperado desde imagen (SuperAdmin)',
+            'observaciones_repartidor' => $this->mergeRecoveryObservaciones(
+                $venta->observaciones_repartidor,
+                $data['observaciones'] ?? null,
+            ),
+        ];
+
+        if (! $venta->estado_venta) {
+            $patch['estado_venta'] = EstadoVenta::tryFrom((string) ($data['estado_venta'] ?? ''))
+                ?? EstadoVenta::EN_REVISION;
+        }
+        if (! $venta->customer_id) {
+            $patch['customer_id'] = $customer->id;
+        }
+
+        if (! $venta->comercial_id) {
+            $patch['comercial_id'] = $comercialId;
+        }
+
+        if (! $venta->repartidor_id && $repartidorId > 0) {
+            $patch['repartidor_id'] = $repartidorId;
+        }
+
+        if (! $venta->fecha_venta && $fechaVenta) {
+            $patch['fecha_venta'] = $fechaVenta;
+        }
+
+        if (! $venta->fecha_entrega && $fechaEntrega) {
+            $patch['fecha_entrega'] = $fechaEntrega;
+        }
+
+        if (blank($venta->horario_entrega) && filled($data['horario_entrega'] ?? null)) {
+            $patch['horario_entrega'] = $data['horario_entrega'];
+        }
+
+        if ((float) ($venta->importe_total ?? 0) <= 0 && $this->toMoney($data['importe_total'] ?? null)) {
+            $money = $this->toMoney($data['importe_total']);
+            $patch['importe_total'] = $money;
+            $patch['total_final'] = $money;
+        }
+
+        if ((float) ($venta->entrada ?? 0) <= 0 && $this->toMoney($data['entrada'] ?? null) !== null) {
+            $patch['entrada'] = $this->toMoney($data['entrada']);
+        }
+
+        if (! $venta->cuota_mensual && $this->toMoney($data['cuota_mensual'] ?? null) !== null) {
+            $patch['cuota_mensual'] = $this->toMoney($data['cuota_mensual']);
+        }
+
+        if (! $venta->num_cuotas && isset($data['num_cuotas'])) {
+            $patch['num_cuotas'] = (int) $data['num_cuotas'];
+        }
+
+        if (blank($venta->productos_externos) && $productos) {
+            $patch['productos_externos'] = $productos;
+        }
+
+        $venta->forceFill($patch);
+    }
+
+    public const OBSERVACION_RECUPERADO = 'CONTRATO RECUPERADO (Soporte - Rafael)';
+
+    protected function recoveryObservaciones(mixed $extra): string
+    {
+        $extra = trim((string) ($extra ?? ''));
+        if ($extra === '' || str_contains($extra, 'CONTRATO RECUPERADO')) {
+            return self::OBSERVACION_RECUPERADO;
+        }
+
+        return self::OBSERVACION_RECUPERADO."\n".$extra;
+    }
+
+    protected function mergeRecoveryObservaciones(mixed $current, mixed $extra): string
+    {
+        $current = trim((string) ($current ?? ''));
+        if ($current !== '' && str_contains($current, 'CONTRATO RECUPERADO')) {
+            return $current;
+        }
+
+        $recovered = $this->recoveryObservaciones($extra);
+        if ($current === '') {
+            return $recovered;
+        }
+
+        return $recovered."\n".$current;
+    }
+
+    /**
+     * Anexa documentos de recovery. Prioridad: contrato_firmado (el papel recuperado).
+     * No sobrescribe rutas ya existentes en la venta.
+     *
+     * @param  list<array{type?: string, path?: string}>|null  $documents
+     */
+    protected function attachDocumentsWithoutOverwrite(Venta $venta, ?array $documents): void
+    {
+        if (! $documents) {
+            return;
+        }
+
+        // Preferir contrato app; el resto después (albarán / otro).
+        $ordered = collect($documents)
+            ->sortBy(fn ($doc) => match ((string) ($doc['type'] ?? '')) {
+                ContractImageExtractor::TYPE_APP => 0,
+                ContractImageExtractor::TYPE_ALBARAN => 1,
+                default => 2,
+            })
+            ->values()
+            ->all();
+
+        $updates = [];
+
+        foreach ($ordered as $doc) {
+            $path = (string) ($doc['path'] ?? '');
+            $type = (string) ($doc['type'] ?? 'other');
+            if ($path === '' || ! Storage::disk('local')->exists($path)) {
+                continue;
+            }
+
+            $ext = pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg';
+            $dest = 'ventas/'.now()->format('YmdHis').'_recovery_'.$venta->id.'_'.Str::random(6).'.'.$ext;
+            // Escribe en el disco de documentos, no en el local: la ruta se
+            // guarda en la venta y el resto de la app la lee por DocumentStorage.
+            DocumentStorage::put($dest, Storage::disk('local')->get($path));
+
+            // El albarán (INFORMACIÓN PRECONTRACTUAL) va SIEMPRE al slot precontractual,
+            // nunca a contrato_firmado, se identifique o no primero en el grupo.
+            if ($type === ContractImageExtractor::TYPE_ALBARAN) {
+                if (blank($venta->precontractual) && empty($updates['precontractual'])) {
+                    $updates['precontractual'] = $dest;
+                } elseif (blank($venta->otros_documentos) && empty($updates['otros_documentos'])) {
+                    $updates['otros_documentos'] = $dest;
+                } elseif (blank($venta->foto_sorteo) && empty($updates['foto_sorteo'])) {
+                    $updates['foto_sorteo'] = $dest;
+                }
+
+                continue;
+            }
+
+            // Resto (contrato real / sin identificar): el papel recuperado va primero
+            // a contrato_firmado; si ya está ocupado, cae en los siguientes huecos libres.
+            if (blank($venta->contrato_firmado) && empty($updates['contrato_firmado'])) {
+                $updates['contrato_firmado'] = $dest;
+            } elseif (blank($venta->precontractual) && empty($updates['precontractual'])) {
+                $updates['precontractual'] = $dest;
+            } elseif (blank($venta->otros_documentos) && empty($updates['otros_documentos'])) {
+                $updates['otros_documentos'] = $dest;
+            } elseif (blank($venta->foto_sorteo) && empty($updates['foto_sorteo'])) {
+                $updates['foto_sorteo'] = $dest;
+            }
+            // Si todos los slots están ocupados, se deja el archivo en el disco
+            // de documentos pero NO se sobrescribe ninguna ruta de la venta.
+        }
+
+        if ($updates !== []) {
+            $venta->forceFill($updates)->saveQuietly();
+        }
+    }
+
+    /**
+     * Rellena huecos del cliente (dirección, CP, fecha de nacimiento) con lo leído del
+     * contrato recuperado. Nunca pisa un dato que el cliente ya tuviera.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function fillCustomerAddressIfBlank(Customer $customer, array $data): void
+    {
+        $patch = [];
+
+        $direccion = trim((string) ($data['direccion'] ?? ''));
+        if ($direccion !== '' && blank($customer->primary_address)) {
+            $patch['primary_address'] = $direccion;
+        }
+
+        $codigoPostal = trim((string) ($data['codigo_postal'] ?? ''));
+        if ($codigoPostal !== '' && blank($customer->postal_code)) {
+            $patch['postal_code'] = $codigoPostal;
+        }
+
+        $fechaNacimiento = trim((string) ($data['fecha_nacimiento'] ?? ''));
+        if ($fechaNacimiento !== '' && blank($customer->getRawOriginal('fecha_nac'))) {
+            $patch['fecha_nac'] = $fechaNacimiento;
+        }
+
+        if ($patch !== []) {
+            $customer->forceFill($patch)->saveQuietly();
+        }
+    }
+
+    protected function resolveComercialId(mixed $codes): ?int
+    {
+        if (! is_string($codes) && ! is_array($codes)) {
+            return null;
+        }
+
+        $parts = is_array($codes)
+            ? $codes
+            : (preg_split('/[,\s\-]+/', (string) $codes) ?: []);
+        foreach ($parts as $code) {
+            $code = trim((string) $code);
+            if ($code === '') {
+                continue;
+            }
+            $padded = str_pad(ltrim($code, '0') ?: '0', 3, '0', STR_PAD_LEFT);
+            $user = User::query()
+                ->where('empleado_id', $code)
+                ->orWhere('empleado_id', $padded)
+                ->orWhere('empleado_id', ltrim($code, '0'))
+                ->first();
+            if ($user) {
+                return (int) $user->id;
+            }
+        }
+
+        return null;
+    }
+
+    protected function normalizeDni(string $dni): string
+    {
+        return mb_strtoupper(trim($dni));
+    }
+
+    protected function normalizeNro(string $nro): string
+    {
+        return trim($nro);
+    }
+
+    protected function parseDate(mixed $value): ?\Illuminate\Support\Carbon
+    {
+        if (! filled($value)) {
+            return null;
+        }
+
+        $raw = trim((string) $value);
+        // Fechas del contrato impreso son europeas (Fec.Promo. / Fec.Entr. = d-m-Y)
+        foreach (['d-m-Y', 'd/m/Y', 'd-m-y', 'd/m/y', 'Y-m-d'] as $fmt) {
+            try {
+                $dt = \Illuminate\Support\Carbon::createFromFormat($fmt, $raw);
+                if ($dt !== false) {
+                    return $dt;
+                }
+            } catch (Throwable) {
+            }
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($raw);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    protected function toMoney(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_numeric($value)) {
+            return round((float) $value, 2);
+        }
+        $s = str_replace(['€', ' ', '.'], ['', '', ''], (string) $value);
+        $s = str_replace(',', '.', $s);
+
+        return is_numeric($s) ? round((float) $s, 2) : null;
+    }
+}

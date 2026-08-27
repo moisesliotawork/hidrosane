@@ -12,55 +12,57 @@ class ListNoteAssignments extends ListRecords
 {
     protected static string $resource = NoteAssignmentResource::class;
 
-    // Esta propiedad fuerza a que todos los grupos nazcan colapsados
-    public bool $tableGroupingCollapsed = true;
+    // Grupos abiertos por defecto para ver de un vistazo las asignaciones del día
+    public bool $tableGroupingCollapsed = false;
 
     public function isTableGroupingCollapsedByDefault(): bool
     {
-        return true;
+        return false;
     }
 
     public function getTabs(): array
     {
+        $today = Note::businessToday();
+        $tomorrow = $today->copy()->addDay();
+
         return [
             'hoy' => Tab::make('HOY')
                 ->icon('heroicon-o-calendar')
                 ->badge(
                     Note::query()
-                        ->whereNotNull('comercial_id')
-                        ->whereDate('assignment_date', now('Europe/Madrid')->toDateString())
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate($today)
                         ->count()
                 )
                 ->badgeColor('success')
                 ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereNotNull('comercial_id')
-                    ->whereDate('assignment_date', now('Europe/Madrid')->toDateString())
+                    ->assignedToCommercial()
+                    ->whereEffectiveAssignmentDate($today)
                 ),
 
             'manana' => Tab::make('MAÑANA')
                 ->icon('heroicon-o-chevron-double-right')
                 ->badge(
                     Note::query()
-                        ->whereNotNull('comercial_id')
-                        ->whereDate('assignment_date', now('Europe/Madrid')->addDay()->toDateString())
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate($tomorrow)
                         ->count()
                 )
                 ->badgeColor('info')
                 ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereNotNull('comercial_id')
-                    ->whereDate('assignment_date', now('Europe/Madrid')->addDay()->toDateString())
+                    ->assignedToCommercial()
+                    ->whereEffectiveAssignmentDate($tomorrow)
                 ),
 
-            // Pestaña para facilitar la búsqueda por fecha usando el filtro de arriba
             'buscar_fecha' => Tab::make('BUSCAR FECHA')
                 ->icon('heroicon-o-magnifying-glass')
                 ->badge(
                     Note::query()
-                        ->whereNotNull('comercial_id')
+                        ->assignedToCommercial()
                         ->count()
                 )
                 ->badgeColor('warning')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotNull('comercial_id')),
+                ->modifyQueryUsing(fn (Builder $query) => $query->assignedToCommercial()),
         ];
     }
 

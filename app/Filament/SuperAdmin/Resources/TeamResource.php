@@ -5,6 +5,7 @@ namespace App\Filament\SuperAdmin\Resources;
 use App\Filament\SuperAdmin\Resources\TeamResource\Pages;
 use App\Filament\SuperAdmin\Resources\TeamResource\RelationManagers;
 use App\Models\Team;
+use App\Support\Storage\DocumentStorage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -26,6 +27,8 @@ class TeamResource extends Resource
     protected static ?string $pluralModelLabel = 'Equipos';
     protected static ?string $navigationLabel = 'Equipos';
     protected static ?string $breadcrumb = 'Equipos';
+    protected static ?string $navigationGroup = 'OTROS';
+    protected static ?int $navigationSort = 102;
 
 
     public static function form(Form $form): Form
@@ -36,8 +39,8 @@ class TeamResource extends Resource
                 ->image()
                 ->imagePreviewHeight('200')
                 ->directory('equipos')
-                ->disk('public')
-                ->visibility('public')
+                ->disk(DocumentStorage::diskName())
+                ->visibility(DocumentStorage::uploadVisibility())
                 ->columnSpanFull(),
 
 

@@ -8,6 +8,8 @@ use Filament\Resources\Pages\CreateRecord;
 use App\Models\Venta;
 use App\Models\Note;
 use App\Models\Reparto;
+use App\Support\VentaFechaVenta;
+use App\Support\VentaOrigenResolver;
 
 class CreateVenta extends CreateRecord
 {
@@ -33,7 +35,7 @@ class CreateVenta extends CreateRecord
         // 2. Pre-rellenar el formulario
         $this->form->fill(array_merge(
             ['note_id' => $this->note->id],
-            $customer->only($customer->getFillable())
+            $customer->formFillableAttributes()
         ));
     }
 
@@ -53,10 +55,11 @@ class CreateVenta extends CreateRecord
         $venta = Venta::create([
             'note_id' => $this->note->id,
             'customer_id' => $customer->id,
-            'fecha_venta' => $data['fecha_venta'],
+            'fecha_venta' => VentaFechaVenta::normalizeOnCreate($data['fecha_venta'] ?? null),
             'importe_total' => $data['importe_total'],
             'num_cuotas' => $data['num_cuotas'] ?? null,
             'interes_art' => $data['interes_art'] ?? false,
+            'origen_venta' => VentaOrigenResolver::origenForCreateFromNote($this->note),
         ]);
 
         /* 4. Guardar ofertas + productos ------------------------------------ */

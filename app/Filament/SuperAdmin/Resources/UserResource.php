@@ -12,7 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Spatie\Permission\Models\Role;
@@ -32,6 +34,8 @@ class UserResource extends Resource
     protected static ?string $modelLabel = 'Usuario';
     protected static ?string $pluralModelLabel = 'Usuarios';
     protected static ?string $breadcrumb = 'Usuarios';
+    protected static ?string $navigationGroup = 'Registros';
+    protected static ?int $navigationSort = -2;
 
     public static function form(Form $form): Form
     {
@@ -141,7 +145,8 @@ class UserResource extends Resource
                     ->searchable(
                         query: fn(Builder $query, string $search)
                         => $query->orWhere('users.dni', 'like', "%{$search}%")
-                    ),
+                    )
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('name')
                     ->label('NOMBRE')
@@ -155,7 +160,8 @@ class UserResource extends Resource
                     ->searchable(
                         query: fn(Builder $query, string $search)
                         => $query->orWhere('users.email', 'like', "%{$search}%")
-                    ),
+                    )
+                    ->toggleable(),
 
                 TextColumn::make('phone')
                     ->label('Teléfono')
@@ -169,7 +175,8 @@ class UserResource extends Resource
                         '<span style="font-size: 1rem; font-weight: bold;">' .
                         chunk_split(str_replace(' ', '', $state), 3, ' ') .
                         '</span>'
-                    ),
+                    )
+                    ->toggleable(),
 
                 TextColumn::make('role')
                     ->label('Rol')
@@ -194,16 +201,93 @@ class UserResource extends Resource
                             ->orderBy('r.name', $direction)
                             ->select('users.*');
                     }),
+
+                ToggleColumn::make('can_login')
+                    ->label('Login')
+                    ->onColor('success')
+                    ->offColor('danger')
+                    ->disabled(fn (User $record): bool => (int) $record->id === (int) auth()->id())
+                    ->sortable(true, function (Builder $query, string $direction): Builder {
+                        return $query
+                            ->reorder()
+                            ->orderBy('users.can_login', $direction)
+                            ->orderBy('users.empleado_id', 'asc');
+                    }),
+
+                IconColumn::make('activo')
+                    ->label('Activo')
+                    ->getStateUsing(fn (User $record): bool => blank($record->baja))
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger')
+                    ->alignCenter()
+                    ->tooltip(fn (User $record): string => blank($record->baja)
+                        ? 'Activo — clic para dar de baja'
+                        : 'De baja — clic para reactivar')
+                    ->action(
+                        Tables\Actions\Action::make('toggleActivo')
+                            ->requiresConfirmation()
+                            ->modalHeading(fn (User $record): string => blank($record->baja)
+                                ? 'Dar de baja al usuario'
+                                : 'Reactivar usuario')
+                            ->modalDescription(fn (User $record): string => blank($record->baja)
+                                ? 'Se marcará la fecha de baja con la fecha de hoy ('.now('Europe/Madrid')->format('d/m/Y').'). ¿Continuar?'
+                                : 'Se eliminará la fecha de baja y el usuario quedará activo. ¿Continuar?')
+                            ->modalSubmitActionLabel(fn (User $record): string => blank($record->baja)
+                                ? 'Sí, dar de baja'
+                                : 'Sí, reactivar')
+                            ->action(function (User $record): void {
+                                if (blank($record->baja)) {
+                                    $record->update([
+                                        'baja' => now('Europe/Madrid')->startOfDay(),
+                                    ]);
+                                } else {
+                                    $record->update([
+                                        'baja' => null,
+                                    ]);
+                                }
+                            })
+                    ),
+
                 TextColumn::make('alta_empleado')
                     ->label('Fecha de alta')
                     ->date('d/m/Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('baja')
+                    ->label('Fecha de baja')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable()
+                    ->placeholder('—'),
+
             ])
+            ->defaultSort('empleado_id', 'asc')
             ->paginated(false)
             ->filters([
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('editarBaja')
+                    ->label('Baja')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('danger')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('baja')
+                            ->label('Fecha de baja')
+                            ->displayFormat('d/m/Y')
+                            ->format('Y-m-d')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->nullable(),
+                    ])
+                    ->fillForm(fn(User $record) => ['baja' => $record->baja])
+                    ->action(fn(array $data, User $record) => $record->update(['baja' => $data['baja']]))
+                    ->modalWidth('sm')
+                    ->modalHeading('Editar fecha de baja'),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

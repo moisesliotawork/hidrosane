@@ -86,6 +86,7 @@
                 ])->filter(fn($o) => $o['nombre'] !== '')->values();
 
                 $editUrl = \App\Filament\Gerente\Resources\VentaResource::getUrl('edit', ['record' => $venta]);
+                $fechaVentaDisplay = \App\Support\VentaFechaVenta::resolveDateTime($venta);
             @endphp
 
             <div x-data="{ open: false }" style="border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.12),inset 0 0 0 2px {{ $palette[0] }};display:flex;flex-direction:column;overflow:hidden;min-width:0;max-width:100%;background:{{ $palette[1] }}">
@@ -194,9 +195,9 @@
 
                         {{-- Venta + Entrega --}}
                         <div style="display:flex;gap:5px;flex-wrap:wrap">
-                            @if($venta->fecha_venta)
+                            @if($fechaVentaDisplay)
                                 <span style="font-size:15px;font-weight:700;padding:3px 7px;border-radius:4px;background:#ea580c;color:#ffffff;white-space:nowrap">
-                                    Venta: {{ $venta->fecha_venta->format('d/m/Y H:i') }}
+                                    Venta: {{ $fechaVentaDisplay->format('d/m/Y H:i') }}
                                 </span>
                             @endif
                             @if($venta->fecha_entrega)
@@ -282,8 +283,8 @@
                         <div>
                             <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#b45309;margin-bottom:4px">Obs. Comercial</p>
                             <div style="font-size:15px;color:#1f2937;padding:4px 8px;border-left:3px solid #b45309;background:#fef3c7;border-radius:0 4px 4px 0">
-                                @if($venta->fecha_venta)
-                                    <div style="font-size:11px;color:#b45309;margin-bottom:2px">{{ $venta->fecha_venta->format('d/m/Y H:i') }}</div>
+                                @if($fechaVentaDisplay)
+                                    <div style="font-size:11px;color:#b45309;margin-bottom:2px">{{ $fechaVentaDisplay->format('d/m/Y H:i') }}</div>
                                 @endif
                                 {{ $obsRepartidor }}
                             </div>

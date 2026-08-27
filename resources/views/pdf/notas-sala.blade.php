@@ -104,11 +104,13 @@
                     </td>
                     <td class="card" width="30%">
                         <span class="label">TELEOPERADORA</span>
-                        <div class="value">{{ $note->user?->name ?? 'Sin asignar' }}</div>
+                        <div class="value">{{ $note->user?->display_name ?? 'Sin asignar' }}</div>
                     </td>
                     <td class="card" width="30%">
                         <span class="label">COMERCIAL</span>
-                        <div class="value">{{ $note->comercial?->name ?? 'Sin asignar' }}</div>
+                        <div class="value">
+                            {{ $note->comercial_id ? ($note->comercial?->display_name ?? 'Sin asignar') : 'Sin asignar' }}
+                        </div>
                     </td>
                 </tr>
             </table>

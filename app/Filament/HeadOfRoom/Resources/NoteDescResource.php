@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Filament\Support\Colors\Color;
@@ -46,7 +45,6 @@ class NoteDescResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->with(['observations.author', 'nullReasons.comercial'])
             ->whereIn('estado_terminal', [
                 EstadoTerminal::NUL->value,
@@ -68,17 +66,31 @@ class NoteDescResource extends Resource
             /* 1. Información personal */
             Section::make('Información Personal')
                 ->schema([
-                    TextEntry::make('first_names')->label('Nombres'),
-                    TextEntry::make('last_names')->label('Apellidos'),
-                    TextEntry::make('phone')
+                    TextEntry::make('customer.first_names')->label('Nombres'),
+                    TextEntry::make('customer.last_names')->label('Apellidos'),
+                    TextEntry::make('customer.phone')
                         ->label('Teléfono')
                         ->formatStateUsing(
-                            fn(string $state) =>
-                            chunk_split(str_replace(' ', '', $state), 3, ' ')
+                            fn(?string $state) => $state
+                                ? chunk_split(str_replace(' ', '', $state), 3, ' ')
+                                : '—'
                         ),
-                    TextEntry::make('secondary_phone')->label('Tel. secundario'),
-                    TextEntry::make('email')->label('Correo'),
-                    TextEntry::make('age')->label('Edad'),
+                    TextEntry::make('customer.secondary_phone')
+                        ->label('Tlf. secundario')
+                        ->formatStateUsing(
+                            fn(?string $state) => $state
+                                ? chunk_split(str_replace(' ', '', $state), 3, ' ')
+                                : '—'
+                        ),
+                    TextEntry::make('customer.third_phone')
+                        ->label('Tlf. 3 opcional')
+                        ->formatStateUsing(
+                            fn(?string $state) => $state
+                                ? chunk_split(str_replace(' ', '', $state), 3, ' ')
+                                : '—'
+                        ),
+                    TextEntry::make('customer.email')->label('Correo'),
+                    TextEntry::make('customer.age')->label('Edad'),
                 ])
                 ->columns(2),
 
@@ -89,9 +101,9 @@ class NoteDescResource extends Resource
                     TextEntry::make('customer.nro_piso')->label('No. y Piso'),
                     TextEntry::make('customer.ciudad')->label('Ciudad'),
                     TextEntry::make('customer.provincia')->label('Provincia'),
-                    TextEntry::make('primary_address')->label('Dirección'),
-                    TextEntry::make('secondary_address')->label('Dirección 2'),
-                    TextEntry::make('parish')->label('Parroquia'),
+                    TextEntry::make('customer.primary_address')->label('Dirección'),
+                    TextEntry::make('customer.secondary_address')->label('Dirección 2'),
+                    TextEntry::make('customer.parish')->label('Parroquia'),
                 ])
                 ->columns(2),
 

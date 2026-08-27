@@ -132,6 +132,11 @@
             padding: .25rem .5rem;
             border-radius: 999px;
             background: rgba(107, 114, 128, .15);
+            color: #166534;
+        }
+
+        .dark .bulk-count {
+            color: #ffffff;
         }
 
         .bulk-left {
@@ -213,6 +218,36 @@
         .search-input:focus {
             border-color: rgba(0, 36, 140, .45);
             box-shadow: 0 0 0 3px rgba(0, 36, 140, .15);
+        }
+
+        @keyframes parpadeo {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        .notas-counter {
+            font-weight: 700;
+            font-size: .85rem;
+            margin: 0 .75rem .5rem .75rem;
+            color: #166534;
+        }
+
+        .dark .notas-counter {
+            color: #ffffff;
+        }
+
+        .notas-counter .num {
+            animation: parpadeo 1s step-start infinite;
+            color: #dc2626;
+            font-size: 1.25rem;
+        }
+
+        .notas-sections {
+            margin: 0 .75rem;
+        }
+
+        .notas-sections .space-y-4 > * + * {
+            margin-top: 1rem;
         }
 
         @media (max-width: 520px) {
@@ -514,7 +549,8 @@
                 Seleccionadas: {{ count($selectedNotes) }}
             </span>
 
-            <button class="filament-bulk-btn btn-sala" wire:click="bulkEnviarASala" wire:loading.attr="disabled"
+            <button class="filament-bulk-btn btn-sala" type="button"
+                onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
                 wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
                 <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                     stroke-width="2" stroke="currentColor">
@@ -616,12 +652,17 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto">
+    <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
 
-        <div class="mobile-optimized">
-            <div class="space-y-4">
-
-                @forelse($this->notes as $note)
+    <div class="overflow-x-auto notas-sections">
+        <div class="mobile-optimized space-y-6">
+            @foreach([
+                ['heading' => 'Notas de hoy', 'notes' => $this->notesToday, 'empty' => 'No hay notas de hoy.'],
+                ['heading' => 'Notas anteriores', 'notes' => $this->notesPrevious, 'empty' => 'No hay notas anteriores.'],
+            ] as $section)
+                <x-filament::section :heading="$section['heading']">
+                    <div class="space-y-4">
+                        @forelse($section['notes'] as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
                         <div
                             class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
@@ -706,9 +747,15 @@
 
                         <!-- Botones de acción -->
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
-                                De Camino
-                            </button>
+                            @if($note['de_camino'] ?? false)
+                                <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @else
+                                <button class="action-button" onclick="toggleDeCaminoConGps({{ $note['id'] }})">
+                                    De Camino
+                                </button>
+                            @endif
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">
                                 GPS
                             </button>
@@ -729,138 +776,17 @@
                             </button>
                         </div>
                     </div>
-                @empty
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                        <p class="text-gray-500 dark:text-gray-400">No hay notas registradas</p>
+                        @empty
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+                                <p class="text-gray-500 dark:text-gray-400">{{ $section['empty'] }}</p>
+                            </div>
+                        @endforelse
                     </div>
-                @endforelse
-            </div>
+                </x-filament::section>
+            @endforeach
         </div>
     </div>
-    <script>
-        function getUbicacion(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                // Si no está en HTTPS, guardar ubicación fija (Caracas)
-                Livewire.dispatch('guardarUbicacion', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Estás en entorno local, se usó ubicación de Caracas.');
-                return;
-            }
-
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-
-                        Livewire.dispatch('guardarUbicacion', {
-                            notaId: notaId,
-                            lat: lat,
-                            lng: lng
-                        });
-                    },
-                    function (error) {
-                        // Si hay error, usar Caracas como fallback
-                        Livewire.dispatch('guardarUbicacion', {
-                            notaId: notaId,
-                            lat: 10.4806,
-                            lng: -66.9036
-                        });
-                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                // Geolocalización no soportada
-                Livewire.dispatch('guardarUbicacion', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Geolocalización no soportada, se usó Caracas.');
-            }
-        }
-
-        function getUbicacionDentro(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                Livewire.dispatch('guardarUbicacionDentro', {
-                    notaId: notaId,
-                    lat: 10.4806,   // Caracas
-                    lng: -66.9036
-                });
-                alert('Entorno no HTTPS, se usó ubicación de Caracas (DENTRO).');
-                return;
-            }
-
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-
-                        Livewire.dispatch('guardarUbicacionDentro', {
-                            notaId: notaId,
-                            lat: lat,
-                            lng: lng
-                        });
-                    },
-                    function (error) {
-                        Livewire.dispatch('guardarUbicacionDentro', {
-                            notaId: notaId,
-                            lat: 10.4806,
-                            lng: -66.9036
-                        });
-                        alert('No se pudo obtener ubicación (DENTRO), se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                Livewire.dispatch('guardarUbicacionDentro', {
-                    notaId: notaId,
-                    lat: 10.4806,
-                    lng: -66.9036
-                });
-                alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
-            }
-        }
-
-        function llevarme(notaId, lat, lng) {
-            // ¿Tenemos coordenadas DENTRO?
-            if (!lat || !lng)
-            {
-                // Notificar desde backend con Filament Notifications
-                Livewire.dispatch('avisarSinDentro', { notaId: notaId });
-                return;
-            }
-
-            // 1) Intento abrir app nativa (Android/iOS) con esquema geo:
-            //    geo:lat,lng?q=lat,lng (funciona muy bien en móviles)
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile)
-            {
-                const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
-                // Abrimos la app si está disponible
-                window.location.href = geoUrl;
-
-                // Fallback a web (si no hay app)
-                setTimeout(() => {
-                    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-                    window.open(webUrl, '_blank');
-                }, 600);
-                return;
-            }
-
-            // 2) En desktop (o si no quieres esquema geo), abre Google Maps Web directamente:
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-            window.open(webUrl, '_blank');
-        }
-    </script>
+@include('components.gps-livewire-nota-scripts')
+@include('filament.commercial.components.bulk-oficina-gps-script')
 
 </div>

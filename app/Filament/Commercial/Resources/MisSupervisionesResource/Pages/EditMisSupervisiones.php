@@ -24,10 +24,16 @@ use Filament\Forms\Components\Select;
 use App\Models\CreamDailyControl;
 use App\Models\NoteSalaEvent;
 use App\Models\User;
-use App\Filament\Commercial\Resources\NoteResource;
+use App\Support\ActionGps;
+use App\Support\NoteRouteGps;
+use App\Support\NoteSalaActions;
+use App\Support\Filament\GpsActionForm;
+use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 
 class EditMisSupervisiones extends EditRecord
 {
+    use HandlesGpsActionModal;
+
     protected static string $resource = MisSupervisionesResource::class;
 
     public function getTitle(): string
@@ -48,32 +54,22 @@ class EditMisSupervisiones extends EditRecord
                         ->placeholder('Escribe una observación si lo consideras necesario…')
                         ->rows(3)
                         ->maxLength(2000),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como AUSENTE')
                 ->modalDescription('Confirma que deseas marcar la nota como AUSENTE.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
-                    // 1) Cambiar estado
+                    ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
+
                     $this->record->estado_terminal = EstadoTerminal::AUSENTE;
                     $this->record->reten = false;
+                    $this->record->fecha_declaracion = now();
+                    $this->record->lat_dentro = $lat;
+                    $this->record->lng_dentro = $lng;
                     $this->record->save();
-
-                    // 2) Resolver ubicación
-                    if (App::environment('local')) {
-                        $lat = '42.2405';
-                        $lng = '-8.7200';
-                    } else {
-                        $lat = request()->input('latitud');
-                        $lng = request()->input('longitud');
-
-                        if (empty($lat) && property_exists($this->record, 'dentro_latitude')) {
-                            $lat = $this->record->dentro_latitude;
-                        }
-                        if (empty($lng) && property_exists($this->record, 'dentro_longitude')) {
-                            $lng = $this->record->dentro_longitude;
-                        }
-                    }
 
                     // 3) Crear historial (incluyendo la observación opcional)
                     AbsentHistory::create([
@@ -91,7 +87,7 @@ class EditMisSupervisiones extends EditRecord
                         'nota_id' => $this->record->id,
                         'author_id' => auth()->id(),
                         'asunto' => 'AUSENTE',
-                        'cuerpo' => $data['observacion'] ?? 'Marcado como AUSENTE',
+                        'cuerpo' => NoteRouteGps::ausenteCuerpo($data['observacion'] ?? null, $lat, $lng),
                     ]);
 
                     // 4) Notificación + redirect
@@ -138,11 +134,14 @@ class EditMisSupervisiones extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
+
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Motivo de nulidad')
                 ->modalDescription('Confirma que deseas marcar la nota como NULA con el motivo indicado.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data): void {
 
                     // '__NONE__' => null
@@ -150,18 +149,21 @@ class EditMisSupervisiones extends EditRecord
                     $companionId = $rawCompanionId === '__NONE__' ? null : $rawCompanionId;
 
                     DB::transaction(function () use ($data, $companionId) {
+                        ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
                         // 1) Guardar motivo + compañero
                         $nullReason = NoteNullReason::create([
                             'note_id' => $this->record->id,
                             'comercial_id' => Auth::id(),
-                            'companion_id' => $companionId,   // ✅ NUEVO
+                            'companion_id' => $companionId,
                             'reason' => $data['reason'],
                         ]);
 
-                        // 2) Cambiar estado
+                        // 2) Cambiar estado + GPS
                         $this->record->estado_terminal = EstadoTerminal::NUL;
                         $this->record->reten = false;
+                        $this->record->lat = $lat;
+                        $this->record->lng = $lng;
                         $this->record->save();
 
                         DB::afterCommit(function () use ($nullReason) {
@@ -379,47 +381,23 @@ class EditMisSupervisiones extends EditRecord
                         ->rows(4)
                         ->required()
                         ->maxLength(2000),
+                    ...GpsActionForm::fields(),
                 ])
                 ->requiresConfirmation()
                 ->modalHeading('Marcar como OFICINA')
                 ->modalDescription('Confirma que deseas marcar la nota como OFICINA y guardar la observación.')
                 ->modalSubmitActionLabel('Sí, confirmar')
+                ->modalSubmitAction(fn ($action) => GpsActionForm::requireGpsBeforeSubmit($action))
                 ->action(function (array $data) {
-                    DB::transaction(function () use ($data) {
-                        // 1) Guardar observación de sala
-                        $salaObservation = NoteSalaObservation::create([
-                            'note_id' => $this->record->id,
-                            'author_id' => Auth::id(),
-                            'observation' => $data['observation'],
-                        ]);
+                    ['lat' => $lat, 'lng' => $lng] = ActionGps::resolve($data);
 
-                        // 2) Cambiar estado a SALA, registrar fecha/hora y RESET de printed
-                        $this->record->forceFill([
-                            'estado_terminal' => EstadoTerminal::SALA,
-                            'sent_to_sala_at' => now(),
-                            'printed' => false,
-                            'reten' => false,
-                        ])->save();
-
-                        // 3) Crear registro en el historial de envíos a sala
-                        //    vía 'declaracion' porque es el comercial pulsando el botón
-                        NoteSalaEvent::create([
-                            'note_id' => $this->record->id,
-                            'sent_by_user_id' => Auth::id(),
-                            'via' => 'declaracion',
-                            'sent_at' => now(),
-                        ]);
-
-                        // 4) Evento para notificaciones u otros listeners
-                        DB::afterCommit(function () use ($salaObservation) {
-                            $note = $this->record->fresh(['customer', 'comercial']);
-
-                            event(new \App\Events\NotaEnviadaAOficina(
-                                $note,
-                                $salaObservation->fresh()
-                            ));
-                        });
-                    });
+                    NoteSalaActions::sendIndividualToOffice(
+                        $this->record,
+                        Auth::id(),
+                        $data['observation'],
+                        $lat,
+                        $lng,
+                    );
 
                     Notification::make()
                         ->title('Nota marcada como OFICINA')

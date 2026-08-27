@@ -3,7 +3,13 @@
 namespace App\Filament\Commercial\Resources\VentaDesdeCeroResource\Pages;
 
 use App\Filament\Commercial\Resources\VentaDesdeCeroResource;
+use App\Support\ActionGps;
+use App\Support\ContractsCommercialUser;
+use App\Support\PuertaFriaCustomerResolver;
+use App\Support\PuertaFriaCustomerSearch;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Forms\Components\Wizard\Step;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, Customer, User};
@@ -12,43 +18,388 @@ use App\Filament\Commercial\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
+use App\Support\VentaOrigenResolver;
+use App\Support\Filament\GpsActionForm;
+use App\Support\Filament\VentaDocumentUpload;
+use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
+use Filament\Actions\Action;
+use App\Enums\OrigenVenta;
+use Filament\Notifications\Notification;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
+    use HasWizard;
+    use HandlesGpsVentaWizard;
+
     protected static string $resource = VentaDesdeCeroResource::class;
+
+    protected static string $view = 'filament.commercial.pages.create-venta-desde-cero';
+
+    public const NEW_CUSTOMER_CHOICE = '__new__';
+
+    public string $lookupPhone = '';
+
+    public string $lookupName = '';
+
+    public ?string $lookupMessage = null;
+
+    public ?string $lookupMessageStatus = null;
+
+    public bool $lookupSearched = false;
+
+    /** @var list<array{id: int, name: string, dni: ?string, phone: ?string}> */
+    public array $lookupResults = [];
+
+    public ?string $lookupSelectedChoice = null;
+
+    public bool $puertaFriaLookupCompleted = false;
+
+    public ?string $puertaFriaLookupToken = null;
 
     public function getTitle(): string
     {
         return 'Puerta Fria';
     }
 
+    public function shouldShowPuertaFriaLookupModal(): bool
+    {
+        return $this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted;
+    }
+
+    public function isPuertaFriaLookupBlockingForm(): bool
+    {
+        return $this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted;
+    }
+
+    public function requiresPuertaFriaLookup(): bool
+    {
+        return ContractsCommercialUser::matches();
+    }
+
+    public function canShowPuertaFriaLookupContinue(): bool
+    {
+        if (! $this->lookupSearched) {
+            return false;
+        }
+
+        return $this->lookupResults !== [] || $this->lookupMessageStatus === 'not_found';
+    }
+
+    private function sessionKey(): string
+    {
+        return 'pf_draft_commercial_' . auth()->id();
+    }
+
+    private function puertaFriaLookupTokenKey(): string
+    {
+        return 'pf_lookup_token_commercial_' . auth()->id();
+    }
+
+    private function puertaFriaLookupVerifiedKey(): string
+    {
+        return 'pf_lookup_verified_commercial_' . auth()->id();
+    }
+
+    private function fileFields(): array
+    {
+        return VentaDocumentUpload::creationFormDocumentFields();
+    }
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        if ($this->requiresPuertaFriaLookup()) {
+            $this->puertaFriaLookupToken = (string) Str::uuid();
+            $this->puertaFriaLookupCompleted = false;
+            $this->lookupSearched = false;
+            $this->lookupResults = [];
+            $this->lookupSelectedChoice = null;
+            $this->lookupMessage = null;
+            $this->lookupMessageStatus = null;
+
+            session()->put($this->puertaFriaLookupTokenKey(), $this->puertaFriaLookupToken);
+            session()->forget($this->puertaFriaLookupVerifiedKey());
+            session()->forget($this->sessionKey());
+
+            $this->form->fill([]);
+
+            $this->dispatch('open-puerta-fria-lookup-modal');
+
+            return;
+        }
+
+        $key = $this->sessionKey();
+        if (session()->has($key)) {
+            $saved = session($key);
+            foreach ($this->fileFields() as $field) {
+                unset($saved[$field]);
+            }
+            $this->form->fill(array_merge($this->data, $saved));
+        }
+    }
+
+    public function cancelPuertaFriaLookup(): void
+    {
+        $this->dispatch('close-puerta-fria-lookup-modal');
+    }
+
+    public function openPuertaFriaLookupModal(): void
+    {
+        $this->dispatch('open-puerta-fria-lookup-modal');
+    }
+
+    public function clearPuertaFriaLookupSearch(): void
+    {
+        $this->lookupSearched = false;
+        $this->lookupMessage = null;
+        $this->lookupMessageStatus = null;
+        $this->lookupResults = [];
+        $this->lookupSelectedChoice = null;
+    }
+
+    public function selectPuertaFriaLookupChoice(string $choice): void
+    {
+        $this->lookupSelectedChoice = $choice;
+    }
+
+    public function create(bool $another = false): void
+    {
+        $this->assertPuertaFriaLookupCompleted();
+
+        try {
+            parent::create($another);
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->danger()
+                ->title('No se pudo guardar la venta')
+                ->body('Revisa los campos obligatorios. Algunos pueden estar en el paso anterior o en una sección plegada (productos / documentos).')
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        }
+    }
+
+    protected function assertPuertaFriaLookupCompleted(): void
+    {
+        if (! $this->requiresPuertaFriaLookup()) {
+            return;
+        }
+
+        $expected = session($this->puertaFriaLookupTokenKey());
+        $verified = session($this->puertaFriaLookupVerifiedKey());
+
+        if (
+            ! $this->puertaFriaLookupCompleted
+            || blank($expected)
+            || $verified !== $expected
+        ) {
+            $this->dispatch('open-puerta-fria-lookup-modal');
+
+            Notification::make()
+                ->title('Búsqueda obligatoria')
+                ->body('Debes buscar el cliente en el modal y pulsar Continuar antes de crear el contrato.')
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw ValidationException::withMessages([
+                'first_names' => 'Completa la búsqueda de cliente en el modal antes de guardar.',
+            ]);
+        }
+    }
+
+    public function searchPuertaFriaCustomers(): void
+    {
+        if (trim($this->lookupPhone) === '' || trim($this->lookupName) === '') {
+            Notification::make()
+                ->title('Datos incompletos')
+                ->body('Introduce el teléfono y el nombre del cliente antes de buscar.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $search = PuertaFriaCustomerSearch::search($this->lookupPhone, $this->lookupName);
+        $this->lookupSearched = true;
+        $this->lookupMessage = $search['message'];
+        $this->lookupMessageStatus = $search['status'];
+        $this->lookupSelectedChoice = null;
+
+        $this->lookupResults = $search['customers']
+            ->map(function (Customer $customer) use ($search): array {
+                $phoneDigits = PuertaFriaCustomerSearch::primaryPhoneDigits($customer) ?? $search['phone_digits'];
+
+                return [
+                    'id' => $customer->id,
+                    'name' => PuertaFriaCustomerSearch::displayName($customer),
+                    'dni' => $customer->dni,
+                    'phone' => $phoneDigits,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function continuePuertaFriaLookup(): void
+    {
+        if (! $this->lookupSearched) {
+            Notification::make()
+                ->title('Busca primero el cliente')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $choice = trim((string) $this->lookupSelectedChoice);
+
+        if ($choice === '') {
+            Notification::make()
+                ->title('Selecciona un cliente o crea uno nuevo')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $prefill = [];
+
+        if ($choice !== self::NEW_CUSTOMER_CHOICE) {
+            $customer = Customer::query()->find((int) $choice);
+
+            if (! $customer) {
+                Notification::make()
+                    ->title('Cliente no encontrado')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            $prefill = PuertaFriaCustomerSearch::customerToFormData($customer);
+        } else {
+            ['first_names' => $firstNames, 'last_names' => $lastNames] = PuertaFriaCustomerSearch::splitLookupName($this->lookupName);
+            $digits = preg_replace('/\D+/', '', $this->lookupPhone);
+            $formattedPhone = strlen($digits) === 9
+                ? implode(' ', str_split($digits, 3))
+                : $this->lookupPhone;
+
+            $prefill = [
+                'pf_existing_customer_id' => null,
+                'first_names' => $firstNames,
+                'last_names' => $lastNames,
+                'phone1_commercial' => $formattedPhone,
+            ];
+        }
+
+        $this->dispatch('close-puerta-fria-lookup-modal');
+
+        $this->form->fill(array_merge($this->data ?? [], $prefill));
+        session()->put($this->puertaFriaLookupVerifiedKey(), $this->puertaFriaLookupToken);
+        $this->puertaFriaLookupCompleted = true;
+
+        Notification::make()
+            ->title($choice === self::NEW_CUSTOMER_CHOICE
+                ? 'Puedes continuar creando el cliente nuevo'
+                : 'Cliente seleccionado. Revisa los datos y continúa con la venta.')
+            ->success()
+            ->send();
+    }
+
+    public function dehydrate(): void
+    {
+        if ($this->isPuertaFriaLookupBlockingForm()) {
+            return;
+        }
+
+        $toSave = $this->data;
+        foreach ($this->fileFields() as $field) {
+            unset($toSave[$field]);
+        }
+        session()->put($this->sessionKey(), $toSave);
+        session()->save();
+    }
+
+    protected function afterCreate(): void
+    {
+        session()->forget($this->sessionKey());
+        session()->forget($this->puertaFriaLookupTokenKey());
+        session()->forget($this->puertaFriaLookupVerifiedKey());
+    }
+
+    protected function getSubmitFormAction(): Action
+    {
+        return parent::getSubmitFormAction()
+            ->disabled(fn (): bool => $this->isSubmitBlocked())
+            ->tooltip(fn (): ?string => $this->submitBlockedTooltip());
+    }
+
+    protected function isSubmitBlocked(): bool
+    {
+        if ($this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted) {
+            return true;
+        }
+
+        if (ActionGps::shouldRegisterGps() && ! GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function submitBlockedTooltip(): ?string
+    {
+        if ($this->requiresPuertaFriaLookup() && ! $this->puertaFriaLookupCompleted) {
+            return 'Debes completar la búsqueda de cliente en el modal.';
+        }
+
+        if (ActionGps::shouldRegisterGps() && ! GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return 'Esperando ubicación GPS…';
+        }
+
+        return null;
+    }
+
+    protected function getSteps(): array
+    {
+        return [
+            Step::make('Datos del contrato')
+                ->icon('heroicon-o-document-text')
+                ->description('Información del cliente y de la venta')
+                ->schema(VentaDesdeCeroResource::step1Schema()),
+
+            Step::make('Documentos y Fotos')
+                ->icon('heroicon-o-camera')
+                ->description('Sube los documentos requeridos')
+                ->schema(VentaDesdeCeroResource::step2Schema()),
+        ];
+    }
+
     protected function handleRecordCreation(array $data): Venta
     {
+        $this->assertPuertaFriaLookupCompleted();
+
         return DB::transaction(function () use ($data) {
 
             if (($data['companion_id'] ?? null) === '__NONE__') {
                 $data['companion_id'] = null;
             }
 
-            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
+            if (! blank($data['companion_id']) && ! User::where('id', $data['companion_id'])->exists()) {
                 $data['companion_id'] = null;
             }
 
-            $fechaVenta = !empty($data['manual_created_at'])
-                ? (
+            $fechaVenta = ! empty($data['manual_created_at'])
+                ? VentaFechaVenta::normalizeOnSave(
                     $data['manual_created_at'] instanceof Carbon
-                    ? $data['manual_created_at']
-                    : Carbon::parse($data['manual_created_at'], 'Europe/Madrid')
+                        ? $data['manual_created_at']
+                        : Carbon::parse($data['manual_created_at'], VentaFechaVenta::timezone()),
                 )
-                : now('Europe/Madrid');
-
-            if (($data['companion_id'] ?? null) === '__NONE__') {
-                $data['companion_id'] = null;
-            }
-
-            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
-                $data['companion_id'] = null;
-            }
+                : VentaFechaVenta::normalizeOnCreate();
 
             unset($data['age']);
 
@@ -58,63 +409,56 @@ class CreateVentaDesdeCero extends CreateRecord
                 ]);
             }
 
-            /** ─────────────────────────────
-             * 2) Customer (misma validación que CreateNote)
-             * ───────────────────────────── */
-            $normalizedFirst = Str::slug(Str::lower($data['first_names'] ?? ''), '');
-            $normalizedLast = Str::slug(Str::lower($data['last_names'] ?? ''), '');
-
-            /** @var Customer|null $customer */
-            $customer = Customer::query()
-                ->whereRaw("LOWER(REPLACE(first_names, ' ', '')) = ?", [$normalizedFirst])
-                ->whereRaw("LOWER(REPLACE(last_names, ' ', '')) = ?", [$normalizedLast])
-                ->where('phone', $data['phone'] ?? null)
-                ->first();
-
-            // Solo campos fillable del modelo Customer
             $customerFillable = (new Customer)->getFillable();
             $customerPayload = array_intersect_key($data, array_flip($customerFillable));
+            $customerPayload['pf_existing_customer_id'] = $data['pf_existing_customer_id'] ?? null;
 
-            if ($customer) {
-                // No pises con null valores existentes
-                $toUpdate = array_filter($customerPayload, fn($v) => $v !== null && $v !== '');
-                if (!empty($toUpdate)) {
-                    $customer->fill($toUpdate)->save();
-                }
+            $customer = app(PuertaFriaCustomerResolver::class)->resolveOrCreate(
+                $customerPayload,
+                auth()->id(),
+            );
+
+            $comercialId = $data['nota_comercial_id'] ?? auth()->id();
+            $existingNote = VentaOrigenResolver::findReusableAssignedNote($customer);
+            $origenVenta = OrigenVenta::PUERTA_FRIA;
+
+            if ($existingNote) {
+                $existingNote->update([
+                    'estado_terminal' => EstadoTerminal::VENTA,
+                    'comercial_id' => $comercialId,
+                    'reten' => false,
+                ]);
+                $note = $existingNote->fresh();
+                VentaOrigenResolver::repairMislabeledFuente($note);
+                $note = $note->fresh();
+                $origenVenta = OrigenVenta::VENTA_NORMAL;
             } else {
-                // Crea el cliente nuevo
-                $customer = Customer::create($customerPayload);
+                $noteFillable = (new Note)->getFillable();
+
+                $notaBase = [
+                    'user_id' => auth()->id(),
+                    'customer_id' => $customer->id,
+                    'comercial_id' => $comercialId,
+                    'status' => $data['nota_status'] ?? NoteStatus::CONTACTED->value,
+                    'visit_date' => $data['nota_visit_date'] ?? null,
+                    'visit_schedule' => $data['nota_visit_schedule'] ?? null,
+                    'assignment_date' => $comercialId ? now() : null,
+                    'show_phone' => $data['nota_show_phone'] ?? true,
+                    'de_camino' => $data['nota_de_camino'] ?? false,
+                    'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
+                    'created_at' => $fechaVenta,
+                    'updated_at' => $fechaVenta,
+                    'estado_terminal' => EstadoTerminal::VENTA,
+                    'fuente' => \App\Enums\FuenteNotas::PTA_FRIA->value,
+                ];
+
+                $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));
+                /** @var Note $note */
+                $note = Note::create($notaPayload);
             }
 
-            /** ─────────────────────────────
-             * 3) Note (igual que antes, pero usando $customer->id)
-             * ───────────────────────────── */
-            $noteFillable = (new Note)->getFillable();
+            $notaPayload = ['comercial_id' => $note->comercial_id];
 
-            $notaBase = [
-                'user_id' => auth()->id(),
-                'customer_id' => $customer->id,
-                'comercial_id' => $data['nota_comercial_id'] ?? auth()->id(),
-                'status' => $data['nota_status'] ?? NoteStatus::CONTACTED->value,
-                'visit_date' => $data['nota_visit_date'] ?? null,
-                'visit_schedule' => $data['nota_visit_schedule'] ?? null,
-                'assignment_date' => ($data['nota_comercial_id'] ?? null) ? now() : null,
-                'show_phone' => $data['nota_show_phone'] ?? true,
-                'de_camino' => $data['nota_de_camino'] ?? false,
-                'ayuntamiento' => $data['nota_ayuntamiento'] ?? null,
-                'created_at' => $fechaVenta,
-                'updated_at' => $fechaVenta,
-                'estado_terminal' => EstadoTerminal::VENTA,
-                'fuente' => \App\Enums\FuenteNotas::PTA_FRIA->value,
-            ];
-
-            $notaPayload = array_intersect_key($notaBase, array_flip($noteFillable));
-            /** @var Note $note */
-            $note = Note::create($notaPayload);
-
-            /** ─────────────────────────────
-             * 4) Normalizaciones Venta (igual que tu código original)
-             * ───────────────────────────── */
             if (($data['modalidad_pago'] ?? 'Financiado') === 'Contado') {
                 $data['num_cuotas'] = 1;
             }
@@ -123,16 +467,20 @@ class CreateVentaDesdeCero extends CreateRecord
                 ? round(((float) ($data['importe_total'] ?? 0)) / $cuotas, 2)
                 : null;
 
-            if (!blank($data['companion_id']) && !User::where('id', $data['companion_id'])->exists()) {
-                $data['companion_id'] = null;
-            }
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::assertCoordsForVentaOrFail(
+                $note->lat,
+                $note->lng,
+                $data,
+                auth()->user(),
+            );
 
-            /** @var Venta $venta */
             $venta = Venta::create([
                 'note_id' => $note->id,
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => $data['companion_id'],
+                'lat' => $ventaLat,
+                'lng' => $ventaLng,
 
                 'fecha_venta' => $fechaVenta,
                 'created_at' => $fechaVenta,
@@ -159,13 +507,10 @@ class CreateVentaDesdeCero extends CreateRecord
                 'documento_titularidad' => $data['documento_titularidad'] ?? null,
                 'nomina' => $data['nomina'] ?? null,
                 'pension' => $data['pension'] ?? null,
-                //'contrato_firmado' => $data['contrato_firmado'] ?? null,
                 'otros_documentos' => $data['otros_documentos'] ?? null,
                 'foto_sorteo' => $data['foto_sorteo'] ?? null,
 
-                'origen_venta' => \App\Enums\OrigenVenta::PUERTA_FRIA,
-
-
+                'origen_venta' => $origenVenta,
             ]);
 
             $this->form->model($venta)->saveRelationships();
@@ -182,10 +527,10 @@ class CreateVentaDesdeCero extends CreateRecord
                 ? round($venta->total_final / (int) $venta->num_cuotas, 2)
                 : null;
 
-            if (empty($venta->nro_contr_adm) && !empty($venta->nro_contrato)) {
+            if (empty($venta->nro_contr_adm) && ! empty($venta->nro_contrato)) {
                 $venta->nro_contr_adm = $venta->nro_contrato;
             }
-            if (empty($venta->nro_cliente_adm) && !empty($customer->nro_cliente)) {
+            if (empty($venta->nro_cliente_adm) && ! empty($customer->nro_cliente)) {
                 $venta->nro_cliente_adm = $customer->nro_cliente;
             }
 
@@ -198,6 +543,8 @@ class CreateVentaDesdeCero extends CreateRecord
             $venta->save();
             $venta->timestamps = true;
 
+            unset($data['pf_existing_customer_id']);
+
             DB::afterCommit(function () use ($venta) {
                 event(new VentaCreada($venta));
             });
@@ -208,48 +555,6 @@ class CreateVentaDesdeCero extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        // Ajusta si prefieres otra página:
         return NotasHoy::getUrl();
     }
-
-// CAMBIAMOS //
-/*
-protected function getFormActions(): array
-{
-    return [
-        $this->getCreateFormAction()
-            ->label('Crear Venta')
-            ->action(function () {
-                // Revisamos manualmente si el campo está en el estado de la página
-                if (blank($this->data['foto_sorteo'] ?? null)) {
-                    $this->addError('data.foto_sorteo', 'Debes subir la foto del sorteo.');
-                    return;
-                }
-
-                $this->create();
-            }),
-        $this->getCancelFormAction()->label('Cancelar')->url(NotasHoy::getUrl()),
-    ];
-}
-*/
-
-
-
-
-    protected function getFormActions(): array
-    {
-        return [
-            $this->getCreateFormAction()->label('Crear Venta'),
-            $this->getCancelFormAction()->label('Cancelar')->url(NotasHoy::getUrl()),
-        ];
-    }
-
-
-
-
-
-
-
-
-
 }

@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
+use App\Filament\Support\CustomerPhoneForm;
 
 class MisSupervisionesResource extends Resource
 {
@@ -66,39 +67,28 @@ class MisSupervisionesResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        // Teléfono
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono 1 (requerido)')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('phone')
+                                ->disabled()
+                                ->label('Teléfono 1 (requerido)')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                            required: true,
+                        ),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono 2 (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('secondary_phone')
+                                ->disabled()
+                                ->label('Teléfono 2 (opcional)')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                        ),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -233,7 +223,8 @@ class MisSupervisionesResource extends Resource
                             ])
                     ])
                     ->collapsible()
-                    ->hidden(fn(string $operation): bool => $operation === 'create'),
+                    ->hidden(fn (string $operation): bool => $operation === 'create'
+                        || (auth()->user()?->hasAnyRole(['commercial', 'team_leader']) ?? false)),
 
                 Forms\Components\Section::make('Observaciones')
                     ->schema([

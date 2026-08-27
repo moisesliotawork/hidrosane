@@ -6,13 +6,19 @@ use Livewire\Component;
 use App\Models\Note;
 use App\Models\User;
 use App\Models\AnotacionVisita;
+use App\Models\NoteReassignmentBatch;
+use App\Models\NoteReassignmentLog;
 use Filament\Notifications\Notification;
 use App\Enums\EstadoTerminal;
 use App\Models\NoteSalaEvent;
+use App\Support\NoteRouteGps;
+use App\Support\NoteSalaActions;
 use Illuminate\Support\Facades\DB;
+use App\Livewire\Concerns\ValidatesLivewireGps;
 
 class NotasDeComercial extends Component
 {
+    use ValidatesLivewireGps;
     public string|int $comercialId;
     public bool $esReten = false;
 
@@ -23,6 +29,9 @@ class NotasDeComercial extends Component
 
     /** IDs seleccionados (hoy + todas) */
     public array $selectedNotes = [];
+
+    public bool $showBulkReassignModal = false;
+    public ?string $bulkNewComercialId = null;
 
     public string $origenVentaFilter = 'sin_procedencia';
 
@@ -36,6 +45,7 @@ class NotasDeComercial extends Component
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
+        'toggleDeCamino' => 'toggleDeCamino',
     ];
 
     public function mount(string|int $comercialId): void
@@ -74,20 +84,31 @@ class NotasDeComercial extends Component
         $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
         $empleado = $nuevo->empleado_id ?? 'SIN-ID';
 
+        $fromComercialId = $note->comercial_id;
+
         $updateData = [
             'comercial_id' => $this->newComercialId,
-            'assignment_date' => now()->startOfDay(), // o now() si quieres guardar hora exacta
+            'assignment_date' => now()->startOfDay(),
+            'reten' => false,
         ];
-
-        if ($this->esReten) {
-            $updateData['reten'] = false;
-        }
 
         $note->update($updateData);
 
+        // Log de reasignación
+        $batch = NoteReassignmentBatch::create([
+            'author_id'       => auth()->id(),
+            'to_comercial_id' => $this->newComercialId,
+            'to_reten'        => false,
+            'reassigned_at'   => now(),
+        ]);
+        NoteReassignmentLog::create([
+            'batch_id'          => $batch->id,
+            'note_id'           => $note->id,
+            'from_comercial_id' => $fromComercialId,
+        ]);
 
         $extra = $this->esReten
-            ? ' Se reasignó, se actualizó la fecha y salió de Retén (reten=false).'
+            ? ' Se reasignó, se actualizó la fecha y salió de Retén.'
             : ' Se reasignó y se actualizó la fecha.';
 
         AnotacionVisita::create([
@@ -123,6 +144,117 @@ class NotasDeComercial extends Component
             ->toArray();
     }
 
+    public function selectAll(): void
+    {
+        $this->selectedNotes = collect($this->notesToday)
+            ->pluck('id')
+            ->merge(collect($this->notesAll)->pluck('id'))
+            ->unique()
+            ->map(fn($id) => (string) $id)
+            ->values()
+            ->toArray();
+    }
+
+    public function deselectAll(): void
+    {
+        $this->selectedNotes = [];
+    }
+
+    public function openBulkReassignModal(): void
+    {
+        $this->bulkNewComercialId = null;
+        $this->showBulkReassignModal = true;
+    }
+
+    public function reassignBulkVisit(): void
+    {
+        if (empty($this->selectedNotes) || !$this->bulkNewComercialId) {
+            Notification::make()->title('Selecciona notas y un destino')->warning()->send();
+            return;
+        }
+
+        $notes = Note::whereIn('id', $this->selectedNotes)->get();
+        $count = 0;
+
+        // Capturamos from_comercial_id antes de actualizar
+        $fromComercials = $notes->pluck('comercial_id', 'id');
+
+        if ($this->bulkNewComercialId === 'reten') {
+            // Batch de logging
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => null,
+                'to_reten'        => true,
+                'reassigned_at'   => now(),
+            ]);
+
+            foreach ($notes as $note) {
+                $note->update([
+                    'reten' => true,
+                    'assignment_date' => now()->startOfDay(),
+                ]);
+                AnotacionVisita::create([
+                    'nota_id' => $note->id,
+                    'author_id' => auth()->id(),
+                    'asunto' => 'REASIGNACIÓN MASIVA',
+                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva.",
+                ]);
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $note->id,
+                    'from_comercial_id' => $fromComercials[$note->id] ?? null,
+                ]);
+                $count++;
+            }
+            $destino = 'Retén';
+        } else {
+            $nuevo = User::find((int) $this->bulkNewComercialId);
+            $nombre = $nuevo ? trim(($nuevo->name ?? '') . ' ' . ($nuevo->last_name ?? '')) : 'Desconocido';
+            $empleado = $nuevo->empleado_id ?? 'SIN-ID';
+
+            // Batch de logging
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => (int) $this->bulkNewComercialId,
+                'to_reten'        => false,
+                'reassigned_at'   => now(),
+            ]);
+
+            foreach ($notes as $note) {
+                $note->update([
+                    'comercial_id' => (int) $this->bulkNewComercialId,
+                    'assignment_date' => now()->startOfDay(),
+                    'reten' => false,
+                ]);
+                AnotacionVisita::create([
+                    'nota_id' => $note->id,
+                    'author_id' => auth()->id(),
+                    'asunto' => 'REASIGNACIÓN MASIVA',
+                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado}.",
+                ]);
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $note->id,
+                    'from_comercial_id' => $fromComercials[$note->id] ?? null,
+                ]);
+                $count++;
+            }
+            $destino = "{$nombre} - {$empleado}";
+        }
+
+        $this->selectedNotes = [];
+        $this->bulkNewComercialId = null;
+        $this->showBulkReassignModal = false;
+
+        Notification::make()
+            ->title('Reasignación masiva completada')
+            ->body("{$count} notas reasignadas a: {$destino}")
+            ->success()
+            ->send();
+
+        $this->dispatch('notaActualizada');
+    }
+
     public function avisarSinDentro($notaId): void
     {
         Notification::make()
@@ -134,25 +266,31 @@ class NotasDeComercial extends Component
 
     public function guardarUbicacionDentro($notaId, $lat, $lng): void
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note)
             return;
 
-        $note->lat_dentro = $lat;
-        $note->lng_dentro = $lng;
+        $note->lat_dentro = $coords['lat'];
+        $note->lng_dentro = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'DENTRO',
-            'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación DENTRO: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación DENTRO capturada')
             ->success()
-            ->body("Guardada para nota #$notaId: [$lat, $lng]")
+            ->body("Guardada para nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
 
         $this->dispatch('notaActualizada');
@@ -160,29 +298,35 @@ class NotasDeComercial extends Component
 
     public function guardarUbicacion($notaId, $lat, $lng): void
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note)
             return;
 
-        $note->lat = $lat;
-        $note->lng = $lng;
+        $note->lat = $coords['lat'];
+        $note->lng = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $note->id,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
-            'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación capturada: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación capturada')
             ->success()
-            ->body("Ubicación guardada para la nota #$notaId: [$lat, $lng]")
+            ->body("Ubicación guardada para la nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
     }
 
-    public function toggleDeCamino($noteId): void
+    public function toggleDeCamino($noteId, $lat = null, $lng = null): void
     {
         $note = Note::find($noteId);
         if (!$note) {
@@ -200,21 +344,23 @@ class NotasDeComercial extends Component
             return;
         }
 
-        $note->de_camino = !$note->de_camino;
-        $note->save();
+        $enCamino = ! $note->de_camino;
 
-        AnotacionVisita::create([
-            'nota_id' => $noteId,
-            'author_id' => auth()->id(),
-            'asunto' => 'DE CAMINO',
-            'cuerpo' => $note->de_camino ? 'Va de camino' : 'No va de camino',
-        ]);
+        if (! NoteRouteGps::toggleDeCamino($note, auth()->id(), $lat, $lng)) {
+            Notification::make()
+                ->title('GPS requerido')
+                ->warning()
+                ->body('Debes permitir la geolocalización para marcar DE CAMINO.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
-                    ->title('Estado actualizado')
-            ->{$note->de_camino ? 'success' : 'warning'}()
-                ->body($note->de_camino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
-                ->send();
+            ->title('Estado actualizado')
+            ->{$enCamino ? 'success' : 'warning'}()
+            ->body($enCamino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
+            ->send();
 
         $this->dispatch('notaActualizada');
     }
@@ -231,15 +377,37 @@ class NotasDeComercial extends Component
             return;
         }
 
+        // Capturar comerciales antes de actualizar (solo las que tienen comercial asignado)
+        $notesParaReten = Note::query()
+            ->whereIn('id', $ids)
+            ->whereNotNull('comercial_id')
+            ->get(['id', 'comercial_id']);
+
         // Solo mover a retén las que tengan comercial asignado
         $updated = Note::query()
             ->whereIn('id', $ids)
             ->whereNotNull('comercial_id')
             ->update([
                 'reten' => true,
-                // Si al enviar a retén quieres refrescar la fecha de asignación:
                 'assignment_date' => now()->startOfDay(),
             ]);
+
+        // Log de reasignación a retén
+        if ($updated > 0) {
+            $batch = NoteReassignmentBatch::create([
+                'author_id'       => auth()->id(),
+                'to_comercial_id' => null,
+                'to_reten'        => true,
+                'reassigned_at'   => now(),
+            ]);
+            foreach ($notesParaReten as $noteData) {
+                NoteReassignmentLog::create([
+                    'batch_id'          => $batch->id,
+                    'note_id'           => $noteData->id,
+                    'from_comercial_id' => $noteData->comercial_id,
+                ]);
+            }
+        }
 
         Notification::make()
             ->title('Enviadas a Retén')
@@ -292,67 +460,14 @@ class NotasDeComercial extends Component
             return;
         }
 
-        DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
+        NoteSalaActions::sendBulkToOffice($eligible, auth()->id());
 
-            // ✅ UPDATE EXACTO que pediste
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 2.5) Agregar observación automática si son 2 o más
-            if (count($eligible) >= 2) {
-                $obsRows = [];
-                foreach ($eligible as $noteId) {
-                    $obsRows[] = [
-                        'note_id' => $noteId,
-                        'author_id' => $userId,
-                        'observation' => 'Envío Masivo a sala',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                if (!empty($obsRows)) {
-                    \App\Models\NoteSalaObservation::insert($obsRows);
-                }
-            }
-
-            DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
-
+        $enviadas = count($eligible);
         Notification::make()
-            ->title('Notas enviadas a Oficina')
-            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->title('✅ ' . $enviadas . ' nota' . ($enviadas === 1 ? '' : 's') . ' enviada' . ($enviadas === 1 ? '' : 's') . ' a Oficina')
+            ->body($skipped ? "Omitidas (no elegibles): {$skipped}" : null)
             ->success()
+            ->persistent()
             ->send();
 
         $this->selectedNotes = [];
@@ -405,67 +520,14 @@ class NotasDeComercial extends Component
             return;
         }
 
-        DB::transaction(function () use ($eligible) {
-            $now = now();
-            $userId = auth()->id();
+        NoteSalaActions::sendBulkToOffice($eligible, auth()->id());
 
-            // ✅ UPDATE EXACTO (el mismo que pediste)
-            Note::whereIn('id', $eligible)->update([
-                'estado_terminal' => EstadoTerminal::SALA->value,
-                'printed' => false,
-                'reten' => false,
-                'sent_to_sala_at' => $now,
-                'fecha_declaracion' => $now,
-            ]);
-
-            // Historial masivo
-            $rows = [];
-            foreach ($eligible as $noteId) {
-                $rows[] = [
-                    'note_id' => $noteId,
-                    'sent_by_user_id' => $userId,
-                    'via' => 'masivo',
-                    'sent_at' => $now,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            }
-
-            if (!empty($rows)) {
-                NoteSalaEvent::insert($rows);
-            }
-
-            // 2.5) Agregar observación automática si son 2 o más
-            if (count($eligible) >= 2) {
-                $obsRows = [];
-                foreach ($eligible as $noteId) {
-                    $obsRows[] = [
-                        'note_id' => $noteId,
-                        'author_id' => $userId,
-                        'observation' => 'Envío Masivo a sala',
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                if (!empty($obsRows)) {
-                    \App\Models\NoteSalaObservation::insert($obsRows);
-                }
-            }
-
-            DB::afterCommit(function () use ($eligible) {
-                $comercial = auth()->user();
-
-                event(new \App\Events\NotasEnviadasAOficinaBulk(
-                    $eligible,
-                    $comercial
-                ));
-            });
-        });
-
+        $enviadas = count($eligible);
         Notification::make()
-            ->title('Notas enviadas a Oficina')
-            ->body('Actualizadas: ' . count($eligible) . ($skipped ? ' • Omitidas: ' . $skipped : ''))
+            ->title('✅ ' . $enviadas . ' nota' . ($enviadas === 1 ? '' : 's') . ' enviada' . ($enviadas === 1 ? '' : 's') . ' a Oficina')
+            ->body($skipped ? "Omitidas (no elegibles): {$skipped}" : null)
             ->success()
+            ->persistent()
             ->send();
 
         $this->selectedNotes = [];
@@ -658,7 +720,7 @@ class NotasDeComercial extends Component
             'primary_address' => $customer->primary_address ?? 'Sin dirección',
             'address_info' => $addressInfo,
             'comercial' => $note->comercial->empleado_id ?? 'Sin asignar',
-            'visit_date' => \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y'),
+            'visit_date' => $note->visit_date ? \Carbon\Carbon::parse($note->visit_date)->format('d/m/Y') : '--/--/----',
             'visit_schedule' => $note->visit_schedule ?? '--:--',
             'observations' => $note->observations,
             'fuente' => $note->fuente->value,

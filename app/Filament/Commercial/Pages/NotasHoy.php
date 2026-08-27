@@ -11,4 +11,9 @@ class NotasHoy extends Page
     protected static ?string $title = 'Notas Hoy';
     protected static ?string $slug = 'notas-hoy';
     protected static string $view = 'filament.commercial.pages.notas-hoy';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->hasAnyRole(['sales_manager']) ?? false;
+    }
 }

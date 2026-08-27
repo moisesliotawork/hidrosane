@@ -1,0 +1,1 @@
+SELECT id, first_names, last_names, phone, dni FROM customers WHERE id=3329;

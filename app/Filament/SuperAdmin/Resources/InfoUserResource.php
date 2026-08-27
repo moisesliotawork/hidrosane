@@ -25,6 +25,8 @@ class InfoUserResource extends Resource
     protected static ?string $pluralModelLabel = 'Info Usuarios';
     protected static ?string $breadcrumb = 'Info Usuarios';
     protected static ?string $slug = 'info-users';
+    protected static ?string $navigationGroup = 'Registros';
+    protected static ?int $navigationSort = -1;
 
     public static function form(Form $form): Form
     {

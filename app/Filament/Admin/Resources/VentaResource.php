@@ -39,6 +39,13 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Support\Colors\Color;
 use App\Enums\OrigenVenta;
 use App\Enums\FuenteNotas;
+use App\Services\VentaCustomerIdentityService;
+use App\Filament\Support\SuperAdminVentaCustomerId;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaCustomerRelationshipSection;
+use App\Support\Filament\VentaDocumentUpload;
+use App\Support\Filament\VentaSoftDeleteTableAction;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -65,9 +72,67 @@ class VentaResource extends Resource
         return $form->schema([
 
             Placeholder::make('nro_nota')
-                ->label('Nº Nota')
-                ->content(fn(?Venta $record) => $record?->note?->nro_nota ?? '-')
-                ->extraAttributes(['class' => 'text-2xl font-bold'])   // tamaño y peso
+                ->label(fn (): string => self::isSuperAdminPanel() ? '' : 'Nº Nota')
+                ->content(function (?Venta $record) {
+                    if (! self::isSuperAdminPanel()) {
+                        return $record?->note?->nro_nota ?? '-';
+                    }
+
+                    $record?->loadMissing(['note', 'customer']);
+                    $nota = $record?->note?->nro_nota ?? '-';
+                    $nroAdm = filled($record?->nro_contr_adm) ? (string) $record->nro_contr_adm : '—';
+                    $nombre = trim(implode(' ', array_filter([
+                        $record?->customer?->first_names,
+                        $record?->customer?->last_names,
+                    ])));
+                    if ($nombre === '') {
+                        $nombre = '—';
+                    }
+
+                    $fechaContrato = '—';
+                    if ($record?->fecha_venta) {
+                        $fechaContrato = \Illuminate\Support\Carbon::parse($record->fecha_venta)
+                            ->timezone('Europe/Madrid')
+                            ->format('d/m/Y');
+                    }
+
+                    $blue = 'color:#2563eb;font-size:20px;font-weight:700;line-height:1.25;white-space:nowrap;';
+                    // Nº y fecha siempre completos: más compactos, sin truncar ni encoger
+                    $red = 'color:#dc2626;font-size:16px;font-weight:700;line-height:1.25;white-space:nowrap;flex-shrink:0;';
+                    $green = 'color:#16a34a;font-size:15px;font-weight:600;line-height:1.25;white-space:nowrap;flex-shrink:0;margin-left:1.25rem;';
+
+                    $dato = function (string $label, string $valor): string {
+                        return '<div style="flex:0 0 auto;min-width:max-content;text-align:right;overflow:visible;">'
+                            .'<div class="text-gray-500 dark:text-gray-400" style="font-size:12px;font-weight:400;white-space:nowrap;">'.e($label).'</div>'
+                            .'<div class="text-gray-700 dark:text-gray-200" style="font-size:15px;font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;">'.e($valor).'</div>'
+                            .'</div>';
+                    };
+
+                    return new HtmlString(
+                        '<div style="display:flex;width:100%;max-width:100%;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:1rem;overflow:visible;">'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:0.35rem;min-width:max-content;flex:1 1 auto;overflow:visible;">'
+                        .'<span style="'.$blue.'">'.e($nombre).'</span>'
+                        .'<span style="'.$blue.'"> - </span>'
+                        .'<span style="'.$red.'">'.e($nroAdm).'</span>'
+                        // Fecha del contrato en verde, al lado del nº (con espacio)
+                        .'<span style="'.$green.'">'.e($fechaContrato).'</span>'
+                        .'</div>'
+                        .'<div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:flex-end;gap:1.5rem;min-width:max-content;flex:0 0 auto;overflow:visible;">'
+                        .$dato('Nº Nota', (string) $nota)
+                        .$dato('Nro Contrato', $nroAdm)
+                        .$dato('Fecha Contrato', $fechaContrato)
+                        .'</div>'
+                        .'</div>'
+                    );
+                })
+                ->extraAttributes(fn (): array => self::isSuperAdminPanel()
+                    ? [
+                        'class' => 'w-full !max-w-none !overflow-visible',
+                        'style' => 'overflow:visible;max-width:none;width:100%;',
+                    ]
+                    : [
+                        'class' => 'text-2xl font-bold',
+                    ])
                 ->columnSpanFull(),
 
 
@@ -86,8 +151,10 @@ class VentaResource extends Resource
                 ->columns(5),
 
 
-            /* guarda la relación con la nota; no se muestra */
-            Hidden::make('note_id')->required(),
+            /* Relación con la nota (oculta). Opcional: contratos recuperados
+             * y algunos históricos no tienen nota vinculada; antes se podía guardar igual. */
+            Hidden::make('note_id')
+                ->nullable(),
 
             TextInput::make('seguimiento')
                 ->label('Seguimiento'),
@@ -146,13 +213,34 @@ class VentaResource extends Resource
                         // (opcional) si quieres que SOLO se vea y no la puedan cambiar:
                         // ->disabled()
                         ,
+
+                        // Fecha del contrato -B asociado (editable desde el contrato padre)
+                        DatePicker::make('fecha_contrato_b_virtual')
+                            ->label('Fecha Contrato -B')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->dehydrated(false)
+                            ->live()
+                            ->afterStateHydrated(function ($component, ?Venta $record) {
+                                if ($record) {
+                                    $b = $record->contratoB();
+                                    $component->state($b?->fecha_venta?->toDateString());
+                                }
+                            })
+                            ->afterStateUpdated(function (?string $state, ?Venta $record) {
+                                if ($record && $state) {
+                                    $b = $record->contratoB();
+                                    $b?->updateQuietly(['fecha_venta' => $state]);
+                                }
+                            })
+                            ->visible(fn(?Venta $record) => $record !== null && !self::isContratoB($record)),
                     ]),
                 ]),
 
 
             Section::make('Informe al repartidor')
-                ->collapsed()
-
+                ->collapsible()
+                ->collapsed(false)
                 ->compact()
                 ->schema([
 
@@ -172,9 +260,17 @@ class VentaResource extends Resource
                         ->nullable()
                         ->preload()
                         ->columnSpan(1),
+                    DatePicker::make('fecha_venta')
+                        ->label('Fecha de la venta')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
+                        ->nullable()
+                        ->columnSpan(1)
+                        ->visible(fn(?Venta $record) => !self::isContratoB($record)),
+
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->timezone('Europe/Madrid')
                         ->native(false)
                         ->columnSpan(1),
@@ -183,7 +279,14 @@ class VentaResource extends Resource
                         ->options(HorarioNotas::options())
                         ->native(false)
                         ->searchable()
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
+                        ->columnSpan(1),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable()
                         ->columnSpan(1),
 
                     Select::make('motivo_venta')
@@ -195,7 +298,7 @@ class VentaResource extends Resource
                             'Me compró el cliente' => 'Me compró el cliente',
                             'Muy rebatido de objeciones' => 'Muy rebatido de objeciones',
                         ])
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->native(false),
 
                     Select::make('motivo_horario')
@@ -206,7 +309,7 @@ class VentaResource extends Resource
                             'Se lo dije y marqué cuando firmó' => 'Se lo dije y marqué cuando firmó',
                             'No va a estar a otra hora en casa' => 'No va a estar a otra hora en casa',
                         ])
-                        ->required()
+                        ->required(fn (): bool => ! self::isSuperAdminPanel())
                         ->native(false),
                     Toggle::make('interes_art')
                         ->label('¿Al cliente le ha interesado más artículos que no le has vendido?')
@@ -219,7 +322,7 @@ class VentaResource extends Resource
                         ->rows(3)
                         ->columnSpan(1)
                         ->visible(fn(Get $get) => (bool) $get('interes_art'))
-                        ->required(fn(Get $get) => (bool) $get('interes_art'))
+                        ->required(fn(Get $get) => (bool) $get('interes_art') && ! self::isSuperAdminPanel())
                         ->maxLength(500),
 
                     Forms\Components\Textarea::make('observaciones_repartidor')
@@ -233,8 +336,31 @@ class VentaResource extends Resource
 
 
             /* ───────── Información del cliente ────────── */
+            ...SuperAdminVentaCustomerId::formFields(),
+            ...SuperAdminVentaCustomerId::adminReassignGuidanceFields(),
+
+            Placeholder::make('customer_shared_warning')
+                ->label('')
+                ->content(new HtmlString(
+                    '<p class="text-sm text-warning-600 dark:text-warning-400">'
+                    . 'Este ID de cliente lo comparten otros contratos o notas. '
+                    . 'Los cambios en <strong>nombre, apellidos o DNI</strong> crearán un <strong>cliente nuevo</strong> '
+                    . 'y este contrato quedará independiente. '
+                    . 'Otros datos (fecha de nacimiento, teléfonos, dirección, etc.) se actualizan en el mismo cliente '
+                    . 'y se verán igual en el resto de contratos y notas.'
+                    . '</p>'
+                ))
+                ->visible(fn (?Venta $record) => filled($record?->customer_id)
+                    && VentaCustomerIdentityService::customerIsShared($record)),
+
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
+                ->mutateRelationshipDataBeforeFillUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeFill($data),
+                )
+                ->mutateRelationshipDataBeforeSaveUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeSave($data),
+                )
                 ->schema([
                     Grid::make([
                         'default' => 1,
@@ -242,7 +368,7 @@ class VentaResource extends Resource
                         'xl' => 5])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
                         TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI')
+                        TextInput::make('dni')->label('DNI')->required()
                         ->columnSpan([
                     'default' => 1,
                     'xl' => 5   // Solo ocupa todo el ancho en pantallas grandes
@@ -252,18 +378,7 @@ class VentaResource extends Resource
                             ->readOnly()
                             ->dehydrated(false),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())          // no permitir fechas futuras
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::make(),
 
                         TextInput::make('age')
                             ->numeric()
@@ -271,39 +386,12 @@ class VentaResource extends Resource
                             ->readOnly()              // NO editable
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
-                        TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->columnSpan(1)
-                            ->mask('999 999 999')
-                            ->label('Teléfono 1 (requerido)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('phone', 'Teléfono 1 (opcional)')
+                            ->columnSpan(1),
 
-                        TextInput::make('secondary_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            //->columnSpan(['default' => 1])
-                            ->mask('999 999 999')
-                            ->label('Teléfono 2 (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2 (opcional)'),
 
-                        TextInput::make('third_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            //->columnSpan(['default' => 1])
-                            ->mask('999 999 999')
-                            ->label('Teléfono 3 (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
                         TextInput::make('phone1_commercial')
                             ->tel()
@@ -325,7 +413,7 @@ class VentaResource extends Resource
                                 'min' => 'Debe tener exactamente 9 cifras',
                             ]),
 
-                        TextInput::make('email')->label('Email')
+                        TextInput::make('email')->label('Correo electrónico')
                             ->email(),
 
 
@@ -415,47 +503,6 @@ class VentaResource extends Resource
                             ->default(1)
                             ->required()
                             ->reactive(),
-
-                        /* ---------- IBAN con formato ---------- */
-                        TextInput::make('iban')
-                            ->columnSpanFull()
-                            ->label('IBAN')
-                            // Visual: mayúsculas
-                            ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
-                            // Mostrar con espacios al cargar
-                            ->formatStateUsing(
-                                fn($state) => $state
-                                ? trim(chunk_split(strtoupper(preg_replace('/\s+/', '', $state)), 4, ' '))
-                                : null
-                            )
-                            // Guardar sin espacios y en mayúsculas
-                            ->dehydrateStateUsing(
-                                fn($state) => $state
-                                ? strtoupper(preg_replace('/\s+/', '', $state))
-                                : null
-                            )
-                            // 24 reales + 5 espacios = 29 visibles
-                            ->maxLength(29)
-                            // No reescribir mientras tecleas; solo al salir
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (\Filament\Forms\Set $set, ?string $state) {
-                                $raw = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
-                                $raw = substr($raw, 0, 24);                       // fuerza máximo 24 (sin espacios)
-                                $set('iban', implode(' ', str_split($raw, 4)));   // agrupa 4 en 4
-                            })
-                            // Validación: exactamente 24 alfanuméricos (sin espacios)
-                            ->rule(function () {
-                                return function (string $attribute, $value, $fail) {
-                                    $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
-                                    if (strlen($raw) !== 24) {
-                                        $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
-                                    }
-                                    if (!preg_match('/^[A-Z0-9]{24}$/', $raw)) {
-                                        $fail('El IBAN solo puede contener letras y números.');
-                                    }
-                                };
-                            })
-                            ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
 
 
                         Select::make('ingresos_rango')
@@ -723,6 +770,48 @@ class VentaResource extends Resource
                     Toggle::make('crema')
                         ->label('¿Incluye crema?')
                         ->default(false),
+
+                    /* ---------- IBAN con formato ---------- */
+                    TextInput::make('iban')
+                        ->columnSpanFull()
+                        ->label('IBAN')
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                        // Visual: mayúsculas
+                        ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
+                        // Mostrar con espacios al cargar
+                        ->formatStateUsing(
+                            fn($state) => $state
+                            ? trim(chunk_split(strtoupper(preg_replace('/\s+/', '', $state)), 4, ' '))
+                            : null
+                        )
+                        // Guardar sin espacios y en mayúsculas
+                        ->dehydrateStateUsing(
+                            fn($state) => $state
+                            ? strtoupper(preg_replace('/\s+/', '', $state))
+                            : null
+                        )
+                        // 24 reales + 5 espacios = 29 visibles
+                        ->maxLength(29)
+                        // No reescribir mientras tecleas; solo al salir
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (\Filament\Forms\Set $set, ?string $state) {
+                            $raw = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+                            $raw = substr($raw, 0, 24);
+                            $set('iban', implode(' ', str_split($raw, 4)));
+                        })
+                        // Validación: exactamente 24 alfanuméricos (sin espacios)
+                        ->rule(function () {
+                            return function (string $attribute, $value, $fail) {
+                                $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
+                                if (strlen($raw) !== 24) {
+                                    $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
+                                }
+                                if (!preg_match('/^[A-Z0-9]{24}$/', $raw)) {
+                                    $fail('El IBAN solo puede contener letras y números.');
+                                }
+                            };
+                        })
+                        ->helperText('Se agrupa automáticamente: XXXX XXXX XXXX XXXX XXXX XXXX'),
                 ])
                 ->columns(5),
 
@@ -984,7 +1073,7 @@ class VentaResource extends Resource
             Section::make('Gestión Documentos')
                 ->schema([
                     //RESTO: CÁMARA
-                    self::docCard('precontractual', 'Precontractual', true, true),
+                    self::docCard('precontractual', 'Precontractual', ! self::isSuperAdminPanel(), true),
                     self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
                     self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                     self::docCard('dni_reverso', 'DNI – Reverso', false, true),
@@ -996,7 +1085,8 @@ class VentaResource extends Resource
                 ])
                 ->columns(1)
                 ->collapsible()
-                ->collapsed()
+                // Si falta precontractual, abrir la sección para que se vea el error al guardar
+                ->collapsed(fn (?Venta $record): bool => filled($record?->precontractual) || self::isContratoB($record))
                 ->columnSpanFull(),
         ]);
     }
@@ -1016,15 +1106,60 @@ class VentaResource extends Resource
                         ->orWhere('nro_contr_adm', 'not like', '%-B%');
                 });
             })
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
 
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
                     ->badge()
-                    ->color('success')
+                    // Recuperados → amarillo (warning); resto → verde.
+                    ->color(fn ($state): string => \App\Models\ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
+                    ->wrap(false)
                     ->sortable()
-                    ->searchable(),
+                    ->searchable(isIndividual: true)
+                    ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
+                    ->extraCellAttributes(['class' => 'min-w-[7rem] whitespace-nowrap']),
+
+                TextColumn::make('ver_cont')
+                    ->label('Ver/Cont')
+                    ->state('Ver/cont')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn (Venta $record): string => static::getUrl('edit', ['record' => $record]))
+                    ->openUrlInNewTab()
+                    ->tooltip('Abrir formulario de este contrato')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->toggleable(),
+
+                TextColumn::make('pgc')
+                    ->label('PGC')
+                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'Ir_PGC' : '—')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Ir_PGC' ? 'info' : 'gray')
+                    ->url(function (Venta $record): ?string {
+                        if (! filled($record->customer_id)) {
+                            return null;
+                        }
+
+                        return CustomerResource::getUrl('view', [
+                            'record' => $record->customer_id,
+                        ], panel: 'admin');
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Posición Global de este cliente')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->toggleable(),
+
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('contrato_b')
                     ->label('-B')
@@ -1066,25 +1201,24 @@ class VentaResource extends Resource
 
                 // FUENTE DE LA TELEOPERADORA //
 
-                TextColumn::make('note.fuente')
+                TextColumn::make('fuente_display')
                     ->label('Fuente')
                     ->badge()
-                    // Mapeamos manualmente tus casos a colores que SÍ existen en Filament o Hex directos.
-                    ->color(fn($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
-                        FuenteNotas::CALLE => 'warning',      // Naranja (warning siempre funciona)
-                        FuenteNotas::VIP_INT => 'success',    // Verde (success siempre funciona)
-                        FuenteNotas::VIP_EXT => 'info',    // Amarillo (Forzado con HEX)
+                    ->state(fn (Venta $record) => \App\Support\VentaOrigenResolver::fuenteDisplayForVenta($record))
+                    ->color(fn ($state) => match ($state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state)) {
+                        FuenteNotas::CALLE => 'warning',
+                        FuenteNotas::VIP_INT => 'success',
+                        FuenteNotas::VIP_EXT => 'info',
                         FuenteNotas::PTA_FRIA => 'danger',
                         default => 'gray',
                     })
-                    // 2. TEXTO BONITO:
                     ->formatStateUsing(function ($state) {
-                        // Intentamos convertir a Enum para sacar el label bonito ("VIP Interno")
                         $enum = $state instanceof FuenteNotas ? $state : FuenteNotas::tryFrom($state);
+
                         return $enum?->getLabel() ?? $state;
                     }),
 
-                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
+                TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(isIndividual: true),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: false)
@@ -1095,12 +1229,12 @@ class VentaResource extends Resource
                 TextColumn::make('nro_cliente_adm')
                     ->label('Nº Cliente')
                     ->toggleable(isToggledHiddenByDefault: false)
-                    ->searchable()
+                    ->searchable(isIndividual: true)
                     ->sortable(),
                 TextColumn::make('customer.name')
                     ->label('Nombre')
                     ->extraAttributes(['class' => 'font-bold'])
-                    ->searchable(['first_names', 'last_names'])
+                    ->searchable(['first_names', 'last_names'], isIndividual: true)
                     ->sortable(),
                 TextColumn::make('customer.postal_code')
                     ->label('CP')
@@ -1174,11 +1308,10 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
+                    ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))
                     ->sortable(),
                 TextColumn::make('comercial.empleado_id')
                     ->label('Comercial')
@@ -1229,10 +1362,12 @@ class VentaResource extends Resource
                     ->badge()
                     ->date('d/m/Y'),
                 TextColumn::make('horario_entrega')->label('Horario rep.'),
-                TextColumn::make('customer.primary_address')
+              /*  TextColumn::make('customer.primary_address')
                     ->label('Dirección')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->wrap(),
+
+              */
                 TextColumn::make('origen_venta')
                     ->label('Origen')
                     ->badge()
@@ -1259,6 +1394,21 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn($state) => $state ? Carbon::parse($state)->format('d/m/Y H:i') : '—')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                // Solo en el recurso Contratos de Admin: acceso rápido al PDF sin
+                // tener que entrar a editar el contrato.
+                TextColumn::make('ver_pdf')
+                    ->label('Ver_pdf')
+                    ->state('VerContrato')
+                    ->badge()
+                    ->color('info')
+                    ->url(fn(Venta $record) => str_ends_with((string) $record->nro_contr_adm, '-B')
+                        ? route('ventas.preview-b', $record)
+                        : route('ventas.preview', $record))
+                    ->openUrlInNewTab()
+                    ->sortable(false)
+                    ->searchable(false)
+                    ->tooltip('Ver el último PDF de este contrato'),
 
             ])
             ->headerActions([
@@ -1338,19 +1488,18 @@ class VentaResource extends Resource
                             return;
                         }
 
-                        $disk = 'public';
+                        // Disco privado: el Excel lleva datos de clientes y nunca se
+                        // sirve por URL, sólo se lee aquí para procesarlo. Además así
+                        // ->path() sigue siendo válido aunque los documentos de venta
+                        // se muevan a un almacenamiento remoto.
+                        $disk = 'local';
                         $folder = 'ventas_excel';
-
-                        // Crear carpeta si no existe
-                        if (!Storage::disk($disk)->exists($folder)) {
-                            Storage::disk($disk)->makeDirectory($folder);
-                        }
 
                         // Nombre único del archivo
                         $extension = $file->getClientOriginalExtension() ?: 'xlsx';
                         $fileName = 'ventas_import_' . now()->format('Ymd_His') . '_' . Str::random(6) . '.' . $extension;
 
-                        // Guardar archivo en storage/app/public/ventas_excel
+                        // storeAs() crea la carpeta si no existe
                         $storedPath = $file->storeAs($folder, $fileName, $disk);
 
                         // Ruta física completa para leerlo con maatwebsite/excel
@@ -1381,20 +1530,60 @@ class VentaResource extends Resource
                             ->send();
                     }),
 
+                // 👇 BORRAR SELECCIÓN DE FILAS
+                Action::make('borrar_seleccion')
+                    ->label('Borrar la selección')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->disabled(fn ($livewire): bool => blank($livewire->selectedTableRecords))
+                    ->action(function ($livewire): void {
+                        $livewire->deselectAllTableRecords();
+                    }),
+
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-
-                Tables\Actions\DeleteAction::make()
-                    ->label('') // sin texto, solo ícono
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Eliminar contrato')
-                    ->modalDescription('Esta acción eliminará el contrato y sus datos relacionados. ¿Deseas continuar?')
-                    ->successNotificationTitle('Contrato eliminado'),
+                // Solo Abby (admin) puede archivar desde este listado; el resto de admins no ve la papelera.
+                // La recuperación se hace en SuperAdmin → Contratos borrados.
+                VentaSoftDeleteTableAction::makeForAbbyOnly(),
             ])
             ->filters([
+
+                Filter::make('filtro_producto')
+                    ->form([
+                        Select::make('producto_id')
+                            ->label('Filtro por producto')
+                            ->placeholder('Buscar un producto')
+                            ->searchable()
+                            ->native(false)
+                            ->options(fn (): array => self::productoFilterOptions()),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $productoId = $data['producto_id'] ?? null;
+
+                        if (blank($productoId)) {
+                            return $query;
+                        }
+
+                        return $query
+                            ->whereHas(
+                                'ventaOfertas.productos',
+                                fn (Builder $q) => $q->where('producto_id', $productoId)
+                            )
+                            ->reorder()
+                            ->orderBy('id', 'desc');
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (blank($data['producto_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $nombre = Producto::query()
+                            ->whereKey($data['producto_id'])
+                            ->value('nombre');
+
+                        return $nombre ? "Producto: {$nombre}" : null;
+                    }),
 
                 Filter::make('cp_contrato')
                     ->form([
@@ -1465,6 +1654,7 @@ class VentaResource extends Resource
                         '__NULL__' => 'SIN ORIGEN',
                         'puerta_fria' => 'PUERTA FRÍA',
                         'venta_normal' => 'VENTA NORMAL',
+                        'excel' => 'EXCEL',
                     ])
                     ->query(function ($query, array $data) {
                         $value = $data['value'] ?? null;
@@ -1476,6 +1666,7 @@ class VentaResource extends Resource
                     }),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
+            ->selectable()
             ->bulkActions([]);  // sin bulk delete
     }
 
@@ -1507,6 +1698,16 @@ class VentaResource extends Resource
         return true;
     }
 
+    public static function canForceDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
+    }
+
     protected static function recalcTotales(Get $get, Set $set): void
     {
         $importe = (float) ($get('importe_total') ?? 0);
@@ -1531,85 +1732,143 @@ class VentaResource extends Resource
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
+        $upload = VentaDocumentUpload::configure(
+            FileUpload::make($field),
+            $field,
+            false,
+            true,  // Admin: PDF en cualquier documento (p. ej. contrato firmado)
+            false, // sin capture: en PC bloquea el selector de archivos
+        )
+            ->required(
+                fn (?Venta $record) =>
+                $required
+                && ! self::isSuperAdminPanel()
+                && filled($record)
+                && ! self::isContratoB($record)
+            )
+            ->validationMessages([
+                'required' => "El documento {$label} es obligatorio.",
+            ])
+            ->columnSpanFull();
 
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(
-                    fn(Get $get, ?Venta $record) =>
-                    $required
-                    && !request()->routeIs('filament.*.resources.ventas*.create-b')
-                    && !self::isContratoB($record)
-                    && blank($get($field))
-                ),
-
-
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required(
-                    fn(?Venta $record) =>
-                    $required
-                    && filled($record)           // solo en EDIT
-                    && !self::isContratoB($record) // y que NO sea contrato -B
-                )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
-                ->columnSpanFull(),
-        ])->columns(1);
+        return VentaDocumentUpload::card($field, $label, $upload);
     }
 
     protected static function isContratoB(?Venta $record): bool
     {
         return filled($record?->nro_contr_adm) && str_contains($record->nro_contr_adm, '-B');
+    }
+
+    /** SuperAdmin → Contratos reutiliza este form; ahí precontractual no es obligatorio. */
+    protected static function isSuperAdminPanel(): bool
+    {
+        return filament()->getCurrentPanel()?->getId() === 'superAdmin';
+    }
+
+    /** Resuelve los 3 productos prioritarios en orden fijo. */
+    protected static function resolvePriorityProductoFilterOptions(): array
+    {
+        $slots = [
+            [
+                'label' => 'DEPURADOR VITA ABANTERA',
+                'patterns' => [
+                    'depurador vita abantera',
+                    '%depurador%vita%abantera%',
+                ],
+                'must_not_contain' => ['mesa'],
+            ],
+            [
+                'label' => 'DEPURADORA DE MESA ABANTERA',
+                'patterns' => [
+                    'depuradora de mesa abantera',
+                    'depurador de mesa abantera',
+                    '%depuradora%mesa%abantera%',
+                    '%depurador%mesa%abantera%',
+                ],
+            ],
+            [
+                'label' => 'FILTROS DEPURADORA OSMOSIS',
+                'patterns' => [
+                    'filtros depuradora osmosis',
+                    '%filtros%depuradora%osmosis%',
+                ],
+            ],
+        ];
+
+        $options = [];
+        $usedIds = [];
+
+        foreach ($slots as $slot) {
+            $product = self::findProductoForFilterSlot($slot, $usedIds);
+
+            if ($product) {
+                $options[$product->id] = $slot['label'];
+                $usedIds[] = $product->id;
+            }
+        }
+
+        return $options;
+    }
+
+    protected static function findProductoForFilterSlot(array $slot, array $excludeIds): ?Producto
+    {
+        foreach ($slot['patterns'] as $pattern) {
+            $query = Producto::query()
+                ->when(!empty($excludeIds), fn (Builder $q) => $q->whereNotIn('id', $excludeIds));
+
+            if (str_contains($pattern, '%')) {
+                $query->whereRaw('LOWER(nombre) LIKE ?', [mb_strtolower($pattern)]);
+            } else {
+                $query->whereRaw('LOWER(TRIM(nombre)) = ?', [mb_strtolower($pattern)]);
+            }
+
+            $product = $query->first();
+
+            if (!$product) {
+                continue;
+            }
+
+            foreach ($slot['must_not_contain'] ?? [] as $forbidden) {
+                if (str_contains(mb_strtolower($product->nombre), mb_strtolower($forbidden))) {
+                    $product = null;
+                    break;
+                }
+            }
+
+            if ($product) {
+                return $product;
+            }
+        }
+
+        return null;
+    }
+
+    /** Opciones del selector Filtro por producto: 2 depuradores, filtros osmosis, resto A→Z. */
+    protected static function productoFilterOptions(): array
+    {
+        $priorities = self::resolvePriorityProductoFilterOptions();
+        $usedIds = array_keys($priorities);
+
+        $rest = Producto::query()
+            ->activos()
+            ->when(!empty($usedIds), fn (Builder $q) => $q->whereNotIn('id', $usedIds))
+            ->orderBy('nombre')
+            ->pluck('nombre', 'id')
+            ->all();
+
+        if (empty($priorities)) {
+            return $rest;
+        }
+
+        if (empty($rest)) {
+            return $priorities;
+        }
+
+        // Grupo fijo arriba (orden: depuradores → filtros) + resto alfabético
+        return [
+            'Principales' => $priorities,
+            'Resto' => $rest,
+        ];
     }
 
 

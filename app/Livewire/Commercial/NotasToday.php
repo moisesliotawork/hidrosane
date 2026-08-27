@@ -8,9 +8,12 @@ use Filament\Notifications\Notification;
 use App\Models\AnotacionVisita;
 use App\Filament\Commercial\Resources\NoteResource;
 use Carbon\Carbon;
+use App\Support\NoteRouteGps;
+use App\Livewire\Concerns\ValidatesLivewireGps;
 
 class NotasToday extends Component
 {
+    use ValidatesLivewireGps;
 
     public array $selectedNotes = [];
 
@@ -19,6 +22,7 @@ class NotasToday extends Component
         'guardarUbicacion' => 'guardarUbicacion',
         'guardarUbicacionDentro' => 'guardarUbicacionDentro',
         'avisarSinDentro' => 'avisarSinDentro',
+        'toggleDeCamino' => 'toggleDeCamino',
     ];
 
     public function canAlwaysSeePhones(): bool
@@ -39,64 +43,73 @@ class NotasToday extends Component
 
     public function guardarUbicacionDentro($notaId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
         if (!$note) {
             return;
         }
 
-        $note->lat_dentro = $lat;
-        $note->lng_dentro = $lng;
+        $note->lat_dentro = $coords['lat'];
+        $note->lng_dentro = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'DENTRO',
-            'cuerpo' => "Ubicación DENTRO: Latitud $lat, Longitud $lng",
+            'cuerpo' => "Ubicación DENTRO: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
 
         Notification::make()
             ->title('Ubicación DENTRO capturada')
             ->success()
-            ->body("Guardada para nota #$notaId: [$lat, $lng]")
+            ->body("Guardada para nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
 
         $this->dispatch('notaActualizada');
     }
-
 
     public ?float $ubicacionLat = null;
     public ?float $ubicacionLng = null;
 
     public function guardarUbicacion($notaId, $lat, $lng)
     {
+        $coords = $this->validatedGpsOrNotify($lat, $lng);
+
+        if ($coords === null) {
+            return;
+        }
+
         $note = Note::find($notaId);
-        $note->lat = $lat;
-        $note->lng = $lng;
+
+        if (! $note) {
+            return;
+        }
+
+        $note->lat = $coords['lat'];
+        $note->lng = $coords['lng'];
         $note->save();
 
         AnotacionVisita::create([
             'nota_id' => $notaId,
             'author_id' => auth()->id(),
             'asunto' => 'GPS',
-            'cuerpo' => "Ubicación capturada: Latitud $lat, Longitud $lng"
+            'cuerpo' => "Ubicación capturada: Latitud {$coords['lat']}, Longitud {$coords['lng']}",
         ]);
-
 
         Notification::make()
             ->title('Ubicación capturada')
             ->success()
-            ->body("Ubicación guardada para la nota #$notaId: [$lat, $lng]")
+            ->body("Ubicación guardada para la nota #$notaId: [{$coords['lat']}, {$coords['lng']}]")
             ->send();
-
-        // Aquí puedes opcionalmente guardar en BD si quieres
-        // $note = Note::find($notaId);
-        // $note->lat = $lat;
-        // $note->lng = $lng;
-        // $note->save();
     }
 
-    public function toggleDeCamino($noteId)
+    public function toggleDeCamino($noteId, $lat = null, $lng = null): void
     {
         $note = Note::find($noteId);
 
@@ -110,30 +123,23 @@ class NotasToday extends Component
             return;
         }
 
-        $nuevoEstado = !$note->de_camino;
-        $note->de_camino = $nuevoEstado;
-        $note->save();
+        $enCamino = ! $note->de_camino;
 
-        AnotacionVisita::create([
-            'nota_id' => $noteId,
-            'author_id' => auth()->id(),
-            'asunto' => 'DE CAMINO',
-            'cuerpo' => $nuevoEstado ? "Va de camino" : "No va de camino"
-        ]);
-
-        if (!$nuevoEstado) {
+        if (! NoteRouteGps::toggleDeCamino($note, auth()->id(), $lat, $lng)) {
             Notification::make()
-                ->title('Estado actualizado')
+                ->title('GPS requerido')
                 ->warning()
-                ->body('La nota ha sido marcada como NO EN CAMINO')
+                ->body('Debes permitir la geolocalización para marcar DE CAMINO.')
                 ->send();
-        } else {
-            Notification::make()
-                ->title('Estado actualizado')
-                ->success()
-                ->body('La nota ha sido marcada como EN CAMINO')
-                ->send();
+
+            return;
         }
+
+        Notification::make()
+            ->title('Estado actualizado')
+            ->{$enCamino ? 'success' : 'warning'}()
+            ->body($enCamino ? 'La nota ha sido marcada como EN CAMINO' : 'La nota ha sido marcada como NO EN CAMINO')
+            ->send();
 
         $this->dispatch('notaActualizada');
     }

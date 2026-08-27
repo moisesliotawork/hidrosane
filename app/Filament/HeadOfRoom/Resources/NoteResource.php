@@ -11,7 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -25,14 +24,21 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Enums\FiltersLayout;
 use App\Models\User;
+use App\Models\NoteReassignmentBatch;
+use App\Models\NoteReassignmentLog;
 use Illuminate\Validation\Rule;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Notifications\Actions\Action as NotificationAction;
-use App\Filament\Teleoperator\Pages\BuscarCliente;
+use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\HeadOfRoom\NoteAssignRestriction;
+use App\Support\NoteVentaDeclarationGuard;
+use Filament\Tables\Contracts\HasTable;
 
 class NoteResource extends Resource
 {
@@ -49,7 +55,6 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
@@ -126,63 +131,11 @@ class NoteResource extends Resource
                             ]),
 
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->label('Teléfono')
-                            ->mask('999 999 999') // se ve con espacios
-                            // Validación: exactamente 9 dígitos (ignora espacios/guiones)
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            // Guardar: solo dígitos
-                            ->dehydrateStateUsing(fn($state) => preg_replace('/\D+/', '', (string) $state))
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->label('Teléfono secundario (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
-                        Forms\Components\TextInput::make('third_phone')
-                            ->tel()
-                            ->label('Teléfono 3 (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -253,6 +206,7 @@ class NoteResource extends Resource
                             ->required()
                             ->native(false)
                             ->live()
+                            ->default(NoteStatus::CONTACTED->value)
                             ->label('Estado')
                             ->validationMessages([
                                 'required' => 'El estado es obligatorio',
@@ -382,15 +336,40 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->searchable()
-                    ->label('# Nota')
+                    ->label('Nº Nota')
+                    ->badge()
+                    ->color('warning')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->formatStateUsing(function (string $state) {
-                        // Asegurarse que tiene exactamente 5 caracteres
-                        if (strlen($state) === 5) {
-                            return substr($state, 0, 3) . ' ' . substr($state, 3, 2);
+                    ->alignCenter(),
+
+                Tables\Columns\TextColumn::make('estado_terminal')
+                    ->label('En nota')
+                    ->badge()
+                    ->formatStateUsing(fn (Note $record): string => $record->estado_terminal->enNotaLabel())
+                    ->color(fn (Note $record): string => $record->estado_terminal->enNotaColor())
+                    ->tooltip('Clic para cambiar el estado')
+                    ->alignCenter()
+                    ->action(function (Note $record): void {
+                        $next = EstadoTerminal::nextFromRaw($record->getRawOriginal('estado_terminal'));
+
+                        if (NoteVentaDeclarationGuard::wouldBecomeVenta($next)) {
+                            Notification::make()
+                                ->title('No se puede marcar como VENTA')
+                                ->body(NoteVentaDeclarationGuard::blockReasonForManualTerminalVenta($record))
+                                ->warning()
+                                ->persistent()
+                                ->send();
+
+                            return;
                         }
-                        return $state; // Si no tiene 5 caracteres, devolver el valor original
+
+                        $record->update(['estado_terminal' => $next->value]);
+
+                        Notification::make()
+                            ->title('Estado actualizado')
+                            ->body("En nota: {$next->enNotaLabel()}")
+                            ->success()
+                            ->send();
                     }),
 
                 // Tables\Columns\TextColumn::make('fuente')
@@ -467,20 +446,6 @@ class NoteResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('estado_terminal')
-                    ->badge()
-                    ->formatStateUsing(fn(Note $record): string => $record->estado_terminal->label())
-                    ->color(fn(Note $record): string => match ($record->estado_terminal) {
-                        EstadoTerminal::NUL => 'danger',
-                        EstadoTerminal::VENTA => 'success',
-                        EstadoTerminal::CONFIRMADO => 'orange',
-                        EstadoTerminal::SALA => 'pink',
-                        EstadoTerminal::SIN_ESTADO => 'gray'
-                    })
-                    ->label('TN')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-
                 Tables\Columns\TextColumn::make('sent_to_sala_at')
                     ->label('Fecha Of.')
                     ->state(function (Note $record) {
@@ -517,25 +482,34 @@ class NoteResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->sortable(),
 
-
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fech/Nota')
+                    ->badge()
+                    ->color('success')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false),
 
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                // Fila 1: Desde | Hasta | Fecha de Asignación | Comercial
                 Tables\Filters\Filter::make('assignment_from')
                     ->label('Desde')
                     ->form([
                         Forms\Components\DatePicker::make('start')
                             ->label('Desde')
+                            ->displayFormat('d/m/Y')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['start'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '>=', $d))
+                    ->query(fn(Builder $query, array $data): Builder =>
+                        $query->when(
+                            $data['start'] ?? null,
+                            fn(Builder $q, $d) => $q->whereDate('assignment_date', '>=', $d)
+                        )
                     )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['start'] ?? null) ? 'Desde: ' . Carbon::parse($data['start'])->format('d/m/Y') : null
+                    ->indicateUsing(fn(array $data): ?string =>
+                        ($data['start'] ?? null) ? 'Asig. desde: ' . Carbon::parse($data['start'])->format('d/m/Y') : null
                     ),
 
                 Tables\Filters\Filter::make('assignment_to')
@@ -543,32 +517,40 @@ class NoteResource extends Resource
                     ->form([
                         Forms\Components\DatePicker::make('end')
                             ->label('Hasta')
+                            ->displayFormat('d/m/Y')
                             ->native(false)
                             ->timezone('Europe/Madrid'),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['end'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', '<=', $d))
+                    ->query(fn(Builder $query, array $data): Builder =>
+                        $query->when(
+                            $data['end'] ?? null,
+                            fn(Builder $q, $d) => $q->whereDate('assignment_date', '<=', $d)
+                        )
                     )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['end'] ?? null) ? 'Hasta: ' . Carbon::parse($data['end'])->format('d/m/Y') : null
+                    ->indicateUsing(fn(array $data): ?string =>
+                        ($data['end'] ?? null) ? 'Asig. hasta: ' . Carbon::parse($data['end'])->format('d/m/Y') : null
                     ),
 
                 Tables\Filters\Filter::make('assignment_date')
-                    ->label('Fecha de Asignación')
                     ->form([
                         Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de Asignación')
+                            ->label('Fecha exacta de asignación')
                             ->displayFormat('d/m/Y')
                             ->native(false),
                     ])
-                    ->query(fn(Builder $q, array $data) =>
-                        $q->when($data['assignment_date'] ?? null, fn($q, $d) => $q->whereDate('assignment_date', $d))
-                    )
-                    ->indicateUsing(fn(array $data) =>
-                        ($data['assignment_date'] ?? null)
-                            ? 'Asignación: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y')
-                            : null
-                    ),
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['assignment_date'],
+                                fn(Builder $query, $date) => $query->whereDate('assignment_date', $date)
+                            );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (!$data['assignment_date']) {
+                            return null;
+                        }
+                        return 'Fecha asig.: ' . Carbon::parse($data['assignment_date'])->format('d/m/Y');
+                    }),
 
                 Tables\Filters\SelectFilter::make('comercial_id')
                     ->label('Comercial')
@@ -636,7 +618,7 @@ class NoteResource extends Resource
                     ),
 
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(4)
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -648,14 +630,24 @@ class NoteResource extends Resource
                     ->label('')
                     ->icon('heroicon-s-user-plus')
                     ->form(function (Note $record) {
-                        return [
-                            Forms\Components\Select::make('comercial_id')
+                        $restriction = NoteAssignRestriction::forNote($record);
+
+                        $fields = [];
+
+                        if ($restriction !== null) {
+                            $fields[] = Forms\Components\Placeholder::make('assign_restriction_banner')
+                                ->label('')
+                                ->content(NoteAssignRestriction::singleModalContent($restriction));
+                        }
+
+                        $fields[] = Forms\Components\Select::make('comercial_id')
                                 ->label('Seleccionar Comercial')
                                 ->options(function () use ($record) {
                                     $users = User::query()
                                         ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                                         ->with(['roles:id,name'])
                                         ->role(['commercial', 'team_leader', 'sales_manager'])
+                                        ->whereNull('baja')
                                         ->orderBy('empleado_id')
                                         ->get()
                                         ->unique('id');
@@ -689,20 +681,70 @@ class NoteResource extends Resource
                                     return $baseOptions;
                                 })
                                 ->searchable()
-                                ->native(false),
+                                ->native(false)
+                                ->placeholder('Sin asignar')
+                                ->rules([
+                                    'nullable',
+                                    function () {
+                                        return function (string $attribute, $value, \Closure $fail) {
+                                            if (blank($value) || $value === '__RETEN__') {
+                                                return;
+                                            }
 
-                            Forms\Components\DatePicker::make('assignment_date')
+                                            $isValid = User::query()
+                                                ->where('id', $value)
+                                                ->whereNull('baja')
+                                                ->whereHas(
+                                                    'roles',
+                                                    fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager'])
+                                                )
+                                                ->exists();
+
+                                            if (!$isValid) {
+                                                $fail('El comercial seleccionado no está activo o no tiene un rol válido.');
+                                            }
+                                        };
+                                    },
+                                ]);
+
+                        $fields[] = Forms\Components\DatePicker::make('assignment_date')
                                 ->label('Fecha de asignación')
                                 ->hint('Si se deja vacío, se usará la fecha actual')
-                                ->required(false),
-                        ];
-                    })
+                                ->timezone('Europe/Madrid')
+                                ->native(false)
+                                ->displayFormat('d/m/Y')
+                                ->required(false);
 
+                        $fields[] = Forms\Components\Hidden::make('force_despite_restriction')
+                            ->default($restriction !== null ? '1' : '0');
+
+                        return $fields;
+                    })
+                    ->modalHeading(function (Note $record): string {
+                        return NoteAssignRestriction::forNote($record) !== null
+                            ? 'Asignación restringida'
+                            : 'Confirmar asignación';
+                    })
+                    ->modalDescription(function (Note $record): ?string {
+                        if (NoteAssignRestriction::forNote($record) !== null) {
+                            return 'Este cliente tiene una restricción. Revisa el detalle y, si procede, asigna de todos modos.';
+                        }
+
+                        return 'Selecciona el comercial y confirma la asignación de la nota #'.$record->nro_nota.'.';
+                    })
+                    ->modalSubmitActionLabel(function (Note $record): string {
+                        return NoteAssignRestriction::forNote($record) !== null
+                            ? 'ASIGNAR DE TODOS MODOS'
+                            : 'Sí, confirmar';
+                    })
+                    ->color(fn (Note $record): string => NoteAssignRestriction::forNote($record) !== null
+                        ? 'warning'
+                        : 'primary')
+                    ->modalWidth('2xl')
                     ->action(function (Note $record, array $data): void {
                         try {
-                            // Se mantiene tu lógica existente
                             if (($data['comercial_id'] ?? null) === '__RETEN__') {
-                                $record->update(['reten' => true]);
+                                NoteAssignRestriction::applyAssignment($record, $data);
 
                                 Notification::make()
                                     ->title('Marcada como COMERCIAL RETEN')
@@ -712,23 +754,44 @@ class NoteResource extends Resource
                                 return;
                             }
 
-                            $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
-                                    ? ($data['assignment_date'] ?? now())
-                                    : null,
-                                'reten' => false,
-                            ]);
+                            $restriction = NoteAssignRestriction::forNote($record);
+                            $force = ($data['force_despite_restriction'] ?? '0') === '1'
+                                || ($data['force_despite_restriction'] ?? false) === true;
 
-                            $message = is_null($data['comercial_id'] ?? null)
+                            // Si hay restricción al asignar comercial y no viene marcado el forzado, bloquear.
+                            // (El modal ya ofrece ASIGNAR DE TODOS MODOS con force=1.)
+                            if (
+                                ! blank($data['comercial_id'] ?? null)
+                                && $restriction !== null
+                                && ! $force
+                            ) {
+                                Notification::make()
+                                    ->title('⛔ Asignación bloqueada')
+                                    ->body($restriction['message'])
+                                    ->danger()
+                                    ->persistent()
+                                    ->send();
+
+                                return;
+                            }
+
+                            NoteAssignRestriction::applyAssignment($record, $data);
+
+                            $comercialId = $data['comercial_id'] ?? null;
+                            $forced = $restriction !== null && ! blank($comercialId);
+
+                            $message = blank($comercialId)
                                 ? 'Comercial removido correctamente'
-                                : 'Comercial asignado correctamente: ' . User::find($data['comercial_id'])->name;
+                                : (
+                                    $forced
+                                        ? 'Asignación forzada: '.User::find($comercialId)?->name
+                                        : 'Comercial asignado correctamente: '.User::find($comercialId)?->name
+                                );
 
                             Notification::make()
                                 ->title($message)
                                 ->success()
                                 ->send();
-
                         } catch (\Exception $e) {
                             Notification::make()
                                 ->title('Error al actualizar comercial')
@@ -738,13 +801,61 @@ class NoteResource extends Resource
                         }
                     }),
 
+                // Acción oculta de respaldo (por si se monta desde flujos antiguos)
+                Tables\Actions\Action::make('forceAssignDespiteRestriction')
+                    ->label('Forzar asignación')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->hidden()
+                    ->modalHeading(fn (): string => session(NoteAssignRestriction::SESSION_PENDING_SINGLE.'.restriction.title')
+                        ?? 'Asignación restringida')
+                    ->modalContent(fn (): HtmlString => NoteAssignRestriction::singleModalContent(
+                        session(NoteAssignRestriction::SESSION_PENDING_SINGLE.'.restriction')
+                    ))
+                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
+                    ->modalCancelActionLabel('Cancelar')
+                    ->action(function (Note $record): void {
+                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_SINGLE);
+
+                        if (! is_array($pending) || (int) ($pending['note_id'] ?? 0) !== (int) $record->id) {
+                            Notification::make()
+                                ->title('No hay una asignación pendiente')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            NoteAssignRestriction::applyAssignment($record, $pending['data'] ?? []);
+
+                            $comercialId = $pending['data']['comercial_id'] ?? null;
+                            Notification::make()
+                                ->title('Asignación forzada completada')
+                                ->body(
+                                    blank($comercialId)
+                                        ? 'Comercial removido'
+                                        : 'Comercial asignado (sin aplicar restricción): '.User::find($comercialId)?->name
+                                )
+                                ->warning()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al forzar asignación')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
             ])
             ->headerActions([
                 Action::make('irABuscarCliente')
-                    ->label('Buscar cliente')
+                    ->label('Crear Nota nueva          ')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),
+
                 //Tables\Actions\Action::make('buscarTelefono')
                 //    ->label('Buscar teléfono')
                 //    ->icon('heroicon-o-magnifying-glass')
@@ -920,9 +1031,112 @@ class NoteResource extends Resource
                     ->modalDescription('¿Estás seguro de que quieres eliminar las notas seleccionadas? Esta acción no se puede deshacer.')
                     ->modalSubmitActionLabel('Sí, eliminar')
                     ->successNotificationTitle('Notas eliminadas correctamente'),
+
+                // Modal de forzado tras bulk. visible() según sesión (no ->hidden():
+                // hidden implica isDisabled y Filament no monta la acción).
+                Tables\Actions\BulkAction::make('forceAssignBulkDespiteRestriction')
+                    ->label('ASIGNAR DE TODOS MODOS')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->visible(fn (): bool => filled(session(NoteAssignRestriction::SESSION_PENDING_BULK)))
+                    ->modalHeading('Asignación restringida')
+                    ->modalWidth('3xl')
+                    ->modalContent(function (): HtmlString {
+                        $pending = session(NoteAssignRestriction::SESSION_PENDING_BULK, []);
+                        $items = collect($pending['blocked_items'] ?? []);
+                        $cleanCount = (int) ($pending['clean_count'] ?? 0);
+                        $content = NoteAssignRestriction::bulkModalContent($items);
+
+                        if ($cleanCount > 0) {
+                            return new HtmlString(
+                                $content->toHtml()
+                                .'<p style="margin-top:10px;color:#15803d;font-weight:600;">✅ '
+                                .$cleanCount
+                                .' nota(s) ya asignadas correctamente (sin restricción).</p>'
+                            );
+                        }
+
+                        return $content;
+                    })
+                    ->modalSubmitActionLabel('ASIGNAR DE TODOS MODOS')
+                    ->modalCancelActionLabel('Cancelar')
+                    ->action(function (): void {
+                        $pending = session()->pull(NoteAssignRestriction::SESSION_PENDING_BULK);
+
+                        if (! is_array($pending) || empty($pending['blocked_ids'])) {
+                            Notification::make()
+                                ->title('No hay asignación pendiente')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        try {
+                            $sendToReten = (bool) ($pending['send_to_reten'] ?? false);
+                            $blockedIds = $pending['blocked_ids'];
+                            $data = $pending['data'] ?? [];
+                            $fromComercials = $pending['from_comercials'] ?? [];
+
+                            $toResetIds = NoteAssignRestriction::applyBulk($blockedIds, $data, $sendToReten);
+
+                            if ($sendToReten) {
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => ! empty($data['comercial_id'] ?? null) ? $data['comercial_id'] : null,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+
+                                foreach ($blockedIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Asignación forzada completada')
+                                ->body(
+                                    count($blockedIds).' nota(s) asignadas ignorando restricciones'
+                                    .($sendToReten ? ' • Enviadas a RETEN' : '')
+                                    .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                )
+                                ->warning()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Error al forzar asignación')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+
                 Tables\Actions\BulkAction::make('assignCommercialBulk')
                     ->label('Asig. Com.')
                     ->icon('heroicon-s-user-plus')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar asignación masiva')
+                    ->modalDescription(function (array $data): string {
+                        if (blank($data['comercial_id'] ?? null)) {
+                            return '¿Confirmas quitar el comercial de las notas seleccionadas?';
+                        }
+
+                        $user = User::find($data['comercial_id']);
+                        $label = $user
+                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
+                            : 'el comercial seleccionado';
+
+                        $fecha = filled($data['assignment_date'] ?? null)
+                            ? Carbon::parse($data['assignment_date'])->format('d/m/Y')
+                            : now()->format('d/m/Y');
+
+                        return "¿Confirmas asignar las notas seleccionadas al comercial {$label} con fecha {$fecha}?";
+                    })
+                    ->modalSubmitActionLabel('Sí, confirmar')
                     ->form([
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
@@ -958,59 +1172,77 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha de asignación')
                             ->hint('Si se deja vacío, se usará la fecha actual')
+                            ->timezone('Europe/Madrid')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
                             ->required(false),
                     ])
-                    ->action(function (iterable $records, array $data): void {
+                    ->action(function (iterable $records, array $data, HasTable $livewire): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            $allRecords = collect($records);
 
-                            // Doble verificación en runtime (aquí sí Eloquent + whereHas)
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja') // activo
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
-                                    ->exists();
+                            if (empty($comercialId)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk(
+                                    $allRecords->pluck('id')->all(),
+                                    $data,
+                                );
 
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
-                                }
+                                Notification::make()
+                                    ->title('Asignación masiva completada')
+                                    ->body(
+                                        'Comercial removido'
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
+
+                                return;
                             }
 
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
-                                : null;
+                            $blockedItems = NoteAssignRestriction::collectBlocked($allRecords);
+                            $blockedIds = $blockedItems->pluck('note_id')->all();
+                            $cleanIds = $allRecords->pluck('id')->diff($blockedIds)->values()->all();
 
-                            $recordIds = collect($records)->pluck('id')->all();
+                            $toResetIds = [];
+                            if (! empty($cleanIds)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data);
+                            }
 
-                            // 1) Reasignar comercial/fecha
-                            Note::whereIn('id', $recordIds)->update([
-                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
-                                'assignment_date' => $assignmentDate,
+                            if ($blockedItems->isEmpty()) {
+                                Notification::make()
+                                    ->title('Asignación masiva completada')
+                                    ->body(
+                                        'Comercial asignado'
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            session()->put(NoteAssignRestriction::SESSION_PENDING_BULK, [
+                                'blocked_items' => $blockedItems->values()->all(),
+                                'blocked_ids' => $blockedIds,
+                                'clean_count' => count($cleanIds),
+                                'data' => $data,
+                                'send_to_reten' => false,
                             ]);
 
-                            // 2) Resetear TN a S/E para las que estén en SALA
-                            $toResetIds = Note::whereIn('id', $recordIds)
-                                ->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->pluck('id')
-                                ->all();
-
-                            if (!empty($toResetIds)) {
-                                Note::whereIn('id', $toResetIds)->update([
-                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
-                                    'sent_to_sala_at' => null,
-                                ]);
-                            }
-
                             Notification::make()
-                                ->title('Asignación masiva completada')
+                                ->title('Notas con restricción')
                                 ->body(
-                                    (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
-                                    . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                    count($blockedIds).' nota(s) requieren confirmación. '
+                                    .(count($cleanIds) > 0
+                                        ? count($cleanIds).' nota(s) ya asignadas.'
+                                        : 'Ninguna se asignó aún.')
                                 )
-                                ->success()
+                                ->warning()
                                 ->send();
 
+                            // API correcta para bulk (no replaceMountedTableAction de filas).
+                            $livewire->replaceMountedTableBulkAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en asignación masiva')
@@ -1087,6 +1319,21 @@ class NoteResource extends Resource
                     ->label('Asig. Come. + Enviar a RETEN')
                     ->icon('heroicon-s-user-plus')
                     ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar asignación y envío a RETEN')
+                    ->modalDescription(function (array $data): string {
+                        if (blank($data['comercial_id'] ?? null)) {
+                            return '¿Confirmas enviar las notas seleccionadas a RETEN sin asignar comercial?';
+                        }
+
+                        $user = User::find($data['comercial_id']);
+                        $label = $user
+                            ? trim("{$user->empleado_id} {$user->name} {$user->last_name}")
+                            : 'el comercial seleccionado';
+
+                        return "¿Confirmas asignar las notas seleccionadas al comercial {$label} y enviarlas a RETEN?";
+                    })
+                    ->modalSubmitActionLabel('Sí, confirmar')
                     ->form([
                         Forms\Components\Select::make('comercial_id')
                             ->label('Seleccionar Comercial')
@@ -1123,63 +1370,104 @@ class NoteResource extends Resource
                         Forms\Components\DatePicker::make('assignment_date')
                             ->label('Fecha de asignación')
                             ->hint('Si se deja vacío, se usará la fecha actual (solo si asignas comercial)')
+                            ->timezone('Europe/Madrid')
                             ->required(false)
-                            ->native(false),
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
                     ])
-                    ->action(function (iterable $records, array $data): void {
+                    ->action(function (iterable $records, array $data, HasTable $livewire): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            $fromComercials = collect($records)->pluck('comercial_id', 'id')->all();
+                            $allRecords = collect($records);
 
-                            // ✅ Validación runtime si viene un comercial
-                            if (!empty($comercialId)) {
-                                $isValid = User::query()
-                                    ->where('id', $comercialId)
-                                    ->whereNull('baja')
-                                    ->whereHas('roles', fn($r) => $r->whereIn('name', ['commercial', 'team_leader', 'sales_manager']))
-                                    ->exists();
+                            if (empty($comercialId)) {
+                                $cleanIds = $allRecords->pluck('id')->all();
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data, true);
 
-                                if (!$isValid) {
-                                    throw new \RuntimeException('El comercial seleccionado no está activo o no tiene un rol válido.');
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => null,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+                                foreach ($cleanIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
+                                }
+
+                                Notification::make()
+                                    ->title('Acción masiva completada')
+                                    ->body(
+                                        'Comercial removido • Enviadas a RETEN: '.count($cleanIds)
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $blockedItems = NoteAssignRestriction::collectBlocked($allRecords);
+                            $blockedIds = $blockedItems->pluck('note_id')->all();
+                            $cleanIds = $allRecords->pluck('id')->diff($blockedIds)->values()->all();
+                            $toResetIds = [];
+
+                            if (! empty($cleanIds)) {
+                                $toResetIds = NoteAssignRestriction::applyBulk($cleanIds, $data, true);
+
+                                $batch = NoteReassignmentBatch::create([
+                                    'author_id' => auth()->id(),
+                                    'to_comercial_id' => $comercialId,
+                                    'to_reten' => true,
+                                    'reassigned_at' => now(),
+                                ]);
+                                foreach ($cleanIds as $noteId) {
+                                    NoteReassignmentLog::create([
+                                        'batch_id' => $batch->id,
+                                        'note_id' => $noteId,
+                                        'from_comercial_id' => $fromComercials[$noteId] ?? null,
+                                    ]);
                                 }
                             }
 
-                            // ✅ misma lógica: fecha solo si hay comercial, si no => null
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
-                                : null;
+                            if ($blockedItems->isEmpty()) {
+                                Notification::make()
+                                    ->title('Acción masiva completada')
+                                    ->body(
+                                        'Comercial asignado • Enviadas a RETEN: '.count($cleanIds)
+                                        .(! empty($toResetIds) ? ' • TN reiniciado en '.count($toResetIds).' nota(s)' : '')
+                                    )
+                                    ->success()
+                                    ->send();
 
-                            $recordIds = collect($records)->pluck('id')->all();
-
-                            // 1) ✅ misma lógica que assignCommercialBulk + reten=true
-                            Note::whereIn('id', $recordIds)->update([
-                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
-                                'assignment_date' => $assignmentDate,
-                                'reten' => true, // 👈 diferencia: siempre se envía a RETEN
-                            ]);
-
-                            // 2) ✅ misma lógica: si estaban en SALA => reset TN a SIN_ESTADO
-                            $toResetIds = Note::whereIn('id', $recordIds)
-                                ->where('estado_terminal', EstadoTerminal::SALA->value)
-                                ->pluck('id')
-                                ->all();
-
-                            if (!empty($toResetIds)) {
-                                Note::whereIn('id', $toResetIds)->update([
-                                    'estado_terminal' => EstadoTerminal::SIN_ESTADO->value,
-                                    'sent_to_sala_at' => null,
-                                ]);
+                                return;
                             }
 
+                            session()->put(NoteAssignRestriction::SESSION_PENDING_BULK, [
+                                'blocked_items' => $blockedItems->values()->all(),
+                                'blocked_ids' => $blockedIds,
+                                'clean_count' => count($cleanIds),
+                                'data' => $data,
+                                'send_to_reten' => true,
+                                'from_comercials' => $fromComercials,
+                            ]);
+
                             Notification::make()
-                                ->title('Acción masiva completada')
+                                ->title('Notas con restricción')
                                 ->body(
-                                    (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
-                                    . ' • Enviadas a RETEN: ' . count($recordIds)
-                                    . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
+                                    count($blockedIds).' nota(s) requieren confirmación para asignar + RETEN. '
+                                    .(count($cleanIds) > 0
+                                        ? count($cleanIds).' nota(s) ya procesadas.'
+                                        : 'Ninguna se procesó aún.')
                                 )
-                                ->success()
+                                ->warning()
                                 ->send();
 
+                            $livewire->replaceMountedTableBulkAction('forceAssignBulkDespiteRestriction');
                         } catch (\Throwable $e) {
                             Notification::make()
                                 ->title('Error en acción masiva')

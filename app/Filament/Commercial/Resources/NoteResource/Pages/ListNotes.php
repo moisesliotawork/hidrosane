@@ -3,6 +3,7 @@
 namespace App\Filament\Commercial\Resources\NoteResource\Pages;
 
 use App\Filament\Commercial\Resources\NoteResource;
+use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Components\Tab;
 use Filament\Actions;
@@ -11,6 +12,8 @@ use App\Models\{Team, Note};
 
 class ListNotes extends ListRecords
 {
+    use HandlesGpsActionModal;
+
     protected static string $resource = NoteResource::class;
 
     protected function getRedirectUrl(): string
@@ -26,7 +29,7 @@ class ListNotes extends ListRecords
             return 'NOTAS JE';
         }
 
-        return 'Notas';
+        return 'Notas (listado)';
     }
 
     protected function getHeaderActions(): array
@@ -39,10 +42,6 @@ class ListNotes extends ListRecords
     public function getTabs(): array
     {
         $user = auth()->user();
-
-        // RANGO: desde hoy-5 hasta hoy (INCLUSIVO)
-        $desde = now()->subDays(5)->toDateString();
-        $hasta = now()->toDateString();
 
         // Filtro de estado_terminal
         $estadoFiltro = function ($q) {
@@ -69,16 +68,14 @@ class ListNotes extends ListRecords
                         ->whereIn('comercial_id', $visibleIds)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro, $desde, $hasta) {
+                ->modifyQueryUsing(function (Builder $query) use ($visibleIds, $estadoFiltro) {
                     $query->whereIn('comercial_id', $visibleIds)
                         ->where($estadoFiltro)
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false);
                 }),
         ];
@@ -113,16 +110,14 @@ class ListNotes extends ListRecords
                         ->where('comercial_id', $c->id)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()
                 )
-                ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro, $desde, $hasta) {
+                ->modifyQueryUsing(function (Builder $query) use ($c, $estadoFiltro) {
                     $query->where('comercial_id', $c->id)
                         ->where($estadoFiltro)
-                        ->whereNotNull('assignment_date')
-                        ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
+                        ->visibleInCommercialNotas()
                         ->where('reten', false);
                 });
         }

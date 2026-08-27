@@ -119,7 +119,7 @@ class CreateAutogenerarNote extends CreateRecord
         $data["assignment_date"] = now();
 
 
-        $data['fuente'] = $data['fuente'] ?? FuenteNotas::CALLE->value;
+        $data['fuente'] = FuenteNotas::VIP_EXT->value;
         $data['status'] = $data['status'] ?? NoteStatus::CONTACTED->value;
 
 

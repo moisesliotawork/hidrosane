@@ -18,6 +18,10 @@ use Filament\Forms\Components\{
     FileUpload,
     Group
 };
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaCustomerRelationshipSection;
+use App\Support\Filament\VentaDocumentUpload;
+use App\Filament\Support\CustomerPhoneForm;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
@@ -29,13 +33,13 @@ use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
 use App\Enums\Financiera;
 use Carbon\Carbon;
-use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Support\Colors\Color;
+use App\Support\Filament\VentaSoftDeleteTableAction;
 
 class VentaResource extends Resource
 {
@@ -50,9 +54,10 @@ class VentaResource extends Resource
     protected static ?int $navigationSort = 1;
 
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-        return $form->schema([
+        return [
 
             Hidden::make('productos_externos')
                 ->default(fn(?Venta $record) => $record->productos_externos ?? [])
@@ -77,8 +82,8 @@ class VentaResource extends Resource
                 ->searchable()
                 ->columnSpanFull(),
 
-            /* guarda la relación con la nota; no se muestra */
-            Hidden::make('note_id')->required(),
+            /* Relación con la nota (oculta). Opcional: no todos los contratos tienen nota. */
+            Hidden::make('note_id')->nullable(),
 
 
             Section::make('Informe al repartidor')
@@ -98,6 +103,11 @@ class VentaResource extends Resource
                         ->nullable()
                         ->preload()
                         ->columnSpanFull(),
+                    DatePicker::make('fecha_venta')
+                        ->label('Fecha de la venta')
+                        ->timezone('Europe/Madrid')
+                        ->native(false)
+                        ->nullable(),
                     DatePicker::make('fecha_entrega')
                         ->label('Fecha de entrega')
                         ->required()
@@ -109,6 +119,12 @@ class VentaResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->required(),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable(),
                     Select::make('motivo_venta')
                         ->label('¿Por qué vendiste?')
                         ->options([
@@ -151,24 +167,28 @@ class VentaResource extends Resource
             /* ───────── Información del cliente ────────── */
             Section::make('Información del cliente')
                 ->relationship('customer')   // ← ¡clave!
+                ->mutateRelationshipDataBeforeFillUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeFill($data),
+                )
+                ->mutateRelationshipDataBeforeSaveUsing(
+                    fn (array $data): array => VentaCustomerRelationshipSection::mutateDataBeforeSave($data),
+                )
                 ->schema([
                     Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
                         TextInput::make('first_names')->label('Nombres')->required(),
-                        TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI')->columnSpanFull(),
+                        TextInput::make('last_names')->label('Apellidos')->required()
+                            ->rules([
+                                function () {
+                                    return function (string $attribute, $value, \Closure $fail) {
+                                        if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
+                                            $fail('Debes escribir al menos 2 apellidos del cliente');
+                                        }
+                                    };
+                                },
+                            ]),
+                        TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())          // no permitir fechas futuras
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::make(),
 
                         TextInput::make('age')
                             ->numeric()
@@ -177,9 +197,9 @@ class VentaResource extends Resource
                             ->dehydrated(false),      // no enviar al backend; el modelo la recalcula
 
 
-                        TextInput::make('phone')->label('Teléfono 1')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                        CustomerPhoneForm::make('phone', 'Teléfono 1', required: true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3'),
                         TextInput::make('phone1_commercial')->label('Teléfono comercial 1')->tel(),
                         TextInput::make('phone2_commercial')->label('Teléfono comercial 2')->tel(),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
@@ -269,26 +289,7 @@ class VentaResource extends Resource
                             ->required()
                             ->reactive(),
 
-                        /* ---------- IBAN con formato ---------- */
-                        TextInput::make('iban')
-                            ->label('IBAN')
-                            ->columnSpanFull()
-                            ->formatStateUsing(
-                                fn($state) =>
-                                $state
-                                ? implode(' ', str_split(strtoupper($state), 4))
-                                : null
-                            )
-                            ->dehydrateStateUsing(
-                                fn($state) =>
-                                $state
-                                ? str_replace(' ', '', strtoupper($state))
-                                : null
-                            )
-                            ->afterStateUpdated(function (Set $set, ?string $state) {
-                                $clean = str_replace(' ', '', strtoupper($state ?? ''));
-                                $set(implode(' ', str_split($clean, 4)));
-                            }),
+
                     ]),
                 ]),
 
@@ -449,6 +450,30 @@ class VentaResource extends Resource
                     Toggle::make('crema')
                         ->label('¿Incluye crema?')
                         ->default(false),
+
+                    /* ---------- IBAN con formato ---------- */
+                    TextInput::make('iban')
+                        ->label('IBAN')
+                        ->columnSpanFull()
+                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+                        ->formatStateUsing(
+                            fn($state) =>
+                            $state
+                            ? implode(' ', str_split(strtoupper($state), 4))
+                            : null
+                        )
+                        ->dehydrateStateUsing(
+                            fn($state) =>
+                            $state
+                            ? str_replace(' ', '', strtoupper($state))
+                            : null
+                        )
+                        ->afterStateUpdated(function (Set $set, ?string $state) {
+                            $clean = str_replace(' ', '', strtoupper($state ?? ''));
+                            $formatted = implode(' ', str_split($clean, 4));
+                            if ($formatted !== $state)
+                                $set('iban', $formatted);
+                        }),
                 ])
                 ->columns(2),
 
@@ -692,6 +717,13 @@ class VentaResource extends Resource
             /* ────────── Datos de la venta ────────── */
 
 
+        ];
+    }
+
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
             Section::make('Gestión Documentos')
                 ->schema([
                     //SOLO FOTOTECA (sin capture, solo accept)
@@ -710,6 +742,14 @@ class VentaResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
         ]);
     }
 
@@ -719,18 +759,48 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('nro_contr_adm')
                     ->label('Nº Contrato')
                     ->badge()
-                    ->color('success')
+                    ->color(fn ($state): string => \App\Models\ContratoRecuperado::isRecuperado(
+                        filled($state) ? (string) $state : null
+                    ) ? 'warning' : 'success')
+                    ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
                     ->sortable()
                     ->searchable(),
+                TextColumn::make('pgc')
+                    ->label('PGC')
+                    ->state(fn (Venta $record): string => filled($record->customer_id) ? 'Ir_PGC' : '—')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Ir_PGC' ? 'info' : 'gray')
+                    ->url(function (Venta $record): ?string {
+                        if (! filled($record->customer_id)) {
+                            return null;
+                        }
+
+                        return CustomerResource::getUrl('view', [
+                            'record' => $record->customer_id,
+                        ], panel: 'gerente');
+                    })
+                    ->openUrlInNewTab()
+                    ->tooltip('Posición Global de este cliente')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->toggleable(),
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('note.nro_nota')->label('Nº Nota')->badge()->color(Color::Pink)->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('estado_venta')
                     ->badge()
-                    ->color(fn(EstadoVenta $state): string => $state->color())
+                    ->color(fn (EstadoVenta $state, Venta $record): string => \App\Models\ContratoRecuperado::estadoBadgeColor(
+                        $state,
+                        $record->nro_contr_adm,
+                    ))
                     ->formatStateUsing(fn(EstadoVenta $state): string => $state->label())
                     ->sortable()
                     ->label('ESTADO/CONTR'),
@@ -809,10 +879,9 @@ class VentaResource extends Resource
                     })
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: false),
-                TextColumn::make('fecha_venta')->label('Fecha venta')->date('d/m/Y')->badge()->color('warning')->sortable(),
                 TextColumn::make('hora_venta')
                     ->label('Hora')
-                    ->state(fn(Venta $r) => optional($r->fecha_venta)->format('H:i'))
+                    ->state(fn (Venta $r) => \App\Support\VentaFechaVenta::horaDisplay($r))
                     ->sortable(),
                 TextColumn::make('comercial.name')
                     ->label('Comercial')
@@ -830,15 +899,7 @@ class VentaResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-
-                Tables\Actions\DeleteAction::make()
-                    ->label('') // sin texto, solo ícono
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->modalHeading('Eliminar contrato')
-                    ->modalDescription('Esta acción eliminará el contrato y sus datos relacionados. ¿Deseas continuar?')
-                    ->successNotificationTitle('Contrato eliminado'),
+                VentaSoftDeleteTableAction::make(),
             ])
             ->filters([
                 Filter::make('cp_contrato')
@@ -906,73 +967,26 @@ class VentaResource extends Resource
         return true;
     }
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
-
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                true,
+                false,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
 }

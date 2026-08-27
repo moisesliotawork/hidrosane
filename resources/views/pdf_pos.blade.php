@@ -17,7 +17,7 @@
     $row = (float) request('row', 7.2); // alto/step de fila
 
     // ===== Helpers =====
-    $fecPromo = optional(Carbon::parse($venta->created_at))->format('d-m-Y');
+    $fecPromo = ($venta->fecha_venta ? Carbon::parse($venta->fecha_venta) : Carbon::parse($venta->created_at))->format('d-m-Y');
     $fecEntr = $venta->fecha_entrega ? Carbon::parse($venta->fecha_entrega)->format('d-m-Y') : '';
 
     // Items: EXPLOTAR por cantidad y tomar 10
@@ -92,6 +92,8 @@
     $xA_Vivienda = 128.1;     // “Vivienda:”
     $yA_Ingresos = 64.6;
     $xA_Ingresos = 128.5;     // “Ingresos:”
+    $yA_Email = 68.9;
+    $xA_Email = 112.0;        // “Correo:”
 
     // Tabla productos P1
     $yBase = 94.1;
@@ -154,24 +156,14 @@
 
     $phone1Commercial = $venta->customer->phone1_commercial ?? null;
     $phone2Commercial = $venta->customer->phone2_commercial ?? null;
-    $thirdPhone = $venta->customer->third_phone ?? null;
 
-    $hasCommercialPhones = filled($phone1Commercial) || filled($phone2Commercial);
-
-    $telefonos = $hasCommercialPhones
-        ? collect([$phone1Commercial, $phone2Commercial, $thirdPhone])
-            ->filter()
-            ->implode(' / ')
-        : collect([
-            $venta->customer->phone ?? null,
-            $venta->customer->secondary_phone ?? null,
-            $thirdPhone,
-        ])
-            ->filter()
-            ->implode(' / ');
+    $telefonos = collect([$phone1Commercial, $phone2Commercial])
+        ->filter()
+        ->implode(' / ');
 
     $mostrarIngresos = (bool) ($venta->mostrar_ingresos ?? true);
     $ingresos = $mostrarIngresos ? mb_strtoupper($venta->customer->ingresos_rango ?? '', 'UTF-8') : '';
+    $emailCliente = $venta->customer->email ?? '';
 
     // Dirección 2 líneas
     $primary = trim((string) ($venta->customer->primary_address ?? ''));
@@ -412,6 +404,15 @@
             $isCopia = ($__pass !== 0);
             // Solo en la tercera pasada (2) agregamos el sufijo -B al nro de contrato
             $contratoFmt = $venta->nro_contr_adm . ($__pass === 2 ? '-B' : '');
+            // Para la copia -B, usar la fecha_venta del contrato -B asociado
+            if ($__pass === 2) {
+                $contraBModel = $venta->contratoB();
+                $fecDisplay = ($contraBModel && $contraBModel->fecha_venta)
+                    ? Carbon::parse($contraBModel->fecha_venta)->format('d-m-Y')
+                    : $fecPromo;
+            } else {
+                $fecDisplay = $fecPromo;
+            }
         @endphp
 
         {{-- ================= PÁGINA 1 – CONTRATO ================= --}}
@@ -423,10 +424,10 @@
                 {{-- Encabezado --}}
                 <div class="field" style="top:{{ $yCodContrato }}mm; left:{{ $xCodContrato }}mm;">
                     {{ $contratoFmt }}</div>
-                <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecPromo }}</div>
+                <div class="field" style="top:{{ $yFecPromo }}mm; left:{{ $xFecPromo }}mm;">{{ $fecDisplay }}</div>
                 <div class="field" style="top:{{ $yFecEntr }}mm; left:{{ $xFecEntr }}mm;">{{ $fecEntr }}</div>
                 <div class="field" style="top:{{ $yHoraEntr }}mm; left:{{ $xHoraEntr }}mm;">
-                    {{ strtoupper($venta->horario_entrega ?? '') }}</div>
+                    {{ strtoupper(implode(' / ', array_filter([$venta->horario_entrega, $venta->horario_entrega_2]))) }}</div>
                 <div class="field" style="top:{{ $yDelegacion }}mm; left:{{ $xDelegacion }}mm;">{{ $delegacionNombre }}
                 </div>
                 <div class="field" style="top:{{ $yCodCliente }}mm; left:{{ $xCodCliente }}mm;">
@@ -446,7 +447,7 @@
                 <div class="field" style="top:{{ $yA_Dni }}mm; left:{{ $xA_Dni }}mm;">
                     {{ strtoupper($venta->customer->dni ?? '') }}</div>
                 <div class="field" style="top:{{ $yA_Nac }}mm; left:{{ $xA_Nac }}mm;">
-                    {{ $venta->customer->fecha_nac ? Carbon::parse($venta->customer->fecha_nac)->format('d-m-Y') : '' }}
+                    {{ $venta->customer->fechaNacDisplay('d-m-Y') ?? '' }}
                 </div>
 
                 {{-- Campos nuevos --}}
@@ -471,6 +472,7 @@
                 <div class="field" style="top:{{ $yA_Telefonos }}mm; left:{{ $xA_Telefonos }}mm;">{{ $telefonos }}</div>
                 <div class="field" style="top:{{ $yA_Vivienda }}mm; left:{{ $xA_Vivienda }}mm;">{{ $vivienda }}</div>
                 <div class="field" style="top:{{ $yA_Ingresos }}mm; left:{{ $xA_Ingresos }}mm;">{{ $ingresos }}</div>
+                <div class="field" style="top:{{ $yA_Email }}mm; left:{{ $xA_Email }}mm;">Email {{ $emailCliente }}</div>
                 <div class="field" style="top:{{ $yRep }}mm; left:{{ $xRep }}mm;">{{ $repEmpleado }}</div>
 
                 {{-- B. Artículos (ocultos en copia) --}}

@@ -22,13 +22,15 @@ use Filament\Forms\Components\{
     FileUpload,
     Textarea
 };
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\GpsActionForm;
+use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
 use Illuminate\Support\HtmlString;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -40,6 +42,7 @@ class VentaDesdeCeroResource extends Resource
 
     // 👇 nombre en el menú lateral
     protected static ?string $navigationLabel = 'Puerta Fría';
+    protected static ?int $navigationSort = 5;
 
     /** Ir directo al Create al hacer clic en el menú */
     public static function getNavigationUrl(): string
@@ -52,37 +55,35 @@ class VentaDesdeCeroResource extends Resource
         return true;
     }
 
-    public static function form(Form $form): Form
+    /** Step 1: all data except documents */
+    public static function step1Schema(): array
     {
-        return $form->schema([
+        return [
             /* ==================== CLIENTE ==================== */
             Section::make('Información del cliente')->schema([
                 Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
+                    Forms\Components\Hidden::make('pf_existing_customer_id'),
 
                     TextInput::make('first_names')->label('Nombres')->required(),
-                    TextInput::make('last_names')->label('Apellidos')->required(),
+                    TextInput::make('last_names')->label('Apellidos')->required()
+                        ->rules([
+                            function () {
+                                return function (string $attribute, $value, \Closure $fail) {
+                                    if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
+                                        $fail('Debes escribir al menos 2 apellidos del cliente');
+                                    }
+                                };
+                            },
+                        ]),
 
                     TextInput::make('dni')
 
                         ->label('DNI')
-                        ->maxLength(10),
+                        ->maxLength(10)
+                        ->required(),
                     //->columnSpanFull(),
 
-                    DatePicker::make('fecha_nac')
-                        ->label('Fec. nac.')
-                        ->timezone('Europe/Madrid')
-                        ->native(false)
-                        ->maxDate(now())            // evita fechas futuras
-                        ->reactive()
-                        ->afterStateHydrated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        })
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            $set('age', $state ? Carbon::parse($state)->age : null);
-                        }),
-
-
-
+                    FechaNacimientoField::make(),
 
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
@@ -242,59 +243,6 @@ class VentaDesdeCeroResource extends Resource
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
 
-                    TextInput::make('iban')
-                        ->label('IBAN')
-                        ->columnSpanFull()
-
-                        // Máx visible incluyendo espacios: 29 (XXXX XXXX XXXX XXXX XXXX XXXX)
-                        ->maxLength(29)
-
-                        // Formato 4 en 4 al cargar / editar
-                        ->formatStateUsing(
-                            fn(?string $state) => $state
-                            ? implode(' ', str_split(strtoupper(str_replace(' ', '', $state)), 4))
-                            : null
-                        )
-
-                        // Guardar SIN espacios y en mayúsculas
-                        ->dehydrateStateUsing(
-                            fn(?string $state) => $state
-                            ? str_replace(' ', '', strtoupper($state))
-                            : null
-                        )
-
-                        // Autoformateo + recorte a 24 chars reales
-                        ->afterStateUpdated(function (?string $state, Set $set) {
-                            $plain = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
-
-                            // ⛔ límite duro: 24 caracteres sin espacios
-                            if (strlen($plain) > 24) {
-                                $plain = substr($plain, 0, 24);
-                            }
-
-                            $formatted = implode(' ', str_split($plain, 4));
-
-                            if ($formatted !== ($state ?? '')) {
-                                $set('iban', $formatted);
-                            }
-                        })
-
-                        // Validación: máximo 24 sin espacios + solo A-Z y 0-9
-                        ->rules([
-                            function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $plain = strtoupper(preg_replace('/\s+/', '', (string) $value));
-
-                                    if (strlen($plain) > 24) {
-                                        $fail('El IBAN debe tener máximo 24 caracteres (sin contar espacios).');
-                                    }
-
-                                    if ($plain !== '' && !preg_match('/^[A-Z0-9]+$/', $plain)) {
-                                        $fail('El IBAN solo puede contener letras y números.');
-                                    }
-                                };
-                            },
-                        ]),
 
                 ]),
             ]),
@@ -428,7 +376,7 @@ class VentaDesdeCeroResource extends Resource
                                         : ($diff > 0 ? "+{$diff} sobre el límite" : "{$diff} por debajo");
                                 }),
                         ]),
-                        Section::make('Productos de la oferta')->collapsed()->schema([
+                        Section::make('Productos de la oferta')->collapsible()->schema([
                             Repeater::make('productos')->relationship()->minItems(1)
                                 ->validationMessages([
                                     'min' => 'Debes agregar al menos un producto a la oferta.',
@@ -602,6 +550,61 @@ class VentaDesdeCeroResource extends Resource
                 Toggle::make('crema')
                     ->label('¿Incluye crema?')
                     ->default(false),
+
+                TextInput::make('iban')
+                    ->label('IBAN')
+                    ->columnSpanFull()
+                    ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
+
+                    // Máx visible incluyendo espacios: 29 (XXXX XXXX XXXX XXXX XXXX XXXX)
+                    ->maxLength(29)
+
+                    // Formato 4 en 4 al cargar / editar
+                    ->formatStateUsing(
+                        fn(?string $state) => $state
+                        ? implode(' ', str_split(strtoupper(str_replace(' ', '', $state)), 4))
+                        : null
+                    )
+
+                    // Guardar SIN espacios y en mayúsculas
+                    ->dehydrateStateUsing(
+                        fn(?string $state) => $state
+                        ? str_replace(' ', '', strtoupper($state))
+                        : null
+                    )
+
+                    // Autoformateo + recorte a 24 chars reales
+                    ->afterStateUpdated(function (?string $state, Set $set) {
+                        $plain = strtoupper(preg_replace('/\s+/', '', $state ?? ''));
+
+                        // ⛔ límite duro: 24 caracteres sin espacios
+                        if (strlen($plain) > 24) {
+                            $plain = substr($plain, 0, 24);
+                        }
+
+                        $formatted = implode(' ', str_split($plain, 4));
+
+                        if ($formatted !== ($state ?? '')) {
+                            $set('iban', $formatted);
+                        }
+                    })
+
+                    // Validación: máximo 24 sin espacios + solo A-Z y 0-9
+                    ->rules([
+                        function () {
+                            return function (string $attribute, $value, \Closure $fail) {
+                                $plain = strtoupper(preg_replace('/\s+/', '', (string) $value));
+
+                                if (strlen($plain) > 24) {
+                                    $fail('El IBAN debe tener máximo 24 caracteres (sin contar espacios).');
+                                }
+
+                                if ($plain !== '' && !preg_match('/^[A-Z0-9]+$/', $plain)) {
+                                    $fail('El IBAN solo puede contener letras y números.');
+                                }
+                            };
+                        },
+                    ]),
             ])->columns(2),
 
             Section::make('Informe al REPARTIDOR')->schema([
@@ -610,6 +613,9 @@ class VentaDesdeCeroResource extends Resource
                 Select::make('horario_entrega')->label('Horario de entrega')
                     ->options(HorarioNotas::options())->default(HorarioNotas::TD->value)
                     ->native(false)->searchable()->required(),
+                Select::make('horario_entrega_2')->label('Horario de entrega 2')
+                    ->options(HorarioNotas::options())
+                    ->native(false)->searchable()->nullable(),
                 Select::make('motivo_venta')->label('¿Por qué vendiste?')->options([
                     'Eliminación de miedos' => 'Eliminación de miedos',
                     'Placer' => 'Placer',
@@ -633,6 +639,14 @@ class VentaDesdeCeroResource extends Resource
                     ->label('Observaciones adicionales para el repartidor')->rows(3)->columnSpanFull(),
             ])->columns(2),
 
+        ];
+    }
+
+    /** Step 2: documents and photos */
+    public static function step2Schema(): array
+    {
+        return [
+            ...GpsActionForm::ventaWizardFields(),
             Section::make('Gestión Documentos')
                 ->schema([
                     self::docCard('precontractual', 'Precontractual', true, true),
@@ -647,6 +661,14 @@ class VentaDesdeCeroResource extends Resource
                 ])
                 ->columns(1)
                 ->columnSpanFull(),
+        ];
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form->schema([
+            ...static::step1Schema(),
+            ...static::step2Schema(),
         ]);
     }
 
@@ -664,7 +686,7 @@ class VentaDesdeCeroResource extends Resource
         ];
     }
 
-    protected static function docCard(
+    public static function docCard(
         string $field,
         string $label,
         bool $required = false,
@@ -692,44 +714,14 @@ class VentaDesdeCeroResource extends Resource
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
         ])->columns(1);
     }

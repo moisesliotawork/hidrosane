@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
 use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
@@ -17,6 +18,8 @@ use App\Models\CreamDailyControl;
 use Carbon\Carbon;
 use Illuminate\Filesystem\FilesystemAdapter;
 use App\Enums\OrigenVenta;
+use App\Support\NextNroContrAdm;
+use App\Support\Storage\DocumentStorage;
 
 /**
  * @property int $id
@@ -101,7 +104,7 @@ use App\Enums\OrigenVenta;
  */
 class Venta extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'note_id',
@@ -122,6 +125,7 @@ class Venta extends Model
         'cuota_mensual',
         'fecha_entrega',
         'horario_entrega',
+        'horario_entrega_2',
         'productos_externos',
         'precontractual',
         'foto_sorteo',
@@ -161,6 +165,8 @@ class Venta extends Model
         'mes_contr',
         'nro_contr_adm',
         'nro_cliente_adm',
+        'en_app',
+        'list_descripcion',
         'origen_venta',
         'seguimiento',
         'financieras_reparto',
@@ -171,13 +177,17 @@ class Venta extends Model
         'pasadas_financieras',
 
         'contrato_firmado_at',
-
+        'deleted_by_user_id',
+        'reservado_at',
+        'reservado_by_user_id',
 
     ];
 
     protected $casts = [
         'contrato_firmado_at' => 'datetime',
+        'reservado_at' => 'datetime',
         'fecha_venta' => 'datetime',
+        'en_app' => 'boolean',
         'importe_total' => 'decimal:2',
         'num_cuotas' => 'integer',
         'interes_art' => 'boolean',
@@ -238,25 +248,20 @@ class Venta extends Model
 
     protected $guarded = [];
 
+    public static function nextNroContrAdm(): string
+    {
+        return NextNroContrAdm::fromExisting(
+            static::query()->whereNotNull('nro_contr_adm')->pluck('nro_contr_adm')
+        );
+    }
 
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($venta) {
-            if (!$venta->nro_contr_adm) {
-                // Buscar el nro_contrato más alto
-                $max = self::max('nro_contr_adm');
-
-                // Convertir a número entero (si existe) y sumar 1
-                if ($max) {
-                    $next = (int) ltrim($max, '0') + 1;
-                } else {
-                    $next = 1023; // 🚀 primer contrato en producción
-                }
-
-                // Rellenar con ceros hasta 5 caracteres
-                $venta->nro_contr_adm = str_pad($next, 5, '0', STR_PAD_LEFT);
+            if (! $venta->nro_contr_adm) {
+                $venta->nro_contr_adm = static::nextNroContrAdm();
             }
         });
 
@@ -345,6 +350,24 @@ class Venta extends Model
             // Solo cuando se CREA la venta
             $venta->registerCreamDelivery();
         });
+
+        static::deleting(function (Venta $venta) {
+            if ($venta->isForceDeleting()) {
+                return false;
+            }
+
+            if (blank($venta->deleted_by_user_id)) {
+                $venta->forceFill([
+                    'deleted_by_user_id' => auth()->id(),
+                ])->saveQuietly();
+            }
+        });
+
+        static::forceDeleting(function () {
+            throw new \RuntimeException(
+                'El borrado definitivo de contratos está bloqueado. El contrato debe quedar en Contratos borrados o RESERVA hasta que SuperAdmin lo apruebe.'
+            );
+        });
     }
 
 
@@ -395,18 +418,27 @@ class Venta extends Model
         return $this->urlFor('foto_sorteo');
     }
 
+    /**
+     * Nº de slots de documento con archivo en la venta (BD).
+     */
+    public function filledDocumentsCount(): int
+    {
+        $count = 0;
+        foreach (\App\Support\Filament\VentaDocumentUpload::recoveryDocumentSlots() as $field) {
+            if (filled($this->{$field} ?? null)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
 
     /* ---------- Helper ---------- */
     protected function urlFor(string $field): ?string
     {
-        if (!$this->$field) {
-            return null;
-        }
-
-        /** @var FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
-
-        return $disk->url($this->$field);
+        // Devuelve URL firmada de vida corta cuando los documentos viven en un
+        // disco remoto privado, y la URL pública de siempre en disco local.
+        return DocumentStorage::url($this->$field ?? null);
     }
 
     /* ---------- Relaciones ---------- */
@@ -426,6 +458,26 @@ class Venta extends Model
         return $this->belongsTo(User::class, 'comercial_id');
     }
 
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
+    }
+
+    public function reservadoBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reservado_by_user_id');
+    }
+
+    public function scopeEnContratosBorrados($query)
+    {
+        return $query->whereNull('reservado_at');
+    }
+
+    public function scopeEnReserva($query)
+    {
+        return $query->whereNotNull('reservado_at');
+    }
+
     public function companion(): BelongsTo
     {
         return $this->belongsTo(User::class, 'companion_id');
@@ -434,6 +486,12 @@ class Venta extends Model
     public function ventaOfertas(): HasMany   // alias “ofertas()” si lo prefieres
     {
         return $this->hasMany(VentaOferta::class);
+    }
+
+    /** Histórico de copias de PDF archivadas al descargar el contrato (solo visible en SuperAdmin). */
+    public function pdfDownloads(): HasMany
+    {
+        return $this->hasMany(VentaPdfDownload::class)->latest();
     }
 
     public function repartidor(): BelongsTo
@@ -486,6 +544,10 @@ class Venta extends Model
     public function recomputarImportesDesdeOfertas(bool $persist = true): self
     {
         $this->loadMissing(['ventaOfertas.oferta', 'ventaOfertas.productos']);
+
+        if ($this->ventaOfertas->isEmpty()) {
+            return $this;
+        }
 
         $impCom = 0.0;
         $impRep = 0.0;

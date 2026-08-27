@@ -21,6 +21,7 @@ use Filament\Notifications\Notification;
 use App\Models\Customer;
 use App\Filament\Teleoperator\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
+use App\Filament\Support\CustomerPhoneForm;
 
 class NoteResource extends Resource
 {
@@ -59,51 +60,17 @@ class NoteResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->mask('999 999 999')
-                            ->label('Teléfono')
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true)
                             ->default(function () {
                                 $raw = request('phone');
-                                if (!$raw)
+                                if (! $raw) {
                                     return null;
-                                $digits = preg_replace('/\D+/', '', (string) $raw);
-                                if ($digits === '' || strlen($digits) !== 9)
-                                    return null;
-                                // Mostrar con espacios en el input
-                                return implode(' ', str_split($digits, 3));
-                            })
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(fn($state) => preg_replace('/\D+/', '', (string) $state))
-                            ->dehydrated(true),
+                                }
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                                return CustomerPhoneForm::formatMask($raw);
+                            }),
+
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -174,6 +141,7 @@ class NoteResource extends Resource
                             ->required()
                             ->native(false)
                             ->live()
+                            ->default(NoteStatus::CONTACTED->value)
                             ->label('Estado')
                             ->validationMessages([
                                 'required' => 'El estado es obligatorio',
@@ -346,7 +314,7 @@ class NoteResource extends Resource
             ])
             ->headerActions([
                 Action::make('irABuscarCliente')
-                    ->label('Buscar cliente')
+                    ->label('Crea Nota nueva    ')
                     ->icon('heroicon-o-magnifying-glass')
                     ->color('warning')
                     ->url(fn() => BuscarCliente::getUrl()),
@@ -421,7 +389,7 @@ class NoteResource extends Resource
 
                     Tables\Actions\DeleteBulkAction::make(),
                 ])->label('Acciones de Grupo'),
-            
+
 
             ]);
     }

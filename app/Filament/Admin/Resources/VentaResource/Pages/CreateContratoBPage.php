@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VentaResource\Pages;
 
 use App\Filament\Admin\Resources\VentaResource;
+use App\Filament\Support\CustomerIbanForm;
 use App\Models\Venta;
 use App\Models\TransactionVenta;
 use Filament\Forms\Form;
@@ -48,6 +49,7 @@ class CreateContratoBPage extends Page implements HasForms
             'repartidor_id' => $this->origen->repartidor_id,
             'fecha_entrega' => $this->origen->fecha_entrega,
             'horario_entrega' => $this->origen->horario_entrega,
+            'horario_entrega_2' => $this->origen->horario_entrega_2,
             'motivo_venta' => $this->origen->motivo_venta,
             'motivo_horario' => $this->origen->motivo_horario,
             'interes_art' => (bool) $this->origen->interes_art,
@@ -55,33 +57,13 @@ class CreateContratoBPage extends Page implements HasForms
             'observaciones_repartidor' => $this->origen->observaciones_repartidor,
         ];
 
-        // ✅ Precargar cliente (state anidado)
-        $state['customer'] = $this->origen->customer?->only([
-            'first_names',
-            'last_names',
-            'dni',
-            'phone',
-            'secondary_phone',
-            'third_phone',
-            'email',
-            'fecha_nac',
-            'nro_piso',
-            'postal_code',
-            'ciudad',
-            'provincia',
-            'primary_address',
-            'secondary_address',
-            'ayuntamiento',
-            'tipo_vivienda',
-            'estado_civil',
-            'situacion_laboral',
-            'num_hab_casa',
-            'iban',
-            'ingresos_rango',
-        ]) ?? [];
+        // Precargar cliente (state anidado) con fecha_nac exacta de BD
+        $state['customer'] = $this->origen->customer?->formFillableAttributes() ?? [];
 
         // ✅ No precargar ventaOfertas ni totales
         $state['ventaOfertas'] = [];
+
+        $state['iban'] = $this->origen->customer?->iban;
 
         // ✅ (opcional) deja “datos de la venta” totalmente limpios si algo los setea
         $state['importe_total'] = 0;
@@ -97,7 +79,7 @@ class CreateContratoBPage extends Page implements HasForms
 
     public function form(Form $form): Form
     {
-        return VentaResource::form($form)
+        return static::getResource()::form($form)
             ->model(Venta::class)    // ⬅️ evita "->customer() on null" al resolver relationship('customer')
             ->statePath('data');
     }
@@ -106,7 +88,8 @@ class CreateContratoBPage extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        unset($data['customer']); // NO borres ventaOfertas
+        CustomerIbanForm::persist($this->origen->customer, $data['iban'] ?? null);
+        unset($data['iban'], $data['customer']); // NO borres ventaOfertas
 
         $data['nro_contr_adm'] = trim((string) $this->origen->nro_contr_adm) . '-B';
         $data['nro_cliente_adm'] = $this->origen->nro_cliente_adm;

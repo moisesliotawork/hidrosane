@@ -7,13 +7,10 @@ use Filament\Resources\Pages\Page;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Forms\Components\{Section, Group, FileUpload, Placeholder};
+use Filament\Forms\Components\{Section, Group, FileUpload};
 use Filament\Notifications\Notification;
 use App\Models\Venta;
-use Illuminate\Support\Str;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Illuminate\Support\HtmlString;
-use Filament\Forms\Get;
+use App\Support\Filament\VentaDocumentUpload;
 
 
 class GestionDocumentos extends Page implements HasForms
@@ -43,6 +40,7 @@ class GestionDocumentos extends Page implements HasForms
 
         $this->form->fill([
             'precontractual' => $record->precontractual,
+            'foto_sorteo' => $record->foto_sorteo,
             'dni_anverso' => $record->dni_anverso,
             'dni_reverso' => $record->dni_reverso,
             'documento_titularidad' => $record->documento_titularidad,
@@ -66,6 +64,7 @@ class GestionDocumentos extends Page implements HasForms
 
                         //RESTO: CÁMARA
                         self::docCard('precontractual', 'Precontractual', true, true),
+                        self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
                         self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                         self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                         self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
@@ -85,68 +84,21 @@ class GestionDocumentos extends Page implements HasForms
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
-
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                null,
+                $soloCamara,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
 
     public function save(): void
@@ -155,6 +107,7 @@ class GestionDocumentos extends Page implements HasForms
 
         $this->record->fill([
             'precontractual' => $data['precontractual'] ?? $this->record->precontractual,
+            'foto_sorteo' => $data['foto_sorteo'] ?? $this->record->foto_sorteo,
             'dni_anverso' => $data['dni_anverso'] ?? $this->record->dni_anverso,
             'dni_reverso' => $data['dni_reverso'] ?? $this->record->dni_reverso,
             'documento_titularidad' => $data['documento_titularidad'] ?? $this->record->documento_titularidad,
@@ -168,5 +121,7 @@ class GestionDocumentos extends Page implements HasForms
             ->title('Documentos del contrato actualizados')
             ->success()
             ->send();
+
+        $this->redirect(HistoricoContratosResource::getUrl('index', panel: 'comercial'));
     }
 }

@@ -3,6 +3,10 @@
 namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 
 use App\Filament\Gerente\Resources\VentaResource;
+use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
+use App\Filament\Concerns\PersistsVentaCustomerOnSave;
+use App\Support\VentaFechaVenta;
+use App\Services\VentaNotesCustomerSync;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Filament\Actions\Action;
@@ -10,20 +14,58 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
+use Filament\Notifications\Notification;
 
 class EditVenta extends EditRecord
 {
+    use SyncsCustomerIbanOnVentaForm;
+    use PersistsVentaCustomerOnSave;
+
     protected static string $resource = VentaResource::class;
+
+    protected ?int $pendingCustomerId = null;
 
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
     }
 
+    protected function getSavedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->success()
+            ->title('Guardado')
+            ->body('Los cambios del contrato se han guardado correctamente.')
+            ->duration(6000);
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Guardado';
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return $this->hydrateCustomerFormData($data);
+    }
+
+    protected function beforeSave(): void
+    {
+        $this->persistVentaCustomerInBeforeSave();
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $this->stripVentaCustomerFromSavePayload($data);
+
+        $this->persistCustomerIban($data);
+
         /* 1. Nunca tocar el Nº de nota */
         Arr::forget($data, 'note.nro_nota');
+
+        if (array_key_exists('note_id', $data) && ! filled($data['note_id'])) {
+            $data['note_id'] = null;
+        }
 
         /* 2. Reglas de modalidad de pago */
         $modalidad = $data['modalidad_pago'] ?? 'Financiado';
@@ -50,6 +92,13 @@ class EditVenta extends EditRecord
                 ->filter()      // quita strings vacíos
                 ->values()
                 ->all();
+        }
+
+        if (array_key_exists('fecha_venta', $data)) {
+            $data['fecha_venta'] = VentaFechaVenta::normalizeOnSave(
+                $data['fecha_venta'],
+                $this->record,
+            );
         }
 
         return $data;
@@ -108,6 +157,10 @@ class EditVenta extends EditRecord
 
     protected function afterSave(): void
     {
+        $venta = $this->record->fresh(['customer', 'note']);
+
+        VentaNotesCustomerSync::syncFromVenta($venta);
+
         $venta = $this->record;
 
         // 🔁 Recalcula importes según lo que quedó en venta_ofertas y sus productos

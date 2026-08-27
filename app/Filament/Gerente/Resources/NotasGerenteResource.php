@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
+use App\Filament\Support\CustomerPhoneForm;
 
 class NotasGerenteResource extends Resource
 {
@@ -37,7 +38,7 @@ class NotasGerenteResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Reasignar Visitas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 4;
 
     public static function form(Form $form): Form
     {
@@ -64,39 +65,28 @@ class NotasGerenteResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        // Teléfono
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('phone')
+                                ->disabled()
+                                ->label('Teléfono')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                            required: true,
+                        ),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->disabled()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ])
-                            ->visible(
-                                fn(Get $get, ?Note $record) =>
-                                auth()->user()?->hasRole('team_leader')
-                                || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
-                            ),
+                        CustomerPhoneForm::applyTo(
+                            Forms\Components\TextInput::make('secondary_phone')
+                                ->disabled()
+                                ->label('Teléfono secundario (opcional)')
+                                ->visible(
+                                    fn (Get $get, ?Note $record) =>
+                                    auth()->user()?->hasRole('team_leader')
+                                    || ($record?->canShowPhone() ?? (bool) $get('show_phone'))
+                                ),
+                        ),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -376,6 +366,7 @@ class NotasGerenteResource extends Resource
                                     ->select('users.id', 'users.name', 'users.last_name', 'users.empleado_id')
                                     ->with(['roles:id,name'])                 // cargamos roles
                                     ->role(['commercial', 'team_leader'])     // cualquiera de los dos
+                                    ->whereNull('baja')
                                     ->orderBy('empleado_id')
                                     ->get()
                                     ->unique('id');
@@ -406,11 +397,13 @@ class NotasGerenteResource extends Resource
                     ])
                     ->action(function (Note $record, array $data): void {
                         try {
+                            $comercialId = $data['comercial_id'] ?? null;
                             $record->update([
-                                'comercial_id' => $data['comercial_id'] ?? null,
-                                'assignment_date' => ($data['comercial_id'] ?? null)
+                                'comercial_id' => $comercialId,
+                                'assignment_date' => $comercialId
                                     ? ($data['assignment_date'] ?? now())
                                     : null,
+                                'reten' => $comercialId ? false : $record->reten,
                             ]);
 
                             $message = is_null($data['comercial_id'] ?? null)

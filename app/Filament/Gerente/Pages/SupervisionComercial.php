@@ -20,6 +20,7 @@ class SupervisionComercial extends Page implements HasTable
     protected static ?string $navigationIcon = 'heroicon-o-eye';
     protected static ?string $navigationLabel = 'Supervision Comercial';
     protected static ?string $title = 'SUPERVISION COMERCIAL';
+    protected static ?int $navigationSort = 7;
 
     protected static string $view = 'filament.gerente.pages.supervision-comercial';
 

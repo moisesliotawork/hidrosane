@@ -83,6 +83,11 @@
             /* Color blanco para modo oscuro */
         }
 
+        .customer-phone-link {
+            color: inherit;
+            text-decoration: underline;
+        }
+
         .bulk-bar {
             display: flex;
             gap: .5rem;
@@ -704,7 +709,8 @@
                 Seleccionadas: {{ count($selectedNotes) }}
             </span>
 
-            <button class="filament-bulk-btn btn-sala" wire:click="bulkEnviarASala" wire:loading.attr="disabled"
+            <button class="filament-bulk-btn btn-sala" type="button"
+                onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
                 wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
                 <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                     stroke-width="2" stroke="currentColor">
@@ -922,10 +928,22 @@
                         </p>
 
                         @if($note['show_phone'] || $this->canAlwaysSeePhones())
+                            @php
+                                $phone1Raw = $note['phone'] ?? null;
+                                $phone2Raw = $note['secondary_phone'] ?? null;
+                                $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                                $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                            @endphp
                             <div class="mt-1">
-                                <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                                @if($note['secondary_phone'])
-                                    <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
+                                <p class="customer-phone">Tlf 1:
+                                    @if($phone1)
+                                        <a href="tel:{{ $phone1 }}" class="customer-phone-link">{{ $phone1Raw }}</a>
+                                    @else
+                                        No disponible
+                                    @endif
+                                </p>
+                                @if($phone2)
+                                    <p class="customer-phone">Tlf 2: <a href="tel:{{ $phone2 }}" class="customer-phone-link">{{ $phone2Raw }}</a></p>
                                 @endif
                             </div>
                         @endif
@@ -1083,5 +1101,6 @@
         </x-slot>
     </x-filament::modal>
 
+    @include('filament.commercial.components.bulk-oficina-gps-script')
 
 </div>

@@ -16,6 +16,8 @@ class NoteSalaEvent extends Model
         'sent_by_user_id',
         'via',
         'sent_at',
+        'lat',
+        'lng',
     ];
 
     protected $casts = [

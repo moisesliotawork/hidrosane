@@ -1,0 +1,1 @@
+SELECT id, nro_nota FROM notes WHERE id=3400;

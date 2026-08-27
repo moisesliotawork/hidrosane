@@ -4,22 +4,89 @@ namespace App\Filament\Gerente\Resources\VentaDesdeCeroResource\Pages;
 
 use App\Filament\Gerente\Resources\VentaDesdeCeroResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Forms\Components\Wizard\Step;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, Customer, User};
 use App\Enums\{NoteStatus};
-use App\Filament\Gerente\Pages\NotasHoy;
 use Illuminate\Support\Str;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
 
 class CreateVentaDesdeCero extends CreateRecord
 {
+    use HasWizard;
+
     protected static string $resource = VentaDesdeCeroResource::class;
 
     public function getTitle(): string
     {
         return 'Puerta Fria';
     }
+
+    // ─── Session persistence ─────────────────────────────────────────────────
+
+    private function sessionKey(): string
+    {
+        return 'pf_draft_gerente_' . auth()->id();
+    }
+
+    private function fileFields(): array
+    {
+        return [
+            'albaran', 'precontractual', 'foto_sorteo', 'dni_anverso', 'dni_reverso',
+            'documento_titularidad', 'nomina', 'pension', 'contrato_firmado', 'otros_documentos',
+        ];
+    }
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $key = $this->sessionKey();
+        if (session()->has($key)) {
+            $saved = session($key);
+            foreach ($this->fileFields() as $field) {
+                unset($saved[$field]);
+            }
+            $this->form->fill(array_merge($this->data, $saved));
+        }
+    }
+
+    public function dehydrate(): void
+    {
+        $toSave = $this->data;
+        foreach ($this->fileFields() as $field) {
+            unset($toSave[$field]);
+        }
+        session()->put($this->sessionKey(), $toSave);
+        session()->save();
+    }
+
+    protected function afterCreate(): void
+    {
+        session()->forget($this->sessionKey());
+    }
+
+    // ─── Wizard steps ─────────────────────────────────────────────────────────
+
+    protected function getSteps(): array
+    {
+        return [
+            Step::make('Datos del contrato')
+                ->icon('heroicon-o-document-text')
+                ->description('Información del cliente y de la venta')
+                ->schema(VentaDesdeCeroResource::step1Schema()),
+
+            Step::make('Documentos y Fotos')
+                ->icon('heroicon-o-camera')
+                ->description('Sube los documentos requeridos')
+                ->schema(VentaDesdeCeroResource::step2Schema()),
+        ];
+    }
+
+    // ─── Record creation ──────────────────────────────────────────────────────
 
     protected function handleRecordCreation(array $data): Venta
     {
@@ -102,7 +169,7 @@ class CreateVentaDesdeCero extends CreateRecord
                 'customer_id' => $customer->id,
                 'comercial_id' => $notaPayload['comercial_id'] ?? auth()->id(),
                 'companion_id' => blank($data['companion_id']) ? null : $data['companion_id'],
-                'fecha_venta' => now(),
+                'fecha_venta' => VentaFechaVenta::normalizeOnCreate(),
                 'importe_total' => $data['importe_total'] ?? 0,
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
                 'forma_pago' => ($data['modalidad_pago'] ?? null) === 'Contado' ? ($data['forma_pago'] ?? null) : null,
@@ -169,15 +236,5 @@ class CreateVentaDesdeCero extends CreateRecord
         return route('filament.repartidor.pages.dashboard');
     }
 
-
-    protected function getFormActions(): array
-    {
-        return [
-            $this->getCreateFormAction()->label('Crear Venta'),
-            $this->getCancelFormAction()
-                ->label('Cancelar')
-                ->url(route('filament.repartidor.pages.dashboard')),
-        ];
-    }
 
 }

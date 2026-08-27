@@ -4,6 +4,8 @@ namespace App\Filament\Commercial\Resources\VentaResource\Pages;
 
 use App\Filament\Commercial\Resources\VentaResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Forms\Components\Wizard\Step;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\{Venta, Note, User};
@@ -12,13 +14,141 @@ use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use App\Events\VentaCreada;
+use App\Support\VentaFechaVenta;
+use App\Support\VentaOrigenResolver;
+use App\Support\ActionGps;
+use App\Support\NoteVentaDeclarationGuard;
+use App\Support\Filament\GpsActionForm;
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
+use App\Filament\Commercial\Concerns\HandlesGpsVentaWizard;
+use Filament\Actions\Action;
 
 class CreateVenta extends CreateRecord
 {
+    use HasWizard;
+    use HandlesGpsVentaWizard;
+
     protected static string $resource = VentaResource::class;
 
     /** id de la nota recibida en la URL */
     public int $noteId;
+
+    // ─── Session persistence ─────────────────────────────────────────────────
+
+    private function sessionKey(): string
+    {
+        // Include noteId so drafts from different notes don't mix
+        return 'venta_draft_commercial_' . auth()->id() . '_' . ($this->noteId ?? 0);
+    }
+
+    private function fileFields(): array
+    {
+        return VentaDocumentUpload::creationFormDocumentFields();
+    }
+
+    public function updated(string $name): void
+    {
+        if (! str_starts_with($name, 'data')) {
+            return;
+        }
+
+        foreach ($this->fileFields() as $field) {
+            if ($name === "data.{$field}" || str_starts_with($name, "data.{$field}.")) {
+                return;
+            }
+        }
+
+        if (in_array($name, ['data.gps_lat', 'data.gps_lng'], true)) {
+            return;
+        }
+
+        $toSave = $this->sanitizeDraftForSession($this->data);
+        foreach ($this->fileFields() as $field) {
+            unset($toSave[$field]);
+        }
+        session()->put($this->sessionKey(), $toSave);
+    }
+
+    /** @param  array<string, mixed>  $data */
+    private function sanitizeDraftForSession(array $data): array
+    {
+        if (array_key_exists('fecha_nac', $data)) {
+            $data['fecha_nac'] = FechaNacimientoField::normalizeForStorage($data['fecha_nac']);
+        }
+
+        return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        session()->forget($this->sessionKey());
+    }
+
+    // ─── Wizard steps ─────────────────────────────────────────────────────────
+
+    protected function getSteps(): array
+    {
+        return [
+            Step::make('Datos del contrato')
+                ->icon('heroicon-o-document-text')
+                ->description('Información del cliente y de la venta')
+                ->schema(VentaResource::step1Schema()),
+
+            Step::make('Documentos y Fotos')
+                ->icon('heroicon-o-camera')
+                ->description('Sube los documentos requeridos')
+                ->schema(VentaResource::step2Schema()),
+        ];
+    }
+
+    protected function getSubmitFormAction(): Action
+    {
+        return GpsActionForm::applyToVentaWizardCreateAction(
+            parent::getSubmitFormAction(),
+            fn (): bool => $this->isCreateVentaGpsReady(),
+        );
+    }
+
+    protected function isCreateVentaGpsReady(): bool
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return true;
+        }
+
+        if (GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return true;
+        }
+
+        $note = Note::query()->find($this->noteId);
+
+        return $note !== null
+            && ActionGps::validateOperatingCoords($note->lat, $note->lng) !== null;
+    }
+
+    private function seedWizardGpsFromNote(Note $note): void
+    {
+        if (! ActionGps::shouldRegisterGps()) {
+            return;
+        }
+
+        if (GpsActionForm::gpsReadyOnForm($this->data ?? [])) {
+            return;
+        }
+
+        $validated = ActionGps::validateOperatingCoords($note->lat, $note->lng);
+
+        if ($validated === null) {
+            return;
+        }
+
+        if (! is_array($this->data ?? null)) {
+            $this->data = [];
+        }
+
+        $this->data['gps_lat'] = $validated['lat'];
+        $this->data['gps_lng'] = $validated['lng'];
+    }
 
     /* ---------------------------------------------------------------------
      | 1. Cargar la nota y pre-rellenar el formulario
@@ -31,18 +161,113 @@ class CreateVenta extends CreateRecord
         abort_if(!$this->noteId, 404, 'Nota no especificada');
 
         $note = Note::with('customer')->findOrFail($this->noteId);
+
+        $blockReason = NoteVentaDeclarationGuard::blockReasonForStartingVentaFromNote($note);
+        if ($blockReason !== null) {
+            Notification::make()
+                ->title('No se puede declarar la venta')
+                ->body($blockReason)
+                ->warning()
+                ->persistent()
+                ->send();
+
+            $this->redirect(\App\Filament\Commercial\Resources\NoteResource::getUrl('index', panel: 'comercial'));
+
+            return;
+        }
+
         $customer = $note->customer;
+
+        $fechaNac = $customer->safeFechaNac();
 
         $payload = array_merge(
             ['note_id' => $note->id],
-            $customer->only($customer->getFillable()),
+            $customer->formFillableAttributes(),
             [
-                // opcional: precargar edad para mostrarla desde el inicio
-                'age' => $customer->fecha_nac ? Carbon::parse($customer->fecha_nac)->age : null,
-            ]
+                'age' => $fechaNac?->age,
+            ],
         );
 
         $this->form->fill($payload);
+
+        $this->seedWizardGpsFromNote($note);
+
+        // Restore session draft (user's edits) AFTER pre-filling with note data
+        $key = $this->sessionKey();
+        if (session()->has($key)) {
+            $saved = $this->sanitizeDraftForSession(session($key));
+            foreach ($this->fileFields() as $field) {
+                unset($saved[$field]);
+            }
+            $this->data = array_merge($this->data, $saved);
+
+            $sessionAge = FechaNacimientoField::parse($this->data['fecha_nac'] ?? null)?->age;
+            if ($sessionAge !== null) {
+                $this->data['age'] = $sessionAge;
+            }
+        }
+
+        $this->seedWizardGpsFromNote($note->fresh());
+
+        $this->data['note_id'] = $this->noteId;
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['note_id'] = $this->noteId;
+
+        return $data;
+    }
+
+    public function create(bool $another = false): void
+    {
+        try {
+            parent::create($another);
+        } catch (ValidationException $exception) {
+            Notification::make()
+                ->danger()
+                ->title('No se pudo guardar la venta')
+                ->body($this->formatCommercialValidationBody($exception))
+                ->persistent()
+                ->send();
+
+            throw $exception;
+        }
+    }
+
+    protected function formatCommercialValidationBody(ValidationException $exception): string
+    {
+        $labels = [
+            'note_id' => 'Nota asociada',
+            'gps_lat' => 'Ubicación GPS',
+            'gps_lng' => 'Ubicación GPS',
+            'fecha_nac' => 'Fecha de nacimiento',
+            'last_names' => 'Apellidos',
+            'iban' => 'IBAN',
+            'precontractual' => 'Precontractual',
+            'foto_sorteo' => 'Foto sorteo',
+            'ventaOfertas' => 'Ofertas',
+            'producto_id' => 'Producto de la oferta',
+            'fecha_entrega' => 'Fecha de entrega',
+            'horario_entrega' => 'Horario de entrega',
+            'motivo_venta' => 'Motivo de venta',
+            'motivo_horario' => 'Motivo del horario',
+        ];
+
+        $lines = [];
+        foreach ($exception->errors() as $field => $messages) {
+            $key = str_replace(['data.', 'data/'], '', (string) $field);
+            $base = explode('.', str_replace(['/', '.'], '.', $key))[0] ?? $key;
+            $label = $labels[$key] ?? $labels[$base] ?? str($base)->replace('_', ' ')->title()->toString();
+            $text = is_array($messages) ? (string) ($messages[0] ?? '') : (string) $messages;
+            $lines[] = $text !== '' ? "{$label}: {$text}" : $label;
+        }
+
+        if ($lines === []) {
+            return 'Revisa los campos obligatorios. Algunos pueden estar en el paso anterior o en una sección plegada (productos / documentos).';
+        }
+
+        return "Completa estos campos para poder guardar:\n".collect($lines)->take(8)->map(fn (string $line) => '• '.$line)->implode("\n");
     }
 
     protected function handleRecordCreation(array $data): Venta
@@ -102,6 +327,10 @@ class CreateVenta extends CreateRecord
             $customer = $note->customer;
 
             /* 2.3 Actualizar datos del cliente */
+            if (array_key_exists('fecha_nac', $data)) {
+                $data['fecha_nac'] = FechaNacimientoField::normalizeForStorage($data['fecha_nac']);
+            }
+
             $customer->update(array_intersect_key(
                 $data,
                 array_flip($customer->getFillable())
@@ -122,12 +351,21 @@ class CreateVenta extends CreateRecord
             }
 
             /* 2.4 Crear venta -------------------------------------------------- */
+            ['lat' => $ventaLat, 'lng' => $ventaLng] = ActionGps::assertCoordsForVentaOrFail(
+                $note->lat,
+                $note->lng,
+                $data,
+                auth()->user(),
+            );
+
             $venta = Venta::create([
                 'note_id' => $this->noteId,
                 'customer_id' => $customer->id,
                 'comercial_id' => auth()->id(),
+                'lat' => $ventaLat,
+                'lng' => $ventaLng,
                 'companion_id' => $data['companion_id'],
-                'fecha_venta' => now(),
+                'fecha_venta' => VentaFechaVenta::normalizeOnCreate(),
                 'importe_total' => $data['importe_total'],
                 'importe_comercial' => $data['importe_total'],
                 'modalidad_pago' => $data['modalidad_pago'] ?? 'Financiado',
@@ -218,6 +456,8 @@ class CreateVenta extends CreateRecord
                 'comercial_id' => auth()->id()
             ]);
 
+            VentaOrigenResolver::repairMislabeledFuente($note->fresh());
+
             DB::afterCommit(function () use ($venta) {
                 event(new VentaCreada($venta));
             });
@@ -229,19 +469,5 @@ class CreateVenta extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return NotasHoy::getUrl();   // genera /commercial/notas-hoy
-    }
-
-    protected function getFormActions(): array
-    {
-        return [
-            // Botón principal (antes llamado “Crear”)
-            $this->getCreateFormAction()
-                ->label('Declarar VENTA'),
-
-            // Botón Cancelar → redirige a la página Notas Hoy
-            $this->getCancelFormAction()
-                ->label('Cancelar')
-                ->url(NotasHoy::getUrl()),
-        ];
     }
 }

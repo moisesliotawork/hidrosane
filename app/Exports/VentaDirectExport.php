@@ -95,9 +95,7 @@ class VentaDirectExport implements FromQuery, WithMapping, WithHeadings, WithSty
             $venta->customer?->first_names,
             $venta->customer?->last_names,
 
-            $venta->customer?->fecha_nac
-            ? \Carbon\Carbon::parse($venta->customer->fecha_nac)->format('d/m/Y')
-            : null,
+            $venta->customer?->fechaNacDisplay('d/m/Y'),
 
             $telefonosFinal, // Columna TELEFONOS fusionada
             $telefonosComercialFinal, // Columna TELEFONOS COMERCIAL fusionada

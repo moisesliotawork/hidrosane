@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
@@ -75,79 +77,31 @@ class AutogenerarNoteResource extends Resource
                             ->label('Apellidos')
                             ->validationMessages([
                                 'required' => 'Los apellidos son obligatorios',
+                            ])
+                            ->rules([
+                                function () {
+                                    return function (string $attribute, $value, \Closure $fail) {
+                                        if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
+                                            $fail('Debes escribir al menos 2 apellidos del cliente');
+                                        }
+                                    };
+                                },
                             ]),
 
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->label('Teléfono')
-                            ->mask('999 999 999') // se ve con espacios
-                            // Validación: exactamente 9 dígitos (ignora espacios/guiones)
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if (strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            // Guardar: solo dígitos
-                            ->dehydrateStateUsing(fn($state) => preg_replace('/\D+/', '', (string) $state))
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->label('Teléfono secundario (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
-                        Forms\Components\TextInput::make('third_phone')
-                            ->tel()
-                            ->label('Teléfono 3 (opcional)')
-                            ->mask('999 999 999')
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if ($value === null || $value === '')
-                                        return;
-                                    $digits = preg_replace('/\D+/', '', (string) $value);
-                                    if ($digits !== '' && strlen($digits) !== 9) {
-                                        $fail('Debe tener exactamente 9 cifras');
-                                    }
-                                };
-                            })
-                            ->dehydrateStateUsing(function ($state) {
-                                $digits = preg_replace('/\D+/', '', (string) $state);
-                                return $digits === '' ? null : $digits;
-                            })
-                            ->dehydrated(true),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())              // no permitir fechas futuras
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::configureDatePicker(
+                            DatePicker::make('fecha_nac')
+                                ->label('Fec. nac.')
+                                ->reactive(),
+                        )->validationMessages([
+                            'required' => 'La fecha de nacimiento es obligatoria',
+                        ]),
 
                         TextInput::make('age')
                             ->numeric()

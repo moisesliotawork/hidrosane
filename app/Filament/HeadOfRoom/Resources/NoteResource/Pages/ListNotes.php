@@ -23,7 +23,8 @@ class ListNotes extends ListRecords
             Actions\CreateAction::make()
                 ->label('Crear Nota')
                 ->icon('heroicon-o-plus')
-                ->color('primary'),
+                ->color('primary')
+                ->url(fn (): string => NoteResource::getUrl('create', ['emergency' => 1])),
 
             \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
                 ->label('Generar PDF (Oficina)')
@@ -203,6 +204,29 @@ class ListNotes extends ListRecords
                         ->where('printed', false)
                 ),
 
+            'asignadas_hoy' => Tab::make('Asignadas hoy')
+                ->icon('heroicon-o-user-plus')
+                ->badge(
+                    Note::query()
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate(Note::businessToday())
+                        ->where(function (Builder $q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
+                                ->orWhereIn('estado_terminal', [
+                                    EstadoTerminal::SIN_ESTADO->value,
+                                    EstadoTerminal::SALA->value,
+                                ]);
+                        })
+                        ->count()
+                )
+                ->badgeColor('success')
+                ->modifyQueryUsing(
+                    fn (Builder $query) => $query
+                        ->assignedToCommercial()
+                        ->whereEffectiveAssignmentDate(Note::businessToday())
+                ),
+
             'se' => Tab::make('SE')
                 ->icon('heroicon-o-question-mark-circle')
                 ->badge(
@@ -229,5 +253,37 @@ class ListNotes extends ListRecords
     public function getDefaultActiveTab(): string|int|null
     {
         return 'notas';
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        $query = parent::getTableQuery();
+
+        if ($this->activeTab === 'notas' && !$this->hasActiveNotasFilters()) {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query;
+    }
+
+    private function hasActiveNotasFilters(): bool
+    {
+        if (!empty($this->tableSearch)) {
+            return true;
+        }
+
+        foreach ($this->tableFilters ?? [] as $filterData) {
+            if (is_array($filterData)) {
+                foreach ($filterData as $value) {
+                    if ($value !== null && $value !== '') {
+                        return true;
+                    }
+                }
+            } elseif ($filterData !== null && $filterData !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

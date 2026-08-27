@@ -311,7 +311,7 @@
                         </tr>
                         <tr>
                             <td>Fecha nacimiento: <span
-                                    class="uppercase">{{ date('d-m-Y', strtotime($venta->customer->fecha_nac)) }}</span>
+                                    class="uppercase">{{ $venta->customer->fechaNacDisplay('d-m-Y') ?? '' }}</span>
                             </td>
                         </tr>
                         <tr>
@@ -362,8 +362,8 @@
                             @php
 
                                 $phones = array_filter([
-                                    $venta->customer->phone,
-                                    $venta->customer->secondary_phone,
+                                    $venta->customer->phone1_commercial ?? null,
+                                    $venta->customer->phone2_commercial ?? null,
                                 ]);
                             @endphp
 

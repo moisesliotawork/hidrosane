@@ -1,0 +1,534 @@
+<x-filament-panels::page>
+    <style>
+        .recovery-field-label,
+        .recovery-datos-infolist .fi-in-entry-wrp-label,
+        .recovery-datos-entry-wrp .fi-in-entry-wrp-label {
+            font-weight: 800 !important;
+            text-decoration: underline !important;
+            text-underline-offset: 2px;
+            white-space: nowrap !important;
+            color: #111827;
+        }
+        html.dark .recovery-field-label,
+        html.dark .recovery-datos-infolist .fi-in-entry-wrp-label,
+        html.dark .recovery-datos-entry-wrp .fi-in-entry-wrp-label {
+            color: #f3f4f6;
+        }
+        /* Título y valor siempre en la misma fila */
+        .recovery-datos-infolist .fi-fo-component-ctn,
+        .recovery-datos-section .fi-fo-component-ctn {
+            gap: 0.4rem 0.75rem !important;
+        }
+        .recovery-datos-entry-wrp > div {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 0.4rem 0.55rem !important;
+            grid-template-columns: none !important;
+        }
+        .recovery-datos-entry-wrp > div > div:first-child {
+            flex: 0 0 auto !important;
+            min-width: max-content;
+        }
+        .recovery-datos-entry-wrp > div > div:last-child,
+        .recovery-datos-entry-wrp .sm\:col-span-2 {
+            flex: 1 1 auto !important;
+            min-width: 0;
+            grid-column: auto !important;
+        }
+        .recovery-datos-section {
+            padding: 0.5rem 0.75rem !important;
+        }
+        .recovery-datos-entry {
+            white-space: nowrap;
+        }
+        /* Cabecera VER DATOS: nombre, DNI, fechas — azul, negrita, mayúsculas, sin badge */
+        .recovery-datos-highlight-section {
+            margin-bottom: 0.75rem !important;
+            max-width: 42rem;
+        }
+        .recovery-datos-highlight-label {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+            text-decoration: none !important;
+            white-space: nowrap !important;
+        }
+        html.dark .recovery-datos-highlight-label {
+            color: #60a5fa !important;
+        }
+        .recovery-datos-highlight,
+        .recovery-datos-highlight .fi-in-text-item,
+        .recovery-datos-highlight-wrp .fi-in-text-item {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+        }
+        html.dark .recovery-datos-highlight,
+        html.dark .recovery-datos-highlight .fi-in-text-item,
+        html.dark .recovery-datos-highlight-wrp .fi-in-text-item {
+            color: #60a5fa !important;
+        }
+        .recovery-datos-highlight-form {
+            margin-bottom: 0.75rem;
+            max-width: none !important;
+        }
+        /* Títulos ARRIBA del dato (no al lado) */
+        .recovery-datos-labels-top .fi-fo-field-wrp {
+            gap: 0.2rem;
+            min-width: 0;
+        }
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.25rem !important;
+            min-width: 0;
+        }
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:first-child {
+            flex: 0 0 auto !important;
+            width: 100% !important;
+        }
+        .recovery-datos-labels-top .fi-fo-field-wrp:not(.fi-fo-textarea) > .grid > div:last-child {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            min-width: 0;
+        }
+        .recovery-datos-labels-top .fi-input-wrp,
+        .recovery-datos-labels-top .fi-fo-date-time-picker {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .recovery-datos-labels-top input.fi-input {
+            width: 100% !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
+        .recovery-datos-highlight-form label {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+            white-space: nowrap;
+            font-size: 0.72rem !important;
+            line-height: 1.2 !important;
+        }
+        html.dark .recovery-datos-highlight-form .fi-fo-field-wrp-label label,
+        html.dark .recovery-datos-highlight-form label {
+            color: #60a5fa !important;
+        }
+        .recovery-datos-labels-top .fi-fo-field-wrp-label {
+            margin-bottom: 0 !important;
+        }
+        .recovery-field-nro-contrato {
+            padding-right: 0;
+        }
+        .recovery-nro-contrato-input {
+            font-size: 1.05rem !important;
+            font-weight: 800 !important;
+            line-height: 1.25 !important;
+            color: #111827 !important;
+            letter-spacing: 0.02em;
+        }
+        html.dark .recovery-nro-contrato-input {
+            color: #f9fafb !important;
+        }
+        /* Nombre cliente: siempre completo, sin cortar */
+        .recovery-field-cliente {
+            min-width: 0;
+        }
+        .recovery-cliente-nombre-input {
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            color: #1d4ed8 !important;
+            font-size: 0.95rem !important;
+            white-space: nowrap !important;
+        }
+        html.dark .recovery-cliente-nombre-input {
+            color: #60a5fa !important;
+        }
+        /* Fecha contrato en verde, al lado del nº */
+        .recovery-field-fecha-contrato label {
+            color: #16a34a !important;
+        }
+        html.dark .recovery-field-fecha-contrato label {
+            color: #4ade80 !important;
+        }
+        .recovery-fecha-verde-input {
+            font-weight: 800 !important;
+            color: #16a34a !important;
+        }
+        html.dark .recovery-fecha-verde-input {
+            color: #86efac !important;
+        }
+        .recovery-fecha-bold-input {
+            font-weight: 800 !important;
+        }
+        .recovery-dni-input {
+            font-weight: 700 !important;
+            letter-spacing: 0.04em;
+            font-variant-numeric: tabular-nums;
+        }
+        .recovery-iban-input {
+            font-weight: 800 !important;
+            letter-spacing: 0.03em;
+            font-variant-numeric: tabular-nums;
+        }
+        /* Tabla "CONTRATOS RECHAZADOS": mismo tamaño/altura de fila que la tabla
+           de arriba (CONTRATOS A RECUPERAR, que usa los estilos compactos del
+           panel de SuperAdmin sobre .fi-ta-*). */
+        .recovery-rechazados-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .recovery-rechazados-table th,
+        .recovery-rechazados-table td {
+            padding: 0.25rem 0.55rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            white-space: nowrap;
+        }
+        html.dark .recovery-rechazados-table th,
+        html.dark .recovery-rechazados-table td {
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+        .recovery-rechazados-table th {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        .recovery-rechazados-details > summary::-webkit-details-marker { display: none; }
+        .recovery-rechazados-details[open] .recovery-rechazados-chevron {
+            transform: rotate(45deg);
+            margin-top: 0.1rem;
+        }
+    </style>
+
+    <div class="space-y-6">
+        <div class="pt-2">
+            @php
+                $monthBadges = $this->monthBadges();
+                $selectedBadgeMonth = $this->selectedBadgeMonth();
+                $selectedBadgeYear = $this->selectedBadgeYear();
+                $showAll = $this->showAllMonths;
+                $tabYears = $this->tabYears();
+                $activeListTab = \App\Support\RecoveredContractsQuery::normalizeScope($this->recoveryListTab);
+                $isPorRecuperar = $activeListTab === \App\Support\RecoveredContractsQuery::SCOPE_POR_RECUPERAR;
+                $listTabStyle = static function (bool $active, string $kind): string {
+                    if ($kind === 'por_recuperar') {
+                        return $active
+                            ? 'background:#b91c1c;color:#fff;border:2px solid #991b1b;font-weight:900;'
+                            : 'background:#fef2f2;color:#b91c1c;border:1px solid #fca5a5;font-weight:700;';
+                    }
+
+                    return $active
+                        ? 'background:#15803d;color:#fff;border:2px solid #166534;font-weight:900;'
+                        : 'background:#f0fdf4;color:#15803d;border:1px solid #86efac;font-weight:700;';
+                };
+                $tabStyle = static function (bool $active): string {
+                    return $active
+                        ? 'background:#1d4ed8;color:#fff;border:1px solid #1d4ed8;font-weight:700;'
+                        : 'background:#fff;color:#111827;border:1px solid #9ca3af;font-weight:600;';
+                };
+                $periodLabel = $this->selectedPeriodLabel();
+                $clienteQ = $this->clienteSearchQuery();
+                $activityByYear = $clienteQ !== '' ? $this->clienteActivityByYear() : [];
+                $hasClienteFilter = $clienteQ !== '';
+                $hasAnyActivity = $hasClienteFilter && $activityByYear !== [];
+                $listTabCounts = $this->recoveryListTabCounts();
+                $porRecuperarCount = (int) ($listTabCounts['por_recuperar'] ?? 0);
+                $recuperadosCount = (int) ($listTabCounts['recuperados'] ?? 0);
+            @endphp
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+                <div style="display:inline-flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+                    <button
+                        type="button"
+                        wire:click="selectRecoveryListTab('por_recuperar')"
+                        style="height:2rem;padding:0 0.75rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:0.45rem;{{ $listTabStyle($isPorRecuperar, 'por_recuperar') }}"
+                    >
+                        <span>POR RECUPERAR</span>
+                        <span
+                            style="display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;height:1.2rem;padding:0 0.35rem;border-radius:9999px;font-size:0.7rem;font-weight:800;line-height:1;{{ $isPorRecuperar ? 'background:#fff;color:#b91c1c;' : 'background:#b91c1c;color:#fff;' }}"
+                        >{{ $porRecuperarCount }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="selectRecoveryListTab('recuperados')"
+                        style="height:2rem;padding:0 0.75rem;border-radius:0.4rem;font-size:0.78rem;letter-spacing:0.03em;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:0.45rem;{{ $listTabStyle(! $isPorRecuperar, 'recuperados') }}"
+                    >
+                        <span>RECUPERADOS</span>
+                        <span
+                            style="display:inline-flex;align-items:center;justify-content:center;min-width:1.35rem;height:1.2rem;padding:0 0.35rem;border-radius:9999px;font-size:0.7rem;font-weight:800;line-height:1;{{ ! $isPorRecuperar ? 'background:#fff;color:#15803d;' : 'background:#15803d;color:#fff;' }}"
+                        >{{ $recuperadosCount }}</span>
+                    </button>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:0.4rem;">
+                    <a
+                        href="{{ $this->recuperadosPdfUrl() }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="recuperados-pdf-btn"
+                        wire:key="pdf-preview-{{ $activeListTab }}-{{ $this->selectedYearMonth ?? 'all' }}"
+                    >
+                        Previsualizar PDF
+                    </a>
+                    <a
+                        href="{{ $this->recuperadosPdfUrl(download: true) }}"
+                        class="recuperados-pdf-btn"
+                        wire:key="pdf-download-{{ $activeListTab }}-{{ $this->selectedYearMonth ?? 'all' }}"
+                    >
+                        Descargar PDF
+                    </a>
+                </div>
+            </div>
+
+            <h2 class="mb-3 text-base font-bold tracking-wide {{ $isPorRecuperar ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400' }}">
+                {{ $isPorRecuperar ? 'CONTRATOS A RECUPERAR' : 'CONTRATOS RECUPERADOS' }}
+            </h2>
+
+            <style>
+                .recuperados-pdf-btn {
+                    flex: 0 0 auto;
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 0.28rem 0.65rem;
+                    border-radius: 0.35rem;
+                    background: #ea580c;
+                    color: #fff;
+                    font-size: 0.7rem;
+                    font-weight: 800;
+                    text-decoration: none;
+                    white-space: nowrap;
+                    line-height: 1.2;
+                }
+                .recuperados-pdf-btn:hover {
+                    background: #c2410c;
+                    color: #fff;
+                }
+                .recuperados-month-bar {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .recuperados-has-activity {
+                    position: relative;
+                }
+                .recuperados-has-activity::after {
+                    content: '';
+                    position: absolute;
+                    top: -3px;
+                    right: -3px;
+                    width: 0.55rem;
+                    height: 0.55rem;
+                    border-radius: 999px;
+                    background: #16a34a;
+                    border: 2px solid #fff;
+                    box-shadow: 0 0 0 1px #16a34a;
+                }
+            </style>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem;">
+                <div style="padding: 0.2rem 0.1rem 0;">
+                    <button
+                        type="button"
+                        wire:click="showAllPayments"
+                        style="height: 1.55rem; padding: 0 0.75rem; border-radius: 0.25rem; font-size: 0.72rem; cursor: pointer; white-space: nowrap; {{ $tabStyle($showAll) }}"
+                    >
+                        Todos
+                    </button>
+                </div>
+
+                @foreach ($tabYears as $year)
+                    @php
+                        $yearActivity = $activityByYear[$year] ?? [];
+                    @endphp
+                    <div class="recuperados-month-bar" style="display: flex; flex-wrap: nowrap; gap: 0.28rem; align-items: center; width: 100%; padding: 0.15rem 0.1rem;">
+                        <span style="flex: 0 0 auto; min-width: 2.6rem; font-size: 0.68rem; font-weight: 800; color: {{ $selectedBadgeYear === (int) $year && ! $showAll ? '#1d4ed8' : '#6b7280' }};">
+                            {{ $year }}
+                        </span>
+
+                        @foreach ($monthBadges as $monthNum => $badge)
+                            @php
+                                $isSelected = ! $showAll
+                                    && $selectedBadgeYear === (int) $year
+                                    && $selectedBadgeMonth === (int) $monthNum;
+                                $hasActivity = $hasClienteFilter && in_array((int) $monthNum, $yearActivity, true);
+                                $badgeStyle = $isSelected
+                                    ? "background:{$badge['text']};color:#ffffff;border:2px solid {$badge['text']};font-weight:900;outline:3px solid {$badge['border']};outline-offset:2px;box-shadow:0 2px 8px rgb(0 0 0 / 0.18);z-index:1;position:relative;"
+                                    : ($hasActivity
+                                        ? "background:{$badge['bg']};color:{$badge['text']};border:2px solid #16a34a;font-weight:800;opacity:1;"
+                                        : "background:{$badge['bg']};color:{$badge['text']};border:1px solid {$badge['border']};font-weight:600;opacity:" . ($hasClienteFilter ? '.4' : '.72') . ";");
+                            @endphp
+                            <button
+                                type="button"
+                                wire:click="selectCalendarMonth({{ $year }}, {{ $monthNum }})"
+                                title="{{ $hasActivity ? 'Hay recuperado de «'.$clienteQ.'» en '.($badge['full'] ?? $badge['label']).' '.$year : 'Filtrar por '.($badge['full'] ?? $badge['label']).' '.$year }}"
+                                class="{{ $hasActivity ? 'recuperados-has-activity' : '' }}"
+                                style="flex: 0 0 auto; height: 1.55rem; min-width: 2.35rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.62rem; letter-spacing: 0.02em; cursor: pointer; line-height: 1; white-space: nowrap; {{ $badgeStyle }}"
+                            >
+                                {{ $badge['label'] }}
+                            </button>
+                        @endforeach
+                    </div>
+                @endforeach
+
+                <p style="margin: 0; font-size: 0.75rem; color: #6b7280; padding-left: 0.2rem;">
+                    Mostrando: <strong style="color:#111827;">{{ $periodLabel }}</strong>
+                    @if ($hasClienteFilter)
+                        · Buscar: <strong style="color:#1d4ed8;">{{ $clienteQ }}</strong>
+                        @if ($hasAnyActivity)
+                            · Actividad en:
+                            <strong style="color:#15803d;">
+                                @foreach ($activityByYear as $actYear => $months)
+                                    @foreach ($months as $m)
+                                        {{ $monthBadges[$m]['full'] ?? $monthBadges[$m]['label'] ?? $m }} {{ $actYear }}@if (! ($loop->parent->last && $loop->last)), @endif
+                                    @endforeach
+                                @endforeach
+                            </strong>
+                        @else
+                            · <span style="color:#b91c1c;">sin actividad en 2025–2026</span>
+                        @endif
+                    @endif
+                </p>
+            </div>
+
+            {{ $this->table }}
+        </div>
+
+        <div class="pt-2">
+            @php $rejected = $this->rejectedItems(); @endphp
+            <details class="recovery-rechazados-details">
+                <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+                    <h2 class="mb-0 text-base font-bold tracking-wide text-gray-900 dark:text-gray-100" style="display:inline-flex;align-items:center;gap:0.45rem;">
+                        <span style="display:inline-block;width:0.65rem;height:0.65rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin-top:-0.15rem;" class="recovery-rechazados-chevron"></span>
+                        CONTRATOS RECHAZADOS POR ESTAR YA EN APP ({{ $rejected->count() }})
+                    </h2>
+                    <span style="font-size:0.72rem;color:#6b7280;font-weight:600;">Clic para expandir / contraer</span>
+                </summary>
+
+                @if ($rejected->isEmpty())
+                    <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
+                        Ningún registro rechazado por colisión de nº de contrato.
+                    </p>
+                @else
+                    <div style="overflow-x: auto;">
+                        <table class="recovery-rechazados-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº Contrato</th>
+                                    <th>Cliente</th>
+                                    <th>DNI</th>
+                                    <th>Motivo</th>
+                                    <th>Fecha</th>
+                                    <th>Contrato/PDF</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($rejected as $item)
+                                    @php
+                                        $motivoFull = (string) ($item->last_error ?: 'Ya existe un contrato con ese número.');
+                                        $motivoShort = \Illuminate\Support\Str::limit($motivoFull, 20, '…');
+                                    @endphp
+                                    <tr>
+                                        <td style="font-weight: 700;">{{ $item->displayNroContrAdm() ?? '—' }}</td>
+                                        <td style="font-weight: 700; color: #f97316;">{{ $item->displayClienteNombre() ?? '—' }}</td>
+                                        <td style="font-weight: 700;">{{ $item->displayDni() ?? '—' }}</td>
+                                        <td style="color: #b91c1c; white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis;" title="{{ e($motivoFull) }}">{{ $motivoShort }}</td>
+                                        <td>{{ $item->created_at?->format('d-m-Y H:i') }}</td>
+                                        <td>
+                                            @if (filled($item->documents))
+                                                <a
+                                                    href="{{ route('recovery-items.pdf', $item) }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    style="color:#1d4ed8;font-weight:700;"
+                                                >
+                                                    Ver PDF
+                                                </a>
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td style="white-space:nowrap;">
+                                            @if ($item->venta_id)
+                                                <a
+                                                    href="{{ \App\Filament\SuperAdmin\Resources\VentaResource::getUrl('edit', ['record' => $item->venta_id]) }}"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    style="color:#1d4ed8;font-weight:700;font-size:0.75rem;margin-right:0.6rem;"
+                                                >
+                                                    Ver venta existente
+                                                </a>
+                                            @endif
+                                            <button
+                                                type="button"
+                                                wire:click="deleteRejectedItem({{ $item->id }})"
+                                                wire:confirm="¿Eliminar este registro rechazado?"
+                                                style="color:#b91c1c;background:transparent;border:none;cursor:pointer;"
+                                                title="Eliminar registro"
+                                            >
+                                                <x-heroicon-o-trash class="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </details>
+        </div>
+
+        @if ($step === 'upload')
+            <form wire:submit.prevent="analyzeDocuments" class="space-y-4">
+                {{ $this->uploadForm }}
+                <x-filament::button type="submit" color="warning" wire:loading.attr="disabled">
+                    Analizar documentos
+                </x-filament::button>
+            </form>
+
+            <div class="relative py-2">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="bg-white px-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                        o
+                    </span>
+                </div>
+            </div>
+
+            <form wire:submit.prevent="processVoiceDictation" class="space-y-4">
+                {{ $this->voiceForm }}
+                <x-filament::button type="submit" color="info" wire:loading.attr="disabled">
+                    Procesar dictado
+                </x-filament::button>
+            </form>
+        @else
+            <form wire:submit.prevent="acceptRecovered" class="space-y-4">
+                {{ $this->reviewForm }}
+                <div class="flex flex-wrap gap-3">
+                    <x-filament::button type="submit" color="success">
+                        Aceptar (guardar en tabla)
+                    </x-filament::button>
+                    <x-filament::button type="button" color="gray" wire:click="cancelReview">
+                        Cancelar revisión
+                    </x-filament::button>
+                </div>
+            </form>
+        @endif
+
+        <div class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+            <strong>Paso 1 · Solo SuperAdmin · recuperar contrato.</strong>
+            Este módulo no altera altas comerciales, puerta fría ni repartos.
+            Flujo de este paso: subir docs <strong>o dictar por voz</strong> → revisar datos → <strong>Aceptar</strong> (tabla) → <strong>Agregar Contrato</strong>.
+            El re-enganche de documentos huérfanos <strong>no</strong> se hace aquí: usa el
+            <strong>Paso 2 · Docs huérfanos</strong> cuando el contrato ya esté creado.
+        </div>
+    </div>
+</x-filament-panels::page>

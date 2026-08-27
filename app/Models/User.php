@@ -95,6 +95,7 @@ class User extends Authenticatable implements FilamentUser, HasName
         'baja',
         'dni',
         'is_active',
+        'can_login',
         'clave',
         'informacion_general',
     ];
@@ -125,11 +126,16 @@ class User extends Authenticatable implements FilamentUser, HasName
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'can_login' => 'boolean',
         ];
     }
 
     public function canAccessPanel(Panel $panel): bool
     {
+        if (! ($this->can_login ?? true)) {
+            return false;
+        }
+
         $panelId = $panel->getId();
 
         // TODOS pueden llegar al formulario (y a /admin).
@@ -149,6 +155,14 @@ class User extends Authenticatable implements FilamentUser, HasName
         };
     }
 
+    /**
+     * Usuario Abby (admin): única excepción del panel Admin autorizada a soft-delete
+     * contratos desde el listado de Contratos. La recuperación sigue siendo solo en SuperAdmin.
+     */
+    public function isAbby(): bool
+    {
+        return strcasecmp((string) $this->email, 'abbyvj@gmail.com') === 0;
+    }
 
     public function notes()
     {

@@ -2,12 +2,12 @@
 
 namespace App\Filament\Admin\Resources\VentaResource\RelationManagers;
 
-use App\Filament\Admin\Resources\VentaResource;
 use App\Models\Venta;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Database\Eloquent\Model;
 
 class AsociadasRelationManager extends RelationManager
 {
@@ -15,6 +15,16 @@ class AsociadasRelationManager extends RelationManager
     protected static string $relationship = 'asociadas';
 
     protected static ?string $title = 'Contratos -B asociados';
+
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        return (string) $ownerRecord->asociadas()->where('nro_contr_adm', 'like', '%-B')->count();
+    }
+
+    public static function getBadgeColor(Model $ownerRecord, string $pageClass): ?string
+    {
+        return $ownerRecord->asociadas()->where('nro_contr_adm', 'like', '%-B')->count() > 0 ? 'success' : 'gray';
+    }
 
     public function table(Table $table): Table
     {
@@ -41,7 +51,7 @@ class AsociadasRelationManager extends RelationManager
                 Tables\Actions\Action::make('edit')
                     ->label('Editar')
                     ->icon('heroicon-o-pencil-square')
-                    ->url(fn(Venta $record) => VentaResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn (Venta $record) => $this->getPageClass()::getResource()::getUrl('edit', ['record' => $record])),
             ])
             ->bulkActions([])
             ->paginated(false); // mostrar todos los -B

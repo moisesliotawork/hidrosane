@@ -28,15 +28,14 @@ use Filament\Forms\Components\{
 };
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use Illuminate\Validation\Rule;
 use Filament\Forms\Components\{
     Group,
-    Placeholder,
     FileUpload
 };
-use Illuminate\Support\Str;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Illuminate\Support\HtmlString;
 
 
 class HistoricoContratosResource extends Resource
@@ -45,6 +44,7 @@ class HistoricoContratosResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Histórico de Contratos';
+    protected static ?int $navigationSort = 4;
     protected static ?string $pluralModelLabel = 'Histórico de Contratos';
     protected static ?string $slug = 'historico-contratos';
 
@@ -54,7 +54,9 @@ class HistoricoContratosResource extends Resource
         return $form
             ->schema([
                 // 👇 este hidden queda a nivel Venta (fuera de la sección del cliente)
-                Hidden::make('note_id')->required(),
+                Hidden::make('note_id')
+                    ->dehydrated()
+                    ->nullable(),
 
                 /* ---------- Cliente (editable) ---------- */
                 Section::make('Información del cliente')
@@ -68,11 +70,15 @@ class HistoricoContratosResource extends Resource
                                     TextInput::make('first_names')->label('Nombres')->required(),
                                     TextInput::make('last_names')->label('Apellidos')->required(),
                                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
-                                    DatePicker::make('fecha_nac')->label('Fec. nac.')->timezone('Europe/Madrid')->native(false),
+                                    FechaNacimientoField::configureDatePicker(
+                                        DatePicker::make('fecha_nac')
+                                            ->label('Fec. nac.'),
+                                        required: false,
+                                    ),
                                     TextInput::make('age')->numeric()->label('Edad'),
 
-                                    TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                                    TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
+                                    CustomerPhoneForm::make('phone', 'Teléfono', required: true),
+                                    CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
                                     TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                                     Forms\Components\TextInput::make('nro_piso')
@@ -255,7 +261,7 @@ class HistoricoContratosResource extends Resource
                                 /* ─────────── Detalle de productos ─────────── */
 
                                 Section::make('Productos de la oferta')
-                                    ->collapsed()
+                                    ->collapsible()
                                     ->schema([
                                         Repeater::make('productos')
                                             ->relationship()
@@ -607,6 +613,7 @@ class HistoricoContratosResource extends Resource
 
                         //RESTO: CÁMARA
                         self::docCard('precontractual', 'Precontractual', true, true),
+                        self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
                         self::docCard('dni_anverso', 'DNI – Anverso', false, true),
                         self::docCard('dni_reverso', 'DNI – Reverso', false, true),
                         self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
@@ -672,26 +679,11 @@ class HistoricoContratosResource extends Resource
                 // ID / Nº de Nota
                 TextColumn::make('note.nro_nota')
                     ->label('ID Nota')
-                    ->badge()
-                    ->formatStateUsing(fn($state) => $state ? "Nota {$state}" : '-')
                     ->searchable(),
 
-                // Fecha de declaración
-                TextColumn::make('fecha_venta')
-                    ->label('Fecha declaración')
-                    ->dateTime('Y-m-d H:i'),
-
-                TextColumn::make('nro_contr_adm')
-                    ->label('Nº Contr. ADM')
-                    ->badge()
-                    ->alignCenter()
-                    ->sortable()
-                    ->searchable()
-                    ->formatStateUsing(fn($state) => $state ? str_pad((string) $state, 5, '0', STR_PAD_LEFT) : '—'),
-
-                // Cliente (nombre completo)
                 TextColumn::make('cliente')
                     ->label('Cliente')
+                    ->weight('bold')
                     ->state(function (Venta $record) {
                         $c = $record->note?->customer;
                         return trim(($c->first_names ?? '') . ' ' . ($c->last_names ?? ''));
@@ -707,6 +699,20 @@ class HistoricoContratosResource extends Resource
                             });
                         }
                     ),
+
+                TextColumn::make('fecha_venta')
+                    ->label('Fecha declaración')
+                    ->dateTime('Y-m-d H:i')
+                    ->badge()
+                    ->color('orange'),
+
+                TextColumn::make('nro_contr_adm')
+                    ->label('Nº Contr. ADM')
+                    ->badge()
+                    ->alignCenter()
+                    ->sortable()
+                    ->searchable()
+                    ->formatStateUsing(fn($state) => $state ? str_pad((string) $state, 5, '0', STR_PAD_LEFT) : '—'),
 
                 TextColumn::make('note.customer.dni')
                     ->label('DNI')
@@ -726,6 +732,11 @@ class HistoricoContratosResource extends Resource
                     ->color(fn(Venta $r) => $r->estado_venta?->color()),
             ])
             ->defaultSort('id', 'desc')
+            ->recordUrl(fn (Venta $record): string => static::getUrl(
+                'docs',
+                ['record' => $record],
+                panel: 'comercial',
+            ))
             ->actions([
 
                 Tables\Actions\EditAction::make()
@@ -777,68 +788,21 @@ class HistoricoContratosResource extends Resource
         bool $required = false,
         bool $soloCamara = true,
     ): Group {
-        return Group::make([
-            Placeholder::make("{$field}_title")
-                ->content(strtoupper($label))
-                ->extraAttributes(['class' => 'text-xl font-extrabold'])
-                ->label(""),
-
-            Placeholder::make("{$field}_desc")
-                ->content(new HtmlString(
-                    "Este espacio está diseñado para que puedas actualizar y modificar el archivo de " .
-                    "<strong>{$label}</strong>. Es necesario actualizarlo para mantener tus datos al día."
-                ))
-                ->label(""),
-
-            Placeholder::make("{$field}_required_notice")
-                ->label('')
-                ->content(new HtmlString(
-                    '<div class="text-red-500 text-l font-bold leading-6">
-                    ❗ El documento <strong>' . e($label) . '</strong> es <strong>obligatorio</strong>.
-                </div>'
-                ))
-                ->visible(fn(Get $get) => $required && blank($get($field))),
-
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+        return VentaDocumentUpload::card(
+            $field,
+            $label,
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                null,
+                $soloCamara,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
-        ])->columns(1);
+        );
     }
     protected static function isSalesManager(): bool
     {

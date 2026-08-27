@@ -2,16 +2,25 @@
 
 namespace App\Models;
 
+use App\Casts\SafeDateCast;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\CustomerSoftDelete;
+use App\Support\Filament\FechaNacimientoField;
+use App\Models\Scopes\NotMergedScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'first_names',
@@ -48,27 +57,69 @@ class Customer extends Model
         'antiguedad',
         'nombre_empresa',
         'oficio',
+
+        'inhabilitado',
+        'deleted_by_user_id',
     ];
 
     protected $casts = [
-        'fecha_nac' => 'date:Y-m-d',
+        'fecha_nac' => SafeDateCast::class,
         'age' => 'integer',
         'edadTelOp' => 'integer',
         'merged_at' => 'datetime',
+        'inhabilitado' => 'boolean',
     ];
 
     protected static function booted()
     {
+        static::addGlobalScope(new NotMergedScope());
+
+        // Nunca borrar un cliente de forma definitiva (protege notas, contratos y demás datos).
+        static::forceDeleting(function () {
+            return false;
+        });
+
         static::saving(function (Customer $model) {
-            if ($model->fecha_nac) {
-                try {
-                    $age = Carbon::parse($model->fecha_nac)->age;
-                    $model->age = $age >= 0 ? $age : null; // evita negativos por fechas futuras
-                } catch (\Throwable $e) {
-                    $model->age = null;
+            foreach (CustomerPhoneForm::CLIENT_FIELDS as $phoneField) {
+                if (! $model->isDirty($phoneField) && ! $model->wasRecentlyCreated) {
+                    continue;
                 }
+
+                $model->{$phoneField} = CustomerPhoneForm::normalizeDigits($model->{$phoneField});
+            }
+
+            if ($model->fecha_nac) {
+                $model->age = $model->fecha_nac->age >= 0 ? $model->fecha_nac->age : null;
             } else {
                 $model->age = null;
+            }
+        });
+
+        static::saved(function (Customer $model) {
+            $userId = Auth::id();
+            if (!$userId) {
+                return;
+            }
+
+            $phone1Changed = $model->wasChanged('phone1_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone1_commercial));
+            $phone2Changed = $model->wasChanged('phone2_commercial') || ($model->wasRecentlyCreated && !is_null($model->phone2_commercial));
+
+            if ($phone1Changed && !is_null($model->phone1_commercial)) {
+                CommercialPhoneLog::create([
+                    'user_id'     => $userId,
+                    'customer_id' => $model->id,
+                    'phone_slot'  => 1,
+                    'phone_value' => $model->phone1_commercial,
+                ]);
+            }
+
+            if ($phone2Changed && !is_null($model->phone2_commercial)) {
+                CommercialPhoneLog::create([
+                    'user_id'     => $userId,
+                    'customer_id' => $model->id,
+                    'phone_slot'  => 2,
+                    'phone_value' => $model->phone2_commercial,
+                ]);
             }
         });
     }
@@ -85,11 +136,62 @@ class Customer extends Model
         );
     }
 
+    /** Valor crudo Y-m-d de BD, sin transformaciones. */
+    public function storedFechaNac(): ?string
+    {
+        return FechaNacimientoField::normalizeStoredString($this->rawFechaNacValue());
+    }
+
+    /** Fecha de BD formateada para pantallas (d/m/Y, d-m-Y, etc.). */
+    public function fechaNacDisplay(string $format = 'd/m/Y'): ?string
+    {
+        return FechaNacimientoField::formatDisplay($this->rawFechaNacValue(), $format);
+    }
+
+    /** Para cálculo de edad; null si el valor en BD no es válido. */
+    public function safeFechaNac(): ?Carbon
+    {
+        return FechaNacimientoField::parseStored($this->rawFechaNacValue());
+    }
+
+    /** @return array<string, mixed> */
+    public function formFillableAttributes(): array
+    {
+        $attributes = array_intersect_key(
+            $this->getAttributes(),
+            array_flip($this->getFillable()),
+        );
+
+        $attributes['fecha_nac'] = $this->fechaNacDisplay('d/m/Y')
+            ?? $this->storedFechaNac()
+            ?? FechaNacimientoField::normalizeForStorage($this->rawFechaNacValue());
+
+        return $attributes;
+    }
+
+    private function rawFechaNacValue(): mixed
+    {
+        return $this->exists
+            ? $this->getRawOriginal('fecha_nac')
+            : ($this->attributes['fecha_nac'] ?? null);
+    }
+
+
+    public function deletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
+    }
 
     /** Relación: un cliente puede tener muchas ventas */
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class, 'customer_id');
+    }
+
+    /** Relación: última venta del cliente (para eager loading eficiente) */
+    public function latestVenta(): HasOne
+    {
+        return $this->hasOne(Venta::class, 'customer_id')->latestOfMany();
     }
 
     /** Retorna nro_cliente_admin de la primera venta o "-" */
@@ -98,6 +200,81 @@ class Customer extends Model
     public function notes(): HasMany
     {
         return $this->hasMany(Note::class, 'customer_id');
+    }
+
+    /** Relación: última nota del cliente (para eager loading eficiente) */
+    public function latestNote(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')->latestOfMany();
+    }
+
+    /** Última nota del cliente con ubicación GPS del botón DENTRO. */
+    public function latestNoteWithDentroGps(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')
+            ->ofMany(['id' => 'max'], function (Builder $query): void {
+                $query->whereNotNull('lat_dentro')
+                    ->whereNotNull('lng_dentro')
+                    ->where('lat_dentro', '!=', '')
+                    ->where('lng_dentro', '!=', '');
+            });
+    }
+
+    /** Última nota del cliente con ubicación GPS (botón GPS / DE CAMINO). */
+    public function latestNoteWithGps(): HasOne
+    {
+        return $this->hasOne(Note::class, 'customer_id')
+            ->ofMany(['id' => 'max'], function (Builder $query): void {
+                $query->whereNotNull('lat')
+                    ->whereNotNull('lng')
+                    ->where('lat', '!=', '')
+                    ->where('lng', '!=', '');
+            });
+    }
+
+    public function hasDentroGps(): bool
+    {
+        if ($this->relationLoaded('latestNoteWithDentroGps')) {
+            return $this->latestNoteWithDentroGps?->hasCoordinatesDentro() ?? false;
+        }
+
+        return $this->latestNoteWithDentroGps()->exists();
+    }
+
+    public function dentroGpsMapsUrl(): ?string
+    {
+        $note = $this->relationLoaded('latestNoteWithDentroGps')
+            ? $this->latestNoteWithDentroGps
+            : $this->latestNoteWithDentroGps()->first();
+
+        if (! $note?->hasCoordinatesDentro()) {
+            return null;
+        }
+
+        return 'https://www.google.com/maps?q=' . urlencode("{$note->lat_dentro},{$note->lng_dentro}");
+    }
+
+    public function hasAnyGps(): bool
+    {
+        return filled($this->anyGpsMapsUrl());
+    }
+
+    public function anyGpsMapsUrl(): ?string
+    {
+        $dentroUrl = $this->dentroGpsMapsUrl();
+        if (filled($dentroUrl)) {
+            return $dentroUrl;
+        }
+
+        $note = $this->relationLoaded('latestNoteWithGps')
+            ? $this->latestNoteWithGps
+            : $this->latestNoteWithGps()->first();
+
+        if ($note?->hasCoordinates()) {
+            return 'https://www.google.com/maps?q=' . urlencode("{$note->lat},{$note->lng}");
+        }
+
+        return null;
     }
 
     /** Relación: un cliente puede tener muchas observaciones */
@@ -224,7 +401,8 @@ class Customer extends Model
 
     public function mergedChildren(): HasMany
     {
-        return $this->hasMany(Customer::class, 'merged_into_id');
+        return $this->hasMany(Customer::class, 'merged_into_id')
+            ->withoutGlobalScope(NotMergedScope::class);
     }
 
     public function mergedBy(): BelongsTo
@@ -247,5 +425,13 @@ class Customer extends Model
         return !is_null($this->merged_into_id);
     }
 
-
+    /**
+     * Los clientes solo se archivan. Nunca se borran definitivamente
+     * (así se conservan notas, contratos y el resto de datos).
+     */
+    public function forceDelete()
+    {
+        CustomerSoftDelete::assertNotForceDeletable();
+    }
 }
+

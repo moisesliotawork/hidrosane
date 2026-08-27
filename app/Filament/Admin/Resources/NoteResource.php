@@ -11,8 +11,8 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
+use App\Filament\Support\CustomerPhoneForm;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
@@ -40,7 +40,6 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class])      // si usas soft-deletes
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
@@ -75,27 +74,9 @@ class NoteResource extends Resource
                                 'required' => 'Los apellidos son obligatorios',
                             ]),
 
-                        Forms\Components\TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->label('Teléfono')
-                            ->mask('999 999 999')
-                            ->validationMessages([
-                                'required' => 'El telefono es obligatorio',
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        Forms\Components\TextInput::make('secondary_phone')
-                            ->tel()
-                            ->maxLength(11)
-                            ->minLength(11)
-                            ->mask('999 999 999')
-                            ->label('Teléfono secundario (opcional)')
-                            ->validationMessages([
-                                'min' => 'Debe tener exactamente 9 cifras',
-                            ]),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
 
                         Forms\Components\TextInput::make('edadTelOp')
                             ->numeric()
@@ -493,11 +474,15 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
+                            $assignmentDate = ! empty($comercialId)
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
+                                : null;
 
                             $updates = [
                                 'comercial_id' => $comercialId ?: null,
                                 'assignment_date' => $assignmentDate,
+                                // Commercial NOTAS solo muestra reten=false (igual que Super_Asignar).
+                                'reten' => false,
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
@@ -627,16 +612,17 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
+                            $assignmentDate = ! empty($comercialId)
+                                ? Note::normalizeCommercialAssignmentDate($data['assignment_date'] ?? null)
                                 : null;
 
                             $recordIds = collect($records)->pluck('id')->all();
 
-                            // 1) Reasignar comercial/fecha
+                            // 1) Reasignar comercial/fecha y sacar de retén (visible en Commercial NOTAS)
                             Note::whereIn('id', $recordIds)->update([
-                                'comercial_id' => (!empty($comercialId) ? $comercialId : null),
+                                'comercial_id' => (! empty($comercialId) ? $comercialId : null),
                                 'assignment_date' => $assignmentDate,
+                                'reten' => false,
                             ]);
 
                             // 2) Resetear TN a S/E para las que estén en SALA

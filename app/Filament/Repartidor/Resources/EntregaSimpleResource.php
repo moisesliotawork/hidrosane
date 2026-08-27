@@ -25,6 +25,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Repartidor\Resources\EntregaSimpleResource\Pages;
+use App\Filament\Support\CustomerPhoneForm;
+use App\Support\Filament\FechaNacimientoField;
+use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\Financiera;
 use Carbon\Carbon;
@@ -72,18 +75,12 @@ class EntregaSimpleResource extends Resource
                         TextInput::make('last_names')->label('Apellidos')->required(),
                         TextInput::make('dni')->label('DNI')->columnSpanFull(),
 
-                        DatePicker::make('fecha_nac')
-                            ->label('Fec. nac.')
-                            ->timezone('Europe/Madrid')
-                            ->native(false)
-                            ->maxDate(now())                 // evita fechas futuras
-                            ->reactive()
-                            ->afterStateHydrated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            })
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                $set('age', $state ? Carbon::parse($state)->age : null);
-                            }),
+                        FechaNacimientoField::configureDatePicker(
+                            DatePicker::make('fecha_nac')
+                                ->label('Fec. nac.')
+                                ->reactive(),
+                            required: false,
+                        ),
 
                         TextInput::make('age')
                             ->numeric()
@@ -91,9 +88,9 @@ class EntregaSimpleResource extends Resource
                             ->readOnly()                     // no editable
                             ->dehydrated(false),             // no se envía; la calcula el modelo
 
-                        TextInput::make('phone')->label('Teléfono')->tel()->required(),
-                        TextInput::make('secondary_phone')->label('Teléfono 2')->tel(),
-                        TextInput::make('third_phone')->label('Teléfono 3')->tel(),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
+                        CustomerPhoneForm::make('secondary_phone', 'Teléfono 2'),
+                        CustomerPhoneForm::make('third_phone', 'Teléfono 3'),
                         TextInput::make('email')->label('Email')->email()->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')
@@ -528,6 +525,12 @@ class EntregaSimpleResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->required(),
+                    Select::make('horario_entrega_2')
+                        ->label('Horario de entrega 2')
+                        ->options(HorarioNotas::options())
+                        ->native(false)
+                        ->searchable()
+                        ->nullable(),
                     TextInput::make('motivo_venta')->label('Motivo de la venta'),
                     TextInput::make('motivo_horario')->label('Motivo del horario'),
                     Toggle::make('interes_art')
@@ -670,44 +673,16 @@ class EntregaSimpleResource extends Resource
                 ))
                 ->visible(fn(Get $get) => $required && blank($get($field))),
 
-            FileUpload::make($field)
-                ->label("")
-                ->disk('public')
-                ->directory('ventas')
-                ->openable()
-                ->downloadable()
-                ->required($required)
+            VentaDocumentUpload::configure(
+                FileUpload::make($field),
+                $field,
+                $required,
+                null,
+                $soloCamara,
+            )
                 ->validationMessages([
                     'required' => "El documento {$label} es obligatorio.",
                 ])
-                ->getUploadedFileNameForStorageUsing(
-                    function (TemporaryUploadedFile $file) use ($field): string {
-                        $user = auth()->user();
-
-                        $timestamp = now()->format('Ymd_His');
-                        $empleadoId = $user?->empleado_id ?? 'sin-id';
-                        $fullName = $user
-                            ? Str::slug($user->name . ' ' . $user->last_name, '_')
-                            : 'sin-usuario';
-
-                        $fieldSlug = Str::slug($field, '_');
-                        $extension = $file->getClientOriginalExtension();
-
-                        return "{$timestamp}_{$empleadoId}_{$fullName}_{$fieldSlug}.{$extension}";
-                    }
-                )
-                ->extraAttributes(
-                    $soloCamara
-                    ? [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                        'capture' => 'environment',
-                    ]
-                    : [
-                        'class' => 'border-2 border-dashed py-16',
-                        'accept' => 'image/*',
-                    ]
-                )
                 ->columnSpanFull(),
         ])->columns(1);
     }

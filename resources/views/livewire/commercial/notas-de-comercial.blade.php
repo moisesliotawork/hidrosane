@@ -72,6 +72,34 @@
             color: #ffffff;
         }
 
+        .phone-buttons-container {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .phone-button {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.4rem;
+            background-color: #bfdbfe;
+            color: #1e3a5f;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .phone-button:hover {
+            background-color: #93c5fd;
+        }
+
+        .dark .phone-button {
+            color: #0b1120;
+        }
+
         /* Botón verde del mismo estilo */
         .action-button.green {
             background-color: #16a34a;
@@ -180,6 +208,28 @@
             }
         }
 
+        @keyframes parpadeo-com {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0; }
+        }
+
+        .notas-counter-com {
+            font-weight: 700;
+            font-size: .85rem;
+            margin: .25rem 0 .75rem 0;
+            color: #166534;
+        }
+
+        .dark .notas-counter-com {
+            color: #ffffff;
+        }
+
+        .notas-counter-com .num {
+            animation: parpadeo-com 1s step-start infinite;
+            color: #dc2626;
+            font-size: 1.25rem;
+        }
+
         /* Ajustes para ≤375px */
         @media (max-width: 375px) {
             .mobile-optimized {
@@ -249,24 +299,58 @@
             $canSendToReten = in_array(auth()->id(), [17, 18, 57], true);
         @endphp
 
-        <div class="flex items-center justify-between gap-2">
-            <div class="text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="text-xs text-green-800 dark:text-gray-400 mr-2">
                 Seleccionadas: <span class="font-semibold">{{ count($selectedNotes) }}</span>
             </div>
 
-            @if($esReten)
-                <button class="action-button pink small" wire:click="sendSelectedToOfficeFromReten"
-                    @disabled(count($selectedNotes) === 0)
-                    style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
+            @php
+                $haySeleccion   = count($selectedNotes) > 0;
+                $reasignarAct   = $haySeleccion;
+                $oficinaAct     = $haySeleccion && $esReten;
+                $retenAct       = $haySeleccion && $canSendToReten && !$esReten;
+            @endphp
+
+            {{-- Fila 1: Seleccionar / Deseleccionar --}}
+            <div class="flex gap-2 w-full">
+                <button class="action-button small"
+                    style="flex:1;background-color:#166534;"
+                    wire:click="selectAll">
+                    SELECCIONAR TODOS
+                </button>
+                <button class="action-button small"
+                    style="flex:1;background-color:#166534;"
+                    wire:click="deselectAll">
+                    QUITAR SELECCION
+                </button>
+            </div>
+
+            {{-- Fila 2: REASIGNAR / Enviar a Oficina / Enviar a Retén --}}
+            <div class="flex gap-2 w-full">
+                <button class="action-button small"
+                    style="flex:1;{{ $reasignarAct ? 'background-color:#2563eb;' : 'opacity:.35;cursor:not-allowed;' }}"
+                    wire:click="openBulkReassignModal" @disabled(!$reasignarAct)>
+                    REASIGNAR
+                </button>
+                <button class="action-button pink small"
+                    style="flex:1;{{ $oficinaAct ? '' : 'opacity:.35;cursor:not-allowed;' }}"
+                    type="button"
+                    onclick="enviarAOficinaConGps('sendSelectedToOfficeFromReten')"
+                    @disabled(!$oficinaAct)>
                     Enviar a Oficina
                 </button>
-            @elseif($canSendToReten)
-                <button class="action-button green" wire:click="sendSelectedToReten" @disabled(count($selectedNotes) === 0)
-                    style="{{ count($selectedNotes) === 0 ? 'opacity:.5;cursor:not-allowed;' : '' }}">
+                <button class="action-button green small"
+                    style="flex:1;{{ $retenAct ? '' : 'opacity:.35;cursor:not-allowed;' }}"
+                    wire:click="sendSelectedToReten" @disabled(!$retenAct)>
                     Enviar a Retén
                 </button>
-            @endif
+            </div>
         </div>
+
+        <p class="notas-counter-com">
+            Este comercial tiene &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; para hoy.
+            Notas anteriores &nbsp;&nbsp;<span class="num">{{ count($this->notesAll) }}</span>
+        </p>
 
         {{-- ======= Sección: Notas de HOY ======= --}}
         <x-filament::section heading="Notas de hoy">
@@ -343,17 +427,38 @@
 
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">De Camino</button>
+                            @if($note['de_camino'] ?? false)
+                                <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">De Camino</button>
+                            @else
+                                <button class="action-button" onclick="toggleDeCaminoConGps({{ $note['id'] }})">De Camino</button>
+                            @endif
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">GPS</button>
                             <button class="action-button" onclick="getUbicacionDentro({{ $note['id'] }})">Dentro</button>
                             <button class="action-button"
@@ -456,18 +561,39 @@
                         </p>
 
 
-                        <div class="mt-1">
-                            <p class="customer-phone">Tlf 1: {{ $note['phone'] ?? 'No disponible' }}</p>
-                            @if($note['secondary_phone'])
-                                <p class="customer-phone">Tlf 2: {{ $note['secondary_phone'] }}</p>
-                            @endif
-                        </div>
+                        @php
+                            $phone1Raw = $note['phone'] ?? null;
+                            $phone2Raw = $note['secondary_phone'] ?? null;
+                            $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
+                            $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
+                        @endphp
+
+                        @if($phone1 || $phone2)
+                            <div class="phone-buttons-container">
+                                @if($phone1)
+                                    <a href="tel:{{ $phone1 }}" class="phone-button">
+                                        Tlf 1: {{ $phone1Raw }}
+                                    </a>
+                                @endif
+                                @if($phone2)
+                                    <a href="tel:{{ $phone2 }}" class="phone-button">
+                                        Tlf 2: {{ $phone2Raw }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <p class="customer-phone mt-1">Teléfono: No disponible</p>
+                        @endif
 
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
                         <div class="action-buttons-container">
-                            <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">De Camino</button>
+                            @if($note['de_camino'] ?? false)
+                                <button class="action-button" wire:click="toggleDeCamino({{ $note['id'] }})">De Camino</button>
+                            @else
+                                <button class="action-button" onclick="toggleDeCaminoConGps({{ $note['id'] }})">De Camino</button>
+                            @endif
                             <button class="action-button" onclick="getUbicacion({{ $note['id'] }})">GPS</button>
                             <button class="action-button" onclick="getUbicacionDentro({{ $note['id'] }})">Dentro</button>
                             <button class="action-button"
@@ -529,81 +655,39 @@
         </div>
     @endif
 
+    {{-- ===== Modal Reasignación Masiva ===== --}}
+    @if($showBulkReassignModal)
+        <div class="fixed inset-0 z-[110] flex items-center justify-center bg-black/50"
+            wire:keydown.escape="$set('showBulkReassignModal', false)">
+            <div class="bg-white dark:bg-gray-900 dark:text-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <h3 class="text-lg font-semibold mb-1">Reasignar Selección</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                    {{ count($selectedNotes) }} nota(s) seleccionada(s)
+                </p>
 
-    <script>
-        function getUbicacion(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                Livewire.dispatch('guardarUbicacion', { notaId, lat: 10.4806, lng: -66.9036 });
-                alert('Estás en entorno local, se usó ubicación de Caracas.');
-                return;
-            }
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        Livewire.dispatch('guardarUbicacion', { notaId, lat, lng });
-                    },
-                    function (error) {
-                        Livewire.dispatch('guardarUbicacion', { notaId, lat: 10.4806, lng: -66.9036 });
-                        alert('No se pudo obtener ubicación, se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                Livewire.dispatch('guardarUbicacion', { notaId, lat: 10.4806, lng: -66.9036 });
-                alert('Geolocalización no soportada, se usó Caracas.');
-            }
-        }
+                <label class="block text-sm mb-2">Destino</label>
+                <select wire:model="bulkNewComercialId"
+                    class="w-full border rounded p-2 bg-white dark:bg-gray-900 dark:text-white">
+                    <option value="">-- Elegir destino --</option>
+                    <option value="reten">⬛ RETÉN</option>
+                    @foreach($this->comerciales as $id => $label)
+                        <option value="{{ $id }}">{{ $label }}</option>
+                    @endforeach
+                </select>
 
-        function getUbicacionDentro(notaId) {
-            if (location.protocol !== 'https:')
-            {
-                Livewire.dispatch('guardarUbicacionDentro', { notaId, lat: 10.4806, lng: -66.9036 });
-                alert('Entorno no HTTPS, se usó ubicación de Caracas (DENTRO).');
-                return;
-            }
-            if (navigator.geolocation)
-            {
-                navigator.geolocation.getCurrentPosition(
-                    function (position) {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        Livewire.dispatch('guardarUbicacionDentro', { notaId, lat, lng });
-                    },
-                    function (error) {
-                        Livewire.dispatch('guardarUbicacionDentro', { notaId, lat: 10.4806, lng: -66.9036 });
-                        alert('No se pudo obtener ubicación (DENTRO), se usó Caracas. Error: ' + error.message);
-                    }
-                );
-            } else
-            {
-                Livewire.dispatch('guardarUbicacionDentro', { notaId, lat: 10.4806, lng: -66.9036 });
-                alert('Geolocalización no soportada (DENTRO), se usó Caracas.');
-            }
-        }
-
-        function llevarme(notaId, lat, lng) {
-            if (!lat || !lng)
-            {
-                Livewire.dispatch('avisarSinDentro', { notaId });
-                return;
-            }
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile)
-            {
-                const geoUrl = `geo:${lat},${lng}?q=${lat},${lng}`;
-                window.location.href = geoUrl;
-                setTimeout(() => {
-                    const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-                    window.open(webUrl, '_blank');
-                }, 600);
-                return;
-            }
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-            window.open(webUrl, '_blank');
-        }
-    </script>
+                <div class="mt-6 flex gap-2">
+                    <button wire:click="$set('showBulkReassignModal', false)"
+                        class="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-700">
+                        Cancelar
+                    </button>
+                    <button wire:click="reassignBulkVisit" class="flex-1 px-3 py-2 rounded text-white"
+                        style="background-color:#2563eb">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+@include('components.gps-livewire-nota-scripts')
+@include('filament.commercial.components.bulk-oficina-gps-script')
 </div>
