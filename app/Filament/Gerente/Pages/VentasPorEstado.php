@@ -10,6 +10,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB; // ⬅️ importa DB aquí
 
 class VentasPorEstado extends Page implements HasTable
@@ -42,7 +43,12 @@ class VentasPorEstado extends Page implements HasTable
             ->groupByRaw('COALESCE(estado_venta, "__NULL__")');
 
         // 4) Builder final (Eloquent) usando alias `estado_raw` para evitar el cast
+        // Sin el scope de SoftDeletes: fromSub sustituye el FROM por la subconsulta
+        // `estados`, así que el `ventas.deleted_at is null` que inyecta el scope
+        // apuntaría a una tabla que ya no está en la consulta. El filtrado de
+        // borradas ya lo hace $conteoSub, que sí consulta `ventas` de verdad.
         $builder = Venta::query()
+            ->withoutGlobalScope(SoftDeletingScope::class)
             ->fromSub($estadosQuery, 'estados')
             ->leftJoinSub($conteoSub, 'v', 'v.estado_raw', '=', 'estados.estado_raw')
             ->selectRaw('estados.estado_raw, COALESCE(v.total, 0) AS total');
