@@ -48,7 +48,17 @@ class EnviarNotasOficinaBulkPorEmail implements ShouldQueue
 
         $filename = 'notas-oficina-' . now()->format('Ymd-His') . '.pdf';
 
-        Mail::to('info@ohanadistribucion.com')->send(
+        $destino = config('notificaciones.oficina');
+
+        if (blank($destino)) {
+            Log::warning('EnviarNotasOficinaBulkPorEmail: sin destinatario configurado (NOTIFICACIONES_OFICINA_EMAIL), no se envía.', [
+                'cantidad_notas' => $notes->count(),
+            ]);
+
+            return;
+        }
+
+        Mail::to($destino)->send(
             new NotasEnviadasAOficinaMail(
                 notes: $notes,
                 pdfContent: $pdfContent,

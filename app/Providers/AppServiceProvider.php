@@ -26,6 +26,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Botones de acceso sin credenciales (solo con DEMO_LOGIN=true)
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+            fn (): string => view('filament.demo.login-buttons')->render(),
+        );
+
         // Evitar indexación en buscadores
         FilamentView::registerRenderHook(
             PanelsRenderHook::HEAD_END,
@@ -40,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
             'danger' => Color::Red,
             'gray' => Color::Zinc,
             'info' => Color::Blue,
-            'primary' => Color::Sky,
+            'primary' => \App\Support\Brand::primary(),
             'success' => Color::Green,
             'warning' => Color::Amber,
             'orange' => Color::Orange,

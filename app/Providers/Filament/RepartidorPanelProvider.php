@@ -34,6 +34,7 @@ class RepartidorPanelProvider extends PanelProvider
             ->path('repartidor')
             ->login()
             ->favicon(asset('favicon.ico'))
+            ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->userMenuItems([
                 'profile' => MenuItem::make()
@@ -42,7 +43,7 @@ class RepartidorPanelProvider extends PanelProvider
                     ->icon('heroicon-o-user'),
             ])
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => \App\Support\Brand::primary(),
             ])
             ->renderHook(
 

@@ -317,7 +317,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Contrato Hidrosane</title>
+    <title>Contrato {{ \App\Support\Brand::name() }}</title>
     <style>
         @page {
             size: 210mm 297mm;

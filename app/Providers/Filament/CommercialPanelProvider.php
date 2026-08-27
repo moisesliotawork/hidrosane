@@ -36,6 +36,7 @@ class CommercialPanelProvider extends PanelProvider
             ->id('comercial')
             ->path('comercial')
             ->favicon(asset('favicon.ico'))
+            ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->databaseNotifications()
@@ -46,7 +47,7 @@ class CommercialPanelProvider extends PanelProvider
                     ->icon('heroicon-o-user'),
             ])
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => \App\Support\Brand::primary(),
             ])
             ->renderHook(
 

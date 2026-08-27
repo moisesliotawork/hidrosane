@@ -499,3 +499,10 @@ foreach (['admin', 'comercial', 'teleoperador', 'jefe-sala', 'gerente', 'reparti
     Route::post("/{$panel}/logout", LogoutController::class)
         ->name("filament.{$panel}.auth.logout");
 }
+
+/*
+ * Acceso directo de demostración. La ruta existe siempre pero responde 404
+ * mientras DEMO_LOGIN esté apagado (ver App\Http\Controllers\Auth\DemoLoginController).
+ */
+Route::post('/demo-login/{perfil}', \App\Http\Controllers\Auth\DemoLoginController::class)
+    ->name('demo.login');

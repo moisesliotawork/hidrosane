@@ -31,6 +31,7 @@ class GerentePanelProvider extends PanelProvider
             ->id('gerente')
             ->path('gerente')
             ->favicon(asset('favicon.ico'))
+            ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->userMenuItems([
@@ -40,7 +41,7 @@ class GerentePanelProvider extends PanelProvider
                     ->icon('heroicon-o-user'),
             ])
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => \App\Support\Brand::primary(),
             ])
             ->renderHook(
 

@@ -36,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->favicon(asset('favicon.ico'))
+            ->brandName(\App\Support\Brand::name())
             ->brandLogo(fn() => view('filament.brand.logo'))
             ->login()
             ->sidebarCollapsibleOnDesktop(true)
@@ -46,7 +47,7 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-o-user'),
             ])
             ->colors([
-                'primary' => Color::Sky,
+                'primary' => \App\Support\Brand::primary(),
             ])
             ->renderHook(
 

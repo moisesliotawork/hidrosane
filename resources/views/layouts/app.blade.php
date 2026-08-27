@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>@yield('title', 'Hidrosane')</title>
+    <title>@yield('title', \App\Support\Brand::name())</title>
     <meta name="robots" content="noindex, nofollow">
 
     {{-- Tailwind via CDN solo para estas páginas sueltas --}}
