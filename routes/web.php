@@ -506,3 +506,10 @@ foreach (['admin', 'comercial', 'teleoperador', 'jefe-sala', 'gerente', 'reparti
  */
 Route::post('/demo-login/{perfil}', \App\Http\Controllers\Auth\DemoLoginController::class)
     ->name('demo.login');
+
+/*
+ * Entrada desde Ohana con token firmado. Responde 404 mientras SSO_SECRET esté
+ * vacío (ver App\Http\Controllers\Auth\SsoEntrarController).
+ */
+Route::get('/sso/entrar', \App\Http\Controllers\Auth\SsoEntrarController::class)
+    ->name('sso.entrar');

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Support\AccesoDirecto;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,16 +20,11 @@ class DemoLoginController extends Controller
     {
         abort_unless(config('demo.login'), 404);
 
-        $spec = config("demo.perfiles.{$perfil}");
+        $spec = AccesoDirecto::perfil($perfil);
 
-        abort_unless(is_array($spec), 404);
+        abort_unless($spec, 404);
 
-        $user = User::query()
-            ->role($spec['rol'])
-            ->where('is_active', true)
-            ->where(fn ($q) => $q->whereNull('can_login')->orWhere('can_login', true))
-            ->orderBy('id')
-            ->first();
+        $user = AccesoDirecto::usuario($spec);
 
         abort_unless($user, 404, "No hay ningún usuario con el rol {$spec['rol']}.");
 
