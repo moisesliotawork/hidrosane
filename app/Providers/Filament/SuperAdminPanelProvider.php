@@ -164,6 +164,18 @@ class SuperAdminPanelProvider extends PanelProvider
                 ReengancharDocumentosHuerfanos::class,
             ])
             ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\\Filament\\SuperAdmin\\Widgets')
+            /*
+             * El Dashboard de superAdmin hace redirect a Contratos en el mount(),
+             * así que aquí el acceso va como entrada de menú, no como widget.
+             */
+            ->navigationItems([
+                \Filament\Navigation\NavigationItem::make('Ohana')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->url(fn (): string => route('ohana.ir', 'superadmin'), shouldOpenInNewTab: true)
+                    ->sort(102)
+                    ->visible(fn (): bool => filled(config('sso.secret'))
+                        && (bool) auth()->user()?->hasRole('app_support')),
+            ])
             ->widgets([
                 SalesAndDeliveriesStats::class,
             ])

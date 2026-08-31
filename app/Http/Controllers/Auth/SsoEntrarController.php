@@ -28,6 +28,11 @@ class SsoEntrarController extends Controller
 
         abort_unless($carga, 403, 'Token inválido o caducado.');
 
+        // El token tiene que venir dirigido a ESTA aplicación. Sin esto, y con
+        // el mismo secreto en las dos, un pase emitido hacia Ohana valdría
+        // también aquí (y al revés).
+        abort_unless(($carga['aud'] ?? null) === 'hidrosane', 403, 'Token dirigido a otra aplicación.');
+
         // Un solo uso. Cache::add es atómico: devuelve false si la clave ya
         // existía, así que dos peticiones con el mismo token no pueden colarse
         // las dos ni aunque lleguen a la vez.

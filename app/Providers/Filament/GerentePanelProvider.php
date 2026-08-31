@@ -60,6 +60,7 @@ class GerentePanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Gerente/Widgets'), for: 'App\\Filament\\Gerente\\Widgets')
             ->widgets([
+                \App\Filament\Widgets\OhanaAccesoWidget::class,
                 SalesAndDeliveriesStats::class,
             ])
             ->middleware([

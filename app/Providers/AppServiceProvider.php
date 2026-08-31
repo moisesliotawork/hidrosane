@@ -55,6 +55,8 @@ class AppServiceProvider extends ServiceProvider
             'purple' => Color::Purple,    // NO SALE A CALLE
             'teal' => Color::Teal,
             'gray_light' => Color::hex('#737373'),
+            // Verde de la marca Ohana, para el botón de vuelta a su app.
+            'ohana' => Color::Lime,
         ]);
 
         FilamentView::registerRenderHook(

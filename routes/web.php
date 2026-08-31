@@ -513,3 +513,10 @@ Route::post('/demo-login/{perfil}', \App\Http\Controllers\Auth\DemoLoginControll
  */
 Route::get('/sso/entrar', \App\Http\Controllers\Auth\SsoEntrarController::class)
     ->name('sso.entrar');
+
+/*
+ * Vuelta a Ohana. Responde 404 sin SSO_SECRET.
+ */
+Route::middleware(['auth'])
+    ->get('/ir-a-ohana/{perfil}', \App\Http\Controllers\IrAOhanaController::class)
+    ->name('ohana.ir');
