@@ -22,16 +22,20 @@ final class AccesoDirecto
     }
 
     /**
-     * Primer usuario activo con ese rol que además pueda entrar.
+     * Primer usuario con ese rol que pueda entrar al panel.
      *
-     * can_login es nullable y el modelo trata null como permitido
-     * (User::canAccessPanel), así que aquí se replica ese criterio.
+     * OJO CON is_active: en esta app NO significa «cuenta habilitada», significa
+     * «tiene un fichaje abierto». Lo pone a true el middleware StartWorkSession
+     * y a false LogoutController. Filtrar por él hacía que el acceso directo
+     * dejara de funcionar en cuanto el usuario de destino cerraba sesión.
+     *
+     * El criterio bueno es can_login, que es el que mira User::canAccessPanel.
+     * Es nullable y null cuenta como permitido, así que se replica igual.
      */
     public static function usuario(array $spec): ?User
     {
         return User::query()
             ->role($spec['rol'])
-            ->where('is_active', true)
             ->where(fn ($q) => $q->whereNull('can_login')->orWhere('can_login', true))
             ->orderBy('id')
             ->first();
