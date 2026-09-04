@@ -1,5 +1,6 @@
-<div>
+<div class="notas-page">
     <x-commercial.note-reveal-script />
+    <x-commercial.note-page-surface />
     <style>
         /* Estilos para la información del cliente en TODOS los tamaños */
         .customer-name {
