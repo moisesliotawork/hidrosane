@@ -19,6 +19,11 @@
 
 @once
     <style>
+        .note-customer-location .customer-name {
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
         .customer-locality-line {
             font-size: 0.9rem;
             font-weight: 600;
