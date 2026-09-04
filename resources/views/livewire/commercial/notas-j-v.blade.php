@@ -858,13 +858,6 @@
 
                 @forelse($this->notes as $note)
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" x-data="noteReveal()">
-                        <div
-                            class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
-                            <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
-                                value="{{ $note['id'] }}" />
-                        </div>
-                        <!-- Línea superior con todos los elementos -->
-                        <div class="flex items-center justify-between mb-3">
                             @php
                                 $colorData = match ($note['fuente_puntaje']) {
                                     4950 => ['bg_color' => '#f67400', 'text_color' => '#ffffff'],
@@ -875,63 +868,16 @@
                                 $canSeePhones = $note['show_phone'] || $this->canAlwaysSeePhones();
                             @endphp
 
-                            <!-- Grupo izquierdo - Fecha, Horario -->
-                            <div class="flex flex-col gap-1 min-w-0 flex-1">
-                                <div class="flex gap-2 flex-wrap items-end">
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Fecha</span>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['visit_date'] }}
-                                        </span>
-                                    </div>
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Horario</span>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['visit_schedule'] ?? '--:--' }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex gap-2 flex-wrap items-end mt-1">
-                                    <x-commercial.note-phone-badges
-                                        :note="$note"
-                                        :color-data="$colorData"
-                                        :can-see-phones="$canSeePhones"
-                                        :as-tel-links="true"
-                                    />
-                                </div>
-                            </div>
-
-                            <!-- Grupo central - Nro Nota, Puntaje y Comercial -->
-                            <div class="flex flex-col gap-1">
-                                <div class="flex gap-2">
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Nro Nota</span>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style="background-color: #00248c; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['nro_nota'] }}
-                                        </span>
-                                    </div>
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Ptos</span>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['fuente_puntaje'] }} pts
-                                        </span>
-                                    </div>
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">Comercial</span>
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
-                                            {{ $note['comercial'] }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <x-commercial.note-card-meta :note="$note" :color-data="$colorData" />
 
                         <x-commercial.note-customer-location :note="$note" />
+
+                        <x-commercial.note-phone-badges
+                            :note="$note"
+                            :color-data="$colorData"
+                            :can-see-phones="$canSeePhones"
+                            :as-tel-links="true"
+                        />
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -949,8 +895,6 @@
                                 Reasignar Comercial
                             </button>
                         </div>
-
-
                     </div>
                 @empty
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">

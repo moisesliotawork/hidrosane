@@ -631,8 +631,8 @@ class NotasDeComercial extends Component
         $postalCodeSimple = $customer->postal_code ?? null;
         $citySimple = $customer->ciudad ?? null;
         $addressInfo = $postalCodeSimple && $citySimple
-            ? "$postalCodeSimple, $citySimple"
-            : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
+            ? "$citySimple, $postalCodeSimple"
+            : ($citySimple ?? $postalCodeSimple ?? 'Sin ubicación');
 
         return [
             'id' => $note->id,

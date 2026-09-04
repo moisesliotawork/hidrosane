@@ -3,7 +3,18 @@
 ])
 
 @php
-    $locality = $note['locality'] ?? $note['address_info'] ?? 'Sin localidad';
+    $raw = trim((string) ($note['locality'] ?? $note['address_info'] ?? ''));
+    $locality = 'Sin localidad';
+
+    if ($raw !== '') {
+        if (preg_match('/^(\d{4,5}),\s*(.+)$/u', $raw, $matches)) {
+            $locality = $matches[2] . ', ' . $matches[1];
+        } elseif (preg_match('/^(.+),\s*(\d{4,5})$/u', $raw, $matches)) {
+            $locality = $matches[1] . ', ' . $matches[2];
+        } else {
+            $locality = $raw;
+        }
+    }
 @endphp
 
 @once
@@ -16,7 +27,6 @@
     </style>
 @endonce
 
-{{-- Nombre + localidad/CP siempre visibles --}}
 <div class="note-customer-location">
     <h3 class="customer-name dark:text-white">
         {{ $note['customer'] }}
