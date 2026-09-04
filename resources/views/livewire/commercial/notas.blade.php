@@ -90,12 +90,14 @@
             gap: .5rem;
             margin: .25rem .75rem .75rem .75rem;
             align-items: center;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
         }
 
         .filament-bulk-btn {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            flex: 1;
             gap: .45rem;
             padding: .45rem .75rem;
             border-radius: .6rem;
@@ -105,6 +107,8 @@
             color: white;
             border: 0;
             cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .10);
             transition: transform .08s ease, opacity .15s ease;
         }
@@ -227,10 +231,19 @@
             50%       { opacity: 0; }
         }
 
+        .notas-counter-wrap {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            margin: 0 .75rem .55rem .75rem;
+        }
+
         .notas-counter {
             font-weight: 700;
             font-size: .85rem;
-            margin: 0 .75rem .5rem .75rem;
+            margin: 0;
             color: #166534;
         }
 
@@ -545,48 +558,37 @@
     @endif
 
     <div class="bulk-bar">
-        {{-- IZQUIERDA --}}
-        <div class="bulk-left">
-            <span class="bulk-count">
-                Seleccionadas: {{ count($selectedNotes) }}
-            </span>
+        <button class="filament-bulk-btn btn-sala" type="button"
+            onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
+            wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
+            <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 21h18M9 8h6m-6 4h6m-6 4h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" />
+            </svg>
+            Enviar a Oficina
+        </button>
 
-            <button class="filament-bulk-btn btn-sala" type="button"
-                onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
-                wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
-                <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M3 21h18M9 8h6m-6 4h6m-6 4h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" />
-                </svg>
-                Enviar a Oficina
-            </button>
+        <button class="filament-bulk-btn btn-reten" wire:click="bulkEnviarAReten" wire:loading.attr="disabled"
+            wire:target="bulkEnviarAReten" @disabled(count($selectedNotes) === 0)>
+            <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 3l8 4v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v5m0 3h.01" />
+            </svg>
+            Enviar a Retén
+        </button>
 
-            <button class="filament-bulk-btn btn-reten" wire:click="bulkEnviarAReten" wire:loading.attr="disabled"
-                wire:target="bulkEnviarAReten" @disabled(count($selectedNotes) === 0)>
-                <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M12 3l8 4v6c0 5-3.5 9.5-8 11-4.5-1.5-8-6-8-11V7l8-4z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v5m0 3h.01" />
-                </svg>
-                Enviar a Retén
-            </button>
-        </div>
-
-        {{-- DERECHA (nuevo botón) --}}
-        <div class="bulk-right">
-            <a href="{{ \App\Filament\Commercial\Resources\AutogenerarNoteResource::getUrl('create') }}"
-                class="filament-bulk-btn btn-autonota">
-                {{-- heroicon-o-plus-circle (igual al headerAction) --}}
-                <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Autogenerar nota
-            </a>
-        </div>
+        <a href="{{ \App\Filament\Commercial\Resources\AutogenerarNoteResource::getUrl('create') }}"
+            class="filament-bulk-btn btn-autonota">
+            <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Autogenerar nota
+        </a>
     </div>
 
 
@@ -654,7 +656,12 @@
         </div>
     </div>
 
-    <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
+    <div class="notas-counter-wrap">
+        <p class="notas-counter">Tienes &nbsp;&nbsp;<span class="num">{{ count($this->notesToday) }}</span>&nbsp;&nbsp;&nbsp; notas para hoy</p>
+        <span class="bulk-count">
+            Seleccionadas: {{ count($selectedNotes) }}
+        </span>
+    </div>
 
     <div class="overflow-x-auto notas-sections">
         <div class="mobile-optimized space-y-6">

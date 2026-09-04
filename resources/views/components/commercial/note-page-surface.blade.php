@@ -10,6 +10,16 @@
             background-color: #dbeafe;
         }
 
+        .dark .fi-main:has(.notas-page),
+        .dark .fi-main-ctn:has(.notas-page),
+        .dark .fi-page:has(.notas-page) {
+            background-color: #1e3a8a !important;
+        }
+
+        .dark .notas-page {
+            background-color: #1e3a8a;
+        }
+
         .notas-page .fi-section,
         .notas-page .fi-section-content,
         .notas-page .fi-section-content-ctn,
