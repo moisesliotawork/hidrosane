@@ -18,6 +18,8 @@ class CreateAutogenerarNote extends CreateRecord
 {
     protected static string $resource = AutogenerarNoteResource::class;
 
+    protected static string $view = 'filament.commercial.pages.create-autogenerar-note';
+
     public function getTitle(): string
     {
         return 'Autogenerar nota';

@@ -91,9 +91,10 @@ class AutogenerarNoteResource extends Resource
 
                         CustomerPhoneForm::make('phone', 'Teléfono', required: true),
 
-                        CustomerPhoneForm::make('secondary_phone', 'Teléfono secundario (opcional)'),
+                        CustomerPhoneForm::make('secondary_phone', 'Tlf. secundario'),
 
-                        CustomerPhoneForm::make('third_phone', 'Teléfono 3 (opcional)'),
+                        CustomerPhoneForm::make('third_phone', 'Tlf. 3')
+                            ->columnSpanFull(),
 
                         FechaNacimientoField::configureDatePicker(
                             DatePicker::make('fecha_nac')
@@ -112,8 +113,11 @@ class AutogenerarNoteResource extends Resource
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->maxLength(255)
-                            ->label('Correo electrónico'),
-                    ])->columns(2),
+                            ->label('Correo electrónico')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(['default' => 2])
+                    ->compact(),
 
                 Forms\Components\Section::make('Información de Contacto')
                     ->schema([
@@ -130,7 +134,7 @@ class AutogenerarNoteResource extends Resource
                         Forms\Components\TextInput::make('ciudad')
                             ->required()
                             ->maxLength(255)
-                            ->label('Ayuntamiento/Localidad'),
+                            ->label('Ayuntamiento'),
 
                         Forms\Components\TextInput::make('provincia')
                             ->required()
@@ -140,13 +144,17 @@ class AutogenerarNoteResource extends Resource
                         Forms\Components\TextInput::make('primary_address')
                             ->required()
                             ->maxLength(255)
-                            ->label('Dirección principal'),
+                            ->label('Dirección principal')
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
-                            ->label('Dirección secundaria (opcional)'),
+                            ->label('Dirección secundaria (opcional)')
+                            ->columnSpanFull(),
 
-                    ])->columns(2),
+                    ])
+                    ->columns(['default' => 2])
+                    ->compact(),
 
                 Forms\Components\Section::make('Tipo de Nota')
                     ->schema([
@@ -168,7 +176,9 @@ class AutogenerarNoteResource extends Resource
                             ->required()
                             ->native(false)
                             ->live(),
-                    ]),
+                    ])
+                    ->columns(['default' => 2])
+                    ->compact(),
 
                 Forms\Components\Section::make('Visita')
                     ->schema([
@@ -182,7 +192,7 @@ class AutogenerarNoteResource extends Resource
 
                         Forms\Components\Select::make('visit_schedule')
                             ->options(HorarioNotas::options())
-                            ->label('Horario de visita')
+                            ->label('Horario')
                             ->default(HorarioNotas::TD->value) // Default TD
                             ->native(false)
                             ->searchable()
@@ -190,7 +200,8 @@ class AutogenerarNoteResource extends Resource
                             ->hidden(fn(Forms\Get $get): bool =>
                                 $get('status') !== NoteStatus::CONTACTED->value),
                     ])
-                    ->columns(2)
+                    ->columns(['default' => 2])
+                    ->compact()
                     ->hidden(fn(Forms\Get $get): bool =>
                         $get('status') !== NoteStatus::CONTACTED->value),
 
@@ -205,6 +216,7 @@ class AutogenerarNoteResource extends Resource
                                 Forms\Components\Textarea::make('observation')
                                     ->label('')
                                     ->placeholder('Escribe una observación')
+                                    ->rows(2)
                                     ->columnSpanFull(),
                             ])
                             ->addActionLabel('Añadir observación')
@@ -240,7 +252,8 @@ class AutogenerarNoteResource extends Resource
                                 return "{$author->empleado_id} ({$role}) - {$date}: {$limitedObservation}";
                             }),
 
-                    ]),
+                    ])
+                    ->compact(),
                 Forms\Components\Section::make('Observaciones en Sala')
                     ->visible(function (?Note $record) {
                         if (!$record)
@@ -278,7 +291,8 @@ class AutogenerarNoteResource extends Resource
 
                                 return new HtmlString("<ul style='margin:0;padding-left:1.25rem'>{$items}</ul>");
                             }),
-                    ]),
+                    ])
+                    ->compact(),
 
             ]);
     }
