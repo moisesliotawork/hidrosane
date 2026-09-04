@@ -1,4 +1,5 @@
 <div>
+    <x-commercial.note-reveal-script />
     <style>
         /* Estilos para la información del cliente en TODOS los tamaños */
         .customer-name {
@@ -856,7 +857,7 @@
             <div class="space-y-4">
 
                 @forelse($this->notes as $note)
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" x-data="noteReveal()">
                         <div
                             class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
                             <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
@@ -871,11 +872,12 @@
                                     7500 => ['bg_color' => '#1e40af', 'text_color' => '#ffffff'],
                                     default => ['bg_color' => '#6b7280', 'text_color' => '#ffffff'],
                                 };
+                                $canSeePhones = $note['show_phone'] || $this->canAlwaysSeePhones();
                             @endphp
 
-                            <!-- Grupo izquierdo - Fecha y Hora -->
-                            <div class="flex flex-col gap-1">
-                                <div class="flex gap-2">
+                            <!-- Grupo izquierdo - Fecha, Horario -->
+                            <div class="flex flex-col gap-1 min-w-0 flex-1">
+                                <div class="flex gap-2 flex-wrap items-end">
                                     <div class="flex flex-col items-center">
                                         <span class="text-xs text-gray-500 dark:text-gray-400">Fecha</span>
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -890,6 +892,14 @@
                                             {{ $note['visit_schedule'] ?? '--:--' }}
                                         </span>
                                     </div>
+                                </div>
+                                <div class="flex gap-2 flex-wrap items-end mt-1">
+                                    <x-commercial.note-phone-badges
+                                        :note="$note"
+                                        :color-data="$colorData"
+                                        :can-see-phones="$canSeePhones"
+                                        :as-tel-links="true"
+                                    />
                                 </div>
                             </div>
 
@@ -921,32 +931,7 @@
                             </div>
                         </div>
 
-                        <!-- Información del cliente -->
-                        <h3 class="customer-name dark:text-white">{{ $note['customer'] }}</h3>
-                        <p class="customer-address dark:text-white">
-                            {{ $note['full_address'] }}
-                        </p>
-
-                        @if($note['show_phone'] || $this->canAlwaysSeePhones())
-                            @php
-                                $phone1Raw = $note['phone'] ?? null;
-                                $phone2Raw = $note['secondary_phone'] ?? null;
-                                $phone1 = $phone1Raw ? preg_replace('/\D+/', '', $phone1Raw) : null;
-                                $phone2 = $phone2Raw ? preg_replace('/\D+/', '', $phone2Raw) : null;
-                            @endphp
-                            <div class="mt-1">
-                                <p class="customer-phone">Tlf 1:
-                                    @if($phone1)
-                                        <a href="tel:{{ $phone1 }}" class="customer-phone-link">{{ $phone1Raw }}</a>
-                                    @else
-                                        No disponible
-                                    @endif
-                                </p>
-                                @if($phone2)
-                                    <p class="customer-phone">Tlf 2: <a href="tel:{{ $phone2 }}" class="customer-phone-link">{{ $phone2Raw }}</a></p>
-                                @endif
-                            </div>
-                        @endif
+                        <x-commercial.note-customer-location :note="$note" />
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
