@@ -60,13 +60,28 @@
             margin-bottom: 0;
         }
 
+        .fi-resource-autogenerar-notes .fi-section-header-heading {
+            font-weight: 800 !important;
+        }
+
+        .fi-resource-autogenerar-notes .fi-header-heading {
+            font-weight: 800 !important;
+        }
+
         .fi-resource-autogenerar-notes .fi-fo-field-wrp-label .fi-fo-field-wrp-label-text {
             font-size: 0.8rem;
             line-height: 1.15;
+            font-weight: 700 !important;
         }
 
         .fi-resource-autogenerar-notes .fi-form-actions {
             margin-top: 0.25rem;
+        }
+
+        .fi-resource-autogenerar-notes input[wire\\:model*="phone"],
+        .fi-resource-autogenerar-notes input[id*="phone"] {
+            font-weight: 800 !important;
+            color: #1e3a8a !important;
         }
     </style>
 

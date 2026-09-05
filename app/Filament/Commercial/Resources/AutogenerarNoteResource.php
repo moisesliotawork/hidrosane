@@ -89,11 +89,20 @@ class AutogenerarNoteResource extends Resource
                             ]),
 
 
-                        CustomerPhoneForm::make('phone', 'Teléfono', required: true),
+                        CustomerPhoneForm::make('phone', 'Teléfono', required: true)
+                            ->extraInputAttributes([
+                                'style' => 'font-weight: 800; color: #1e3a8a;',
+                            ]),
 
-                        CustomerPhoneForm::make('secondary_phone', 'Tlf. secundario'),
+                        CustomerPhoneForm::make('secondary_phone', 'Tlf. secundario')
+                            ->extraInputAttributes([
+                                'style' => 'font-weight: 800; color: #1e3a8a;',
+                            ]),
 
                         CustomerPhoneForm::make('third_phone', 'Tlf. 3')
+                            ->extraInputAttributes([
+                                'style' => 'font-weight: 800; color: #1e3a8a;',
+                            ])
                             ->columnSpanFull(),
 
                         FechaNacimientoField::configureDatePicker(
@@ -119,12 +128,13 @@ class AutogenerarNoteResource extends Resource
                     ->columns(['default' => 2])
                     ->compact(),
 
-                Forms\Components\Section::make('Información de Contacto')
+                Forms\Components\Section::make('Dirección de contacto')
                     ->schema([
-                        Forms\Components\TextInput::make('postal_code')
+                        Forms\Components\TextInput::make('primary_address')
                             ->required()
                             ->maxLength(255)
-                            ->label('Codigo Postal'),
+                            ->label('Dirección principal')
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('nro_piso')
                             ->required()
@@ -141,11 +151,10 @@ class AutogenerarNoteResource extends Resource
                             ->maxLength(255)
                             ->label('Provincia'),
 
-                        Forms\Components\TextInput::make('primary_address')
+                        Forms\Components\TextInput::make('postal_code')
                             ->required()
                             ->maxLength(255)
-                            ->label('Dirección principal')
-                            ->columnSpanFull(),
+                            ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
