@@ -89,40 +89,55 @@ class AutogenerarNoteResource extends Resource
                             ]),
 
 
-                        CustomerPhoneForm::make('phone', 'Teléfono', required: true)
-                            ->extraInputAttributes([
-                                'style' => 'font-weight: 800; color: #1e3a8a;',
-                            ]),
+                        Forms\Components\Grid::make(['default' => 3])
+                            ->schema([
+                                CustomerPhoneForm::make('phone', 'Teléfono', required: true)
+                                    ->extraInputAttributes([
+                                        'style' => 'font-weight: 800; color: #1e3a8a;',
+                                    ]),
 
-                        CustomerPhoneForm::make('secondary_phone', 'Tlf. secundario')
-                            ->extraInputAttributes([
-                                'style' => 'font-weight: 800; color: #1e3a8a;',
-                            ]),
+                                CustomerPhoneForm::make('secondary_phone', 'Tlf. 2')
+                                    ->extraInputAttributes([
+                                        'style' => 'font-weight: 800; color: #1e3a8a;',
+                                    ]),
 
-                        CustomerPhoneForm::make('third_phone', 'Tlf. 3')
-                            ->extraInputAttributes([
-                                'style' => 'font-weight: 800; color: #1e3a8a;',
+                                CustomerPhoneForm::make('third_phone', 'Tlf. 3')
+                                    ->extraInputAttributes([
+                                        'style' => 'font-weight: 800; color: #1e3a8a;',
+                                    ]),
                             ])
                             ->columnSpanFull(),
 
-                        FechaNacimientoField::configureDatePicker(
-                            DatePicker::make('fecha_nac')
-                                ->label('Fec. nac.')
-                                ->reactive(),
-                        )->validationMessages([
-                            'required' => 'La fecha de nacimiento es obligatoria',
-                        ]),
+                        Forms\Components\Grid::make(['default' => 7])
+                            ->schema([
+                                FechaNacimientoField::configureDatePicker(
+                                    DatePicker::make('fecha_nac')
+                                        ->label('Fec. nac.')
+                                        ->reactive(),
+                                )->validationMessages([
+                                    'required' => 'La fecha de nacimiento es obligatoria',
+                                ])->columnSpan(3),
 
-                        TextInput::make('age')
-                            ->numeric()
-                            ->label('Edad')
-                            ->readOnly()                  // no editable
-                            ->dehydrated(false),
+                                TextInput::make('age')
+                                    ->numeric()
+                                    ->label('Edad')
+                                    ->readOnly()
+                                    ->maxLength(2)
+                                    ->maxValue(99)
+                                    ->dehydrated(false)
+                                    ->extraInputAttributes([
+                                        'maxlength' => 2,
+                                        'inputmode' => 'numeric',
+                                        'style' => 'max-width: 2.75rem; padding-inline: 0.35rem; text-align: center;',
+                                    ])
+                                    ->columnSpan(1),
 
-                        Forms\Components\TextInput::make('email')
-                            ->email()
-                            ->maxLength(255)
-                            ->label('Correo electrónico')
+                                Forms\Components\TextInput::make('email')
+                                    ->email()
+                                    ->maxLength(255)
+                                    ->label('Correo')
+                                    ->columnSpan(3),
+                            ])
                             ->columnSpanFull(),
                     ])
                     ->columns(['default' => 2])
@@ -130,31 +145,52 @@ class AutogenerarNoteResource extends Resource
 
                 Forms\Components\Section::make('Dirección de contacto')
                     ->schema([
-                        Forms\Components\TextInput::make('primary_address')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Dirección principal')
+                        Forms\Components\Grid::make(['default' => 6])
+                            ->schema([
+                                Forms\Components\TextInput::make('primary_address')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->label('Dirección principal')
+                                    ->columnSpan(5),
+
+                                Forms\Components\TextInput::make('nro_piso')
+                                    ->required()
+                                    ->maxLength(6)
+                                    ->label('Nro/Piso')
+                                    ->extraInputAttributes([
+                                        'maxlength' => 6,
+                                        'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
+                                    ])
+                                    ->columnSpan(1),
+                            ])
                             ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('nro_piso')
-                            ->required()
-                            ->maxLength(20)
-                            ->label('No. y Piso'),
+                        Forms\Components\Grid::make(['default' => 7])
+                            ->schema([
+                                Forms\Components\TextInput::make('ciudad')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->label('Ayuntamiento')
+                                    ->columnSpan(3),
 
-                        Forms\Components\TextInput::make('ciudad')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Ayuntamiento'),
+                                Forms\Components\TextInput::make('provincia')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->label('Provincia')
+                                    ->columnSpan(3),
 
-                        Forms\Components\TextInput::make('provincia')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Provincia'),
-
-                        Forms\Components\TextInput::make('postal_code')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Codigo Postal'),
+                                Forms\Components\TextInput::make('postal_code')
+                                    ->required()
+                                    ->maxLength(5)
+                                    ->label('C.P.')
+                                    ->extraInputAttributes([
+                                        'maxlength' => 5,
+                                        'inputmode' => 'numeric',
+                                        'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
+                                    ])
+                                    ->columnSpan(1),
+                            ])
+                            ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
