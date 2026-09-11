@@ -145,13 +145,13 @@ class AutogenerarNoteResource extends Resource
 
                 Forms\Components\Section::make('Dirección de contacto')
                     ->schema([
-                        Forms\Components\Grid::make(['default' => 6])
+                        Forms\Components\Grid::make(['default' => 8])
                             ->schema([
                                 Forms\Components\TextInput::make('primary_address')
                                     ->required()
                                     ->maxLength(255)
                                     ->label('Dirección principal')
-                                    ->columnSpan(5),
+                                    ->columnSpan(6),
 
                                 Forms\Components\TextInput::make('nro_piso')
                                     ->required()
@@ -159,13 +159,12 @@ class AutogenerarNoteResource extends Resource
                                     ->label('Nro/Piso')
                                     ->extraInputAttributes([
                                         'maxlength' => 6,
-                                        'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
                                     ])
-                                    ->columnSpan(1),
+                                    ->columnSpan(2),
                             ])
                             ->columnSpanFull(),
 
-                        Forms\Components\Grid::make(['default' => 7])
+                        Forms\Components\Grid::make(['default' => 8])
                             ->schema([
                                 Forms\Components\TextInput::make('ciudad')
                                     ->required()
@@ -186,9 +185,8 @@ class AutogenerarNoteResource extends Resource
                                     ->extraInputAttributes([
                                         'maxlength' => 5,
                                         'inputmode' => 'numeric',
-                                        'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
                                     ])
-                                    ->columnSpan(1),
+                                    ->columnSpan(2),
                             ])
                             ->columnSpanFull(),
 

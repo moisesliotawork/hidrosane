@@ -27,6 +27,7 @@ use App\Support\Filament\GpsActionForm;
 use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Support\Colors\Color;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
@@ -196,23 +197,20 @@ class VentaDesdeCeroResource extends Resource
             ])->compact(),
 
             Section::make('Dirección de cliente')->schema([
-                Grid::make(['default' => 6])->schema([
+                Grid::make(['default' => 8])->schema([
                     TextInput::make('primary_address')
                         ->required()
                         ->label('Dirección principal')
-                        ->columnSpan(5),
+                        ->columnSpan(6),
 
                     TextInput::make('nro_piso')
                         ->required()
                         ->maxLength(20)
                         ->label('Nro/Piso')
-                        ->extraInputAttributes([
-                            'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
-                        ])
-                        ->columnSpan(1),
+                        ->columnSpan(2),
                 ]),
 
-                Grid::make(['default' => 7])->schema([
+                Grid::make(['default' => 8])->schema([
                     TextInput::make('ciudad')
                         ->required()
                         ->maxLength(255)
@@ -232,10 +230,7 @@ class VentaDesdeCeroResource extends Resource
                         ->minLength(5)
                         ->numeric()
                         ->placeholder('Ej: 28001')
-                        ->extraInputAttributes([
-                            'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
-                        ])
-                        ->columnSpan(1),
+                        ->columnSpan(2),
                 ]),
 
                 TextInput::make('secondary_address')->label('Dirección 2'),
@@ -437,7 +432,14 @@ class VentaDesdeCeroResource extends Resource
                                         TextInput::make('puntos_linea')->label('Total Puntos Seleccionados')
                                             ->numeric()->disabled()->dehydrated(),
                                     ]),
-                                ])->columns(1),
+                                ])
+                                ->columns(1)
+                                ->addActionLabel('Añadir Producto a esta oferta')
+                                ->addAction(fn ($action) => $action
+                                    ->label('Añadir Producto a esta oferta')
+                                    ->button()
+                                    ->color(Color::Pink)
+                                ),
                         ])->columns(1),
                     ])
                     ->columns(1)
