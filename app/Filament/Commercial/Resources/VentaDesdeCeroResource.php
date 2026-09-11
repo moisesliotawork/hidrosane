@@ -84,7 +84,30 @@ class VentaDesdeCeroResource extends Resource
                     TextInput::make('dni')
                         ->label('DNI')
                         ->maxLength(10)
-                        ->required(),
+                        ->required()
+                        ->extraInputAttributes([
+                            'maxlength' => 10,
+                            'style' => 'text-transform: uppercase;',
+                            'x-data' => '',
+                            'x-on:input' => "
+            \$nextTick(() => {
+                \$el.value = \$el.value.toUpperCase().substring(0, 10);
+            })
+        ",
+                        ])
+                        ->formatStateUsing(fn (?string $state): ?string => filled($state) ? mb_strtoupper(trim($state)) : null)
+                        ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? mb_strtoupper(trim($state)) : null)
+                        ->afterStateUpdated(function (?string $state, Set $set): void {
+                            if (! filled($state)) {
+                                return;
+                            }
+
+                            $normalized = mb_strtoupper(trim($state));
+
+                            if ($normalized !== $state) {
+                                $set('dni', $normalized);
+                            }
+                        }),
 
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
