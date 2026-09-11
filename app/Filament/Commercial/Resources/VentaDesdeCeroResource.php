@@ -149,15 +149,18 @@ class VentaDesdeCeroResource extends Resource
 
                 Grid::make(['default' => 2])->schema([
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
-                        ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
+                        ->options(\App\Enums\TipoVivienda::options())->required()->native(false)
+                        ->placeholder('Seleccionar'),
 
                     Select::make('estado_civil')->label('Estado civil')
-                        ->options(\App\Enums\EstadoCivil::options())->required()->native(false),
+                        ->options(\App\Enums\EstadoCivil::options())->required()->native(false)
+                        ->placeholder('Seleccionar'),
 
                     Select::make('situacion_laboral')->label('Situación laboral')
                         ->options(\App\Enums\SituacionLaboral::options())
                         ->required()
                         ->native(false)
+                        ->placeholder('Seleccionar')
                         ->live(),
 
                     Select::make('antiguedad')
@@ -173,6 +176,7 @@ class VentaDesdeCeroResource extends Resource
                             '8+' => 'Más de 8 años',
                         ])
                         ->required()
+                        ->placeholder('Seleccionar')
                         ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
 
                     TextInput::make('oficio')
@@ -185,7 +189,8 @@ class VentaDesdeCeroResource extends Resource
                         ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
 
                     Select::make('ingresos_rango')->label('Ingresos netos mensuales')
-                        ->options(\App\Enums\IngresosRango::options())->required()->native(false),
+                        ->options(\App\Enums\IngresosRango::options())->required()->native(false)
+                        ->placeholder('Seleccionar'),
 
                     Select::make('num_hab_casa')->label('Número de personas que residen en la casa')
                         ->options(
