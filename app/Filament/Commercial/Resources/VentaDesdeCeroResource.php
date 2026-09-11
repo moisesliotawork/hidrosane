@@ -27,6 +27,8 @@ use App\Support\Filament\GpsActionForm;
 use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Component;
 use Filament\Support\Colors\Color;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
@@ -192,7 +194,7 @@ class VentaDesdeCeroResource extends Resource
                         ->options(\App\Enums\IngresosRango::options())->required()->native(false)
                         ->placeholder('Seleccionar'),
 
-                    Select::make('num_hab_casa')->label('Número de personas que residen en la casa')
+                    Select::make('num_hab_casa')->label('No.PersResd en casa')
                         ->options(
                             fn() => collect(range(1, 10))
                                 ->mapWithKeys(fn($n) => [$n => (string) $n])->toArray()
@@ -243,48 +245,54 @@ class VentaDesdeCeroResource extends Resource
 
             /* ==================== NOTA ==================== */
             Section::make('Datos de la nota')->schema([
-                Select::make('nota_comercial_id')
-                    ->label('Comercial asignado a la nota')
-                    ->options(function () {
-                        $es911 = (string) auth()->user()?->empleado_id === '911';
+                Grid::make(['default' => 8])->schema([
+                    Select::make('nota_comercial_id')
+                        ->label('Comercial asignado a la nota')
+                        ->options(function () {
+                            $es911 = (string) auth()->user()?->empleado_id === '911';
 
-                        return self::comercialesQuery($es911)
-                            ->select('id', 'empleado_id', 'name', 'last_name')
-                            ->orderBy('name')
-                            ->get()
-                            ->mapWithKeys(fn(User $u) => [$u->id => self::nombreEmpleado($u)])
-                            ->all();
-                    })
-                    ->getOptionLabelUsing(function ($value) {
-                        if (!$value)
-                            return null;
-                        // Asegura mostrar la etiqueta aunque el usuario quede inactivo luego
-                        $u = User::select('id', 'empleado_id', 'name', 'last_name')->find($value);
-                        return $u ? self::nombreEmpleado($u) : "Usuario #{$value}";
-                    })
-                    ->searchable()
-                    ->native(false)
-                    ->default(fn() => auth()->id())
-                    ->required(),
+                            return self::comercialesQuery($es911)
+                                ->select('id', 'empleado_id', 'name', 'last_name')
+                                ->orderBy('name')
+                                ->get()
+                                ->mapWithKeys(fn(User $u) => [$u->id => self::nombreEmpleado($u)])
+                                ->all();
+                        })
+                        ->getOptionLabelUsing(function ($value) {
+                            if (!$value)
+                                return null;
+                            $u = User::select('id', 'empleado_id', 'name', 'last_name')->find($value);
+                            return $u ? self::nombreEmpleado($u) : "Usuario #{$value}";
+                        })
+                        ->searchable()
+                        ->native(false)
+                        ->default(fn() => auth()->id())
+                        ->required()
+                        ->columnSpan(6),
 
+                    Select::make('nota_status')->label('Estado/Nota')
+                        ->options(NoteStatus::options())
+                        ->default(NoteStatus::CONTACTED->value)
+                        ->native(false)->reactive()->required()
+                        ->columnSpan(2),
+                ]),
 
-                Select::make('nota_status')->label('Estado de la nota')
-                    ->options(NoteStatus::options())
-                    ->default(NoteStatus::CONTACTED->value)
-                    ->native(false)->reactive()->required(),
+                Grid::make(['default' => 8])->schema([
+                    DatePicker::make('nota_visit_date')->label('Fecha de visita')
+                        ->timezone('Europe/Madrid')->native(false)
+                        ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value)
+                        ->columnSpan(6),
 
-                DatePicker::make('nota_visit_date')->label('Fecha de visita')
-                    ->timezone('Europe/Madrid')->native(false)
-                    ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value),
-
-                Select::make('nota_visit_schedule')->label('Horario de visita')
-                    ->options(HorarioNotas::options())
-                    ->default(HorarioNotas::TD->value)
-                    ->native(false)->searchable()
-                    ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value),
+                    Select::make('nota_visit_schedule')->label('Horario/visita')
+                        ->options(HorarioNotas::options())
+                        ->default(HorarioNotas::TD->value)
+                        ->native(false)->searchable()
+                        ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value)
+                        ->columnSpan(2),
+                ]),
 
                 Toggle::make('nota_de_camino')->label('¿De camino?')->default(false),
-            ])->columns(['default' => 2])->compact(),
+            ])->compact(),
 
             /* ==================== COMPAÑERO ==================== */
             Section::make('¿Estás en pareja con otro compañero?')
@@ -334,12 +342,8 @@ class VentaDesdeCeroResource extends Resource
                         'required' => 'Debes agregar al menos una oferta a la venta.',
                     ])
                     ->defaultItems(1)
-                    ->itemLabel(
-                        fn($state) =>
-                        blank($state['oferta_id'] ?? null)
-                        ? 'Nueva oferta'
-                        : Oferta::query()->whereKey($state['oferta_id'])->value('nombre')
-                    )
+                    ->reorderable(false)
+                    ->deletable(false)
                     ->schema([
                         Grid::make(3)->schema([
                             Select::make('oferta_id')->label('Oferta')
@@ -354,6 +358,31 @@ class VentaDesdeCeroResource extends Resource
                                 ->preload()
                                 ->reactive()
                                 ->required()
+                                ->suffixAction(
+                                    Action::make('deleteOferta')
+                                        ->icon('heroicon-m-trash')
+                                        ->color('danger')
+                                        ->tooltip('Borrar oferta')
+                                        ->action(function (Component $component): void {
+                                            $container = $component->getContainer();
+                                            $repeater = $container->getParentComponent();
+
+                                            while ($repeater && ! $repeater instanceof Repeater) {
+                                                $container = $repeater->getContainer();
+                                                $repeater = $container->getParentComponent();
+                                            }
+
+                                            if (! $repeater instanceof Repeater) {
+                                                return;
+                                            }
+
+                                            $uuid = Str::afterLast($component->getContainer()->getStatePath(), '.');
+                                            $items = $repeater->getState() ?? [];
+                                            unset($items[$uuid]);
+                                            $repeater->state($items);
+                                            $repeater->callAfterStateUpdated();
+                                        })
+                                )
                                 ->afterStateUpdated(function (Set $set, Get $get) {
                                     $total = collect($get('../../../ventaOfertas') ?? [])->sum(
                                         fn($o) => Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0
@@ -447,8 +476,7 @@ class VentaDesdeCeroResource extends Resource
                                 ),
                         ])->columns(1),
                     ])
-                    ->columns(1)
-                    ->collapsible(),
+                    ->columns(1),
             ])->compact(),
 
             /* ==================== PRODUCTOS EXTERNOS ==================== */
