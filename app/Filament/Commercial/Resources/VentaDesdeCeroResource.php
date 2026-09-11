@@ -60,7 +60,7 @@ class VentaDesdeCeroResource extends Resource
     {
         return [
             /* ==================== CLIENTE ==================== */
-            Section::make('Información del cliente')->schema([
+            Section::make('Información Personal')->schema([
                 Forms\Components\Hidden::make('pf_existing_customer_id'),
 
                 Grid::make(['default' => 2])->schema([
@@ -77,12 +77,12 @@ class VentaDesdeCeroResource extends Resource
                         ]),
                 ]),
 
-                TextInput::make('dni')
-                    ->label('DNI')
-                    ->maxLength(10)
-                    ->required(),
+                Grid::make(['default' => 3])->schema([
+                    TextInput::make('dni')
+                        ->label('DNI')
+                        ->maxLength(10)
+                        ->required(),
 
-                Grid::make(['default' => 2])->schema([
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
                         ->required()
@@ -146,50 +146,6 @@ class VentaDesdeCeroResource extends Resource
                         ->columnSpan(3),
                 ]),
 
-                Grid::make(['default' => 6])->schema([
-                    TextInput::make('primary_address')
-                        ->required()
-                        ->label('Dirección 1')
-                        ->columnSpan(5),
-
-                    TextInput::make('nro_piso')
-                        ->required()
-                        ->maxLength(20)
-                        ->label('No. y Piso')
-                        ->extraInputAttributes([
-                            'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
-                        ])
-                        ->columnSpan(1),
-                ]),
-
-                Grid::make(['default' => 7])->schema([
-                    TextInput::make('ciudad')
-                        ->required()
-                        ->maxLength(255)
-                        ->label('Ayuntamiento/Localidad')
-                        ->columnSpan(3),
-
-                    TextInput::make('provincia')
-                        ->required()
-                        ->maxLength(255)
-                        ->label('Provincia')
-                        ->columnSpan(3),
-
-                    TextInput::make('postal_code')
-                        ->label('Código Postal')
-                        ->required()
-                        ->maxLength(20)
-                        ->minLength(5)
-                        ->numeric()
-                        ->placeholder('Ej: 28001')
-                        ->extraInputAttributes([
-                            'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
-                        ])
-                        ->columnSpan(1),
-                ]),
-
-                TextInput::make('secondary_address')->label('Dirección 2'),
-
                 Grid::make(['default' => 2])->schema([
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
@@ -237,6 +193,52 @@ class VentaDesdeCeroResource extends Resource
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
                 ]),
+            ])->compact(),
+
+            Section::make('Dirección de cliente')->schema([
+                Grid::make(['default' => 6])->schema([
+                    TextInput::make('primary_address')
+                        ->required()
+                        ->label('Dirección principal')
+                        ->columnSpan(5),
+
+                    TextInput::make('nro_piso')
+                        ->required()
+                        ->maxLength(20)
+                        ->label('Nro/Piso')
+                        ->extraInputAttributes([
+                            'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
+                        ])
+                        ->columnSpan(1),
+                ]),
+
+                Grid::make(['default' => 7])->schema([
+                    TextInput::make('ciudad')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Ayuntamiento')
+                        ->columnSpan(3),
+
+                    TextInput::make('provincia')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Provincia')
+                        ->columnSpan(3),
+
+                    TextInput::make('postal_code')
+                        ->label('C.P.')
+                        ->required()
+                        ->maxLength(20)
+                        ->minLength(5)
+                        ->numeric()
+                        ->placeholder('Ej: 28001')
+                        ->extraInputAttributes([
+                            'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
+                        ])
+                        ->columnSpan(1),
+                ]),
+
+                TextInput::make('secondary_address')->label('Dirección 2'),
             ])->compact(),
 
             /* ==================== NOTA ==================== */
