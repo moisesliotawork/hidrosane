@@ -463,7 +463,7 @@ return [
 
         'no_search_results_message' => 'No se encontraron coincidencias con su búsqueda.',
 
-        'placeholder' => 'Seleccione una opción',
+        'placeholder' => 'Seleccionar',
 
         'searching_message' => 'Buscando...',
 
