@@ -61,9 +61,9 @@ class VentaDesdeCeroResource extends Resource
         return [
             /* ==================== CLIENTE ==================== */
             Section::make('Información del cliente')->schema([
-                Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
-                    Forms\Components\Hidden::make('pf_existing_customer_id'),
+                Forms\Components\Hidden::make('pf_existing_customer_id'),
 
+                Grid::make(['default' => 2])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required()
                         ->rules([
@@ -75,27 +75,24 @@ class VentaDesdeCeroResource extends Resource
                                 };
                             },
                         ]),
+                ]),
 
-                    TextInput::make('dni')
+                TextInput::make('dni')
+                    ->label('DNI')
+                    ->maxLength(10)
+                    ->required(),
 
-                        ->label('DNI')
-                        ->maxLength(10)
-                        ->required(),
-                    //->columnSpanFull(),
-
-                    FechaNacimientoField::make(),
-
+                Grid::make(['default' => 2])->schema([
                     TextInput::make('phone1_commercial')
                         ->label('Teléfono Principal')
                         ->required()
-                        ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                        ->maxLength(11)
                         ->extraInputAttributes([
-                            'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                            'style' => 'font-weight: 800; color: #1e3a8a;',
                             'x-data' => '',
                             'x-on:input' => "
             \$nextTick(() => {
-                // Extraer solo dígitos y limitar a 9
-                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let digits = \$el.value.replace(/\\D/g, '').substring(0, 9);
                 let formatted = '';
                 if (digits.length > 0) formatted += digits.substring(0, 3);
                 if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
@@ -105,41 +102,18 @@ class VentaDesdeCeroResource extends Resource
         ",
                         ])
                         ->dehydrateStateUsing(function (?string $state): ?string {
-                            // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
                             return $state ? preg_replace('/\D/', '', $state) : null;
                         }),
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                    /*
-
-                                        TextInput::make('phone')
-                                        ->label('Teléfono')
-                                        ->tel()
-                                        ->required(),
-                    */
 
                     TextInput::make('phone2_commercial')
                         ->label('Teléfono 2')
-                        ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                        ->maxLength(11)
                         ->extraInputAttributes([
-                            'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                            'style' => 'font-weight: 800; color: #1e3a8a;',
                             'x-data' => '',
                             'x-on:input' => "
             \$nextTick(() => {
-                // Extraer solo dígitos y limitar a 9
-                let digits = \$el.value.replace(/\D/g, '').substring(0, 9);
+                let digits = \$el.value.replace(/\\D/g, '').substring(0, 9);
                 let formatted = '';
                 if (digits.length > 0) formatted += digits.substring(0, 3);
                 if (digits.length > 3) formatted += ' ' + digits.substring(3, 6);
@@ -149,52 +123,74 @@ class VentaDesdeCeroResource extends Resource
         ",
                         ])
                         ->dehydrateStateUsing(function (?string $state): ?string {
-                            // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
                             return $state ? preg_replace('/\D/', '', $state) : null;
                         }),
+                ]),
 
+                Grid::make(['default' => 7])->schema([
+                    FechaNacimientoField::make()->columnSpan(3),
 
                     TextInput::make('age')
                         ->numeric()
                         ->label('Edad')
-                        ->readOnly()                // no editable
-                        ->dehydrated(false),        // no se envía al backend (la calcula el modelo)
+                        ->readOnly()
+                        ->dehydrated(false)
+                        ->extraInputAttributes([
+                            'style' => 'max-width: 2.75rem; padding-inline: 0.35rem; text-align: center;',
+                        ])
+                        ->columnSpan(1),
 
+                    TextInput::make('email')
+                        ->label('Email')
+                        ->email()
+                        ->columnSpan(3),
+                ]),
 
+                Grid::make(['default' => 6])->schema([
+                    TextInput::make('primary_address')
+                        ->required()
+                        ->label('Dirección 1')
+                        ->columnSpan(5),
 
-
-
-                    TextInput::make('email')->label('Email')->email()->columnSpanFull(),
-
-                    TextInput::make('primary_address')->required()->label('Dirección 1')->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('nro_piso')
+                    TextInput::make('nro_piso')
                         ->required()
                         ->maxLength(20)
-                        ->label('No. y Piso'),
+                        ->label('No. y Piso')
+                        ->extraInputAttributes([
+                            'style' => 'max-width: 4.75rem; padding-inline: 0.35rem; text-align: center;',
+                        ])
+                        ->columnSpan(1),
+                ]),
 
-                    Forms\Components\TextInput::make('postal_code')
+                Grid::make(['default' => 7])->schema([
+                    TextInput::make('ciudad')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Ayuntamiento/Localidad')
+                        ->columnSpan(3),
+
+                    TextInput::make('provincia')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Provincia')
+                        ->columnSpan(3),
+
+                    TextInput::make('postal_code')
                         ->label('Código Postal')
                         ->required()
                         ->maxLength(20)
                         ->minLength(5)
                         ->numeric()
-                        ->placeholder('Ej: 28001'),
+                        ->placeholder('Ej: 28001')
+                        ->extraInputAttributes([
+                            'style' => 'max-width: 4.25rem; padding-inline: 0.35rem; text-align: center;',
+                        ])
+                        ->columnSpan(1),
+                ]),
 
-                    TextInput::make('ciudad')
-                        ->required()
-                        ->maxLength(255)
-                        ->label('Ayuntamiento/Localidad'),
+                TextInput::make('secondary_address')->label('Dirección 2'),
 
-                    TextInput::make('provincia')
-                        ->required()
-                        ->maxLength(255)
-                        ->label('Provincia'),
-
-
-                    TextInput::make('secondary_address')->label('Dirección 2')->columnSpanFull(),
-
-
+                Grid::make(['default' => 2])->schema([
                     Select::make('tipo_vivienda')->label('Tipo de vivienda')
                         ->options(\App\Enums\TipoVivienda::options())->required()->native(false),
 
@@ -231,8 +227,6 @@ class VentaDesdeCeroResource extends Resource
                         ->label('Nombre de la empresa')
                         ->visible(fn(Get $get) => in_array($get('situacion_laboral'), ['empleado', 'autonomo'])),
 
-
-
                     Select::make('ingresos_rango')->label('Ingresos netos mensuales')
                         ->options(\App\Enums\IngresosRango::options())->required()->native(false),
 
@@ -242,10 +236,8 @@ class VentaDesdeCeroResource extends Resource
                                 ->mapWithKeys(fn($n) => [$n => (string) $n])->toArray()
                         )
                         ->searchable()->preload()->default(1)->required()->reactive(),
-
-
                 ]),
-            ]),
+            ])->compact(),
 
             /* ==================== NOTA ==================== */
             Section::make('Datos de la nota')->schema([
@@ -290,7 +282,7 @@ class VentaDesdeCeroResource extends Resource
                     ->visible(fn(Forms\Get $get) => $get('nota_status') === NoteStatus::CONTACTED->value),
 
                 Toggle::make('nota_de_camino')->label('¿De camino?')->default(false),
-            ])->columns(2),
+            ])->columns(['default' => 2])->compact(),
 
             /* ==================== COMPAÑERO ==================== */
             Section::make('¿Estás en pareja con otro compañero?')
@@ -317,10 +309,10 @@ class VentaDesdeCeroResource extends Resource
                                         ])
                                         ->all()
                                 )
-                        ])
+                        ])->compact()
 
 
-                ]),
+                ])->compact(),
 
             /* ==================== OFERTAS / PRODUCTOS ==================== */
             Section::make('Ofertas incluidas')->schema([
@@ -448,7 +440,7 @@ class VentaDesdeCeroResource extends Resource
                     ])
                     ->columns(1)
                     ->collapsible(),
-            ]),
+            ])->compact(),
 
             /* ==================== PRODUCTOS EXTERNOS ==================== */
             Section::make('Productos externos')
@@ -472,7 +464,7 @@ class VentaDesdeCeroResource extends Resource
                             ->required()->dehydrated()
                     )->all();
                 })
-                ->columns(1)->collapsible()->reactive(),
+                ->columns(1)->collapsible()->reactive()->compact(),
 
             /* ==================== DATOS DE LA VENTA ==================== */
             Section::make('Datos de la venta')->schema([
@@ -605,7 +597,7 @@ class VentaDesdeCeroResource extends Resource
                             };
                         },
                     ]),
-            ])->columns(2),
+            ])->columns(['default' => 2])->compact(),
 
             Section::make('Informe al REPARTIDOR')->schema([
                 DatePicker::make('fecha_entrega')->label('Fecha de entrega')
@@ -637,7 +629,7 @@ class VentaDesdeCeroResource extends Resource
                     ->maxLength(500),
                 Textarea::make('observaciones_repartidor')
                     ->label('Observaciones adicionales para el repartidor')->rows(3)->columnSpanFull(),
-            ])->columns(2),
+            ])->columns(['default' => 2])->compact(),
 
         ];
     }
@@ -660,7 +652,8 @@ class VentaDesdeCeroResource extends Resource
                     self::docCard('otros_documentos', 'Otros Documentos', false, true),
                 ])
                 ->columns(1)
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->compact(),
         ];
     }
 

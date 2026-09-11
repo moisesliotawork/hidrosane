@@ -2,8 +2,12 @@
     @class([
         'fi-resource-create-record-page',
         'fi-resource-' . str_replace('/', '-', $this->getResource()::getSlug()),
+        'notas-page',
+        'compact-commercial-form',
     ])
 >
+    <x-commercial.note-page-surface />
+    <x-commercial.compact-form-styles />
     @if ($this->requiresPuertaFriaLookup())
         <x-filament::modal
             id="puerta-fria-customer-lookup"
