@@ -7,6 +7,7 @@ use App\Filament\Gerente\Resources\CustomerResource\RelationManagers;
 use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
 use App\Models\Venta;
+use App\Support\CustomerNameSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -147,7 +148,9 @@ class CustomerResource extends Resource
                 TextColumn::make('name')
                     ->label('Nombre de Cliente')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
-                    ->searchable(['first_names', 'last_names'])
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainCustomer($query, $search),
+                    )
                     ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                 TextColumn::make('nro_cliente')

@@ -108,6 +108,122 @@ class VentaDocumentUpload
     }
 
     /**
+     * Etiquetas cortas para badges de atajos / listado.
+     *
+     * @return array<string, string>
+     */
+    public static function documentFieldShortLabels(): array
+    {
+        return [
+            'precontractual' => 'Pre',
+            'foto_sorteo' => 'Foto',
+            'dni_anverso' => 'DNI-A',
+            'dni_reverso' => 'DNI-R',
+            'documento_titularidad' => 'Tit',
+            'nomina' => 'Nóm',
+            'pension' => 'Pen',
+            'otros_documentos' => 'Otros',
+            'contrato_firmado' => 'Firm',
+        ];
+    }
+
+    /**
+     * Badges de atajo a cada slot: color si hay archivo (abre preview); gris sin click si vacío.
+     *
+     * @param  bool  $stack  true = columna vertical (tabla); false = fila horizontal (formulario / listado).
+     * @param  bool  $compact  true = badges más pequeños (2ª fila del listado Docs).
+     */
+    public static function atajosBadgesHtml(?\App\Models\Venta $record, bool $stack = false, bool $compact = false): \Illuminate\Support\HtmlString
+    {
+        $short = self::documentFieldShortLabels();
+        $labels = self::documentFieldLabels();
+
+        $filledStyles = [
+            'precontractual' => 'background:#16a34a;color:#ffffff;border:1px solid #15803d;',
+            'foto_sorteo' => 'background:#d97706;color:#ffffff;border:1px solid #b45309;',
+            'dni_anverso' => 'background:#0891b2;color:#ffffff;border:1px solid #0e7490;',
+            'dni_reverso' => 'background:#0891b2;color:#ffffff;border:1px solid #0e7490;',
+            'documento_titularidad' => 'background:#7c3aed;color:#ffffff;border:1px solid #6d28d9;',
+            'nomina' => 'background:#65a30d;color:#ffffff;border:1px solid #4d7c0f;',
+            'pension' => 'background:#e11d48;color:#ffffff;border:1px solid #be123c;',
+            'otros_documentos' => 'background:#ea580c;color:#ffffff;border:1px solid #c2410c;',
+            'contrato_firmado' => 'background:#4f46e5;color:#ffffff;border:1px solid #4338ca;',
+        ];
+
+        $emptyStyle = 'background:#e5e7eb;color:#6b7280;border:1px solid #9ca3af;';
+        $baseBox = $compact
+            ? 'display:inline-flex;align-items:center;justify-content:center;'
+                .'border-radius:0.25rem;padding:0.05rem 0.3rem;font-size:0.625rem;font-weight:600;'
+                .'line-height:1.15;text-decoration:none;white-space:nowrap;'
+            : 'display:inline-flex;align-items:center;justify-content:center;'
+                .'border-radius:0.375rem;padding:0.25rem 0.625rem;font-size:0.75rem;font-weight:600;'
+                .'line-height:1.25;text-decoration:none;white-space:nowrap;';
+
+        $badges = [];
+
+        foreach (self::recoveryDocumentSlots() as $field) {
+            $label = $short[$field] ?? ($labels[$field] ?? $field);
+            $fullLabel = $labels[$field] ?? $field;
+            $path = ($record && filled($record->{$field})) ? (string) $record->{$field} : null;
+            $has = filled($path);
+            $url = $has ? self::browserPreviewUrl($path) : null;
+
+            if ($has && filled($url)) {
+                $style = ($filledStyles[$field] ?? $filledStyles['precontractual']).$baseBox;
+                $badges[] = sprintf(
+                    '<a href="%s" target="_blank" rel="noopener noreferrer" title="%s" style="%s">%s</a>',
+                    e($url),
+                    e($fullLabel),
+                    e($style),
+                    e($label),
+                );
+            } else {
+                $badges[] = sprintf(
+                    '<span style="%s pointer-events:none;user-select:none;" aria-disabled="true">%s</span>',
+                    e($emptyStyle.$baseBox),
+                    e($label),
+                );
+            }
+        }
+
+        $wrapperClass = $stack
+            ? 'flex flex-col items-start gap-1'
+            : ($compact
+                ? 'flex w-full flex-nowrap items-center justify-start gap-1 whitespace-nowrap'
+                : 'flex flex-nowrap items-center justify-start gap-1.5 whitespace-nowrap');
+
+        return new \Illuminate\Support\HtmlString(
+            '<div class="'.$wrapperClass.'" style="justify-content:flex-start;text-align:left;">'.implode('', $badges).'</div>'
+        );
+    }
+
+    /**
+     * Tope de subida (KB) alineado con Livewire / recomendación nginx-php (≥25 MB).
+     * iPhone HEIC suele ir bien; ProRAW/DNG (~20 MB) se rechaza por extensión, no por tope.
+     */
+    public const MAX_UPLOAD_KILOBYTES = 25600;
+
+    /**
+     * Extensiones de imagen aceptadas (validación por nombre: iOS a veces manda mime vacío/octet-stream).
+     *
+     * @return list<string>
+     */
+    public static function acceptedImageExtensions(): array
+    {
+        return ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif'];
+    }
+
+    /**
+     * RAW / negativos digitales: iOS los ofrece si ProRAW está activo, incluso desde “Hacer foto”.
+     *
+     * @return list<string>
+     */
+    public static function rejectedRawExtensions(): array
+    {
+        return ['dng', 'raw', 'cr2', 'nef', 'arw', 'orf', 'rw2'];
+    }
+
+    /**
      * Formatos de imagen permitidos en documentos de venta (incl. PNG y HEIC iPhone).
      *
      * @return array<int, string>
@@ -123,7 +239,69 @@ class VentaDocumentUpload
             'image/webp',
             'image/heic',
             'image/heif',
+            // iOS/Safari a veces no reporta mime real en la subida Livewire.
+            'application/octet-stream',
         ];
+    }
+
+    public static function extensionOf(string $filename): string
+    {
+        return strtolower(pathinfo($filename, PATHINFO_EXTENSION) ?: '');
+    }
+
+    /**
+     * Mensaje de rechazo para FilePond / validación (español comercial).
+     */
+    public static function uploadRejectionMessage(string $filename, ?int $sizeBytes = null, bool $allowPdf = false): ?string
+    {
+        $ext = self::extensionOf($filename);
+
+        if ($ext !== '' && in_array($ext, self::rejectedRawExtensions(), true)) {
+            return 'No se puede subir foto RAW/ProRAW (.'.$ext.'). En el iPhone: Ajustes → Cámara → Formatos → desactiva ProRAW, o elige JPEG/HEIC.';
+        }
+
+        $allowed = self::acceptedImageExtensions();
+        if ($allowPdf) {
+            $allowed[] = 'pdf';
+        }
+
+        if ($ext !== '' && ! in_array($ext, $allowed, true)) {
+            return 'Formato no permitido (.'.$ext.'). Usa JPEG, HEIC, PNG'.($allowPdf ? ' o PDF' : '').'.';
+        }
+
+        if ($sizeBytes !== null && $sizeBytes > self::MAX_UPLOAD_KILOBYTES * 1024) {
+            $mb = round($sizeBytes / 1048576, 1);
+
+            return "Archivo demasiado grande ({$mb} MB). Máximo ".(int) (self::MAX_UPLOAD_KILOBYTES / 1024).' MB. Prueba otra foto o baja la calidad.';
+        }
+
+        return null;
+    }
+
+    public static function rawFormatRejectionMessage(): string
+    {
+        return 'No uses fotos RAW / ProRAW (.dng). En el iPhone elige una foto normal (JPEG o HEIC) '
+            .'desde la fototeca, o cambia Ajustes → Cámara → Formatos → Compatible.';
+    }
+
+    public static function looksLikeRawPhoto(mixed $file): bool
+    {
+        if ($file instanceof TemporaryUploadedFile) {
+            $name = strtolower($file->getClientOriginalName() ?: '');
+            $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: '');
+            $mime = strtolower((string) $file->getMimeType());
+
+            return in_array($ext, self::rejectedRawExtensions(), true)
+                || str_ends_with($name, '.dng')
+                || str_contains($mime, 'image/x-adobe-dng')
+                || str_contains($mime, 'image/dng');
+        }
+
+        if (is_string($file) && $file !== '') {
+            return in_array(self::extensionOf($file), self::rejectedRawExtensions(), true);
+        }
+
+        return false;
     }
 
     /**
@@ -191,7 +369,7 @@ class VentaDocumentUpload
     }
 
     /**
-     * Título + subtítulo, y miniatura FilePond (abrir, descargar, borrar) como en móvil.
+     * Título del slot + FileUpload FilePond nativo (cuadrado, ver / descargar / borrar).
      */
     public static function card(string $field, string $label, FileUpload $upload): Group
     {
@@ -200,6 +378,27 @@ class VentaDocumentUpload
                 ->viewData(['label' => $label]),
             $upload->hiddenLabel(),
         ])->columns(1);
+    }
+
+    public static function resolveDocumentPath(mixed $state, mixed $record = null, string $field = ''): ?string
+    {
+        if (is_array($state)) {
+            $state = $state[0] ?? null;
+        }
+
+        if ($state instanceof TemporaryUploadedFile) {
+            return null;
+        }
+
+        $path = is_string($state) && $state !== ''
+            ? $state
+            : (is_object($record) ? ($record->{$field} ?? null) : null);
+
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        return DocumentStorage::normalize($path) ?? $path;
     }
 
     public static function imagePreviewUrl(mixed $state, mixed $record = null, string $field = ''): ?string
@@ -221,11 +420,8 @@ class VentaDocumentUpload
             }
         }
 
-        $path = is_string($state) && $state !== ''
-            ? $state
-            : (is_object($record) ? ($record->{$field} ?? null) : null);
-
-        if (! is_string($path) || $path === '') {
+        $path = self::resolveDocumentPath($state, $record, $field);
+        if ($path === null) {
             return null;
         }
 
@@ -235,6 +431,25 @@ class VentaDocumentUpload
         }
 
         return self::browserPreviewUrl($path);
+    }
+
+    public static function stateLooksLikeImage(mixed $state): bool
+    {
+        if (is_array($state)) {
+            $state = $state[0] ?? null;
+        }
+
+        if ($state instanceof TemporaryUploadedFile) {
+            return str_starts_with((string) $state->getMimeType(), 'image/');
+        }
+
+        if (! is_string($state) || $state === '') {
+            return false;
+        }
+
+        $mime = self::mimeFromPath(DocumentStorage::normalize($state) ?? $state);
+
+        return is_string($mime) && str_starts_with($mime, 'image/');
     }
 
     /**
@@ -254,9 +469,23 @@ class VentaDocumentUpload
             'gif' => 'image/gif',
             'heic' => 'image/heic',
             'heif' => 'image/heif',
+            'dng' => 'image/x-adobe-dng',
             'pdf' => 'application/pdf',
             default => null,
         };
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function documentValidationMessages(string $label): array
+    {
+        return [
+            'required' => "El documento {$label} es obligatorio.",
+            'mimetypes' => "Formato no válido en {$label}. Usa JPG, PNG, WEBP o HEIC (no RAW .dng).",
+            'mimes' => "Formato no válido en {$label}. Usa JPG, PNG, WEBP o HEIC (no RAW .dng).",
+            'max' => "El archivo de {$label} es demasiado grande (máximo ".(int) (self::MAX_UPLOAD_KILOBYTES / 1024).' MB).',
+        ];
     }
 
     public static function browserPreviewUrl(string $path): ?string
@@ -268,7 +497,8 @@ class VentaDocumentUpload
         }
 
         try {
-            return route('venta-documents.preview', ['path' => $path]);
+            // Nombre con extensión en la ruta: FilePond restaura mejor la miniatura.
+            return url('/ventas/documentos/preview/'.rawurlencode(basename($path))).'?path='.rawurlencode($path);
         } catch (\Throwable) {
             return DocumentStorage::url($path);
         }
@@ -276,9 +506,13 @@ class VentaDocumentUpload
 
     public static function acceptAttribute(bool $allowPdf = false): string
     {
+        // image/* primero: en iOS Safari abre el selector con Cámara + Fototeca.
+        // Listar solo mime concretos + capture suele dejar solo cámara.
+        // Sin image/* suelto: en iPhone abre también ProRAW (.dng) y luego falla al guardar.
         $parts = [
             'image/png',
             'image/jpeg',
+            'image/jpg',
             'image/webp',
             'image/heic',
             'image/heif',
@@ -307,15 +541,15 @@ class VentaDocumentUpload
     ): FileUpload {
         $allowPdf ??= self::fieldAllowsPdf($field, auth()->user());
 
+        // Nunca usar el atributo HTML capture:
+        // - En iPhone/Safari fuerza la cámara y a menudo bloquea la fototeca.
+        // - En escritorio impide elegir ficheros del disco.
+        // Sin capture, iOS muestra: Hacer foto / Fototeca / Explorar.
+        // ($soloCamara se conserva en la firma por compatibilidad; se ignora a propósito.)
+        unset($soloCamara);
         $extraInputAttributes = [
-            // Sin capture por defecto: en muchos móviles bloquea la galería.
             'accept' => self::acceptAttribute($allowPdf),
         ];
-
-        // Nunca capture en paneles de oficina: en escritorio impide adjuntar desde el disco.
-        if ($soloCamara && ! self::isOfficeContractsPanel()) {
-            $extraInputAttributes['capture'] = 'environment';
-        }
 
         return $upload
             ->label('')
@@ -326,10 +560,42 @@ class VentaDocumentUpload
             ->directory('ventas')
             ->visibility(DocumentStorage::uploadVisibility())
             ->acceptedFileTypes(self::acceptedDocumentMimeTypes($allowPdf))
+            ->maxSize(self::MAX_UPLOAD_KILOBYTES)
+            ->rules([
+                function () use ($allowPdf) {
+                    return function (string $attribute, mixed $value, \Closure $fail) use ($allowPdf): void {
+                        if (! $value instanceof TemporaryUploadedFile) {
+                            return;
+                        }
+
+                        $message = self::uploadRejectionMessage(
+                            $value->getClientOriginalName() ?: (string) $value->getFilename(),
+                            $value->getSize() ?: null,
+                            $allowPdf,
+                        );
+
+                        if ($message !== null) {
+                            $fail($message);
+                        }
+                    };
+                },
+            ])
             // Evita que Filament “pierda” ficheros existentes al fallar el probe de mime/size
             // (varios uploads grandes en el mismo form → dropzone vacío salvo el último).
             ->fetchFileInformation(false)
-            ->imagePreviewHeight('280')
+            ->imagePreviewHeight('180')
+            // Fotos: panel integrado con miniatura. PDF: fila compacta con ver/descargar/borrar.
+            ->panelLayout(function (FileUpload $component): string {
+                $state = $component->getState();
+
+                if (blank($state) || (is_array($state) && $state === [])) {
+                    return 'integrated';
+                }
+
+                return self::stateLooksLikeImage($state) ? 'integrated' : 'compact';
+            })
+            ->loadingIndicatorPosition('left')
+            ->removeUploadedFileButtonPosition('left')
             ->previewable()
             ->openable()
             ->downloadable()
@@ -357,7 +623,8 @@ class VentaDocumentUpload
 
                 return [
                     'name' => $name,
-                    'size' => 0,
+                    // Safari/FilePond: size 0 suele romper la miniatura; 1 como mínimo seguro.
+                    'size' => DocumentStorage::size($path) ?: 1,
                     'type' => self::mimeFromPath($path) ?? 'application/octet-stream',
                     'url' => $url,
                 ];

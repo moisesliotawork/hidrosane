@@ -57,6 +57,8 @@ class GerentePanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Gerente/Pages'), for: 'App\\Filament\\Gerente\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+                \App\Filament\Shared\Pages\VtasNetasPage::class,
+                \App\Filament\Shared\Pages\SabanaComercialPage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Gerente/Widgets'), for: 'App\\Filament\\Gerente\\Widgets')
             ->widgets([

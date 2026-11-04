@@ -51,13 +51,14 @@ enum EstadoTerminal: string
     /** Siguiente estado al hacer clic cíclico en la tabla. */
     public static function nextFromRaw(?string $raw): self
     {
+        // Venta queda al final del ciclo (después de Ausente).
         $cycle = [
             '' => self::NUL,
-            self::NUL->value => self::VENTA,
-            self::VENTA->value => self::CONFIRMADO,
+            self::NUL->value => self::CONFIRMADO,
             self::CONFIRMADO->value => self::SALA,
             self::SALA->value => self::AUSENTE,
-            self::AUSENTE->value => self::SIN_ESTADO,
+            self::AUSENTE->value => self::VENTA,
+            self::VENTA->value => self::SIN_ESTADO,
         ];
 
         return $cycle[$raw ?? ''] ?? self::NUL;

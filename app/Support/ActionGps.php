@@ -62,7 +62,7 @@ class ActionGps
             return false;
         }
 
-        if ($user->hasRole('gerente')) {
+        if ($user->hasAnyRole(['gerente_general', 'gerente'])) {
             return false;
         }
 

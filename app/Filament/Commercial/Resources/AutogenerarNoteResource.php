@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Enums\NoteStatus;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Support\CustomerSurnames;
 use App\Support\Filament\FechaNacimientoField;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -75,17 +76,12 @@ class AutogenerarNoteResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->label('Apellidos')
+                            ->helperText('Hacen falta dos apellidos distintos. El segundo debe tener 3 caracteres o más.')
                             ->validationMessages([
                                 'required' => 'Los apellidos son obligatorios',
                             ])
                             ->rules([
-                                function () {
-                                    return function (string $attribute, $value, \Closure $fail) {
-                                        if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
-                                            $fail('Debes escribir al menos 2 apellidos del cliente');
-                                        }
-                                    };
-                                },
+                                CustomerSurnames::validationRule(),
                             ]),
 
 
@@ -155,11 +151,8 @@ class AutogenerarNoteResource extends Resource
 
                                 Forms\Components\TextInput::make('nro_piso')
                                     ->required()
-                                    ->maxLength(6)
+                                    ->maxLength(20)
                                     ->label('Nro/Piso')
-                                    ->extraInputAttributes([
-                                        'maxlength' => 6,
-                                    ])
                                     ->columnSpan(2),
                             ])
                             ->columnSpanFull(),
@@ -180,12 +173,8 @@ class AutogenerarNoteResource extends Resource
 
                                 Forms\Components\TextInput::make('postal_code')
                                     ->required()
-                                    ->maxLength(5)
+                                    ->maxLength(255)
                                     ->label('C.P.')
-                                    ->extraInputAttributes([
-                                        'maxlength' => 5,
-                                        'inputmode' => 'numeric',
-                                    ])
                                     ->columnSpan(2),
                             ])
                             ->columnSpanFull(),

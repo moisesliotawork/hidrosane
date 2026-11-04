@@ -59,19 +59,17 @@ class GestionDocumentos extends Page implements HasForms
             ->schema([
                 Section::make('Gestión Documentos')
                     ->schema([
-                        //SOLO FOTOTECA (sin capture, solo accept)
+                        // Sin capture: iPhone ofrece Cámara + Fototeca
                         self::docCard('albaran', 'Albarán', false, false),
-
-                        //RESTO: CÁMARA
-                        self::docCard('precontractual', 'Precontractual', true, true),
-                        self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
-                        self::docCard('dni_anverso', 'DNI – Anverso', false, true),
-                        self::docCard('dni_reverso', 'DNI – Reverso', false, true),
-                        self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
-                        self::docCard('nomina', 'Nómina', false, true),
-                        self::docCard('pension', 'Pensión', false, true),
-                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
-                        self::docCard('otros_documentos', 'Otros Documentos', false, true),
+                        self::docCard('precontractual', 'Precontractual', true, false),
+                        self::docCard('foto_sorteo', 'Foto Sorteo', false, false),
+                        self::docCard('dni_anverso', 'DNI – Anverso', false, false),
+                        self::docCard('dni_reverso', 'DNI – Reverso', false, false),
+                        self::docCard('documento_titularidad', 'Documento de titularidad', false, false),
+                        self::docCard('nomina', 'Nómina', false, false),
+                        self::docCard('pension', 'Pensión', false, false),
+                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, false),
+                        self::docCard('otros_documentos', 'Otros Documentos', false, false),
                     ])
                     ->columns(1)
                     ->columnSpanFull(),
@@ -94,9 +92,7 @@ class GestionDocumentos extends Page implements HasForms
                 null,
                 $soloCamara,
             )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
+                ->validationMessages(VentaDocumentUpload::documentValidationMessages($label))
                 ->columnSpanFull(),
         );
     }

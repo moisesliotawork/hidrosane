@@ -265,7 +265,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Contrato OHANA -B</title>
+    <title>Contrato {{ \App\Support\Brand::name() }} -B</title>
     <style>
         @page {
             size: 210mm 297mm;

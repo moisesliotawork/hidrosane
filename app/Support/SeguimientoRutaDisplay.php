@@ -2,12 +2,46 @@
 
 namespace App\Support;
 
+use App\Models\Customer;
 use App\Models\Note;
 use App\Models\NoteReassignmentLog;
 use Illuminate\Support\Carbon;
 
 class SeguimientoRutaDisplay
 {
+    /**
+     * Nombre de cliente para jefes de equipo: inicial nombre + ".." e inicial
+     * del primer apellido + ".." (ej. "C.. G..").
+     */
+    public static function customerDisplayName(?Customer $customer, bool $maskForTeamLeader = false): string
+    {
+        if (! $maskForTeamLeader) {
+            return mb_strtoupper($customer?->name ?: 'SIN CLIENTE', 'UTF-8');
+        }
+
+        $firstNames = trim((string) ($customer?->first_names ?? ''));
+        $lastNames = trim((string) ($customer?->last_names ?? ''));
+
+        if ($firstNames === '' && $lastNames === '' && filled($customer?->name)) {
+            $parts = preg_split('/\s+/u', trim((string) $customer->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $firstNames = $parts[0] ?? '';
+            $lastNames = $parts[1] ?? '';
+        }
+
+        $firstInitial = $firstNames !== ''
+            ? mb_strtoupper(mb_substr($firstNames, 0, 1, 'UTF-8'), 'UTF-8').'..'
+            : '';
+
+        $firstSurname = (preg_split('/\s+/u', $lastNames, -1, PREG_SPLIT_NO_EMPTY) ?: [])[0] ?? '';
+        $lastInitial = $firstSurname !== ''
+            ? mb_strtoupper(mb_substr($firstSurname, 0, 1, 'UTF-8'), 'UTF-8').'..'
+            : '';
+
+        $masked = trim($firstInitial.' '.$lastInitial);
+
+        return $masked !== '' ? $masked : 'S..';
+    }
+
     /** Texto de anotación/observación que solo registra coordenadas GPS. */
     public static function isGpsLocationText(?string $text): bool
     {
@@ -138,6 +172,13 @@ class SeguimientoRutaDisplay
         return $clean !== '' ? $clean : $fallback;
     }
 
+    public static function isReassignmentTopic(?string $topic): bool
+    {
+        $topic = strtoupper(trim((string) $topic));
+
+        return str_contains($topic, 'REASIGN');
+    }
+
     public static function displayAnotacionBody(?string $asunto, ?string $cuerpo, string $fallback = 'Sin contenido'): string
     {
         $asuntoNorm = strtoupper(trim((string) $asunto));
@@ -152,6 +193,36 @@ class SeguimientoRutaDisplay
         }
 
         return self::displayBody($cuerpo, $fallback);
+    }
+
+    /**
+     * Jefe de equipo: ve la acción (ej. REASIGNACIÓN MASIVA) pero no quién ni para quién.
+     *
+     * @param  array{type?: string, topic?: string, body?: string, author?: string, gps_lat?: mixed, gps_lng?: mixed}  $activity
+     * @return array{type?: string, topic?: string, body?: string, author?: string, gps_lat?: mixed, gps_lng?: mixed}
+     */
+    public static function maskActivityForTeamLeader(array $activity): array
+    {
+        $activity['gps_lat'] = null;
+        $activity['gps_lng'] = null;
+
+        $topic = strtoupper(trim((string) ($activity['topic'] ?? '')));
+
+        if (self::isReassignmentTopic($topic)) {
+            $activity['body'] = '';
+            $activity['author'] = '';
+
+            return $activity;
+        }
+
+        if ($topic === 'DE CAMINO') {
+            // Sin nombre del comercial asignado.
+            $activity['body'] = '';
+        }
+
+        $activity['body'] = self::sanitizeBody($activity['body'] ?? '');
+
+        return $activity;
     }
 
     /** @return array{gps_lat: mixed, gps_lng: mixed} */

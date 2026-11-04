@@ -86,9 +86,9 @@ class NotasDeComercial extends Component
 
         $fromComercialId = $note->comercial_id;
 
+        // Reasignar comercial/reten NO cambia assignment_date (fecha de visita).
         $updateData = [
             'comercial_id' => $this->newComercialId,
-            'assignment_date' => now()->startOfDay(),
             'reten' => false,
         ];
 
@@ -108,8 +108,8 @@ class NotasDeComercial extends Component
         ]);
 
         $extra = $this->esReten
-            ? ' Se reasignó, se actualizó la fecha y salió de Retén.'
-            : ' Se reasignó y se actualizó la fecha.';
+            ? ' Se reasignó y salió de Retén (sin cambiar fecha de visita).'
+            : ' Se reasignó (sin cambiar fecha de visita).';
 
         AnotacionVisita::create([
             'nota_id' => $note->id,
@@ -133,12 +133,13 @@ class NotasDeComercial extends Component
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
     {
-        return User::query()
-            ->role(['commercial', 'team_leader', 'sales_manager'])
-            ->whereNull('baja')   // ✅ solo activos
+        return \App\Support\ReasignarVisitasComercialQuery::applyHiddenComerciales(
+            User::query()->role(['commercial', 'team_leader', 'sales_manager']),
+            forGerente: true, // 991 visible para gerente; Diego/Lucía ocultos
+        )
             ->orderBy('empleado_id')
             ->get()
-            ->mapWithKeys(fn($u) => [
+            ->mapWithKeys(fn ($u) => [
                 $u->id => trim("{$u->empleado_id} {$u->name} {$u->last_name}"),
             ])
             ->toArray();
@@ -191,13 +192,12 @@ class NotasDeComercial extends Component
             foreach ($notes as $note) {
                 $note->update([
                     'reten' => true,
-                    'assignment_date' => now()->startOfDay(),
                 ]);
                 AnotacionVisita::create([
                     'nota_id' => $note->id,
                     'author_id' => auth()->id(),
                     'asunto' => 'REASIGNACIÓN MASIVA',
-                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva.",
+                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva (sin cambiar fecha de visita).",
                 ]);
                 NoteReassignmentLog::create([
                     'batch_id'          => $batch->id,
@@ -223,14 +223,13 @@ class NotasDeComercial extends Component
             foreach ($notes as $note) {
                 $note->update([
                     'comercial_id' => (int) $this->bulkNewComercialId,
-                    'assignment_date' => now()->startOfDay(),
                     'reten' => false,
                 ]);
                 AnotacionVisita::create([
                     'nota_id' => $note->id,
                     'author_id' => auth()->id(),
                     'asunto' => 'REASIGNACIÓN MASIVA',
-                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado}.",
+                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado} (sin cambiar fecha de visita).",
                 ]);
                 NoteReassignmentLog::create([
                     'batch_id'          => $batch->id,
@@ -334,7 +333,8 @@ class NotasDeComercial extends Component
             return;
         }
 
-        $puede = auth()->user()?->hasRole('gerente') || $note->comercial_id === auth()->id();
+        $puede = auth()->user()?->hasAnyRole(['gerente_general', 'gerente'])
+            || $note->comercial_id === auth()->id();
         if (!$puede) {
             Notification::make()
                 ->title('Acceso denegado')
@@ -383,13 +383,13 @@ class NotasDeComercial extends Component
             ->whereNotNull('comercial_id')
             ->get(['id', 'comercial_id']);
 
-        // Solo mover a retén las que tengan comercial asignado
+        // Solo mover a retén las que tengan comercial asignado.
+        // No tocar assignment_date: es la fecha de visita, no de reasignación.
         $updated = Note::query()
             ->whereIn('id', $ids)
             ->whereNotNull('comercial_id')
             ->update([
                 'reten' => true,
-                'assignment_date' => now()->startOfDay(),
             ]);
 
         // Log de reasignación a retén
@@ -441,6 +441,7 @@ class NotasDeComercial extends Component
             ->whereIn('id', $allIds)
             ->where('reten', true)
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
@@ -501,6 +502,7 @@ class NotasDeComercial extends Component
                 $q->whereNull('reten')->orWhere('reten', false);
             })
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
@@ -556,7 +558,8 @@ class NotasDeComercial extends Component
                     ->orWhere('estado_terminal', '')
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
-            ->whereDoesntHave('venta');
+            ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale();
 
         if ($this->esReten) {
             // 🔴 Modo RETEN: no filtramos por comercial, solo reten = true
@@ -581,6 +584,7 @@ class NotasDeComercial extends Component
             if ($f === 'sin_procedencia') {
                 // Nota sin venta (más común) O venta vieja con origen null
                 $q->whereDoesntHave('venta')
+                ->notBlockedByRecentSale()
                     ->orWhereHas('venta', fn($v) => $v->whereNull('origen_venta'));
                 return;
             }
@@ -607,6 +611,7 @@ class NotasDeComercial extends Component
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where('assignment_date', '>=', now()->subDays(5)->startOfDay());
 
         if ($this->esReten) {
@@ -632,6 +637,7 @@ class NotasDeComercial extends Component
             if ($f === 'sin_procedencia') {
                 // Nota sin venta (más común) O venta vieja con origen null
                 $q->whereDoesntHave('venta')
+                ->notBlockedByRecentSale()
                     ->orWhereHas('venta', fn($v) => $v->whereNull('origen_venta'));
                 return;
             }

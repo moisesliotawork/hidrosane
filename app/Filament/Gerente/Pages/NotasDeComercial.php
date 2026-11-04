@@ -14,6 +14,11 @@ class NotasDeComercial extends Page
     protected static string $view = 'filament.gerente.pages.notas-de-comercial';
     protected static bool $shouldRegisterNavigation = false;
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasAnyRole(['gerente_general', 'gerente']);
+    }
+
     public string|int|null $comercialId = null;
     public ?User $comercial = null;
     public bool $esReten = false;

@@ -23,6 +23,7 @@ use Carbon\Carbon;
 use App\Models\Team;
 use Filament\Forms\Get;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Filament\Commercial\Support\EditCustomerAddressAction;
 
 class MisSupervisionesResource extends Resource
 {
@@ -38,7 +39,15 @@ class MisSupervisionesResource extends Resource
     {
         $user = auth()->user();
 
-        return $user && ($user->hasRole('team_leader') || $user->hasRole('sales_manager'));
+        // Solo JV / sales_manager; oculto para jefes de equipo.
+        return $user && $user->hasRole('sales_manager');
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        return $user && $user->hasRole('sales_manager');
     }
 
 
@@ -53,19 +62,16 @@ class MisSupervisionesResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
                             ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Nombres')
-                            ->validationMessages([
-                                'required' => 'Los nombres son obligatorios',
-                            ]),
+                            ->helperText('El nombre del cliente no se puede modificar.'),
 
                         Forms\Components\TextInput::make('last_names')
                             ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
-                            ->label('Apellidos')
-                            ->validationMessages([
-                                'required' => 'Los apellidos son obligatorios',
-                            ]),
+                            ->label('Apellidos'),
 
                         CustomerPhoneForm::applyTo(
                             Forms\Components\TextInput::make('phone')
@@ -105,29 +111,37 @@ class MisSupervisionesResource extends Resource
                     ])->columns(2),
 
                 Forms\Components\Section::make('Información de Contacto')
+                    ->headerActions([
+                        EditCustomerAddressAction::make(),
+                    ])
                     ->schema([
                         Forms\Components\TextInput::make('postal_code')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('nro_piso')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(20)
                             ->label('No. y Piso'),
 
                         Forms\Components\TextInput::make('ciudad')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
                         Forms\Components\TextInput::make('provincia')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Provincia'),
 
                         Forms\Components\Textarea::make('primary_address')
                             ->disabled()
+                            ->dehydrated(false)
                             ->rows(4)
                             ->maxLength(255)
                             ->label('Dirección principal'),
@@ -135,14 +149,18 @@ class MisSupervisionesResource extends Resource
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Dirección secundaria (opcional)'),
 
                         Forms\Components\TextInput::make('parish')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Parroquia (opcional)'),
 
                         Forms\Components\TextInput::make('ayuntamiento')
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento'),
                     ])->columns(2),
@@ -470,6 +488,7 @@ class MisSupervisionesResource extends Resource
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where('reten', false)
             // 👇 Aquí limitamos para NO ver notas futuras
             ->where(function ($q) use ($hoy) {

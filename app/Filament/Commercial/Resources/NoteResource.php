@@ -4,7 +4,9 @@ namespace App\Filament\Commercial\Resources;
 
 use App\Filament\Commercial\Resources\NoteResource\Pages;
 use App\Filament\Commercial\Resources\NoteResource\RelationManagers;
+use App\Models\Customer;
 use App\Models\Note;
+use App\Support\CustomerSurnames;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
@@ -27,6 +29,7 @@ use Filament\Forms\Get;
 use App\Models\NoteSalaEvent;
 use App\Support\Filament\GpsActionForm;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Filament\Commercial\Support\EditCustomerAddressAction;
 
 class NoteResource extends Resource
 {
@@ -49,7 +52,29 @@ class NoteResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        // Menú "Notas (listado)" solo JV. Comerciales/JE gestionan desde NOTAS → Gestionar.
+        return (bool) (auth()->user()?->hasRole('sales_manager'));
+    }
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+
+        // Necesario para el botón Gestionar (edit). El listado se restringe en ListNotes.
+        return (bool) ($user && $user->hasAnyRole(['commercial', 'team_leader', 'sales_manager']));
+    }
+
+    /**
+     * Tras declarar (nulo/venta/etc.) o cancelar: JV → listado; comercial/JE → NOTAS.
+     * Evita 403 al redirigir al índice que ListNotes bloquea a no-JV.
+     */
+    public static function postGestionRedirectUrl(): string
+    {
+        if (auth()->user()?->hasRole('sales_manager')) {
+            return static::getUrl('index', panel: 'comercial');
+        }
+
+        return \App\Filament\Commercial\Pages\Notas2::getUrl(panel: 'comercial');
     }
 
     public static function form(Form $form): Form
@@ -62,20 +87,33 @@ class NoteResource extends Resource
                 Forms\Components\Section::make('Información Personal')
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
-                            ->disabled()
                             ->maxLength(255)
                             ->label('Nombres')
-                            ->validationMessages([
-                                'required' => 'Los nombres son obligatorios',
-                            ]),
+                            ->extraInputAttributes([
+                                'style' => 'font-weight:700;color:#2563eb !important;',
+                            ])
+                            ->disabled(fn (?Note $record): bool => Customer::idHasVenta($record?->customer_id))
+                            ->dehydrated(fn (?Note $record): bool => ! Customer::idHasVenta($record?->customer_id))
+                            ->required(fn (?Note $record): bool => ! Customer::idHasVenta($record?->customer_id))
+                            ->helperText(fn (?Note $record): ?string => Customer::idHasVenta($record?->customer_id)
+                                ? 'Este cliente ya tiene una venta. El nombre no se puede modificar.'
+                                : null),
 
                         Forms\Components\TextInput::make('last_names')
-                            ->disabled()
                             ->maxLength(255)
                             ->label('Apellidos')
-                            ->validationMessages([
-                                'required' => 'Los apellidos son obligatorios',
-                            ]),
+                            ->extraInputAttributes([
+                                'style' => 'font-weight:700;color:#2563eb !important;',
+                            ])
+                            ->disabled(fn (?Note $record): bool => Customer::idHasVenta($record?->customer_id))
+                            ->dehydrated(fn (?Note $record): bool => ! Customer::idHasVenta($record?->customer_id))
+                            ->required(fn (?Note $record): bool => ! Customer::idHasVenta($record?->customer_id))
+                            ->helperText(fn (?Note $record): ?string => Customer::idHasVenta($record?->customer_id)
+                                ? 'Este cliente ya tiene una venta. Los apellidos no se pueden modificar.'
+                                : 'Hacen falta dos apellidos distintos. El segundo debe tener 3 caracteres o más.')
+                            ->rules(fn (?Note $record): array => Customer::idHasVenta($record?->customer_id)
+                                ? []
+                                : [CustomerSurnames::validationRule()]),
 
                         CustomerPhoneForm::applyTo(
                             Forms\Components\TextInput::make('phone')
@@ -108,29 +146,37 @@ class NoteResource extends Resource
                     ])->columns(2),
 
                 Forms\Components\Section::make('Información de Contacto')
+                    ->headerActions([
+                        EditCustomerAddressAction::make(),
+                    ])
                     ->schema([
                         Forms\Components\TextInput::make('postal_code')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Codigo Postal'),
 
                         Forms\Components\TextInput::make('nro_piso')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(20)
                             ->label('No. y Piso'),
 
                         Forms\Components\TextInput::make('ciudad')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
                         Forms\Components\TextInput::make('provincia')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Provincia'),
 
                         Forms\Components\Textarea::make('primary_address')
                             ->disabled()
+                            ->dehydrated(false)
                             ->rows(4)
                             ->maxLength(255)
                             ->label('Dirección principal'),
@@ -138,14 +184,18 @@ class NoteResource extends Resource
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Dirección secundaria (opcional)'),
 
                         Forms\Components\TextInput::make('parish')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Parroquia (opcional)'),
 
                         Forms\Components\TextInput::make('ayuntamiento')
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento'),
                     ])->columns(2),
@@ -572,6 +622,7 @@ class NoteResource extends Resource
                         $eligible = Note::query()
                             ->whereIn('id', $allIds)
                             ->whereDoesntHave('venta')
+                            ->notBlockedByRecentSale()
                             ->where(function ($q) {
                             $q->whereNull('estado_terminal')
                                 ->orWhere('estado_terminal', '')
@@ -688,7 +739,8 @@ class NoteResource extends Resource
                 ->orWhere('estado_terminal', '')
                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
         })
-            ->whereDoesntHave('venta');
+            ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale();
 
         $query->visibleInCommercialNotas();
 

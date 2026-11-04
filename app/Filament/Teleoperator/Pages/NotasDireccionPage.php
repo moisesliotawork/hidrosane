@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\Action;
 use App\Filament\Teleoperator\Resources\NoteResource;
 use App\Support\TeleoperatorCustomerNoteGuard;
+use App\Support\CustomerAddressSearch;
 use Filament\Notifications\Notification;
 
 class NotasDireccionPage extends Page implements HasTable
@@ -134,58 +135,89 @@ class NotasDireccionPage extends Page implements HasTable
             ->columns([
                 Tables\Columns\TextColumn::make('nro_nota')
                     ->label('Nro Nota')
-                    ->sortable(),
+                    ->sortable()
+                    ->badge()
+                    ->color('pink')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->extraHeaderAttributes(['style' => 'width:5.5rem'])
+                    ->extraCellAttributes(['style' => 'width:5.5rem;white-space:nowrap']),
 
                 Tables\Columns\TextColumn::make('customer.name')
-                    ->label('Nombre Cliente')
+                    ->label('Cliente / Dirección')
+                    ->html()
+                    ->grow(false)
                     ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
+                        $query->where(function (Builder $outer) use ($search) {
+                            $outer->whereHas('customer', function (Builder $q) use ($search) {
+                                $q->where(function (Builder $qq) use ($search) {
+                                    $qq->where('customers.first_names', 'like', "%{$search}%")
+                                        ->orWhere('customers.last_names', 'like', "%{$search}%")
+                                        ->orWhereRaw(
+                                            "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
+                                            ["%{$search}%"]
+                                        );
+                                });
+                            })->orWhere(function (Builder $q) use ($search) {
+                                CustomerAddressSearch::constrainHasCustomer($q, $search);
                             });
                         });
-                    }),
-
-                Tables\Columns\TextColumn::make('customer.primary_address')
-                    ->label('Dirección')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('primary_address', 'like', "%{$search}%");
-                        });
                     })
-                    ->wrap(),
+                    ->formatStateUsing(function ($state, Note $record): string {
+                        $customer = $record->customer;
+                        $name = e((string) ($customer?->name ?: '—'));
+                        $address = trim(implode(', ', array_filter([
+                            trim((string) ($customer?->primary_address ?? '')),
+                            trim((string) ($customer?->nro_piso ?? '')),
+                        ], fn ($part) => $part !== '')));
+                        $addressHtml = e($address !== '' ? $address : '—');
+
+                        return "<div style=\"line-height:1.1;font-weight:700;color:#1e3a8a;\">{$name}</div>"
+                            ."<div style=\"font-weight:700;margin-top:0.05rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:22rem;\" title=\"{$addressHtml}\">{$addressHtml}</div>";
+                    })
+                    ->extraCellAttributes(['style' => 'width:22rem;max-width:22rem;padding-inline:0.35rem;padding-block:0.15rem']),
 
                 Tables\Columns\TextColumn::make('customer.postal_code')
                     ->label('CP')
+                    ->badge()
+                    ->color('info')
+                    ->alignCenter()
+                    ->grow(false)
+                    ->extraHeaderAttributes(['style' => 'width:4.5rem'])
+                    ->extraCellAttributes(['style' => 'width:4.5rem;white-space:nowrap;padding-inline:0.25rem'])
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function (Builder $q) use ($search) {
                             $q->where('postal_code', 'like', "%{$search}%");
                         });
                     }),
 
-                Tables\Columns\TextColumn::make('customer.provincia')
-                    ->label('Provincia')
-                    ->searchable(query: function (Builder $query, string $search): Builder {
-                        return $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where('provincia', 'like', "%{$search}%");
-                        });
-                    }),
-
                 Tables\Columns\TextColumn::make('customer.ciudad')
                     ->label('Ciudad')
+                    ->badge()
+                    ->color('warning')
+                    ->grow(false)
+                    ->extraCellAttributes(['style' => 'white-space:nowrap;padding-inline:0.25rem'])
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function (Builder $q) use ($search) {
                             $q->where('ciudad', 'like', "%{$search}%");
                         });
                     }),
 
+                Tables\Columns\TextColumn::make('customer.provincia')
+                    ->label('Provincia')
+                    ->badge()
+                    ->color('success')
+                    ->grow(false)
+                    ->extraCellAttributes(['style' => 'white-space:nowrap;padding-inline:0.25rem'])
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('customer', function (Builder $q) use ($search) {
+                            $q->where('provincia', 'like', "%{$search}%");
+                        });
+                    }),
+
                 Tables\Columns\TextColumn::make('customer.nro_piso')
                     ->label('Nro Piso')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('customer', function (Builder $q) use ($search) {
                             $q->where('nro_piso', 'like', "%{$search}%");
@@ -203,9 +235,7 @@ class NotasDireccionPage extends Page implements HasTable
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         if (filled($data['value'] ?? null)) {
-                            $query->whereHas('customer', function (Builder $q) use ($data) {
-                                $q->where('primary_address', 'like', '%' . $data['value'] . '%');
-                            });
+                            CustomerAddressSearch::constrainHasCustomer($query, (string) $data['value']);
                         }
                         return $query;
                     }),

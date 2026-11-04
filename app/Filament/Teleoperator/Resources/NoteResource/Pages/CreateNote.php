@@ -13,6 +13,9 @@ use Filament\Actions\Action;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Illuminate\Validation\ValidationException;
+use App\Enums\FuenteNotas;
+use App\Enums\HorarioNotas;
+use App\Enums\NoteStatus;
 use App\Support\TeleoperatorCustomerNoteGuard;
 
 class CreateNote extends CreateRecord
@@ -89,8 +92,16 @@ class CreateNote extends CreateRecord
         // 3) Si hay request, que sobreescriba (por si el operador escribió algo distinto)
         $prefill = array_merge($prefill, $prefillFromRequest);
 
-        // 4) Fill final
-        if (!empty($prefill)) {
+        // 4) Fill final — el fill() pisa los default() de los campos que no van en $prefill.
+        // Sin esto, Tipo y Estado llegan vacíos y no aparece la sección Visita.
+        if (! empty($prefill)) {
+            $prefill['fuente'] = Auth::user()?->canSeeVipSources()
+                ? ($prefill['fuente'] ?? FuenteNotas::CALLE->value)
+                : FuenteNotas::CALLE->value;
+            $prefill['status'] = $prefill['status'] ?? NoteStatus::CONTACTED->value;
+            $prefill['visit_date'] = $prefill['visit_date'] ?? now()->addDay()->toDateString();
+            $prefill['visit_schedule'] = $prefill['visit_schedule'] ?? HorarioNotas::TD->value;
+
             $this->form->fill($prefill);
         }
     }
@@ -283,6 +294,11 @@ class CreateNote extends CreateRecord
         $data['user_id'] = Auth::id();
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
+
+        // Solo Antia / jefe de sala pueden elegir VIP; el resto siempre CALLE
+        if (! Auth::user()?->canSeeVipSources()) {
+            $data['fuente'] = FuenteNotas::CALLE->value;
+        }
 
         // No guardar campos ajenos a notes
         unset($data['edadTelOp']);

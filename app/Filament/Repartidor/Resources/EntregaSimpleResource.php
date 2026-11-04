@@ -29,7 +29,7 @@ use App\Filament\Support\CustomerPhoneForm;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaDocumentUpload;
 use Filament\Forms\Components\Placeholder;
-use App\Enums\Financiera;
+use App\Models\Financiera;
 use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -250,11 +250,9 @@ class EntregaSimpleResource extends Resource
 
                     Select::make('financiera')
                         ->label('Financiera')
-                        ->options(
-                            collect(Financiera::cases())
-                                ->mapWithKeys(fn($f) => [$f->value => $f->label()])
-                                ->toArray()
-                        )
+                        ->options(fn (?Venta $record): array => Financiera::opcionesSelect(
+                            is_string($record?->financiera) ? $record->financiera : null
+                        ))
                         ->nullable()
                         ->native(false)
                         ->searchable()

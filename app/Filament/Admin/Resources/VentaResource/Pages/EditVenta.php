@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Resources\VentaResource\Pages;
 use App\Filament\Admin\Resources\VentaResource;
 use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
 use App\Filament\Concerns\PersistsVentaCustomerOnSave;
+use App\Filament\Concerns\ConfirmsSharedCustomerIdentityOnVentaSave;
+use App\Filament\Concerns\HandlesVentaCustomerNameChange;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
 use Filament\Actions\Action;
@@ -12,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Venta;
 use App\Models\Reparto;
 use App\Enums\EstadoEntrega;
+use App\Services\VentaCustomerIdentityService;
 use App\Services\VentaNotesCustomerSync;
 use App\Services\VentaPdfArchiver;
 use App\Support\VentaFechaVenta;
@@ -24,10 +27,17 @@ class EditVenta extends EditRecord
 {
     use SyncsCustomerIbanOnVentaForm;
     use PersistsVentaCustomerOnSave;
+    use ConfirmsSharedCustomerIdentityOnVentaSave;
+    use HandlesVentaCustomerNameChange;
 
     protected static string $resource = VentaResource::class;
 
     protected ?int $pendingCustomerId = null;
+
+    protected function editsCustomerIdentityInForm(): bool
+    {
+        return filament()->getCurrentPanel()?->getId() === 'admin';
+    }
 
     protected function getRedirectUrl(): string
     {
@@ -54,6 +64,12 @@ class EditVenta extends EditRecord
      */
     public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
     {
+        if ($this->editsCustomerIdentityInForm()) {
+            $this->customerIdentitySaveMode = VentaCustomerIdentityService::IDENTITY_MODE_INPLACE;
+        } elseif ($this->interceptSaveForSharedCustomerIdentity($shouldRedirect, $shouldSendSavedNotification)) {
+            return;
+        }
+
         try {
             parent::save($shouldRedirect, $shouldSendSavedNotification);
         } catch (ValidationException $exception) {
@@ -74,6 +90,8 @@ class EditVenta extends EditRecord
                 ->send();
 
             throw $exception;
+        } finally {
+            $this->resetCustomerIdentitySaveMode();
         }
     }
 
@@ -259,7 +277,7 @@ class EditVenta extends EditRecord
             );
         }
 
-        return $data;
+        return VentaResource::normalizeGestionReparto($data, $this->record);
     }
 
     protected function getHeaderActions(): array
@@ -267,6 +285,15 @@ class EditVenta extends EditRecord
         return [
 
 
+
+        $this->customerIdentityConfirmationAction()
+            ->extraAttributes(['class' => 'hidden']),
+
+        // Registradas ocultas: el botón visible está bajo Nombres/Apellidos en el form.
+        $this->cambioNombreAction()
+            ->extraAttributes(['class' => 'hidden']),
+        $this->confirmarClienteNuevoAction()
+            ->extraAttributes(['class' => 'hidden']),
 
         Action::make('save')
             ->label('Guardar cambios')
@@ -348,7 +375,16 @@ class EditVenta extends EditRecord
         $fechaB = $this->data['fecha_contrato_b_virtual'] ?? null;
         if ($fechaB) {
             $b = $venta->contratoB();
-            $b?->updateQuietly(['fecha_venta' => $fechaB]);
+            if ($b) {
+                $old = $b->fecha_venta;
+                $b->updateQuietly(['fecha_venta' => $fechaB]);
+                \App\Support\VentaFechaCambioTracker::recordIfChanged(
+                    $b->fresh() ?? $b,
+                    $old,
+                    $fechaB,
+                    auth()->id(),
+                );
+            }
         }
     }
 

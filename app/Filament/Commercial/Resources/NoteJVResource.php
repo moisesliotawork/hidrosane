@@ -62,17 +62,24 @@ class NoteJVResource extends Resource
                 Forms\Components\Section::make('Información Personal')
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
-                            ->required()
+                            ->required(fn (string $operation): bool => $operation === 'create')
                             ->maxLength(255)
                             ->label('Nombres')
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->dehydrated(fn (string $operation): bool => $operation === 'create')
+                            ->helperText(fn (string $operation): ?string => $operation === 'edit'
+                                ? 'El nombre del cliente no se puede modificar.'
+                                : null)
                             ->validationMessages([
                                 'required' => 'Los nombres son obligatorios',
                             ]),
 
                         Forms\Components\TextInput::make('last_names')
-                            ->required()
+                            ->required(fn (string $operation): bool => $operation === 'create')
                             ->maxLength(255)
                             ->label('Apellidos')
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->dehydrated(fn (string $operation): bool => $operation === 'create')
                             ->validationMessages([
                                 'required' => 'Los apellidos son obligatorios',
                             ]),

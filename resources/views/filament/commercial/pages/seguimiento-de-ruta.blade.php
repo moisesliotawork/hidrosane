@@ -1,3 +1,6 @@
+@php
+    $hideGpsForTeamLeader = $this->hidesGpsForTeamLeader();
+@endphp
 <x-filament-panels::page>
     <style>
         body,
@@ -592,19 +595,21 @@
                                             #{{ $note->nro_nota }} · Declarada {{ $date->isToday() ? 'hoy' : 'el ' . $date->format('d/m/Y') }} como {{ $declaredEstadoLabel }}
                                             a las {{ $declaredAt->format('H:i') }}
                                         </div>
-                                        @if(filled($declaredGpsLat) && filled($declaredGpsLng))
-                                            <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               class="active-notes-ir-btn active-notes-ir-btn--declared"
-                                            >IR</a>
-                                        @else
-                                            <span class="active-notes-ir-btn active-notes-ir-btn--declared is-disabled" aria-disabled="true" title="Sin GPS registrado">IR</span>
-                                        @endif
+                                        @unless($hideGpsForTeamLeader)
+                                            @if(filled($declaredGpsLat) && filled($declaredGpsLng))
+                                                <a href="https://www.google.com/maps?q={{ $declaredGpsLat }},{{ $declaredGpsLng }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="active-notes-ir-btn active-notes-ir-btn--declared"
+                                                >IR</a>
+                                            @else
+                                                <span class="active-notes-ir-btn active-notes-ir-btn--declared is-disabled" aria-disabled="true" title="Sin GPS registrado">IR</span>
+                                            @endif
+                                        @endunless
                                     </div>
                                 @endif
 
-                                @if($reassignmentBanner && $reassignmentBanner['reassigned_at'])
+                                @if(! $hideGpsForTeamLeader && $reassignmentBanner && $reassignmentBanner['reassigned_at'])
                                     <div class="active-notes-reassigned-row">
                                         <div class="active-notes-reassigned">
                                             #{{ $note->nro_nota }} · {{ $reassignmentBanner['label'] }}
@@ -616,7 +621,10 @@
                                 @php
                                     $lastActivityAt = $activities->last()['created_at'] ?? null;
                                     $elapsedLabel = $formatElapsed($lastActivityAt);
-                                    $customerName = mb_strtoupper($note->customer?->name ?: 'SIN CLIENTE', 'UTF-8');
+                                    $customerName = \App\Support\SeguimientoRutaDisplay::customerDisplayName(
+                                        $note->customer,
+                                        $hideGpsForTeamLeader,
+                                    );
                                     $fuenteValue = $note->fuente instanceof \App\Enums\FuenteNotas
                                         ? $note->fuente->value
                                         : (string) $note->fuente;
@@ -654,19 +662,23 @@
                                         @if(filled($activity['body'] ?? null))
                                             <span class="active-notes-body">{{ $activity['body'] }}</span>
                                         @endif
-                                        <span class="active-notes-author">
-                                            {{ $activity['author'] }}
-                                        </span>
-                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
-                                        @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
-                                            <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               class="active-notes-ir-btn"
-                                            >IR</a>
-                                        @else
-                                            <span></span>
+                                        @if(filled($activity['author'] ?? null))
+                                            <span class="active-notes-author">
+                                                {{ $activity['author'] }}
+                                            </span>
                                         @endif
+                                        <span class="active-notes-elapsed">{{ $elapsedLabel }}</span>
+                                        @unless($hideGpsForTeamLeader)
+                                            @if(filled($activity['gps_lat'] ?? null) && filled($activity['gps_lng'] ?? null))
+                                                <a href="https://www.google.com/maps?q={{ $activity['gps_lat'] }},{{ $activity['gps_lng'] }}"
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   class="active-notes-ir-btn"
+                                                >IR</a>
+                                            @else
+                                                <span></span>
+                                            @endif
+                                        @endunless
                                     </div>
                                 @endforeach
                             </div>

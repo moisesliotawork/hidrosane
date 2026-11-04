@@ -28,15 +28,9 @@ class DailyProductionTablesWidget extends Widget
         $prevStart = $now->copy()->subMonth()->startOfMonth()->startOfDay()->toDateTimeString();
         $prevEnd   = $now->copy()->subMonth()->endOfMonth()->endOfDay()->toDateTimeString();
 
-        $prevMonth = $now->copy()->subMonth()->startOfMonth()->toDateString();
-
         $teleops = User::query()
             ->select('users.id', 'users.empleado_id', 'users.name', 'users.last_name')
-            ->role(['teleoperator', 'head_of_room'])
-            ->where(function ($q) use ($prevMonth) {
-                $q->whereNull('users.baja')->orWhereDate('users.baja', '>=', $prevMonth);
-            })
-            ->whereNotIn('users.empleado_id', ['038', '046'])
+            ->teleoperadorasVisiblesJefeSala()
             ->orderBy('users.empleado_id')
             ->distinct()
             ->get();

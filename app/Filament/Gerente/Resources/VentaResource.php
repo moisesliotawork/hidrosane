@@ -31,7 +31,7 @@ use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Admin\Resources\VentaResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
-use App\Enums\Financiera;
+use App\Models\Financiera;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -40,6 +40,8 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Support\Colors\Color;
 use App\Support\Filament\VentaSoftDeleteTableAction;
+use App\Support\CustomerNameSearch;
+use App\Support\NroContratoAdmin;
 
 class VentaResource extends Resource
 {
@@ -90,13 +92,17 @@ class VentaResource extends Resource
                 ->schema([
                     Select::make('repartidor_id')
                         ->label('Repartidor')
-                        ->options(
-                            fn() => User::role('delivery')
+                        ->options(function () {
+                            if (! \Spatie\Permission\Models\Role::query()->where('name', 'delivery')->exists()) {
+                                return [];
+                            }
+
+                            return User::role('delivery')
                                 ->select('id', 'empleado_id')
                                 ->orderBy('empleado_id')
                                 ->get()
-                                ->mapWithKeys(fn($user) => [$user->id => $user->empleado_id])
-                        )
+                                ->mapWithKeys(fn ($user) => [$user->id => $user->empleado_id]);
+                        })
                         ->searchable()
                         ->native(false)
                         ->placeholder('Seleccionar repartidor')
@@ -175,18 +181,29 @@ class VentaResource extends Resource
                 )
                 ->schema([
                     Grid::make(['default' => 1, 'md' => 2, 'xl' => 3])->schema([
-                        TextInput::make('first_names')->label('Nombres')->required(),
-                        TextInput::make('last_names')->label('Apellidos')->required()
-                            ->rules([
-                                function () {
-                                    return function (string $attribute, $value, \Closure $fail) {
-                                        if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
-                                            $fail('Debes escribir al menos 2 apellidos del cliente');
-                                        }
-                                    };
-                                },
-                            ]),
-                        TextInput::make('dni')->label('DNI')->columnSpanFull()->required(),
+                        TextInput::make('first_names')
+                            ->label('Nombres')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('last_names')
+                            ->label('Apellidos')
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('dni')
+                            ->label('DNI')
+                            ->columnSpanFull()
+                            ->disabled()
+                            ->dehydrated(false),
+                        Forms\Components\Actions::make([
+                            Forms\Components\Actions\Action::make('abrirCambioNombre')
+                                ->label('Cambio/nombre')
+                                ->icon('heroicon-o-arrows-right-left')
+                                ->color('warning')
+                                ->action(function ($livewire): void {
+                                    $livewire->mountAction('cambioNombre');
+                                }),
+                        ])
+                            ->columnSpanFull(),
 
                         FechaNacimientoField::make(),
 
@@ -386,11 +403,9 @@ class VentaResource extends Resource
 
                     Select::make('financiera')
                         ->label('Financiera')
-                        ->options(
-                            collect(Financiera::cases())
-                                ->mapWithKeys(fn($f) => [$f->value => $f->label()])
-                                ->toArray()
-                        )
+                        ->options(fn (?Venta $record): array => Financiera::opcionesSelect(
+                            is_string($record?->financiera) ? $record->financiera : null
+                        ))
                         ->nullable()
                         ->native(false)
                         ->searchable()
@@ -418,7 +433,7 @@ class VentaResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect(range(1, 39))
+                            collect(range(1, 40))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -630,7 +645,7 @@ class VentaResource extends Resource
                                                 TextInput::make('puntos_linea')
                                                     ->label('Pts línea')
                                                     ->numeric()
-                                                    ->required()
+                                                    ->default(0)
                                                     ->dehydrated()
                                                     ->reactive()
                                                     ->readOnly(
@@ -639,6 +654,21 @@ class VentaResource extends Resource
                                                             ->whereKey($get('producto_id'))
                                                             ->value('nombre') !== 'Producto Externo'
                                                     )
+                                                    ->afterStateHydrated(function (TextInput $component, Get $get, mixed $state): void {
+                                                        if ($state !== null && $state !== '') {
+                                                            return;
+                                                        }
+
+                                                        $producto = Producto::query()->find($get('producto_id'));
+                                                        if (! $producto || $producto->nombre === 'Producto Externo') {
+                                                            $component->state(0);
+
+                                                            return;
+                                                        }
+
+                                                        $cantidad = max((int) ($get('cantidad') ?? 1), 1);
+                                                        $component->state($cantidad * (int) ($producto->puntos ?? 0));
+                                                    })
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state): void {
 
                                                         $set(
@@ -759,6 +789,13 @@ class VentaResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query, $livewire = null): void {
+                $nroSearch = is_object($livewire)
+                    ? NroContratoAdmin::resolveNroSearchTermFromLivewire($livewire)
+                    : null;
+
+                NroContratoAdmin::constrainAdminGerenteList($query, $nroSearch);
+            })
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('nro_contr_adm')
@@ -769,7 +806,26 @@ class VentaResource extends Resource
                     ) ? 'warning' : 'success')
                     ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable(
+                        query: function (Builder $query, string $search): Builder {
+                            $values = NroContratoAdmin::searchValues($search);
+                            if ($values === []) {
+                                return $query->whereRaw('1 = 0');
+                            }
+
+                            // Coincidencia exacta (1 ≠ 10/1001; sí admite 001 ↔ 1 y variantes -B).
+                            return $query->whereIn('nro_contr_adm', $values);
+                        },
+                    ),
+                // Igual que SuperAdmin: Nombre justo después de Nº Contrato.
+                TextColumn::make('customer.name')
+                    ->label('Nombre')
+                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainHasCustomer($query, $search),
+                    )
+                    ->sortable(),
                 TextColumn::make('pgc')
                     ->label('PGC')
                     ->state(fn (Venta $record): string => filled($record->customer_id) ? 'Ir_PGC' : '—')
@@ -805,12 +861,6 @@ class VentaResource extends Resource
                     ->sortable()
                     ->label('ESTADO/CONTR'),
                 TextColumn::make('nro_cliente_adm')->label('Nº Cliente')->searchable()->sortable(),
-                TextColumn::make('customer.name')
-                    ->label('Nombre')
-                    ->formatStateUsing(fn($state) => strtoupper((string) $state))
-                    ->extraAttributes(['class' => 'font-bold'])
-                    ->searchable()
-                    ->sortable(),
                 TextColumn::make('customer.postal_code')
                     ->label('CP')
                     ->badge()

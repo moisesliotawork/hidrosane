@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 use Illuminate\Support\Facades\Storage;
-use App\Enums\{EstadoEntrega, EstadoVenta, Financiera};
+use App\Enums\{EstadoEntrega, EstadoVenta};
 use Illuminate\Support\Collection;
 use App\Enums\VendidoPor;
 use App\Enums\MesesEnum;
@@ -43,6 +43,7 @@ use App\Support\Storage\DocumentStorage;
  * @property string|null $precontractual
  * @property string|null $interes_art_detalle
  * @property string|null $observaciones_repartidor
+ * @property string|null $observaciones_borrado
  * @property string $status
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -178,14 +179,28 @@ class Venta extends Model
 
         'contrato_firmado_at',
         'deleted_by_user_id',
+        'observaciones_borrado',
         'reservado_at',
         'reservado_by_user_id',
+        'alerta_borrado_vista_at',
+        'document_slot_marks',
+        'document_slot_reviews',
+        'total_ventas_oferta',
+        'resultado_entrega',
+        'total_venta_reducida',
+        'total_vtas_com_disminuye',
+        'monto_final_reducida',
+        'total_ventas_post_aumento',
+        'total_vtas_com_reparto',
+        'monto_final_aumento',
+        'observaciones_gestion_reparto',
 
     ];
 
     protected $casts = [
         'contrato_firmado_at' => 'datetime',
         'reservado_at' => 'datetime',
+        'alerta_borrado_vista_at' => 'datetime',
         'fecha_venta' => 'datetime',
         'en_app' => 'boolean',
         'importe_total' => 'decimal:2',
@@ -193,6 +208,8 @@ class Venta extends Model
         'interes_art' => 'boolean',
         'cuota_mensual' => 'decimal:2',
         'productos_externos' => 'array',
+        'document_slot_marks' => 'array',
+        'document_slot_reviews' => 'array',
         'de_camino' => 'boolean',
         'importe_comercial' => 'decimal:2',
         'importe_repartidor' => 'decimal:2',
@@ -215,9 +232,15 @@ class Venta extends Model
         'mes_contr' => MesesEnum::class,
 
         'estado_venta' => EstadoVenta::class,
-        'financiera' => Financiera::class,
 
         'origen_venta' => OrigenVenta::class,
+        'total_ventas_oferta' => 'decimal:1',
+        'total_venta_reducida' => 'decimal:1',
+        'total_vtas_com_disminuye' => 'decimal:1',
+        'monto_final_reducida' => 'decimal:2',
+        'total_ventas_post_aumento' => 'decimal:1',
+        'total_vtas_com_reparto' => 'decimal:1',
+        'monto_final_aumento' => 'decimal:2',
 
     ];
 
@@ -338,6 +361,14 @@ class Venta extends Model
     protected static function booted()
     {
         static::saving(function (Venta $venta) {
+            // Nunca dejar una venta colgada de un cliente ya fusionado.
+            if ($venta->customer_id) {
+                $activeId = Customer::resolveActiveId((int) $venta->customer_id);
+                if ($activeId && (int) $venta->customer_id !== (int) $activeId) {
+                    $venta->customer_id = $activeId;
+                }
+            }
+
             if ($venta->isDirty('contrato_firmado')) {
                 $venta->contrato_firmado_at = now();
             }
@@ -349,6 +380,11 @@ class Venta extends Model
         static::created(function (Venta $venta) {
             // Solo cuando se CREA la venta
             $venta->registerCreamDelivery();
+            \App\Support\RecentSaleAgendaBlocker::blockOpenNotesForVenta($venta);
+        });
+
+        static::deleted(function (Venta $venta) {
+            \App\Support\RecentSaleAgendaBlocker::clearBlocksForVenta($venta);
         });
 
         static::deleting(function (Venta $venta) {
@@ -356,10 +392,15 @@ class Venta extends Model
                 return false;
             }
 
+            $fill = [];
             if (blank($venta->deleted_by_user_id)) {
-                $venta->forceFill([
-                    'deleted_by_user_id' => auth()->id(),
-                ])->saveQuietly();
+                $fill['deleted_by_user_id'] = auth()->id();
+            }
+            if (\App\Support\BorradosAlerta::enabled()) {
+                $fill['alerta_borrado_vista_at'] = null;
+            }
+            if ($fill !== []) {
+                $venta->forceFill($fill)->saveQuietly();
             }
         });
 

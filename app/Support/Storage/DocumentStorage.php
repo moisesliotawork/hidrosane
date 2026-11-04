@@ -121,6 +121,26 @@ final class DocumentStorage
     }
 
     /**
+     * Tamaño en bytes, o null si no se puede leer (p. ej. fallo remoto).
+     */
+    public static function size(?string $path): ?int
+    {
+        $found = self::locate($path);
+
+        if ($found === null) {
+            return null;
+        }
+
+        try {
+            return (int) $found['disk']->size($found['path']);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
      * URL para mostrar el documento al usuario.
      *
      * En discos remotos privados devuelve una URL firmada de vida corta, para

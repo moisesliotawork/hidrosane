@@ -16,6 +16,12 @@ class ListNotes extends ListRecords
 
     protected static string $resource = NoteResource::class;
 
+    public static function canAccess(array $parameters = []): bool
+    {
+        // Listado solo JV; comerciales/JE usan edit vía Gestionar, no este índice.
+        return (bool) (auth()->user()?->hasRole('sales_manager'));
+    }
+
     protected function getRedirectUrl(): string
     {
         return NoteResource::getUrl('index');
@@ -68,6 +74,7 @@ class ListNotes extends ListRecords
                         ->whereIn('comercial_id', $visibleIds)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
+                        ->notBlockedByRecentSale()
                         ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()
@@ -110,6 +117,7 @@ class ListNotes extends ListRecords
                         ->where('comercial_id', $c->id)
                         ->where($estadoFiltro)
                         ->whereDoesntHave('venta')
+                        ->notBlockedByRecentSale()
                         ->visibleInCommercialNotas()
                         ->where('reten', false)
                         ->count()

@@ -5,6 +5,8 @@ namespace App\Filament\Gerente\Resources\VentaResource\Pages;
 use App\Filament\Gerente\Resources\VentaResource;
 use App\Filament\Concerns\SyncsCustomerIbanOnVentaForm;
 use App\Filament\Concerns\PersistsVentaCustomerOnSave;
+use App\Filament\Concerns\ConfirmsSharedCustomerIdentityOnVentaSave;
+use App\Filament\Concerns\HandlesVentaCustomerNameChange;
 use App\Support\VentaFechaVenta;
 use App\Services\VentaNotesCustomerSync;
 use Filament\Resources\Pages\EditRecord;
@@ -20,10 +22,25 @@ class EditVenta extends EditRecord
 {
     use SyncsCustomerIbanOnVentaForm;
     use PersistsVentaCustomerOnSave;
+    use ConfirmsSharedCustomerIdentityOnVentaSave;
+    use HandlesVentaCustomerNameChange;
 
     protected static string $resource = VentaResource::class;
 
     protected ?int $pendingCustomerId = null;
+
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        if ($this->interceptSaveForSharedCustomerIdentity($shouldRedirect, $shouldSendSavedNotification)) {
+            return;
+        }
+
+        try {
+            parent::save($shouldRedirect, $shouldSendSavedNotification);
+        } finally {
+            $this->resetCustomerIdentitySaveMode();
+        }
+    }
 
     protected function getRedirectUrl(): string
     {
@@ -108,6 +125,14 @@ class EditVenta extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            $this->customerIdentityConfirmationAction()
+                ->extraAttributes(['class' => 'hidden']),
+
+            $this->cambioNombreAction()
+                ->extraAttributes(['class' => 'hidden']),
+            $this->confirmarClienteNuevoAction()
+                ->extraAttributes(['class' => 'hidden']),
+
             Action::make('preview')
                 ->label('Vista previa')
                 ->icon('heroicon-o-eye')

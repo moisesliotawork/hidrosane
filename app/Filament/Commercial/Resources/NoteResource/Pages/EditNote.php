@@ -26,12 +26,16 @@ use Filament\Forms\Components\TextInput;
 use App\Models\CreamTransfer;
 use App\Notifications\CreamTransferRequested;
 use App\Models\NoteSalaEvent;
+use App\Models\Customer;
 use App\Models\User;
+use App\Support\CustomerSurnames;
+use Illuminate\Validation\ValidationException;
 use App\Support\ActionGps;
 use App\Support\NoteRouteGps;
 use App\Support\NoteSalaActions;
 use App\Support\Filament\GpsActionForm;
 use App\Support\NoteVentaDeclarationGuard;
+use App\Support\RecentSaleAgendaBlocker;
 use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 
 
@@ -41,6 +45,26 @@ class EditNote extends EditRecord
     use HandlesGpsActionModal;
 
     protected static string $resource = NoteResource::class;
+
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $reason = RecentSaleAgendaBlocker::manageBlockReason($this->record);
+
+        if ($reason === null) {
+            return;
+        }
+
+        Notification::make()
+            ->title('Nota bloqueada por venta reciente')
+            ->body($reason)
+            ->danger()
+            ->persistent()
+            ->send();
+
+        $this->redirect(NoteResource::postGestionRedirectUrl());
+    }
 
     public function getTitle(): string
     {
@@ -103,7 +127,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(NoteResource::postGestionRedirectUrl());
                 }),
 
             Actions\Action::make('nulo')
@@ -118,7 +142,7 @@ class EditNote extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -189,7 +213,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(NoteResource::postGestionRedirectUrl());
                 }),
 
             Actions\Action::make('confirmada')
@@ -213,7 +237,7 @@ class EditNote extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -356,8 +380,8 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    // 3️⃣ Flujo normal: volvemos al listado
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    // 3️⃣ Comercial/JE → NOTAS; JV → listado
+                    $this->redirect(NoteResource::postGestionRedirectUrl());
                 }),
 
 
@@ -447,7 +471,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(NoteResource::postGestionRedirectUrl());
                 }),
 
         ];
@@ -508,6 +532,32 @@ class EditNote extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $customer = $this->record->customer;
+
+        if ($customer && ! Customer::idHasVenta($customer->id)) {
+            $firstNames = trim((string) ($data['first_names'] ?? ''));
+            $lastNames = trim((string) ($data['last_names'] ?? ''));
+
+            if ($firstNames === '') {
+                throw ValidationException::withMessages([
+                    'first_names' => 'El nombre es obligatorio',
+                ]);
+            }
+
+            if (! CustomerSurnames::hasTwoDistinct($lastNames)) {
+                throw ValidationException::withMessages([
+                    'last_names' => CustomerSurnames::MESSAGE,
+                ]);
+            }
+
+            $customer->update([
+                'first_names' => $firstNames,
+                'last_names' => $lastNames,
+            ]);
+        }
+
+        unset($data['first_names'], $data['last_names']);
+
         // En el panel Commercial NO persistimos fecha_nac ni age
         unset($data['fecha_nac'], $data['age'], $data['ayuntamiento'], $data["edadTelOp"]);
         return $data;
@@ -547,7 +597,7 @@ class EditNote extends EditRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return NoteResource::postGestionRedirectUrl();
     }
 
 }

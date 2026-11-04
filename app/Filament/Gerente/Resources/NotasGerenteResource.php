@@ -23,6 +23,7 @@ use Filament\Support\Colors\Color;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Team;
+use App\Support\CustomerNameSearch;
 use Filament\Forms\Get;
 use App\Filament\Support\CustomerPhoneForm;
 
@@ -289,18 +290,9 @@ class NotasGerenteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Nombre Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
-                            });
-                        });
-                    }),
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainHasCustomer($query, $search),
+                    ),
 
                 Tables\Columns\TextColumn::make('customer.phone')
                     ->label('Teléfono')
@@ -389,20 +381,15 @@ class NotasGerenteResource extends Resource
                             })
                             ->searchable()
                             ->native(false),
-
-                        Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de asignación')
-                            ->hint('Si se deja vacío, se usará la fecha actual')
-                            ->required(false),
                     ])
+                    ->modalHeading('Reasignar comercial')
+                    ->modalDescription('Solo cambia el comercial. La fecha de asignación de la nota no se modifica.')
                     ->action(function (Note $record, array $data): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
+                            // Reasignar comercial SIN tocar assignment_date
                             $record->update([
                                 'comercial_id' => $comercialId,
-                                'assignment_date' => $comercialId
-                                    ? ($data['assignment_date'] ?? now())
-                                    : null,
                                 'reten' => $comercialId ? false : $record->reten,
                             ]);
 
@@ -412,6 +399,7 @@ class NotasGerenteResource extends Resource
 
                             Notification::make()
                                 ->title($message)
+                                ->body('La fecha de la nota se mantiene.')
                                 ->success()
                                 ->send();
 

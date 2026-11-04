@@ -5,17 +5,24 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Note;
 use App\Models\Venta;
+use App\Support\CustomerIdentityAlertaTracker;
 use App\Support\Filament\FechaNacimientoField;
 
 class VentaCustomerIdentityService
 {
+    public const IDENTITY_MODE_FORK = 'fork';
+
+    public const IDENTITY_MODE_INPLACE = 'inplace';
+
     /**
      * Desvincula el contrato del cliente compartido cuando hace falta:
-     * - Cliente compartido + cambio de nombre/DNI → cliente nuevo.
+     * - Cliente compartido + cambio de nombre/DNI → cliente nuevo (fork), salvo identityMode=inplace.
      * - Cliente compartido + otros datos (fecha_nac, teléfono, etc.) → mismo registro Customer.
      * - Cliente exclusivo + cambio de nombre/DNI → otro cliente (por DNI o nuevo).
+     *
+     * @param  self::IDENTITY_MODE_*|null  $identityMode
      */
-    public static function reassignCustomerIfNeeded(Venta $venta, array &$data): void
+    public static function reassignCustomerIfNeeded(Venta $venta, array &$data, ?string $identityMode = null): void
     {
         $customerData = $data['customer'] ?? null;
 
@@ -34,7 +41,17 @@ class VentaCustomerIdentityService
             return;
         }
 
-        if (static::customerIsShared($venta) && static::identityChanged($originalCustomer, $customerData)) {
+        $identityChanged = static::identityChanged($originalCustomer, $customerData);
+
+        if ($identityChanged && $identityMode === self::IDENTITY_MODE_INPLACE) {
+            CustomerIdentityAlertaTracker::recordIfMatches($venta, $originalCustomer, $customerData);
+            static::applyCustomerPayload($originalCustomer, $customerData);
+            unset($data['customer']);
+
+            return;
+        }
+
+        if (static::customerIsShared($venta) && $identityChanged) {
             $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
             static::applyCustomerPayload($targetCustomer, $customerData);
             $data['customer_id'] = $targetCustomer->id;
@@ -43,7 +60,7 @@ class VentaCustomerIdentityService
             return;
         }
 
-        if (static::identityChanged($originalCustomer, $customerData)) {
+        if ($identityChanged) {
             $targetCustomer = static::resolveTargetCustomer($customerData, $originalCustomer->id);
             static::applyCustomerPayload($targetCustomer, $customerData);
             $data['customer_id'] = $targetCustomer->id;
@@ -54,6 +71,32 @@ class VentaCustomerIdentityService
 
         static::applyCustomerPayload($originalCustomer, $customerData);
         unset($data['customer']);
+    }
+
+    /**
+     * Contratos activos ligados a un customer (para avisos de confirmación).
+     *
+     * @return list<string>
+     */
+    public static function relatedContractLabels(int $customerId, ?int $excludeVentaId = null): array
+    {
+        return Venta::query()
+            ->where('customer_id', $customerId)
+            ->when($excludeVentaId, fn ($q) => $q->whereKeyNot($excludeVentaId))
+            ->orderByDesc('id')
+            ->limit(20)
+            ->pluck('nro_contr_adm')
+            ->filter()
+            ->map(fn ($nro) => (string) $nro)
+            ->values()
+            ->all();
+    }
+
+    public static function relatedVentasCount(int $customerId): int
+    {
+        return (int) Venta::query()
+            ->where('customer_id', $customerId)
+            ->count();
     }
 
     public static function customerIsShared(Venta $venta): bool
@@ -91,9 +134,24 @@ class VentaCustomerIdentityService
 
     public static function identityChanged(Customer $original, array $newData): bool
     {
-        return static::normalizeDni($original->dni) !== static::normalizeDni($newData['dni'] ?? null)
-            || static::normalizeName($original->first_names) !== static::normalizeName($newData['first_names'] ?? null)
-            || static::normalizeName($original->last_names) !== static::normalizeName($newData['last_names'] ?? null);
+        // Solo comparar campos presentes: nombre/DNI con dehydrated(false) no viajan
+        // en el save y no deben interpretarse como cambio (ni fork/inplace).
+        if (array_key_exists('dni', $newData)
+            && static::normalizeDni($original->dni) !== static::normalizeDni($newData['dni'])) {
+            return true;
+        }
+
+        if (array_key_exists('first_names', $newData)
+            && static::normalizeName($original->first_names) !== static::normalizeName($newData['first_names'])) {
+            return true;
+        }
+
+        if (array_key_exists('last_names', $newData)
+            && static::normalizeName($original->last_names) !== static::normalizeName($newData['last_names'])) {
+            return true;
+        }
+
+        return false;
     }
 
     public static function customerDataChanged(Customer $original, array $newData): bool

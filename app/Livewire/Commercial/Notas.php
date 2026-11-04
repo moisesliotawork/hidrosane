@@ -18,6 +18,7 @@ use App\Support\NoteRouteGps;
 use App\Support\ActionGps;
 use App\Support\NoteSalaActions;
 use App\Livewire\Concerns\ValidatesLivewireGps;
+use App\Support\ReasignarVisitasComercialQuery;
 
 class Notas extends Component
 {
@@ -59,17 +60,19 @@ class Notas extends Component
         // tab activo
         $active = request()->query('activeTab', 'todas');
 
-        // IDs visibles: líder + miembros
+        // IDs visibles: líder + miembros (sin comerciales ocultos: 041 Diego, 011 Lucía, etc.)
         $visibleIds = [$user->id];
-        $team = Team::with('members:id,empleado_id,name')
+        $team = Team::with('members:id,empleado_id,name,last_name,baja')
             ->where('team_leader_id', $user->id)
             ->first();
 
         if ($team) {
-            $visibleIds = array_values(array_unique(array_merge(
-                $visibleIds,
-                $team->members->pluck('id')->all()
-            )));
+            $memberIds = $team->members
+                ->reject(fn ($member) => ReasignarVisitasComercialQuery::shouldHideComercial($member))
+                ->pluck('id')
+                ->all();
+
+            $visibleIds = array_values(array_unique(array_merge($visibleIds, $memberIds)));
         }
 
         // filtro de estado_terminal (mismo que usas)
@@ -83,6 +86,7 @@ class Notas extends Component
         $countFor = function ($idsOrId) use ($estadoFiltro) {
             $q = Note::query()
                 ->whereDoesntHave('venta')
+                ->notBlockedByRecentSale()
                 ->commercialVisibleDateToday()
                 ->where('reten', false)
                 ->where($estadoFiltro);
@@ -107,13 +111,15 @@ class Notas extends Component
             'active' => $active === 'todas' || $active === null || $active === '',
         ];
 
-        // tabs por comercial
+        // tabs por comercial (mismos filtros que Reasignar Visitas)
         $comerciales = collect([$user]);
         if ($team) {
-            $comerciales = $comerciales->merge($team->members);
+            $comerciales = $comerciales->merge(
+                $team->members->filter(fn ($member) => in_array($member->id, $visibleIds, true))
+            );
         }
 
-        foreach ($comerciales as $c) {
+        foreach ($comerciales->unique('id') as $c) {
             $key = "com_{$c->id}";
             $label = trim(($c->empleado_id ?? '') . ' ' . ($c->name ?? ''));
 
@@ -160,12 +166,16 @@ class Notas extends Component
         $ids = collect([$user->id]);
 
         if ($user->hasRole('team_leader')) {
-            $team = Team::where('team_leader_id', $user->id)->first();
+            $team = Team::with('members:id,empleado_id,name,last_name,baja')
+                ->where('team_leader_id', $user->id)
+                ->first();
 
             if ($team) {
-                $ids = $ids->merge(
-                    $team->members()->pluck('users.id')
-                )->unique();
+                $memberIds = $team->members
+                    ->reject(fn ($member) => ReasignarVisitasComercialQuery::shouldHideComercial($member))
+                    ->pluck('id');
+
+                $ids = $ids->merge($memberIds)->unique();
             }
         }
 
@@ -312,6 +322,16 @@ class Notas extends Component
             return;
         }
 
+        if ($reason = \App\Support\RecentSaleAgendaBlocker::manageBlockReason($note)) {
+            Notification::make()
+                ->title('Nota bloqueada por venta reciente')
+                ->body($reason)
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $url = NoteResource::getUrl(
             'edit',
             ['record' => $noteId],
@@ -334,10 +354,29 @@ class Notas extends Component
 
 
     /**
+     * EnvReten visible solo a jefes de equipo (oculto a comerciales).
+     */
+    public function canSendToReten(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->hasRole('team_leader'));
+    }
+
+    /**
      * ✅ Masivo: Enviar a Retén (igual que bulkAction del Resource)
      */
     public function bulkEnviarAReten(): void
     {
+        if (! $this->canSendToReten()) {
+            Notification::make()
+                ->title('Envío a Retén no disponible')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $ids = $this->getSelectedNoteIds();
 
         if (empty($ids)) {
@@ -345,31 +384,24 @@ class Notas extends Component
                 ->title('No hay notas seleccionadas')
                 ->warning()
                 ->send();
+
             return;
         }
-
-        // Seguridad: solo TL / sales_manager (igual que bulkAction)
-        if (!auth()->user()?->hasAnyRole(['team_leader', 'sales_manager'])) {
-            Notification::make()->title('Acceso denegado')->danger()->send();
-            return;
-        }
-
-        $ids = $this->getSelectedNoteIds();
 
         $allowed = Note::query()
             ->whereIn('id', $ids)
             ->get()
-            ->filter(fn(Note $note) => $this->canAccessNote($note))
+            ->filter(fn (Note $note) => $this->canAccessNote($note))
             ->pluck('id')
             ->values()
             ->all();
-
 
         if (empty($allowed)) {
             Notification::make()
                 ->title('No hay notas válidas')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -383,7 +415,6 @@ class Notas extends Component
             ->success()
             ->send();
 
-        // limpiar selección + refrescar
         $this->selectedNotes = [];
         $this->dispatch('notaActualizada');
     }
@@ -426,6 +457,7 @@ class Notas extends Component
         $eligible = Note::query()
             ->whereIn('id', $allIds)
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
@@ -494,7 +526,8 @@ class Notas extends Component
             $q->whereNull('estado_terminal')
                 ->orWhere('estado_terminal', '')
                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
-        })->whereDoesntHave('venta');
+        })->whereDoesntHave('venta')
+        ->notBlockedByRecentSale();
 
         $query->where('reten', false);
 
@@ -595,8 +628,8 @@ class Notas extends Component
         $postalCodeSimple = $customer->postal_code ?? null;
         $citySimple = $customer->ciudad ?? null;
         $addressInfo = $postalCodeSimple && $citySimple
-            ? "$citySimple, $postalCodeSimple"
-            : ($citySimple ?? $postalCodeSimple ?? 'Sin ubicación');
+            ? "$postalCodeSimple, $citySimple"
+            : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
 
         return [
             'id' => $note->id,
@@ -623,6 +656,8 @@ class Notas extends Component
             'lng' => $note->lng,
             'lat' => $note->lat,
             'lng_dentro' => $note->lng_dentro,
+            'blocked_by_recent_sale' => filled($note->blocked_by_venta_id),
+            'blocked_by_recent_sale_label' => filled($note->blocked_by_venta_id) ? 'VENTA RECIENTE' : null,
         ];
     }
 

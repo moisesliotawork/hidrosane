@@ -10,6 +10,7 @@ use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
 use App\Filament\Support\CustomerPhoneForm;
+use App\Filament\Commercial\Support\EditCustomerAddressAction;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Infolist;
@@ -54,18 +55,21 @@ class RetenResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('first_names')
                             ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Nombres')
-                            ->validationMessages([
-                                'required' => 'Los nombres son obligatorios',
+                            ->helperText('El nombre del cliente no se puede modificar.')
+                            ->extraInputAttributes([
+                                'style' => 'font-weight:700;color:#2563eb !important;',
                             ]),
 
                         Forms\Components\TextInput::make('last_names')
                             ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Apellidos')
-                            ->validationMessages([
-                                'required' => 'Los apellidos son obligatorios',
+                            ->extraInputAttributes([
+                                'style' => 'font-weight:700;color:#2563eb !important;',
                             ]),
 
                         CustomerPhoneForm::applyTo(
@@ -106,29 +110,37 @@ class RetenResource extends Resource
                     ])->columns(2),
 
                 Forms\Components\Section::make('Información de Contacto')
+                    ->headerActions([
+                        EditCustomerAddressAction::make(),
+                    ])
                     ->schema([
                         Forms\Components\TextInput::make('postal_code')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
-                            ->label('Codigo Postal'),
+                            ->label('Código Postal'),
 
                         Forms\Components\TextInput::make('nro_piso')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(20)
-                            ->label('No. y Piso'),
+                            ->label('Nro/Piso'),
 
                         Forms\Components\TextInput::make('ciudad')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento/Localidad'),
 
                         Forms\Components\TextInput::make('provincia')
-                            ->required()
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Provincia'),
 
                         Forms\Components\Textarea::make('primary_address')
                             ->disabled()
+                            ->dehydrated(false)
                             ->rows(4)
                             ->maxLength(255)
                             ->label('Dirección principal'),
@@ -136,14 +148,18 @@ class RetenResource extends Resource
                         Forms\Components\TextInput::make('secondary_address')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Dirección secundaria (opcional)'),
 
                         Forms\Components\TextInput::make('parish')
                             ->maxLength(255)
                             ->disabled()
+                            ->dehydrated(false)
                             ->label('Parroquia (opcional)'),
 
                         Forms\Components\TextInput::make('ayuntamiento')
+                            ->disabled()
+                            ->dehydrated(false)
                             ->maxLength(255)
                             ->label('Ayuntamiento'),
                     ])->columns(2),
@@ -705,6 +721,7 @@ class RetenResource extends Resource
         })
             // Sin venta asociada
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             // Solo notas marcadas como Reten
             ->where('reten', true)
             // Assignment_date entre hoy-5 y hoy
@@ -722,16 +739,31 @@ class RetenResource extends Resource
     {
         $user = auth()->user();
 
-        return $user
-            && ($user->hasRole('sales_manager') || $user->hasRole('team_leader'));
+        // Menú Retén solo JV; el JE entra por Reasignar Visitas → RETEN.
+        return $user && $user->hasRole('sales_manager');
     }
 
     public static function canViewAny(): bool
     {
         $user = auth()->user();
 
-        return $user
-            && ($user->hasRole('sales_manager') || $user->hasRole('team_leader'));
+        // JE debe poder Gestionar/editar notas de Retén (si no → 403 al abrir la nota).
+        return (bool) ($user && $user->hasAnyRole(['sales_manager', 'team_leader']));
+    }
+
+    /**
+     * Tras gestionar nota de Retén: JV → listado Retén; JE → Reasignar Visitas → RETEN.
+     */
+    public static function postGestionRedirectUrl(): string
+    {
+        if (auth()->user()?->hasRole('sales_manager')) {
+            return static::getUrl('index', panel: 'comercial');
+        }
+
+        return \App\Filament\Commercial\Pages\NotasDeComercial::getUrl(
+            ['comercial_id' => 'reten'],
+            panel: 'comercial',
+        );
     }
 
 }

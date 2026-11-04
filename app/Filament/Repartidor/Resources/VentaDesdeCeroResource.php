@@ -46,7 +46,17 @@ class VentaDesdeCeroResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
     }
 
     /** Step 1: all data except documents */
@@ -412,14 +422,14 @@ class VentaDesdeCeroResource extends Resource
 
                 Select::make('num_cuotas')->label('Nº de cuotas')
                     ->options(
-                        collect(range(1, 39))
+                        collect(range(1, 40))
                             ->mapWithKeys(fn($n) => [$n => $n])
                             ->toArray()
                     )
                     ->required()->reactive()->native(false)
                     ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true))
                     ->default(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true) ? 1 : 6)
-                    ->rules(['integer', Rule::in(array_merge(range(1, 39)))])
+                    ->rules(['integer', Rule::in(array_merge(range(1, 40)))])
                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                         $importe = (float) ($get('importe_total') ?? 0);
                         $cuotas = (int) ($state ?: 1);

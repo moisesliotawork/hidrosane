@@ -4,23 +4,22 @@ namespace App\Filament\Admin\Resources\NoteResource\Pages;
 
 use App\Enums\EstadoTerminal;
 use App\Filament\Admin\Resources\NoteResource;
+use App\Filament\Concerns\InteractsWithCreateNoteModal;
 use App\Models\Note;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Filament\Actions;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListNotes extends ListRecords
 {
-    protected static string $resource = NoteResource::class;
+    use InteractsWithCreateNoteModal;
 
-    
+    protected static string $resource = NoteResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\CreateAction::make(),
+            $this->createNoteModalAction(),
 
             \Filament\Actions\Action::make('pdfSala')
                 ->label('Generar PDF (Oficina)')

@@ -22,6 +22,7 @@ use Filament\Forms\Components\{
     FileUpload,
     Textarea
 };
+use App\Support\CustomerSurnames;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\GpsActionForm;
 use App\Support\Filament\VentaDocumentUpload;
@@ -55,7 +56,27 @@ class VentaDesdeCeroResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return static::userKeepsPuertaFria();
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::userKeepsPuertaFria();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::userKeepsPuertaFria();
+    }
+
+    /**
+     * Solo el comercial con número de empleado 911 conserva Puerta Fría.
+     */
+    public static function userKeepsPuertaFria(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && (string) $user->empleado_id === '911';
     }
 
     /** Step 1: all data except documents */
@@ -69,14 +90,9 @@ class VentaDesdeCeroResource extends Resource
                 Grid::make(['default' => 2])->schema([
                     TextInput::make('first_names')->label('Nombres')->required(),
                     TextInput::make('last_names')->label('Apellidos')->required()
+                        ->helperText('Hacen falta dos apellidos distintos. El segundo debe tener 3 caracteres o más.')
                         ->rules([
-                            function () {
-                                return function (string $attribute, $value, \Closure $fail) {
-                                    if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
-                                        $fail('Debes escribir al menos 2 apellidos del cliente');
-                                    }
-                                };
-                            },
+                            CustomerSurnames::validationRule(),
                         ]),
                 ]),
 
@@ -110,8 +126,9 @@ class VentaDesdeCeroResource extends Resource
                         }),
 
                     TextInput::make('phone1_commercial')
-                        ->label('Teléfono Principal')
+                        ->label('Tlf 1.Principal')
                         ->required()
+                        ->live()
                         ->maxLength(11)
                         ->extraInputAttributes([
                             'style' => 'font-weight: 800; color: #1e3a8a;',
@@ -129,10 +146,18 @@ class VentaDesdeCeroResource extends Resource
                         ])
                         ->dehydrateStateUsing(function (?string $state): ?string {
                             return $state ? preg_replace('/\D/', '', $state) : null;
+                        })
+                        ->afterStateUpdated(function (Set $set, ?string $state): void {
+                            $digits = preg_replace('/\D/', '', (string) $state);
+                            if ($digits === '') {
+                                $set('phone2_commercial', null);
+                            }
                         }),
 
                     TextInput::make('phone2_commercial')
                         ->label('Teléfono 2')
+                        ->disabled(fn (Get $get): bool => blank(preg_replace('/\D/', '', (string) $get('phone1_commercial'))))
+                        ->dehydrated()
                         ->maxLength(11)
                         ->extraInputAttributes([
                             'style' => 'font-weight: 800; color: #1e3a8a;',
@@ -327,7 +352,7 @@ class VentaDesdeCeroResource extends Resource
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -574,14 +599,14 @@ class VentaDesdeCeroResource extends Resource
 
                 Select::make('num_cuotas')->label('Nº de cuotas')
                     ->options(
-                        collect(range(1, 39))
+                        collect(range(1, 40))
                             ->mapWithKeys(fn($n) => [$n => $n])
                             ->toArray()
                     )
                     ->required()->reactive()->native(false)
                     ->disabled(fn(Get $get) => in_array($get('modalidad_pago'), ['NS'], true))
                     ->default(fn(Get $get) => in_array($get('modalidad_pago'), ['Contado', 'NS'], true) ? 1 : 6)
-                    ->rules(['integer', Rule::in(array_merge(range(1, 39)))])
+                    ->rules(['integer', Rule::in(array_merge(range(1, 40)))])
                     ->afterStateUpdated(function (Get $get, Set $set, $state) {
                         $importe = (float) ($get('importe_total') ?? 0);
                         $cuotas = (int) ($state ?: 1);
@@ -772,9 +797,7 @@ class VentaDesdeCeroResource extends Resource
                 $field,
                 $required,
             )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
+                ->validationMessages(VentaDocumentUpload::documentValidationMessages($label))
                 ->columnSpanFull(),
         ])->columns(1);
     }

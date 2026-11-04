@@ -94,10 +94,11 @@ class NotasDeComercial extends Component
 
         $fromComercialId = $note->comercial_id;
 
+        // Reasignar comercial/reten NO cambia assignment_date (fecha de visita).
         $updateData = [
             'comercial_id' => $this->newComercialId,
-            'assignment_date' => now()->startOfDay(),
             'reten' => false,
+            'blocked_by_venta_id' => null,
         ];
 
         $note->update($updateData);
@@ -116,8 +117,8 @@ class NotasDeComercial extends Component
         ]);
 
         $extra = $this->esReten
-            ? ' Se reasignó, se actualizó la fecha y salió de Retén.'
-            : ' Se reasignó y se actualizó la fecha.';
+            ? ' Se reasignó y salió de Retén (sin cambiar fecha de visita).'
+            : ' Se reasignó (sin cambiar fecha de visita).';
 
         AnotacionVisita::create([
             'nota_id' => $note->id,
@@ -140,12 +141,16 @@ class NotasDeComercial extends Component
     /** Opciones para el select del modal */
     public function getComercialesProperty(): array
     {
-        return User::query()
-            ->role(['commercial', 'team_leader', 'sales_manager'])
-            ->whereNull('baja')   // ✅ solo activos
+        $roles = \App\Support\ReasignarVisitasComercialQuery::viewerIsTeamLeaderOnly()
+            ? ['commercial', 'team_leader']
+            : ['commercial', 'team_leader', 'sales_manager'];
+
+        return \App\Support\ReasignarVisitasComercialQuery::applyHiddenComerciales(
+            User::query()->role($roles)
+        )
             ->orderBy('empleado_id')
             ->get()
-            ->mapWithKeys(fn($u) => [
+            ->mapWithKeys(fn ($u) => [
                 $u->id => trim("{$u->empleado_id} {$u->name} {$u->last_name}"),
             ])
             ->toArray();
@@ -197,13 +202,12 @@ class NotasDeComercial extends Component
             foreach ($notes as $note) {
                 $note->update([
                     'reten' => true,
-                    'assignment_date' => now()->startOfDay(),
                 ]);
                 AnotacionVisita::create([
                     'nota_id' => $note->id,
                     'author_id' => auth()->id(),
                     'asunto' => 'REASIGNACIÓN MASIVA',
-                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva.",
+                    'cuerpo' => "Nota #{$note->nro_nota} enviada a Retén de forma masiva (sin cambiar fecha de visita).",
                 ]);
                 NoteReassignmentLog::create([
                     'batch_id'          => $batch->id,
@@ -228,14 +232,14 @@ class NotasDeComercial extends Component
             foreach ($notes as $note) {
                 $note->update([
                     'comercial_id' => (int) $this->bulkNewComercialId,
-                    'assignment_date' => now()->startOfDay(),
                     'reten' => false,
+                    'blocked_by_venta_id' => null,
                 ]);
                 AnotacionVisita::create([
                     'nota_id' => $note->id,
                     'author_id' => auth()->id(),
                     'asunto' => 'REASIGNACIÓN MASIVA',
-                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado}.",
+                    'cuerpo' => "Nota #{$note->nro_nota} reasignada masivamente al comercial {$nombre} - {$empleado} (sin cambiar fecha de visita).",
                 ]);
                 NoteReassignmentLog::create([
                     'batch_id'          => $batch->id,
@@ -388,13 +392,13 @@ class NotasDeComercial extends Component
             ->whereNotNull('comercial_id')
             ->get(['id', 'comercial_id']);
 
-        // Solo mover a retén las que tengan comercial asignado
+        // Solo mover a retén las que tengan comercial asignado.
+        // No tocar assignment_date: es la fecha de visita, no de reasignación.
         $updated = Note::query()
             ->whereIn('id', $ids)
             ->whereNotNull('comercial_id')
             ->update([
                 'reten' => true,
-                'assignment_date' => now()->startOfDay(),
             ]);
 
         // Log de reasignación a retén
@@ -446,6 +450,7 @@ class NotasDeComercial extends Component
             ->whereIn('id', $allIds)
             ->where('reten', true)
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
@@ -489,10 +494,20 @@ class NotasDeComercial extends Component
 
     public function redirigirAVenta(int $noteId)
     {
-        $note = Note::select('id', 'reten')->find($noteId);
+        $note = Note::find($noteId);
 
         if (!$note) {
             Notification::make()->title('Nota no encontrada')->danger()->send();
+            return;
+        }
+
+        if ($reason = \App\Support\RecentSaleAgendaBlocker::manageBlockReason($note)) {
+            Notification::make()
+                ->title('Nota bloqueada por venta reciente')
+                ->body($reason)
+                ->danger()
+                ->send();
+
             return;
         }
 
@@ -513,7 +528,8 @@ class NotasDeComercial extends Component
                     ->orWhere('estado_terminal', '')
                     ->orWhere('estado_terminal', 'ausente');
             })
-            ->whereDoesntHave('venta');
+            ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale();
 
         if ($this->esReten) {
             // 🔴 RETEN: no importa el comercial, solo reten = true
@@ -546,7 +562,8 @@ class NotasDeComercial extends Component
         });
 
         // 4. Filtro de venta
-        $query->whereDoesntHave('venta');
+        $query->whereDoesntHave('venta')
+        ->notBlockedByRecentSale();
 
         // 5. Filtro de Retén o Comercial
         if ($this->esReten) {
@@ -631,8 +648,8 @@ class NotasDeComercial extends Component
         $postalCodeSimple = $customer->postal_code ?? null;
         $citySimple = $customer->ciudad ?? null;
         $addressInfo = $postalCodeSimple && $citySimple
-            ? "$citySimple, $postalCodeSimple"
-            : ($citySimple ?? $postalCodeSimple ?? 'Sin ubicación');
+            ? "$postalCodeSimple, $citySimple"
+            : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
 
         return [
             'id' => $note->id,
@@ -657,6 +674,8 @@ class NotasDeComercial extends Component
             'lng' => $note->lng,
             'lat' => $note->lat,
             'lng_dentro' => $note->lng_dentro,
+            'blocked_by_recent_sale' => filled($note->blocked_by_venta_id),
+            'blocked_by_recent_sale_label' => filled($note->blocked_by_venta_id) ? 'VENTA RECIENTE' : null,
         ];
     }
 

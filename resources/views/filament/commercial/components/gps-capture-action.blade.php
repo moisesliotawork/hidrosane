@@ -17,6 +17,17 @@
                 ? ''
                 : ($noteHasGps ? 'Ubicación ya registrada en la nota.' : 'Obteniendo ubicación…')
         ),
+        actionHasGps() {
+            const rows = $wire.mountedActionsData || [];
+            return Object.values(rows).some(function (row) {
+                return row && row.gps_lat && row.gps_lng;
+            });
+        },
+        markReady(status) {
+            this.gpsStatus = status;
+            this.gpsReady = true;
+            this.syncSubmit();
+        },
         syncSubmit() {
             if (! @js($registerGps)) {
                 return;
@@ -25,6 +36,12 @@
             const modal = $el.closest('.fi-modal') ?? $el.closest('[role=dialog]');
             if (! modal) {
                 return;
+            }
+
+            const ready = this.gpsReady || this.actionHasGps();
+            if (ready && ! this.gpsReady) {
+                this.gpsReady = true;
+                this.gpsStatus = 'Ubicación capturada.';
             }
 
             modal.querySelectorAll('.fi-modal-footer-actions button').forEach((btn) => {
@@ -37,21 +54,34 @@
                     return;
                 }
 
-                btn.disabled = ! this.gpsReady;
-                btn.classList.toggle('opacity-50', ! this.gpsReady);
-                btn.classList.toggle('pointer-events-none', ! this.gpsReady);
+                btn.disabled = ! ready;
+                btn.classList.toggle('opacity-50', ! ready);
+                btn.classList.toggle('pointer-events-none', ! ready);
             });
         },
     }"
     x-init="
         $watch('gpsReady', () => syncSubmit());
 
-        if (gpsReady) {
-            syncSubmit();
+        if (typeof Livewire !== 'undefined') {
+            Livewire.hook('commit', ({ succeed }) => {
+                succeed(() => {
+                    $nextTick(() => syncSubmit());
+                });
+            });
+        }
+
+        if (actionHasGps()) {
+            markReady('Ubicación capturada.');
             return;
         }
 
-        syncSubmit();
+        if (gpsReady) {
+            $nextTick(() => syncSubmit());
+            return;
+        }
+
+        $nextTick(() => syncSubmit());
 
         if (! navigator.geolocation) {
             gpsStatus = 'Este dispositivo no soporta geolocalización.';

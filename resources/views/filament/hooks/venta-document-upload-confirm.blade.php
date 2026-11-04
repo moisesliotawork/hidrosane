@@ -110,6 +110,9 @@
             }
 
             const originalCreate = window.FilePond.create.bind(window.FilePond);
+            const isSafariDesktop =
+                /^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
+                !/iphone|ipad|ipod/i.test(navigator.userAgent);
 
             window.FilePond.create = function (input, options = {}) {
                 const wrapper =
@@ -117,17 +120,111 @@
                     input?.closest?.('.venta-document-upload');
 
                 if (wrapper) {
-                    const previous = options.beforeRemoveFile;
+                    const previousRemove = options.beforeRemoveFile;
+                    const previousAddFile = options.onaddfile;
+                    const previousBeforeAdd = options.beforeAddFile;
+                    const maxBytes = 25600 * 1024;
+                    const rawExt = ['dng', 'raw', 'cr2', 'nef', 'arw', 'orf', 'rw2'];
+                    const okExt = ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif', 'pdf'];
+
                     options = {
                         ...options,
+                        // Safari escritorio a veces aplaza/omite previews grandes.
+                        imagePreviewMaxInstantPreviewFileSize: Number.MAX_SAFE_INTEGER,
+                        // Rechazo claro ANTES de colgarse en “Subiendo 1%” (ProRAW/DNG, etc.).
+                        beforeAddFile: (item) => {
+                            if (typeof previousBeforeAdd === 'function') {
+                                const prior = previousBeforeAdd(item);
+                                if (prior === false) {
+                                    return false;
+                                }
+                            }
+
+                            const name = (item?.filename || item?.file?.name || '').toString();
+                            const ext = (name.split('.').pop() || '').toLowerCase();
+                            const size = Number(item?.fileSize || item?.file?.size || 0);
+
+                            if (rawExt.includes(ext)) {
+                                window.alert(
+                                    'No se puede subir foto RAW/ProRAW (.' +
+                                        ext +
+                                        ').\n\nEn el iPhone: Ajustes → Cámara → Formatos → desactiva Apple ProRAW.\nO usa una foto JPEG/HEIC normal.',
+                                );
+                                return false;
+                            }
+
+                            if (ext && !okExt.includes(ext)) {
+                                window.alert(
+                                    'Formato no permitido (.' +
+                                        ext +
+                                        '). Usa JPEG, HEIC, PNG o PDF.',
+                                );
+                                return false;
+                            }
+
+                            if (size > maxBytes) {
+                                const mb = (size / 1048576).toFixed(1);
+                                window.alert(
+                                    'Archivo demasiado grande (' +
+                                        mb +
+                                        ' MB). Máximo 25 MB.\nPrueba otra foto o baja la calidad.',
+                                );
+                                return false;
+                            }
+
+                            return true;
+                        },
                         beforeRemoveFile: async (item) => {
-                            if (typeof previous === 'function') {
-                                const prior = await previous(item);
+                            if (typeof previousRemove === 'function') {
+                                const prior = await previousRemove(item);
                                 if (prior === false) {
                                     return false;
                                 }
                             }
                             return askConfirm();
+                        },
+                        onaddfile: (error, file) => {
+                            if (typeof previousAddFile === 'function') {
+                                previousAddFile(error, file);
+                            }
+
+                            if (error || !isSafariDesktop || !file) {
+                                return;
+                            }
+
+                            const type = file.fileType || file.type || '';
+                            const source = typeof file.source === 'string' ? file.source : null;
+                            if (!source || !/^image\//.test(type)) {
+                                return;
+                            }
+
+                            // Fallback: si FilePond no dibuja canvas/img, inyectar <img>.
+                            window.setTimeout(() => {
+                                const root = input?.closest?.('.filepond--root') || wrapper;
+                                const itemEl =
+                                    root?.querySelector?.(`.filepond--item[id="${file.id}"]`) ||
+                                    root?.querySelector?.('.filepond--item');
+                                const preview =
+                                    itemEl?.querySelector?.('.filepond--image-preview') ||
+                                    itemEl?.querySelector?.('.filepond--image-preview-wrapper');
+
+                                if (!preview) {
+                                    return;
+                                }
+
+                                if (preview.querySelector('canvas, img.venta-doc-safari-fallback')) {
+                                    return;
+                                }
+
+                                const img = document.createElement('img');
+                                img.className = 'venta-doc-safari-fallback';
+                                img.src = source;
+                                img.alt = '';
+                                img.style.cssText =
+                                    'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;';
+                                preview.style.position = preview.style.position || 'relative';
+                                preview.appendChild(img);
+                            }, 400);
                         },
                     };
                 }

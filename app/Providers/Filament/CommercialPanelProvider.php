@@ -18,6 +18,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Widgets\ActiveWorkSessionWidget;
+use App\Filament\Commercial\Widgets\NotasHoyWidget;
 use App\Http\Middleware\StartWorkSession;
 use App\Filament\Commercial\Pages\ViewProfile;
 use App\Filament\Commercial\Pages\Notas2;
@@ -75,6 +76,7 @@ class CommercialPanelProvider extends PanelProvider
                     ->icon('heroicon-o-rectangle-stack')
                     ->url(fn (): string => NoteResource::getUrl('index'))
                     ->isActiveWhen(fn (): bool => request()->routeIs('filament.comercial.resources.notes.*'))
+                    ->visible(fn (): bool => (bool) (auth()->user()?->hasRole('sales_manager')))
                     ->sort(0),
                 NavigationItem::make('Seguimiento de ruta')
                     ->icon('heroicon-o-document-text')
@@ -84,6 +86,7 @@ class CommercialPanelProvider extends PanelProvider
                     ->sort(1),
             ])
             ->widgets([
+                NotasHoyWidget::class,
                 ActiveWorkSessionWidget::class,
             ])
             ->middleware([

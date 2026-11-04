@@ -89,14 +89,9 @@ class TeleoperadorasDetalle extends Page
         $start = Carbon::now($tz)->subMonths($offset)->startOfMonth()->startOfDay()->toDateTimeString();
         $end   = Carbon::now($tz)->subMonths($offset)->endOfMonth()->endOfDay()->toDateTimeString();
 
-        $prevMonth = Carbon::now($tz)->subMonth()->startOfMonth()->toDateString();
-
         return User::query()
             ->select('users.*')
-            ->role(['teleoperator', 'head_of_room'])
-            ->where(function ($q) use ($prevMonth) {
-                $q->whereNull('baja')->orWhereDate('baja', '>=', $prevMonth);
-            })
+            ->teleoperadorasVisiblesJefeSala()
             ->with(['notes' => function ($q) use ($start, $end) {
                 $q->whereIn('estado_terminal', [EstadoTerminal::VENTA->value, EstadoTerminal::CONFIRMADO->value])
                     ->whereBetween('fecha_declaracion', [$start, $end])

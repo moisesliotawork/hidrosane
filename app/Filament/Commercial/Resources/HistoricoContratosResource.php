@@ -58,7 +58,7 @@ class HistoricoContratosResource extends Resource
                     ->dehydrated()
                     ->nullable(),
 
-                /* ---------- Cliente (editable) ---------- */
+                /* ---------- Cliente (nombre fijo; resto editable) ---------- */
                 Section::make('Información del cliente')
                     ->relationship('customer')   // ⬅️ clave: hidrata/guarda contra la relación customer
                     ->schema([
@@ -67,8 +67,15 @@ class HistoricoContratosResource extends Resource
                             'md' => 2,
                             'xl' => 3,
                         ])->schema([
-                                    TextInput::make('first_names')->label('Nombres')->required(),
-                                    TextInput::make('last_names')->label('Apellidos')->required(),
+                                    TextInput::make('first_names')
+                                        ->label('Nombres')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->helperText('El nombre del cliente no se puede modificar.'),
+                                    TextInput::make('last_names')
+                                        ->label('Apellidos')
+                                        ->disabled()
+                                        ->dehydrated(false),
                                     TextInput::make('dni')->label('DNI')->columnSpanFull(),
                                     FechaNacimientoField::configureDatePicker(
                                         DatePicker::make('fecha_nac')
@@ -506,7 +513,7 @@ class HistoricoContratosResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect(range(1, 39))
+                            collect(range(1, 40))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -522,7 +529,7 @@ class HistoricoContratosResource extends Resource
 
                         ->rules([
                             'integer',
-                            Rule::in(array_merge(range(1, 39))),
+                            Rule::in(array_merge(range(1, 40))),
                         ])
 
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
@@ -608,19 +615,17 @@ class HistoricoContratosResource extends Resource
 
                 Section::make('Gestión Documentos')
                     ->schema([
-                        //SOLO FOTOTECA (sin capture, solo accept)
+                        // Sin capture: iPhone ofrece Cámara + Fototeca
                         self::docCard('albaran', 'Albarán', false, false),
-
-                        //RESTO: CÁMARA
-                        self::docCard('precontractual', 'Precontractual', true, true),
-                        self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
-                        self::docCard('dni_anverso', 'DNI – Anverso', false, true),
-                        self::docCard('dni_reverso', 'DNI – Reverso', false, true),
-                        self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
-                        self::docCard('nomina', 'Nómina', false, true),
-                        self::docCard('pension', 'Pensión', false, true),
-                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
-                        self::docCard('otros_documentos', 'Otros Documentos', false, true),
+                        self::docCard('precontractual', 'Precontractual', true, false),
+                        self::docCard('foto_sorteo', 'Foto Sorteo', false, false),
+                        self::docCard('dni_anverso', 'DNI – Anverso', false, false),
+                        self::docCard('dni_reverso', 'DNI – Reverso', false, false),
+                        self::docCard('documento_titularidad', 'Documento de titularidad', false, false),
+                        self::docCard('nomina', 'Nómina', false, false),
+                        self::docCard('pension', 'Pensión', false, false),
+                        //self::docCard('contrato_firmado', 'Contrato Firmado', false, false),
+                        self::docCard('otros_documentos', 'Otros Documentos', false, false),
                     ])
                     ->columns(1)
                     ->columnSpanFull(),
@@ -798,9 +803,7 @@ class HistoricoContratosResource extends Resource
                 null,
                 $soloCamara,
             )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
+                ->validationMessages(\App\Support\Filament\VentaDocumentUpload::documentValidationMessages($label))
                 ->columnSpanFull(),
         );
     }

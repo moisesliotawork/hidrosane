@@ -49,6 +49,15 @@ class UserResource extends Resource
                 TextInput::make("name")->required()->label('Nombres'),
                 TextInput::make("last_name")->label('Apellidos')->required(),
 
+                Select::make('genero')
+                    ->label('Género')
+                    ->options([
+                        'M' => 'Varón',
+                        'F' => 'Mujer',
+                    ])
+                    ->nullable()
+                    ->native(false),
+
                 TextInput::make("dni")
                     ->label(label: "DNI")
                     ->required(),

@@ -13,6 +13,7 @@ class Oferta extends Model
 
     protected $fillable = [
         'nombre',
+        'valor',
         'puntos_base',
         'precio_base',
         'descripcion',
@@ -21,6 +22,7 @@ class Oferta extends Model
 
     protected $casts = [
         'visible' => 'boolean',
+        'valor' => 'decimal:2',
         'puntos_base' => 'integer',
         'precio_base' => 'decimal:2',
         'deleted_at' => 'datetime',

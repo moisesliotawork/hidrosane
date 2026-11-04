@@ -111,7 +111,7 @@ class EditMisSupervisiones extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -206,7 +206,7 @@ class EditMisSupervisiones extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])

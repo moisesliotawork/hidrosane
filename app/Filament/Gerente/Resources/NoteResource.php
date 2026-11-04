@@ -22,6 +22,7 @@ use Illuminate\Support\Str;
 use Filament\Support\Colors\Color;
 use App\Enums\EstadoTerminal;
 use App\Models\User;
+use App\Support\CustomerNameSearch;
 use Illuminate\Validation\Rule;
 
 class NoteResource extends Resource
@@ -238,18 +239,9 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Nombre Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
-                            });
-                        });
-                    }),
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainHasCustomer($query, $search),
+                    ),
 
 
                 Tables\Columns\TextColumn::make('customer.phone')
@@ -404,11 +396,9 @@ class NoteResource extends Resource
                                         });
                                 }),
                             ]),
-                        Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de asignación')
-                            ->hint('Si se deja vacío, se usará la fecha actual')
-                            ->required(false),
                     ])
+                    ->modalHeading('Reasignar comercial')
+                    ->modalDescription('Solo cambia el comercial. La fecha de asignación de la nota no se modifica.')
                     ->action(function (Note $record, array $data): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
@@ -426,11 +416,9 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId) ? ($data['assignment_date'] ?? now()) : null;
-
+                            // Reasignar comercial SIN tocar assignment_date
                             $updates = [
                                 'comercial_id' => $comercialId ?: null,
-                                'assignment_date' => $assignmentDate,
                             ];
 
                             if ($record->estado_terminal === EstadoTerminal::SALA) {
@@ -444,6 +432,7 @@ class NoteResource extends Resource
                                 ->title(empty($comercialId)
                                     ? 'Comercial removido correctamente'
                                     : 'Comercial asignado correctamente: ' . User::find($comercialId)?->name)
+                                ->body('La fecha de la nota se mantiene.')
                                 ->success()
                                 ->send();
 
@@ -498,11 +487,9 @@ class NoteResource extends Resource
                                         });
                                 }),
                             ]),
-                        Forms\Components\DatePicker::make('assignment_date')
-                            ->label('Fecha de asignación')
-                            ->hint('Si se deja vacío, se usará la fecha actual')
-                            ->required(false),
                     ])
+                    ->modalHeading('Reasignar comercial (masivo)')
+                    ->modalDescription('Solo cambia el comercial de las notas seleccionadas. La fecha de asignación no se modifica.')
                     ->action(function (iterable $records, array $data): void {
                         try {
                             $comercialId = $data['comercial_id'] ?? null;
@@ -520,16 +507,11 @@ class NoteResource extends Resource
                                 }
                             }
 
-                            $assignmentDate = !empty($comercialId)
-                                ? ($data['assignment_date'] ?? now())
-                                : null;
-
                             $recordIds = collect($records)->pluck('id')->all();
 
-                            // 1) Reasignar comercial/fecha
+                            // 1) Reasignar comercial SIN tocar assignment_date
                             Note::whereIn('id', $recordIds)->update([
                                 'comercial_id' => (!empty($comercialId) ? $comercialId : null),
-                                'assignment_date' => $assignmentDate,
                             ]);
 
                             // 2) Resetear TN a S/E para las que estén en SALA
@@ -549,6 +531,7 @@ class NoteResource extends Resource
                                 ->title('Asignación masiva completada')
                                 ->body(
                                     (empty($comercialId) ? 'Comercial removido' : 'Comercial asignado')
+                                    . ' · fechas sin cambios'
                                     . (!empty($toResetIds) ? ' • TN reiniciado en ' . count($toResetIds) . ' nota(s)' : '')
                                 )
                                 ->success()
@@ -579,6 +562,7 @@ class NoteResource extends Resource
         $hasta = now()->toDateString();
 
         return parent::getEloquentQuery()
+            ->notBlockedByRecentSale()
             ->whereBetween(\DB::raw('DATE(assignment_date)'), [$desde, $hasta])
             ->orderByDesc('assignment_date')
             ->orderByDesc('id');

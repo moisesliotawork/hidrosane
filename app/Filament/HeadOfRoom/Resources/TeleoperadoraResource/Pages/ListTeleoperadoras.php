@@ -24,6 +24,9 @@ class ListTeleoperadoras extends ListRecords
 
             return;
         }
+
+        parent::mount();
+        $this->activeTab = $this->activeTab ?: 'this';
     }
 
     public function getMaxContentWidth(): MaxWidth | string | null
@@ -41,6 +44,11 @@ class ListTeleoperadoras extends ListRecords
     public function getFooterWidgetsColumns(): int | array
     {
         return 1;
+    }
+
+    public function getDefaultActiveTab(): string | int | null
+    {
+        return 'this';
     }
 
     public function getTabs(): array

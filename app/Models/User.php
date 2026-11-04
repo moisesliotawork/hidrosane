@@ -86,6 +86,7 @@ class User extends Authenticatable implements FilamentUser, HasName
     protected $fillable = [
         'name',
         'empleado_id',
+        'genero',
         'last_name',
         'email',
         'alta_empleado',
@@ -148,7 +149,8 @@ class User extends Authenticatable implements FilamentUser, HasName
             'comercial' => $this->hasRole('commercial') || $this->hasRole('team_leader') || $this->hasRole('sales_manager'),
             'teleoperador' => $this->hasRole('teleoperator'),
             'jefe-sala' => $this->hasRole('head_of_room'),
-            'gerente' => $this->hasRole('gerente_general'),
+            // En BD conviven roles `gerente` y `gerente_general`.
+            'gerente' => $this->hasAnyRole(['gerente_general', 'gerente']),
             'repartidor' => $this->hasRole('delivery'),
             'superAdmin' => $this->hasRole('app_support'),
             default => false,
@@ -212,13 +214,65 @@ class User extends Authenticatable implements FilamentUser, HasName
         return "{$this->empleado_id} - {$this->name} {$this->last_name}";
     }
 
+    /**
+     * Teleoperadoras que no deben aparecer en Jefe de Sala (baja definitiva / excluidas).
+     *
+     * @return list<string>
+     */
+    public static function teleoperadorasOcultasEmpleadoIds(): array
+    {
+        return ['037', '038', '046', '052']; // Noelia 037, Andrea 052 (+ exclusiones previas)
+    }
+
+    /**
+     * Listados operativos de teleoperadoras en Jefe de Sala (recurso, tablas, detalle).
+     * Oculta bajas antiguas y las IDs excluidas de forma permanente.
+     */
+    public function scopeTeleoperadorasVisiblesJefeSala($query)
+    {
+        $tz = config('app.timezone', 'UTC');
+        $firstDayPreviousMonth = Carbon::today($tz)
+            ->subMonth()
+            ->startOfMonth()
+            ->toDateString();
+
+        return $query
+            ->role(['teleoperator', 'head_of_room'])
+            ->where(function ($q) use ($firstDayPreviousMonth) {
+                $q->whereNull('users.baja')
+                    ->orWhereDate('users.baja', '>=', $firstDayPreviousMonth);
+            })
+            ->whereNotIn('users.empleado_id', self::teleoperadorasOcultasEmpleadoIds());
+    }
+
+    /**
+     * Selectores de teleoperadora activa (solo sin baja + no excluidas).
+     */
+    public function scopeTeleoperadorasActivasSelect($query)
+    {
+        return $query
+            ->role(['teleoperator', 'head_of_room'])
+            ->whereNull('baja')
+            ->whereNotIn('empleado_id', self::teleoperadorasOcultasEmpleadoIds());
+    }
+
     public function canSeeVipSources(): bool
     {
-        // Aseguramos que empleado_id sea string
-        $empleadoId = (string) $this->empleado_id;
+        // Solo jefe de sala y Antia Pampillon pueden elegir VIP / Pta Fría / etc.
+        // El resto de teleoperadoras solo crean notas tipo CALLE.
+        if ($this->hasRole('head_of_room')) {
+            return true;
+        }
 
-        return $this->hasRole('head_of_room')
-            || in_array($empleadoId, ['020', '023', '027'], true);
+        $empleadoId = (string) $this->empleado_id;
+        if ($empleadoId === '023') {
+            return true;
+        }
+
+        $email = strtolower((string) $this->email);
+
+        return str_contains($email, 'antiapampillon')
+            || str_contains($email, 'pampillon');
     }
 
 
@@ -604,28 +658,11 @@ class User extends Authenticatable implements FilamentUser, HasName
                 }
 
                 // Documentos subidos (sin bullets para hacerlo más compacto)
-                $documentos = [
-                    'precontractual' => 'Precontractual',
-                    'dni_anverso' => 'DNI – Anverso',
-                    'dni_reverso' => 'DNI – Reverso',
-                    'documento_titularidad' => 'Documento titularidad',
-                    'nomina' => 'Nómina',
-                    'pension' => 'Pensión',
-                    'contrato_firmado' => 'Contrato Firmado',
-                    'otros_documentos' => 'Otros Documentod'
-                ];
-
-                $subidos = [];
-
-                foreach ($documentos as $field => $label) {
-                    if (!empty($venta->$field)) {
-                        $subidos[] = $label;
-                    }
-                }
+                $subidos = \App\Support\VentaTelegramDocuments::uploadedLabels($venta);
 
                 $msg .= "Documentos subidos: ";
 
-                if (!empty($subidos)) {
+                if (! empty($subidos)) {
                     $msg .= implode(', ', $subidos) . "\n";
                 } else {
                     $msg .= "Ninguno\n";
@@ -947,28 +984,11 @@ class User extends Authenticatable implements FilamentUser, HasName
                     }
                 }
 
-                $documentos = [
-                    'precontractual' => 'Precontractual',
-                    'dni_anverso' => 'DNI – Anverso',
-                    'dni_reverso' => 'DNI – Reverso',
-                    'documento_titularidad' => 'Documento titularidad',
-                    'nomina' => 'Nómina',
-                    'pension' => 'Pensión',
-                    'contrato_firmado' => 'Contrato Firmado',
-                    'otros_documentos' => 'Otros Documentos'
-                ];
-
-                $subidos = [];
-
-                foreach ($documentos as $field => $label) {
-                    if (!empty($venta->$field)) {
-                        $subidos[] = $label;
-                    }
-                }
+                $subidos = \App\Support\VentaTelegramDocuments::uploadedLabels($venta);
 
                 $msg .= "Documentos subidos: ";
 
-                if (!empty($subidos)) {
+                if (! empty($subidos)) {
                     $msg .= implode(', ', $subidos) . "\n";
                 } else {
                     $msg .= "Ninguno\n";

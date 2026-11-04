@@ -3,10 +3,12 @@
 namespace App\Filament\HeadOfRoom\Resources\NoteResource\Pages;
 
 use App\Enums\EstadoTerminal;
+use App\Filament\Concerns\InteractsWithCreateNoteModal;
+use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use App\Filament\HeadOfRoom\Resources\NoteResource;
 use App\Models\Note;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Filament\Actions;
+use Filament\Actions\Action;
 use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,22 +17,42 @@ use Illuminate\Support\Facades\DB;
 
 class ListNotes extends ListRecords
 {
+    use InteractsWithCreateNoteModal;
+
     protected static string $resource = NoteResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()
-                ->label('Crear Nota')
-                ->icon('heroicon-o-plus')
-                ->color('primary')
-                ->url(fn (): string => NoteResource::getUrl('create', ['emergency' => 1])),
+            Action::make('irABuscarCliente')
+                ->label('Crear Nota nueva')
+                ->icon('heroicon-o-magnifying-glass')
+                ->color('warning')
+                ->url(fn (): string => BuscarCliente::getUrl()),
 
-            \Filament\Actions\Action::make('pdfSalaSoloNoImpresas')
-                ->label('Generar PDF (Oficina)')
+            $this->createNoteModalAction(),
+
+            Action::make('pdfSalaSoloNoImpresas')
+                ->label('Generar PDF (Oficina) TODAS')
                 ->icon('heroicon-o-printer')
                 ->color('pink')
                 ->requiresConfirmation()
+                ->modalHeading('Generar PDF (Oficina) TODAS')
+                ->modalDescription(function (): string {
+                    $count = Note::query()
+                        ->where('estado_terminal', EstadoTerminal::SALA->value)
+                        ->where('printed', false)
+                        ->count();
+
+                    if ($count === 0) {
+                        return 'No hay notas no impresas en Oficina. No se generará ningún PDF.';
+                    }
+
+                    return $count === 1
+                        ? 'Se va a imprimir 1 nota no impresa de Oficina. ¿Continuar?'
+                        : "Se van a imprimir {$count} notas no impresas de Oficina. ¿Continuar?";
+                })
+                ->modalSubmitActionLabel('Generar PDF')
                 ->action(function () {
                     $ids = Note::query()
                         ->where('estado_terminal', EstadoTerminal::SALA->value)
@@ -91,6 +113,7 @@ class ListNotes extends ListRecords
                     Note::query()
                         ->where(function (Builder $q) {
                             $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::AUSENTE->value)
 
                                 // NO ASIGNADAS
                                 ->orWhere(function (Builder $q2) {
@@ -117,6 +140,7 @@ class ListNotes extends ListRecords
                     fn(Builder $query) => $query
                         ->where(function (Builder $q) {
                             $q->where('estado_terminal', EstadoTerminal::SALA->value)
+                                ->orWhere('estado_terminal', EstadoTerminal::AUSENTE->value)
 
                                 ->orWhere(function (Builder $q2) {
                                     $q2->where(function (Builder $q3) {
@@ -225,6 +249,14 @@ class ListNotes extends ListRecords
                     fn (Builder $query) => $query
                         ->assignedToCommercial()
                         ->whereEffectiveAssignmentDate(Note::businessToday())
+                        ->where(function (Builder $q) {
+                            $q->whereNull('estado_terminal')
+                                ->orWhere('estado_terminal', '')
+                                ->orWhereIn('estado_terminal', [
+                                    EstadoTerminal::SIN_ESTADO->value,
+                                    EstadoTerminal::SALA->value,
+                                ]);
+                        })
                 ),
 
             'se' => Tab::make('SE')

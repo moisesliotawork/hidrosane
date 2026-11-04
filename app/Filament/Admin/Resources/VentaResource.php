@@ -16,7 +16,8 @@ use Filament\Forms\Components\{
     Hidden,
     Grid,
     FileUpload,
-    Group
+    Group,
+    Radio,
 };
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -27,7 +28,7 @@ use Filament\Tables\Columns\{TextColumn, ToggleColumn};
 use App\Filament\Admin\Resources\VentaResource\Pages;
 use Filament\Forms\Components\Placeholder;
 use App\Enums\EstadoVenta;
-use App\Enums\Financiera;
+use App\Models\Financiera;
 use Carbon\Carbon;
 use App\Enums\MesesEnum;
 use Illuminate\Support\HtmlString;
@@ -46,6 +47,8 @@ use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaCustomerRelationshipSection;
 use App\Support\Filament\VentaDocumentUpload;
 use App\Support\Filament\VentaSoftDeleteTableAction;
+use App\Support\CustomerNameSearch;
+use App\Support\NroContratoAdmin;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Tables\Filters\Filter;
@@ -166,6 +169,19 @@ class VentaResource extends Resource
 
 
 
+            Section::make('ATAJOS DOCUMENTOS')
+                ->visible(fn (): bool => self::isSuperAdminPanel())
+                ->collapsible()
+                ->collapsed(false)
+                ->compact()
+                ->schema([
+                    Placeholder::make('atajos_documentos')
+                        ->label('')
+                        ->content(fn (?Venta $record): HtmlString => self::atajosDocumentosHtml($record))
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
+
             Section::make('Administración')
                 ->collapsible(true)
 
@@ -194,7 +210,7 @@ class VentaResource extends Resource
                                     ->mapWithKeys(fn($m) => [$m->value => $m->label()])
                                     ->toArray()
                             )
-                            ->placeholder('Selecciona…')
+                            ->placeholder('Seleccionar')
                             ->native(false)
                             ->searchable()
                             ->nullable(),
@@ -230,7 +246,17 @@ class VentaResource extends Resource
                             ->afterStateUpdated(function (?string $state, ?Venta $record) {
                                 if ($record && $state) {
                                     $b = $record->contratoB();
-                                    $b?->updateQuietly(['fecha_venta' => $state]);
+                                    if (! $b) {
+                                        return;
+                                    }
+                                    $old = $b->fecha_venta;
+                                    $b->updateQuietly(['fecha_venta' => $state]);
+                                    \App\Support\VentaFechaCambioTracker::recordIfChanged(
+                                        $b->fresh() ?? $b,
+                                        $old,
+                                        $state,
+                                        auth()->id(),
+                                    );
                                 }
                             })
                             ->visible(fn(?Venta $record) => $record !== null && !self::isContratoB($record)),
@@ -247,13 +273,17 @@ class VentaResource extends Resource
                     Select::make('repartidor_id')
                         ->label('Repartidor')
                         ->columnSpan(1)
-                        ->options(
-                            fn() => User::role('delivery')
+                        ->options(function () {
+                            if (! \Spatie\Permission\Models\Role::query()->where('name', 'delivery')->exists()) {
+                                return [];
+                            }
+
+                            return User::role('delivery')
                                 ->select('id', 'empleado_id')
                                 ->orderBy('empleado_id')
                                 ->get()
-                                ->mapWithKeys(fn($user) => [$user->id => $user->empleado_id])
-                        )
+                                ->mapWithKeys(fn ($user) => [$user->id => $user->empleado_id]);
+                        })
                         ->searchable()
                         ->native(false)
                         ->placeholder('Seleccionar repartidor')
@@ -337,20 +367,20 @@ class VentaResource extends Resource
 
             /* ───────── Información del cliente ────────── */
             ...SuperAdminVentaCustomerId::formFields(),
-            ...SuperAdminVentaCustomerId::adminReassignGuidanceFields(),
 
             Placeholder::make('customer_shared_warning')
                 ->label('')
+                ->columnSpanFull()
                 ->content(new HtmlString(
                     '<p class="text-sm text-warning-600 dark:text-warning-400">'
                     . 'Este ID de cliente lo comparten otros contratos o notas. '
-                    . 'Los cambios en <strong>nombre, apellidos o DNI</strong> crearán un <strong>cliente nuevo</strong> '
-                    . 'y este contrato quedará independiente. '
-                    . 'Otros datos (fecha de nacimiento, teléfonos, dirección, etc.) se actualizan en el mismo cliente '
-                    . 'y se verán igual en el resto de contratos y notas.'
+                    . 'Nombre y DNI están <strong>fijos</strong> aquí: use el botón amarillo <strong>Cambio/nombre</strong> '
+                    . 'para reasignar <em>solo este contrato</em> a otro cliente (existente o nuevo). '
+                    . 'Otros datos (teléfonos, dirección, etc.) sí se actualizan en la misma ficha.'
                     . '</p>'
                 ))
-                ->visible(fn (?Venta $record) => filled($record?->customer_id)
+                ->visible(fn (?Venta $record) => self::isSuperAdminPanel()
+                    && filled($record?->customer_id)
                     && VentaCustomerIdentityService::customerIsShared($record)),
 
             Section::make('Información del cliente')
@@ -366,13 +396,34 @@ class VentaResource extends Resource
                         'default' => 1,
                         'md' => 2,
                         'xl' => 5])->schema([
-                        TextInput::make('first_names')->label('Nombres')->required(),
-                        TextInput::make('last_names')->label('Apellidos')->required(),
-                        TextInput::make('dni')->label('DNI')->required()
-                        ->columnSpan([
-                    'default' => 1,
-                    'xl' => 5   // Solo ocupa todo el ancho en pantallas grandes
-                ]),
+                        Grid::make(['default' => 1, 'md' => 3])
+                            ->schema([
+                                TextInput::make('first_names')
+                                    ->label('Nombres')
+                                    ->disabled(fn (): bool => self::isSuperAdminPanel())
+                                    ->dehydrated(fn (): bool => ! self::isSuperAdminPanel()),
+                                TextInput::make('last_names')
+                                    ->label('Apellidos')
+                                    ->disabled(fn (): bool => self::isSuperAdminPanel())
+                                    ->dehydrated(fn (): bool => ! self::isSuperAdminPanel()),
+                                TextInput::make('dni')
+                                    ->label('DNI')
+                                    ->disabled(fn (): bool => self::isSuperAdminPanel())
+                                    ->dehydrated(fn (): bool => ! self::isSuperAdminPanel()),
+                            ])
+                            ->columnSpanFull(),
+                        Forms\Components\Actions::make([
+                            Forms\Components\Actions\Action::make('abrirCambioNombre')
+                                ->label('Cambio/nombre')
+                                ->icon('heroicon-o-arrows-right-left')
+                                ->color('warning')
+                                ->visible(fn (): bool => self::isSuperAdminPanel())
+                                ->action(function ($livewire): void {
+                                    $livewire->mountAction('cambioNombre');
+                                }),
+                        ])
+                            ->visible(fn (): bool => self::isSuperAdminPanel())
+                            ->columnSpanFull(),
                         TextInput::make('customer.edadTelOp')
                             ->label('Edad (Tel. Op.)')
                             ->readOnly()
@@ -514,6 +565,7 @@ class VentaResource extends Resource
                 ]),
                 //->columns(1),
 
+            self::gestionRepartoSection(),
 
             /////// SECCION MOSTRAR INGRESOS  VIVIENDA Y S LABORAL EN PDF
             Section::make('Mostrar Datos en pdf')
@@ -716,7 +768,7 @@ class VentaResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect(range(1, 39))
+                            collect(range(1, 40))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -736,11 +788,9 @@ class VentaResource extends Resource
 
                     Select::make('financiera')
                         ->label('Financiera')
-                        ->options(
-                            collect(Financiera::cases())
-                                ->mapWithKeys(fn($f) => [$f->value => $f->label()])
-                                ->toArray()
-                        )
+                        ->options(fn (?Venta $record): array => Financiera::opcionesSelect(
+                            is_string($record?->financiera) ? $record->financiera : null
+                        ))
                         ->nullable()
                         ->native(false)
                         ->searchable()
@@ -775,7 +825,6 @@ class VentaResource extends Resource
                     TextInput::make('iban')
                         ->columnSpanFull()
                         ->label('IBAN')
-                        ->required(fn(Get $get) => $get('modalidad_pago') === 'Financiado')
                         // Visual: mayúsculas
                         ->extraInputAttributes(['style' => 'text-transform: uppercase;'])
                         // Mostrar con espacios al cargar
@@ -799,10 +848,13 @@ class VentaResource extends Resource
                             $raw = substr($raw, 0, 24);
                             $set('iban', implode(' ', str_split($raw, 4)));
                         })
-                        // Validación: exactamente 24 alfanuméricos (sin espacios)
+                        // Validación solo si se rellena: exactamente 24 alfanuméricos (sin espacios)
                         ->rule(function () {
                             return function (string $attribute, $value, $fail) {
                                 $raw = strtoupper(preg_replace('/\s+/', '', (string) $value));
+                                if ($raw === '') {
+                                    return;
+                                }
                                 if (strlen($raw) !== 24) {
                                     $fail('El IBAN debe tener exactamente 24 caracteres (sin contar espacios).');
                                 }
@@ -827,48 +879,52 @@ class VentaResource extends Resource
                         ->minItems(1)
                         ->label(false)
                         ->createItemButtonLabel('Agregar Oferta')
-                        ->afterStateUpdated(
-                            fn(Get $get, Set $set) =>
+                        ->afterStateUpdated(function (Get $get, Set $set): void {
                             $set(
                                 'importe_total',
                                 collect($get('ventaOfertas'))->sum(
                                     fn($o) =>
                                     Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0
                                 )
-                            )
-                        )
-                        ->itemLabel(
-                            fn(array $state): string => blank($state['oferta_id'] ?? null)
-                            ? 'Nueva oferta'
-                            : (function () use ($state): string{
-                                // Nombre de la oferta
+                            );
+                            self::syncTotalVentasComercial($get, $set);
+                        })
+                        ->truncateItemLabel(false)
+                        ->itemLabel(function (array $state): HtmlString {
+                            if (blank($state['oferta_id'] ?? null)) {
+                                $texto = 'NUEVA OFERTA';
+                            } else {
                                 $nombre = Oferta::query()
                                     ->whereKey($state['oferta_id'])
                                     ->value('nombre') ?? 'Oferta';
 
-                                // Líneas de productos de esta oferta (state del repeater hijo)
                                 $productos = collect($state['productos'] ?? []);
 
                                 $tieneComercial = $productos->contains(
-                                    fn($l) => ($l['vendido_por'] ?? null) === VendidoPor::Comercial->value
+                                    fn ($l) => ($l['vendido_por'] ?? null) === VendidoPor::Comercial->value
                                 );
                                 $tieneRepartidor = $productos->contains(
-                                    fn($l) => ($l['vendido_por'] ?? null) === VendidoPor::Repartidor->value
+                                    fn ($l) => ($l['vendido_por'] ?? null) === VendidoPor::Repartidor->value
                                 );
 
-                                // Decidimos la “etiqueta” de origen
                                 $origen = null;
-                                if ($tieneComercial && !$tieneRepartidor) {
+                                if ($tieneComercial && ! $tieneRepartidor) {
                                     $origen = 'COMERCIAL';
-                                } elseif ($tieneRepartidor && !$tieneComercial) {
+                                } elseif ($tieneRepartidor && ! $tieneComercial) {
                                     $origen = 'REPARTIDOR';
                                 } elseif ($tieneComercial && $tieneRepartidor) {
                                     $origen = 'MIXTA';
                                 }
 
-                                return $origen ? "{$nombre} ({$origen})" : $nombre;
-                            })()
-                        )
+                                $texto = mb_strtoupper($origen ? "{$nombre} ({$origen})" : $nombre, 'UTF-8');
+                            }
+
+                            return new HtmlString(
+                                '<span style="display:inline-flex;align-items:center;max-width:100%;border-radius:999px;padding:0.28rem 0.8rem;background:#16a34a;color:#fff;font-size:13px;font-weight:800;letter-spacing:0.03em;line-height:1.35;white-space:normal;">'
+                                .e($texto)
+                                .'</span>'
+                            );
+                        })
                         ->schema([
                             /* ---------- Cabecera de Oferta ---------- */
                             Grid::make(3)->schema([
@@ -887,6 +943,7 @@ class VentaResource extends Resource
                                                 Oferta::find($o['oferta_id'] ?? 0)?->precio_base ?? 0
                                             )
                                         );
+                                        self::syncTotalVentasComercial($get, $set, '../../');
                                     }),
 
                                 TextInput::make('puntos')
@@ -1003,7 +1060,7 @@ class VentaResource extends Resource
                                                 TextInput::make('puntos_linea')
                                                     ->label('Pts línea')
                                                     ->numeric()
-                                                    ->required()
+                                                    ->default(0)
                                                     ->dehydrated()
                                                     ->reactive()
                                                     ->readOnly(
@@ -1012,6 +1069,22 @@ class VentaResource extends Resource
                                                             ->whereKey($get('producto_id'))
                                                             ->value('nombre') !== 'Producto Externo'
                                                     )
+                                                    ->afterStateHydrated(function (TextInput $component, Get $get, mixed $state): void {
+                                                        // Líneas antiguas pueden venir sin puntos_linea; tomar del producto.
+                                                        if ($state !== null && $state !== '') {
+                                                            return;
+                                                        }
+
+                                                        $producto = Producto::query()->find($get('producto_id'));
+                                                        if (! $producto || $producto->nombre === 'Producto Externo') {
+                                                            $component->state(0);
+
+                                                            return;
+                                                        }
+
+                                                        $cantidad = max((int) ($get('cantidad') ?? 1), 1);
+                                                        $component->state($cantidad * (int) ($producto->puntos ?? 0));
+                                                    })
                                                     ->afterStateUpdated(function (Get $get, Set $set, $state): void {
 
                                                         $set(
@@ -1071,7 +1144,14 @@ class VentaResource extends Resource
 
 
             Section::make('Gestión Documentos')
+                ->extraAttributes(['class' => 'gestion-docs'])
                 ->schema([
+                    Placeholder::make('gestion_docs_styles')
+                        ->hiddenLabel()
+                        ->content(new HtmlString(self::gestionDocsStyles()))
+                        ->extraAttributes(['style' => 'display:none'])
+                        ->columnSpanFull(),
+
                     //RESTO: CÁMARA
                     self::docCard('precontractual', 'Precontractual', ! self::isSuperAdminPanel(), true),
                     self::docCard('foto_sorteo', 'Foto Sorteo', false, true),
@@ -1099,12 +1179,12 @@ class VentaResource extends Resource
         return $table
 
 
-            ->modifyQueryUsing(function (Builder $query) {
-                $query->where(function ($q) {
-                    $q->whereNull('nro_contr_adm')
-                        ->orWhere('nro_contr_adm', '=', '')
-                        ->orWhere('nro_contr_adm', 'not like', '%-B%');
-                });
+            ->modifyQueryUsing(function (Builder $query, $livewire = null): void {
+                $nroSearch = is_object($livewire)
+                    ? NroContratoAdmin::resolveNroSearchTermFromLivewire($livewire)
+                    : null;
+
+                NroContratoAdmin::constrainAdminGerenteList($query, $nroSearch);
             })
             ->defaultSort('id', 'desc')
             ->columns([ // <--- ¡IMPORTANTE! AQUI EMPIEZAN LAS COLUMNAS
@@ -1119,9 +1199,30 @@ class VentaResource extends Resource
                     ->formatStateUsing(fn ($state): string => filled($state) ? (string) $state : '—')
                     ->wrap(false)
                     ->sortable()
-                    ->searchable(isIndividual: true)
+                    ->searchable(
+                        query: function (Builder $query, string $search): Builder {
+                            $values = NroContratoAdmin::searchValues($search);
+                            if ($values === []) {
+                                return $query->whereRaw('1 = 0');
+                            }
+
+                            // Coincidencia exacta (1 ≠ 10/1001; sí admite 001 ↔ 1 y variantes -B).
+                            return $query->whereIn('nro_contr_adm', $values);
+                        },
+                        isIndividual: true,
+                    )
                     ->extraHeaderAttributes(['class' => 'min-w-[7rem]'])
                     ->extraCellAttributes(['class' => 'min-w-[7rem] whitespace-nowrap']),
+
+                // Igual que SuperAdmin: Nombre justo después de Nº Contrato.
+                TextColumn::make('customer.name')
+                    ->label('Nombre')
+                    ->extraAttributes(['class' => 'font-bold'])
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainHasCustomer($query, $search),
+                        isIndividual: true,
+                    )
+                    ->sortable(),
 
                 TextColumn::make('ver_cont')
                     ->label('Ver/Cont')
@@ -1209,7 +1310,7 @@ class VentaResource extends Resource
                         FuenteNotas::CALLE => 'warning',
                         FuenteNotas::VIP_INT => 'success',
                         FuenteNotas::VIP_EXT => 'info',
-                        FuenteNotas::PTA_FRIA => 'danger',
+                        FuenteNotas::PTA_FRIA, FuenteNotas::AG_N_ADMIN, FuenteNotas::PF_ADMIN => 'danger',
                         default => 'gray',
                     })
                     ->formatStateUsing(function ($state) {
@@ -1230,11 +1331,6 @@ class VentaResource extends Resource
                     ->label('Nº Cliente')
                     ->toggleable(isToggledHiddenByDefault: false)
                     ->searchable(isIndividual: true)
-                    ->sortable(),
-                TextColumn::make('customer.name')
-                    ->label('Nombre')
-                    ->extraAttributes(['class' => 'font-bold'])
-                    ->searchable(['first_names', 'last_names'], isIndividual: true)
                     ->sortable(),
                 TextColumn::make('customer.postal_code')
                     ->label('CP')
@@ -1719,8 +1815,12 @@ class VentaResource extends Resource
         $base = $importe + $extra;
         $totalFinal = max(0.0, round($base - $entrada, 2));
 
-        $set('total_final', number_format($totalFinal, 2, '.', ''));
+        $totalFinalFormatted = number_format($totalFinal, 2, '.', '');
+
+        $set('total_final', $totalFinalFormatted);
         $set('cuota_final', number_format($totalFinal / $cuotas, 2, '.', ''));
+        $set('monto_final_reducida', $totalFinalFormatted);
+        $set('monto_final_aumento', $totalFinalFormatted);
     }
 
 
@@ -1752,6 +1852,14 @@ class VentaResource extends Resource
             ->columnSpanFull();
 
         return VentaDocumentUpload::card($field, $label, $upload);
+    }
+
+    /**
+     * Badges de atajo a cada slot de documento (solo SuperAdmin).
+     */
+    protected static function atajosDocumentosHtml(?Venta $record): HtmlString
+    {
+        return VentaDocumentUpload::atajosBadgesHtml($record, stack: false);
     }
 
     protected static function isContratoB(?Venta $record): bool
@@ -1869,6 +1977,816 @@ class VentaResource extends Resource
             'Principales' => $priorities,
             'Resto' => $rest,
         ];
+    }
+
+    protected static function gestionDocsStyles(): string
+    {
+        return <<<'HTML'
+<style>
+.gestion-docs,
+.gestion-docs .fi-section-header{background-color:#e7f6ec !important;}
+.gestion-docs .fi-section-content > .fi-fo-component-ctn > :first-child{display:none !important;}
+</style>
+HTML;
+    }
+
+    protected static function gestionRepartoStyles(): string
+    {
+        return <<<'HTML'
+<style>
+.gestion-reparto-compact input[type="number"]::-webkit-outer-spin-button,
+.gestion-reparto-compact input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.gestion-reparto-compact input[type="number"]{-moz-appearance:textfield;}
+.gestion-reparto-compact .fi-section-content > .fi-fo-component-ctn > :first-child{display:none !important;}
+.gestion-reparto-compact{background-color:#e7f3fc !important;}
+.gestion-reparto-compact .fi-section-content .fi-fo-component-ctn{gap:0.65rem 0.75rem !important;}
+.gestion-reparto-compact .fi-fo-field-wrp{row-gap:0.15rem;}
+.gestion-reparto-compact .fi-input,
+.gestion-reparto-compact .fi-input-wrp-label,
+.gestion-reparto-compact textarea{font-size:16px !important;line-height:1.4 !important;}
+.gestion-reparto-compact .fi-section-header-heading{color:#1e3a8a !important;font-weight:700 !important;text-decoration:none !important;width:100%;}
+.gestion-reparto-heading-row{display:flex;align-items:center;justify-content:space-between;gap:0.65rem 1rem;width:100%;flex-wrap:wrap;}
+.gestion-reparto-heading-text{text-decoration:underline;text-underline-offset:3px;}
+.gestion-reparto-badges{display:flex;flex-wrap:wrap;gap:0.45rem;margin:0;}
+.gr-badge{display:inline-flex;align-items:center;gap:0.4rem;border-radius:999px;padding:0.28rem 0.75rem;font-size:15px;font-weight:700;line-height:1.3;letter-spacing:0.01em;}
+.gr-badge strong{font-weight:800;}
+.gr-badge-com{background:#dbeafe;color:#1e3a8a;}
+.gr-badge-rep{background:#ffedd5;color:#9a3412;}
+.gr-badge-eur{background:#dcfce7;color:#166534;}
+html.dark .gr-badge-com{background:#1e3a8a;color:#dbeafe;}
+html.dark .gr-badge-rep{background:#7c2d12;color:#ffedd5;}
+html.dark .gr-badge-eur{background:#14532d;color:#dcfce7;}
+.gestion-reparto-compact .fi-fo-field-wrp-label span{color:#0f172a !important;}
+.gestion-reparto-compact .fi-input,
+.gestion-reparto-compact textarea{color:#0f172a !important;}
+.gestion-reparto-compact .fi-input:disabled,
+.gestion-reparto-compact textarea:disabled{color:#334155 !important;-webkit-text-fill-color:#334155 !important;}
+.gestion-reparto-compact .fi-input-wrp-label{color:#334155 !important;}
+.gestion-reparto-compact label:has(input[value="sin_cambios"]) span{font-weight:700 !important;color:#334155 !important;}
+.gestion-reparto-compact label:has(input[value="entrega_completa"]) span,
+.gestion-reparto-compact label:has(input[value="aumenta_oferta"]) span{font-weight:700 !important;color:#15803d !important;}
+.gestion-reparto-compact label:has(input[value="disminuye_oferta"]) span{font-weight:700 !important;color:#ea580c !important;}
+.gestion-reparto-compact label:has(input[value="no_entrego"]) span{font-weight:700 !important;color:#dc2626 !important;}
+html.dark .gestion-reparto-compact{background-color:#0f2744 !important;--tw-ring-color:rgba(147,197,253,.35);}
+html.dark .gestion-reparto-compact .fi-section-header-heading{color:#bfdbfe !important;}
+html.dark .gestion-reparto-compact .fi-fo-field-wrp-label span{color:#e2e8f0 !important;}
+html.dark .gestion-reparto-compact .fi-input-wrp{background-color:rgba(255,255,255,.08) !important;}
+html.dark .gestion-reparto-compact .fi-input,
+html.dark .gestion-reparto-compact textarea{color:#f8fafc !important;background-color:transparent !important;}
+html.dark .gestion-reparto-compact .fi-input::placeholder,
+html.dark .gestion-reparto-compact textarea::placeholder{color:#94a3b8 !important;-webkit-text-fill-color:#94a3b8 !important;}
+html.dark .gestion-reparto-compact .fi-input:disabled,
+html.dark .gestion-reparto-compact textarea:disabled{color:#cbd5e1 !important;-webkit-text-fill-color:#cbd5e1 !important;}
+html.dark .gestion-reparto-compact .fi-input-wrp-label{color:#cbd5e1 !important;}
+html.dark .gestion-reparto-compact label:has(input[value="sin_cambios"]) span{font-weight:700 !important;color:#e2e8f0 !important;}
+html.dark .gestion-reparto-compact label:has(input[value="entrega_completa"]) span,
+html.dark .gestion-reparto-compact label:has(input[value="aumenta_oferta"]) span{color:#4ade80 !important;}
+html.dark .gestion-reparto-compact label:has(input[value="disminuye_oferta"]) span{color:#fdba74 !important;}
+html.dark .gestion-reparto-compact label:has(input[value="no_entrego"]) span{color:#fca5a5 !important;}
+.gestion-reparto-compact .ventas-a-restar .fi-fo-field-wrp-label span,
+.gestion-reparto-compact .ventas-a-restar .fi-input{color:#dc2626 !important;-webkit-text-fill-color:#dc2626 !important;font-weight:800 !important;}
+html.dark .gestion-reparto-compact .ventas-a-restar .fi-fo-field-wrp-label span,
+html.dark .gestion-reparto-compact .ventas-a-restar .fi-input{color:#fca5a5 !important;-webkit-text-fill-color:#fca5a5 !important;}
+.gestion-reparto-compact .monto-final-negrita .fi-fo-field-wrp-label span,
+.gestion-reparto-compact .monto-final-negrita .fi-input,
+.gestion-reparto-compact .monto-final-negrita .fi-input-wrp-prefix{font-weight:800 !important;}
+@keyframes guardar-gestion-reparto-parpadeo {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.35; }
+}
+.guardar-gestion-reparto-btn {
+  background-color: #facc15 !important;
+  color: #422006 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.03em;
+  animation: guardar-gestion-reparto-parpadeo 0.9s step-end infinite;
+}
+.guardar-gestion-reparto-btn .fi-btn-label,
+.guardar-gestion-reparto-btn svg { color: #422006 !important; }
+@media (prefers-reduced-motion: reduce) {
+  .guardar-gestion-reparto-btn { animation: none; }
+}
+</style>
+HTML;
+    }
+
+    protected static function totalNroVentasComercialField(string $name, string $label = 'Total Nro Ventas Comercial'): TextInput
+    {
+        return TextInput::make($name)
+            ->label($label)
+            ->disabled()
+            ->dehydrated(false)
+            ->formatStateUsing(fn (Get $get, ?Venta $record) => self::ventasComercialEnFormulario($get, $record));
+    }
+
+    /**
+     * Suma el valor de ventas de cada oferta del formulario.
+     * Ese valor está en la lista de ofertas (un doblete = 2, una sencilla = 1, etc.).
+     *
+     * @param  array<int|string, mixed>|null  $ventaOfertas
+     */
+    public static function totalVentasComercial(?array $ventaOfertas): ?string
+    {
+        $ids = collect($ventaOfertas ?? [])
+            ->map(fn ($line) => is_array($line) ? ($line['oferta_id'] ?? null) : null)
+            ->filter(fn ($id) => filled($id))
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return null;
+        }
+
+        $valores = Oferta::query()
+            ->whereIn('id', $ids->unique()->all())
+            ->pluck('valor', 'id');
+
+        return self::sumarVentasDeLineas($ids->all(), $valores->all());
+    }
+
+    /**
+     * @param  array<int, mixed>  $ofertaIds
+     * @param  array<int|string, mixed>  $valorPorId
+     */
+    public static function sumarVentasDeLineas(array $ofertaIds, array $valorPorId): ?string
+    {
+        if ($ofertaIds === []) {
+            return null;
+        }
+
+        $porId = [];
+        foreach ($valorPorId as $id => $valor) {
+            $porId[(string) $id] = $valor;
+        }
+
+        $sum = 0.0;
+        foreach ($ofertaIds as $id) {
+            $sum += (float) ($porId[(string) $id] ?? 0);
+        }
+
+        return self::formatVentaCount($sum);
+    }
+
+    public static function formatVentaCount(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $number = (float) str_replace(',', '.', (string) $value);
+
+        if (abs($number - round($number)) < 0.001) {
+            return (string) (int) round($number);
+        }
+
+        return number_format($number, 1, '.', '');
+    }
+
+    protected static function totalVentasComercialDesdeRecord(?Venta $record): ?string
+    {
+        if (! $record) {
+            return null;
+        }
+
+        $record->unsetRelation('ventaOfertas');
+        $record->load('ventaOfertas');
+
+        return self::totalVentasComercial(
+            $record->ventaOfertas
+                ->map(fn ($vo) => ['oferta_id' => $vo->oferta_id])
+                ->all()
+        );
+    }
+
+    protected static function syncTotalVentasComercial(Get $get, Set $set, string $root = ''): void
+    {
+        $lineas = $get($root.'ventaOfertas');
+        $partes = self::partirVentasDeLineas(is_array($lineas) ? $lineas : []);
+        $vtasCom = $partes['comercial'];
+        $vtasRep = $partes['reparto'];
+
+        $set($root.'total_ventas_oferta', $vtasCom);
+        $set($root.'total_nro_ventas_comercial_reparto', $vtasCom);
+        $set($root.'total_nro_ventas_comercial_disminuye', $vtasCom);
+        $set($root.'vtas_rep_parcial', $vtasRep);
+        $set(
+            $root.'total_vtas_com_disminuye',
+            self::totalEntregaParcial($vtasCom, $get($root.'total_venta_reducida'), $vtasRep),
+        );
+        $set(
+            $root.'total_ventas_post_aumento',
+            self::sumarVtas($vtasCom, self::vtasRepartoEditadas($get, $root)),
+        );
+    }
+
+    public static function ventaARestarNegativa(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $number = (float) str_replace(',', '.', (string) $value);
+        if ($number > 0) {
+            $number *= -1;
+        }
+
+        return self::formatVentaCount($number);
+    }
+
+    public static function sumarVtasVarias(mixed ...$valores): ?string
+    {
+        $total = null;
+        foreach ($valores as $valor) {
+            $total = self::sumarVtas($total, $valor);
+        }
+
+        return $total;
+    }
+
+    public static function totalEntregaParcial(mixed $comercial, mixed $restar, mixed $reparto): ?string
+    {
+        return self::sumarVtasVarias(
+            $comercial,
+            self::ventaARestarNegativa($restar) ?? '-1',
+            ($reparto === null || $reparto === '') ? '0' : $reparto,
+        );
+    }
+
+    public static function sumarVtas(mixed $comercial, mixed $reparto): ?string
+    {
+        if (($comercial === null || $comercial === '') && ($reparto === null || $reparto === '')) {
+            return null;
+        }
+
+        $izquierda = ($comercial === null || $comercial === '')
+            ? 0
+            : (float) str_replace(',', '.', (string) $comercial);
+        $derecha = ($reparto === null || $reparto === '')
+            ? 0
+            : (float) str_replace(',', '.', (string) $reparto);
+
+        return self::formatVentaCount($izquierda + $derecha);
+    }
+
+    protected static function vtasRepartoEditadas(Get $get, string $root = ''): string
+    {
+        $valor = $get($root.'total_vtas_com_reparto');
+        $numero = ($valor === null || $valor === '')
+            ? 0
+            : (float) str_replace(',', '.', (string) $valor);
+
+        if ($numero < 1) {
+            return '1';
+        }
+
+        return self::formatVentaCount($numero) ?? '1';
+    }
+
+    protected static function montoFinalRepartoField(string $name): TextInput
+    {
+        return TextInput::make($name)
+            ->label('Monto Final €')
+            ->numeric()
+            ->prefix('€')
+            ->disabled()
+            ->dehydrated(false)
+            ->extraFieldWrapperAttributes(['class' => 'monto-final-negrita'])
+            ->formatStateUsing(fn (Get $get) => $get('total_final'));
+    }
+
+    protected static function montoDesdeTotalFinal(mixed $total): ?string
+    {
+        if ($total === null || $total === '') {
+            return null;
+        }
+
+        return number_format((float) str_replace(',', '.', (string) $total), 2, '.', '');
+    }
+
+    protected static function halfStepSalesField(string $name, string $label): TextInput
+    {
+        return TextInput::make($name)
+            ->label($label)
+            ->numeric()
+            ->step(0.5)
+            ->minValue(1)
+            ->default(1)
+            ->formatStateUsing(fn (mixed $state): mixed => ($state === null || $state === '') ? 1 : $state)
+            ->rules([
+                'nullable',
+                fn (): \Closure => function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    $number = (float) str_replace(',', '.', (string) $value);
+                    $halfSteps = $number * 2;
+
+                    if ($number < 1 || abs($halfSteps - round($halfSteps)) > 0.001) {
+                        $fail('Solo de 0,5 en 0,5, desde 1.');
+                    }
+                },
+            ]);
+    }
+
+    protected static function gestionRepartoSection(): Section
+    {
+        return Section::make()
+            ->id('gestion-reparto')
+            ->heading(function (Get $get, ?Venta $record = null): HtmlString {
+                $badges = self::gestionRepartoBadgesHtml($get, $record);
+
+                return new HtmlString(
+                    '<span class="gestion-reparto-heading-row">'
+                    .'<span class="gestion-reparto-heading-text">GESTIÓN DE REPARTO - RESULTADO DE LA ENTREGA</span>'
+                    .$badges
+                    .'</span>'
+                );
+            })
+            ->collapsible()
+            ->collapsed()
+            ->compact()
+            ->extraAttributes(['class' => 'gestion-reparto-compact'])
+            ->columnSpanFull()
+            ->columns(2)
+            ->schema([
+                Placeholder::make('gestion_reparto_styles')
+                    ->hiddenLabel()
+                    ->content(new HtmlString(self::gestionRepartoStyles()))
+                    ->extraAttributes(['style' => 'display:none'])
+                    ->columnSpanFull(),
+
+                Hidden::make('total_ventas_oferta')
+                    ->dehydrated()
+                    ->afterStateHydrated(function (Set $set, ?Venta $record): void {
+                        $set('total_ventas_oferta', self::totalVentasComercialDesdeRecord($record));
+                    }),
+
+                Radio::make('resultado_entrega')
+                    ->hiddenLabel()
+                    ->options([
+                        'sin_cambios' => 'Sin Cambios',
+                        'entrega_completa' => 'Entrega completa',
+                        'aumenta_oferta' => 'Venta Reparto',
+                        'disminuye_oferta' => 'Entrega parcial',
+                        'no_entrego' => 'Sin entrega',
+                    ])
+                    ->default('sin_cambios')
+                    ->formatStateUsing(fn ($state) => filled($state) ? $state : 'sin_cambios')
+                    ->inline()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set, Get $get, ?Venta $record = null): void {
+                        $vtasRep = self::vtasRepartoEnFormulario($get, $record);
+                        $set('vtas_rep_parcial', $vtasRep === '' ? '0' : $vtasRep);
+
+                        if ($state !== 'aumenta_oferta') {
+                            return;
+                        }
+
+                        $editadas = self::vtasRepartoEditadas($get);
+                        $set('total_vtas_com_reparto', $editadas);
+                        $set('total_ventas_post_aumento', self::sumarVtas(
+                            self::ventasComercialEnFormulario($get, $record),
+                            $editadas,
+                        ));
+                    })
+                    ->columnSpanFull(),
+
+                Grid::make(['default' => 1, 'lg' => 5])
+                    ->schema([
+                        self::totalNroVentasComercialField('total_nro_ventas_comercial_disminuye', 'Vtas Con.'),
+
+                        TextInput::make('total_venta_reducida')
+                            ->label('Vtas a descontar')
+                            ->numeric()
+                            ->step(0.5)
+                            ->maxValue(-0.5)
+                            ->required()
+                            ->default(-1)
+                            ->live(onBlur: true)
+                            ->extraFieldWrapperAttributes(['class' => 'ventas-a-restar'])
+                            ->formatStateUsing(fn (mixed $state): string => self::ventaARestarNegativa($state) ?? '-1')
+                            ->afterStateUpdated(function ($state, Set $set, Get $get): void {
+                                $numero = ($state === null || $state === '')
+                                    ? null
+                                    : (float) str_replace(',', '.', (string) $state);
+
+                                if ($numero !== null && $numero > 0) {
+                                    $state = self::ventaARestarNegativa($numero);
+                                    $set('total_venta_reducida', $state);
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title('Este número debe figurar en negativo. Ej; -1')
+                                        ->warning()
+                                        ->send();
+                                }
+
+                                $set('total_vtas_com_disminuye', self::totalEntregaParcial(
+                                    self::ventasComercialEnFormulario($get, null),
+                                    $state,
+                                    self::vtasRepartoDeLineas(is_array($get('ventaOfertas')) ? $get('ventaOfertas') : []),
+                                ));
+                            })
+                            ->rules([
+                                'required',
+                                fn (): \Closure => function (string $attribute, mixed $value, \Closure $fail): void {
+                                    if ($value === null || $value === '') {
+                                        $fail('Indica las vtas a descontar en negativo.');
+
+                                        return;
+                                    }
+
+                                    $number = (float) str_replace(',', '.', (string) $value);
+                                    $halfSteps = $number * 2;
+
+                                    if ($number >= 0 || abs($halfSteps - round($halfSteps)) > 0.001) {
+                                        $fail('Debe ser negativo, de 0,5 en 0,5.');
+                                    }
+                                },
+                            ]),
+
+                        TextInput::make('vtas_rep_parcial')
+                            ->label('Vtas Rep.')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default('0')
+                            ->afterStateHydrated(function (TextInput $component, Get $get, ?Venta $record = null): void {
+                                $valor = self::vtasRepartoEnFormulario($get, $record);
+                                $component->state(($valor === null || $valor === '') ? '0' : $valor);
+                            }),
+
+                        TextInput::make('total_vtas_com_disminuye')
+                            ->label('Total Vtas Com + Rep')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(fn (Get $get, ?Venta $record): ?string => self::totalEntregaParcial(
+                                self::ventasComercialEnFormulario($get, $record),
+                                $get('total_venta_reducida'),
+                                self::vtasRepartoEnFormulario($get, $record),
+                            )),
+
+                        self::montoFinalRepartoField('monto_final_reducida'),
+                    ])
+                    ->visible(fn (Get $get): bool => $get('resultado_entrega') === 'disminuye_oferta')
+                    ->columnSpanFull(),
+
+                Grid::make(['default' => 1, 'lg' => 4])
+                    ->schema([
+                        self::totalNroVentasComercialField('total_nro_ventas_comercial_reparto', 'Total Ventas del Comercial'),
+
+                        self::halfStepSalesField('total_vtas_com_reparto', 'Vtas Rep.')
+                            ->live(debounce: 300)
+                            ->formatStateUsing(fn (mixed $state): mixed => ((float) str_replace(',', '.', (string) ($state ?? 0)) < 1) ? 1 : $state)
+                            ->afterStateUpdated(function ($state, Set $set, Get $get): void {
+                                $set('total_ventas_post_aumento', self::sumarVtas(
+                                    self::ventasComercialEnFormulario($get, null),
+                                    $state,
+                                ));
+                            }),
+
+                        TextInput::make('total_ventas_post_aumento')
+                            ->label('Total Vtas Com + Reparto')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->formatStateUsing(fn (Get $get, ?Venta $record) => self::sumarVtas(
+                                self::ventasComercialEnFormulario($get, $record),
+                                self::vtasRepartoEditadas($get),
+                            )),
+
+                        self::montoFinalRepartoField('monto_final_aumento'),
+                    ])
+                    ->visible(fn (Get $get): bool => $get('resultado_entrega') === 'aumenta_oferta')
+                    ->columnSpanFull(),
+
+                Forms\Components\Textarea::make('observaciones_gestion_reparto')
+                    ->label('Observaciones de Gestión/Reparto')
+                    ->rows(2)
+                    ->columnSpanFull(),
+
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('guardarGestionReparto')
+                        ->label('GUARDAR CAMBIOS GESTION REPARTO')
+                        ->color('warning')
+                        ->extraAttributes(['class' => 'guardar-gestion-reparto-btn'])
+                        ->action(function ($livewire): void {
+                            if (method_exists($livewire, 'save')) {
+                                $livewire->save();
+                            }
+                        }),
+                ])
+                    ->visible(fn (Get $get): bool => filled($get('resultado_entrega')) && $get('resultado_entrega') !== 'sin_cambios')
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    protected static function gestionRepartoBadgesHtml(Get $get, ?Venta $record): string
+    {
+        [$vtasCom, $vtasRep] = self::badgesVentasComYRep($get, $record);
+        $vtasCom = e($vtasCom);
+        $vtasRep = e($vtasRep);
+        $total = e(self::badgeTotalEuros($get, $record));
+
+        return <<<HTML
+<span class="gestion-reparto-badges">
+    <span class="gr-badge gr-badge-com">Vtas Com <strong>{$vtasCom}</strong></span>
+    <span class="gr-badge gr-badge-rep">Vtas Rep <strong>{$vtasRep}</strong></span>
+    <span class="gr-badge gr-badge-eur">Total € <strong>{$total}</strong></span>
+</span>
+HTML;
+    }
+
+    /**
+     * Vtas Com: ofertas del comercial.
+     * Vtas Rep: ventas de las ofertas declaradas solo por el repartidor. Si no hay, 0.
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected static function badgesVentasComYRep(Get $get, ?Venta $record): array
+    {
+        $lineas = self::lineasParaVentas($get, $record);
+        $split = ['comercial' => null, 'reparto' => '0'];
+
+        if ($lineas !== []) {
+            $ids = collect($lineas)
+                ->map(fn ($line) => is_array($line) ? ($line['oferta_id'] ?? null) : null)
+                ->filter(fn ($id) => filled($id))
+                ->unique()
+                ->values();
+
+            $valores = $ids->isEmpty()
+                ? []
+                : Oferta::query()->whereIn('id', $ids->all())->pluck('valor', 'id')->all();
+
+            $split = self::clasificarVentasDeLineas($lineas, $valores);
+        }
+
+        $vtasCom = $split['comercial']
+            ?? self::formatVentaCount($get('total_ventas_oferta'))
+            ?? self::totalVentasComercialDesdeRecord($record)
+            ?? '—';
+
+        $resultado = $get('resultado_entrega') ?: $record?->resultado_entrega ?: 'sin_cambios';
+
+        if ($resultado === 'aumenta_oferta') {
+            return [$vtasCom, self::vtasRepartoEditadas($get)];
+        }
+
+        return [$vtasCom, $split['reparto']];
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $lineas
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function lineasParaVentas(Get $get, ?Venta $record): array
+    {
+        $fromForm = $get('ventaOfertas');
+        if (is_array($fromForm)) {
+            return array_values($fromForm);
+        }
+
+        if (! $record) {
+            return [];
+        }
+
+        return self::lineasDesdeRecord($record);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function lineasDesdeRecord(Venta $record): array
+    {
+        $record->loadMissing('ventaOfertas.productos');
+
+        return $record->ventaOfertas
+            ->map(fn ($vo) => [
+                'oferta_id' => $vo->oferta_id,
+                'productos' => $vo->productos->map(fn ($producto) => [
+                    'vendido_por' => $producto->vendido_por instanceof \BackedEnum
+                        ? $producto->vendido_por->value
+                        : $producto->vendido_por,
+                ])->all(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $lineas
+     * @return array{comercial: ?string, reparto: string}
+     */
+    protected static function partirVentasDeLineas(?array $lineas): array
+    {
+        if ($lineas === null || $lineas === []) {
+            return ['comercial' => null, 'reparto' => '0'];
+        }
+
+        $ids = collect($lineas)
+            ->map(fn ($line) => is_array($line) ? ($line['oferta_id'] ?? null) : null)
+            ->filter(fn ($id) => filled($id))
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return ['comercial' => null, 'reparto' => '0'];
+        }
+
+        $valores = Oferta::query()
+            ->whereIn('id', $ids->all())
+            ->pluck('valor', 'id')
+            ->all();
+
+        return self::clasificarVentasDeLineas(array_values($lineas), $valores);
+    }
+
+    /**
+     * @param  array<int|string, mixed>|null  $lineas
+     */
+    protected static function vtasRepartoDeLineas(?array $lineas): string
+    {
+        return self::partirVentasDeLineas($lineas)['reparto'];
+    }
+
+    protected static function ventasComercialEnFormulario(Get $get, ?Venta $record): ?string
+    {
+        $lineas = $get('ventaOfertas');
+        if (is_array($lineas)) {
+            return self::partirVentasDeLineas($lineas)['comercial'];
+        }
+
+        if (! $record) {
+            return null;
+        }
+
+        $record->unsetRelation('ventaOfertas');
+
+        return self::partirVentasDeLineas(self::lineasDesdeRecord($record))['comercial'];
+    }
+
+    protected static function vtasRepartoEnFormulario(Get $get, ?Venta $record): string
+    {
+        $lineas = $get('ventaOfertas');
+        if (is_array($lineas)) {
+            return self::vtasRepartoDeLineas($lineas);
+        }
+
+        return self::vtasRepartoDesdeRecord($record);
+    }
+
+    protected static function vtasRepartoDesdeRecord(?Venta $record): string
+    {
+        if (! $record) {
+            return '0';
+        }
+
+        $record->unsetRelation('ventaOfertas');
+
+        return self::vtasRepartoDeLineas(self::lineasDesdeRecord($record));
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $lineas
+     * @param  array<int|string, mixed>  $valorPorId
+     * @return array{comercial: ?string, reparto: string}
+     */
+    public static function clasificarVentasDeLineas(array $lineas, array $valorPorId): array
+    {
+        $porId = [];
+        foreach ($valorPorId as $id => $valor) {
+            $porId[(string) $id] = (float) $valor;
+        }
+
+        $comercial = 0.0;
+        $reparto = 0.0;
+        $hayOferta = false;
+
+        foreach ($lineas as $line) {
+            if (! is_array($line) || ! filled($line['oferta_id'] ?? null)) {
+                continue;
+            }
+
+            $hayOferta = true;
+            $valor = $porId[(string) $line['oferta_id']] ?? 0.0;
+
+            if (self::ofertaEsVentaReparto($line)) {
+                $reparto += $valor;
+            } else {
+                $comercial += $valor;
+            }
+        }
+
+        return [
+            'comercial' => $hayOferta ? (self::formatVentaCount($comercial) ?? '0') : null,
+            'reparto' => $reparto > 0 ? (self::formatVentaCount($reparto) ?? '0') : '0',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    public static function ofertaEsVentaReparto(array $line): bool
+    {
+        $productos = collect($line['productos'] ?? []);
+        $tieneRepartidor = $productos->contains(
+            fn ($producto) => self::vendidoPorDeLinea($producto) === VendidoPor::Repartidor->value
+        );
+        $tieneComercial = $productos->contains(
+            fn ($producto) => self::vendidoPorDeLinea($producto) === VendidoPor::Comercial->value
+        );
+
+        return $tieneRepartidor && ! $tieneComercial;
+    }
+
+    protected static function vendidoPorDeLinea(mixed $producto): ?string
+    {
+        $vendidoPor = is_array($producto) ? ($producto['vendido_por'] ?? null) : null;
+
+        if ($vendidoPor instanceof \BackedEnum) {
+            $vendidoPor = $vendidoPor->value;
+        }
+
+        return is_string($vendidoPor) ? $vendidoPor : null;
+    }
+
+    protected static function badgeTotalEuros(Get $get, ?Venta $record): string
+    {
+        $raw = $get('total_final');
+        if ($raw === null || $raw === '') {
+            $raw = $record?->total_final;
+        }
+        if ($raw === null || $raw === '') {
+            return '—';
+        }
+
+        return number_format((float) str_replace(',', '.', (string) $raw), 2, '.', '');
+    }
+
+    public static function normalizeGestionReparto(array $data, ?Venta $record = null): array
+    {
+        $resultado = $data['resultado_entrega'] ?? null;
+
+        if (! in_array($resultado, ['sin_cambios', 'entrega_completa', 'disminuye_oferta', 'aumenta_oferta', 'no_entrego'], true)) {
+            $data['resultado_entrega'] = null;
+            $resultado = null;
+        }
+
+        $partes = $record
+            ? self::partirVentasDeLineas((function () use ($record): array {
+                $record->unsetRelation('ventaOfertas');
+
+                return self::lineasDesdeRecord($record);
+            })())
+            : ['comercial' => self::formatVentaCount($data['total_ventas_oferta'] ?? null), 'reparto' => '0'];
+        $ventasComercial = $partes['comercial'];
+        $data['total_ventas_oferta'] = $ventasComercial;
+
+        if ($resultado === 'disminuye_oferta') {
+            $restar = self::ventaARestarNegativa($data['total_venta_reducida'] ?? null) ?? '-1';
+            $data['total_venta_reducida'] = $restar;
+            $data['total_vtas_com_disminuye'] = self::totalEntregaParcial(
+                $ventasComercial,
+                $restar,
+                $partes['reparto'],
+            );
+            $data['monto_final_reducida'] = self::montoDesdeTotalFinal($data['total_final'] ?? null);
+        } else {
+            $data['total_venta_reducida'] = null;
+            $data['total_vtas_com_disminuye'] = null;
+            $data['monto_final_reducida'] = null;
+        }
+
+        if ($resultado === 'aumenta_oferta') {
+            $vtasRep = self::formatVentaCount($data['total_vtas_com_reparto'] ?? null);
+            if ($vtasRep === null || (float) $vtasRep < 1) {
+                $vtasRep = '1';
+            }
+            $data['total_vtas_com_reparto'] = $vtasRep;
+            $data['monto_final_aumento'] = self::montoDesdeTotalFinal($data['total_final'] ?? null);
+            $data['total_ventas_post_aumento'] = self::sumarVtas($ventasComercial, $vtasRep);
+        } else {
+            $data['total_ventas_post_aumento'] = null;
+            $data['total_vtas_com_reparto'] = null;
+            $data['monto_final_aumento'] = null;
+        }
+
+        foreach ([
+            'total_ventas_oferta',
+            'total_venta_reducida',
+            'total_vtas_com_disminuye',
+            'monto_final_reducida',
+            'total_ventas_post_aumento',
+            'total_vtas_com_reparto',
+            'monto_final_aumento',
+        ] as $key) {
+            if (array_key_exists($key, $data) && $data[$key] === '') {
+                $data[$key] = null;
+            }
+        }
+
+        if (array_key_exists('observaciones_gestion_reparto', $data) && $data['observaciones_gestion_reparto'] === '') {
+            $data['observaciones_gestion_reparto'] = null;
+        }
+
+        return $data;
     }
 
 

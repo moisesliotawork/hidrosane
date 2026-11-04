@@ -72,6 +72,7 @@ class SeguimientoDeRuta extends Page
                                     ->orWhereRaw('LOWER(TRIM(estado_terminal)) = ?', [EstadoTerminal::AUSENTE->value]);
                             })
                             ->whereDoesntHave('venta')
+                            ->notBlockedByRecentSale()
                             ->where(function ($q2) {
                                 $q2->whereNull('reten')->orWhere('reten', false);
                             });

@@ -4,6 +4,8 @@ namespace App\Filament\Commercial\Resources;
 
 use App\Filament\Commercial\Resources\VentaResource\Pages;
 use App\Filament\Commercial\Resources\VentaResource\RelationManagers;
+use App\Models\Customer;
+use App\Models\Note;
 use App\Models\Venta;
 use App\Models\User;
 use App\Models\Producto;
@@ -26,6 +28,7 @@ use Filament\Forms\Components\{
     Hidden,
     Grid
 };
+use App\Support\CustomerSurnames;
 use App\Support\Filament\FechaNacimientoField;
 use App\Support\Filament\VentaDocumentUpload;
 use App\Support\Filament\GpsActionForm;
@@ -39,12 +42,26 @@ use Filament\Forms\Components\{
 };
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Filament\Support\Colors\Color;
 
 class VentaResource extends Resource
 {
     protected static ?string $model = Venta::class;
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
+
+    public static function clienteYaTieneVenta(mixed $livewire): bool
+    {
+        $noteId = $livewire->noteId ?? null;
+
+        if (! $noteId) {
+            return false;
+        }
+
+        $customerId = Note::query()->whereKey($noteId)->value('customer_id');
+
+        return Customer::idHasVenta($customerId);
+    }
 
     /** Step 1: all data except documents */
     public static function step1Schema(): array
@@ -63,28 +80,40 @@ class VentaResource extends Resource
                             'xl' => 3,   // >= 1280 px
                         ])->schema([
 
-                                    // ➊ Datos personales
                                     TextInput::make('first_names')
                                         ->label('Nombres')
-                                        ->required(),
+                                        ->extraInputAttributes([
+                                            'style' => 'font-weight:700;',
+                                        ])
+                                        ->disabled(fn ($livewire): bool => self::clienteYaTieneVenta($livewire))
+                                        ->dehydrated(fn ($livewire): bool => ! self::clienteYaTieneVenta($livewire))
+                                        ->required(fn ($livewire): bool => ! self::clienteYaTieneVenta($livewire))
+                                        ->helperText(fn ($livewire): ?string => self::clienteYaTieneVenta($livewire)
+                                            ? 'Este cliente ya tiene una venta. El nombre no se puede modificar.'
+                                            : null),
 
                                     TextInput::make('last_names')
                                         ->label('Apellidos')
-                                        ->required()
-                                        ->rules([
-                                            function () {
-                                                return function (string $attribute, $value, \Closure $fail) {
-                                                    if (count(array_filter(explode(' ', trim((string) $value)))) < 2) {
-                                                        $fail('Debes escribir al menos 2 apellidos del cliente');
-                                                    }
-                                                };
-                                            },
-                                        ]),
+                                        ->extraInputAttributes([
+                                            'style' => 'font-weight:700;',
+                                        ])
+                                        ->disabled(fn ($livewire): bool => self::clienteYaTieneVenta($livewire))
+                                        ->dehydrated(fn ($livewire): bool => ! self::clienteYaTieneVenta($livewire))
+                                        ->required(fn ($livewire): bool => ! self::clienteYaTieneVenta($livewire))
+                                        ->helperText(fn ($livewire): ?string => self::clienteYaTieneVenta($livewire)
+                                            ? 'Este cliente ya tiene una venta. Los apellidos no se pueden modificar.'
+                                            : 'Hacen falta dos apellidos distintos. El segundo debe tener 3 caracteres o más.')
+                                        ->rules(fn ($livewire): array => self::clienteYaTieneVenta($livewire)
+                                            ? []
+                                            : [CustomerSurnames::validationRule()]),
 
                                     TextInput::make('dni')
                                         ->label('DNI')
                                         ->columnSpanFull()
-                                        ->required(),
+                                        ->required()
+                                        ->extraInputAttributes([
+                                            'style' => 'font-weight:700;',
+                                        ]),
 
                                     TextInput::make('customer.edadTelOp')
                                         ->label('Edad (Tel. Op.)')
@@ -96,26 +125,16 @@ class VentaResource extends Resource
                                     TextInput::make('age')
                                         ->numeric()
                                         ->label('Edad')
-                                        ->readOnly()                  // no editable
-                                        ->dehydrated(false),  // NO enviar al backend; el modelo la calcula
-
-
-                                    // ➋ Contacto
-                                    //TextInput::make('phone')
-                                    //    ->label('Teléfono')
-                                    //    ->tel()
-                                    //    ->required(),
-
-                                    //TextInput::make('secondary_phone')
-                                    //    ->label('Teléfono 2')
-                                    //    ->tel(),
+                                        ->readOnly()
+                                        ->dehydrated(false),
 
                             TextInput::make('phone1_commercial')
-                                ->label('Teléfono Principal')
+                                ->label('Tlf 1.Principal')
                                 ->required()
-                                ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                                ->live()
+                                ->maxLength(11)
                                 ->extraInputAttributes([
-                                    'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                                    'style' => 'font-weight: 800; color: #1e3a8a;',
                                     'x-data' => '',
                                     'x-on:input' => "
             \$nextTick(() => {
@@ -132,14 +151,21 @@ class VentaResource extends Resource
                                 ->dehydrateStateUsing(function (?string $state): ?string {
                                     // Guardar SOLO los 9 dígitos en la base de datos (sin espacios)
                                     return $state ? preg_replace('/\D/', '', $state) : null;
+                                })
+                                ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                    $digits = preg_replace('/\D/', '', (string) $state);
+                                    if ($digits === '') {
+                                        $set('phone2_commercial', null);
+                                    }
                                 }),
 
                             TextInput::make('phone2_commercial')
                                 ->label('Teléfono Secundario')
-
-                                ->maxLength(11) // ← permite hasta 11 caracteres visibles (9 dígitos + 2 espacios)
+                                ->dehydrated()
+                                ->disabled(fn (Get $get): bool => blank(preg_replace('/\D/', '', (string) $get('phone1_commercial'))))
+                                ->maxLength(11)
                                 ->extraInputAttributes([
-                                    'style' => 'font-weight: bold; color: goldenrod;', // amarillo suave y legible
+                                    'style' => 'font-weight: 800; color: #1e3a8a;',
                                     'x-data' => '',
                                     'x-on:input' => "
             \$nextTick(() => {
@@ -257,13 +283,12 @@ class VentaResource extends Resource
                                         )
                                         ->searchable()
                                         ->preload()
-                                        ->default(1)
                                         ->required()
                                         ->reactive(),
 
 
                                 ]),
-                    ]),
+                    ])->compact(),
 
                 Section::make('¿Estás en pareja con otro compañero?')
                     ->schema([
@@ -274,7 +299,7 @@ class VentaResource extends Resource
                                     ->native(false)
                                     ->searchable()
                                     ->required()
-                                    ->placeholder('Selecciona una opción')
+                                    ->placeholder('Seleccionar')
                                     ->options(
                                         fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                         + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -289,10 +314,10 @@ class VentaResource extends Resource
                                             ])
                                             ->all()
                                     )
-                            ])
+                            ])->compact()
 
 
-                    ]),
+                    ])->compact(),
 
                 /* ---------- Ofertas ---------- */
                 Section::make('Ofertas incluidas')
@@ -300,7 +325,7 @@ class VentaResource extends Resource
                         Repeater::make('ventaOfertas')
                             ->relationship()
                             ->createItemButtonLabel('Agregar Oferta')
-                            ->addAction(fn($action) => $action->button()->color('success'))
+                            ->addAction(fn ($action) => $action->button()->color('success'))
                             ->minItems(1)
                             ->label(false)
                             ->afterStateUpdated(function (Get $get, Set $set) {
@@ -509,14 +534,21 @@ class VentaResource extends Resource
                                             ->columns(1)
                                             ->itemLabel(
                                                 ""
+                                            )
+                                            ->addActionLabel('Añadir Producto a esta oferta')
+                                            ->addAction(fn ($action) => $action
+                                                ->label('Añadir Producto a esta oferta')
+                                                ->button()
+                                                ->color(Color::Pink)
                                             ),
                                     ])
-                                    ->columns(1),
+                                    ->columns(1)
+                                    ->compact(),
 
                             ])
                             ->columns(1)
                             ->collapsible(),
-                    ]),
+                    ])->compact(),
 
                 /* ---------- Productos externos ---------- */
                 Section::make('Productos externos')
@@ -572,7 +604,8 @@ class VentaResource extends Resource
                     })
                     ->columns(1)
                     ->collapsible()
-                    ->reactive(),
+                    ->reactive()
+                    ->compact(),
 
 
                 /* ---------- Datos de la venta ---------- */
@@ -642,7 +675,7 @@ class VentaResource extends Resource
                     Select::make('num_cuotas')
                         ->label('Nº de cuotas')
                         ->options(
-                            collect(range(1, 39))
+                            collect(range(1, 40))
                                 ->mapWithKeys(fn($num) => [$num => $num])
                                 ->toArray()
                         )
@@ -658,7 +691,7 @@ class VentaResource extends Resource
 
                         ->rules([
                             'integer',
-                            Rule::in(array_merge(range(1, 39))),
+                            Rule::in(array_merge(range(1, 40))),
                         ])
 
                         ->afterStateUpdated(function (Get $get, Set $set, $state) {
@@ -717,7 +750,7 @@ class VentaResource extends Resource
                         }),
 
 
-                ])->columns(2),
+                ])->columns(2)->compact(),
 
                 Section::make('Informe al REPARTIDOR')->schema([
                     DatePicker::make('fecha_entrega')
@@ -776,7 +809,7 @@ class VentaResource extends Resource
                         ->label('Observaciones adicionales para el repartidor')
                         ->rows(3)
                         ->columnSpanFull(),
-                ])->columns(2),
+                ])->columns(2)->compact(),
 
         ];
     }
@@ -788,19 +821,20 @@ class VentaResource extends Resource
             ...GpsActionForm::ventaWizardFields(),
             Section::make('Gestión Documentos')
                 ->schema([
-                    //RESTO: CÁMARA
-                    self::docCard('precontractual', 'Precontractual', true, true),
-                    self::docCard('foto_sorteo', 'Foto Sorteo', true, true),
-                    self::docCard('dni_anverso', 'DNI – Anverso', false, true),
-                    self::docCard('dni_reverso', 'DNI – Reverso', false, true),
-                    self::docCard('documento_titularidad', 'Documento de titularidad', false, true),
-                    self::docCard('nomina', 'Nómina', false, true),
-                    self::docCard('pension', 'Pensión', false, true),
-                    //self::docCard('contrato_firmado', 'Contrato Firmado', false, true),
-                    self::docCard('otros_documentos', 'Otros Documentos', false, true),
+                    // Sin capture (iPhone: Cámara + Fototeca). El flag soloCamara se ignora en VentaDocumentUpload.
+                    self::docCard('precontractual', 'Precontractual', true, false),
+                    self::docCard('foto_sorteo', 'Foto Sorteo', true, false),
+                    self::docCard('dni_anverso', 'DNI – Anverso', false, false),
+                    self::docCard('dni_reverso', 'DNI – Reverso', false, false),
+                    self::docCard('documento_titularidad', 'Documento de titularidad', false, false),
+                    self::docCard('nomina', 'Nómina', false, false),
+                    self::docCard('pension', 'Pensión', false, false),
+                    //self::docCard('contrato_firmado', 'Contrato Firmado', false, false),
+                    self::docCard('otros_documentos', 'Otros Documentos', false, false),
                 ])
                 ->columns(1)
-                ->columnSpanFull(),
+                ->columnSpanFull()
+                ->compact(),
         ];
     }
 
@@ -871,9 +905,7 @@ class VentaResource extends Resource
                 $field,
                 $required,
             )
-                ->validationMessages([
-                    'required' => "El documento {$label} es obligatorio.",
-                ])
+                ->validationMessages(VentaDocumentUpload::documentValidationMessages($label))
                 ->columnSpanFull(),
         );
     }

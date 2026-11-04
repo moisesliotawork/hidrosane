@@ -2,8 +2,9 @@
 
 namespace App\Filament\Commercial\Pages;
 
-use Filament\Pages\Page;
 use App\Models\User;
+use App\Support\ReasignarVisitasComercialQuery;
+use Filament\Pages\Page;
 
 class NotasDeComercial extends Page
 {
@@ -37,6 +38,12 @@ class NotasDeComercial extends Page
 
         $this->comercial = User::find($id);
         abort_unless($this->comercial, 404);
+
+        // JE: no abrir perfil gerente / JV / IDs ocultos por URL
+        abort_if(
+            ReasignarVisitasComercialQuery::shouldHideComercial($this->comercial),
+            403
+        );
 
         $this->comercialId = $this->comercial->id;
     }

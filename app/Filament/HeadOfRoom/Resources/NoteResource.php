@@ -32,7 +32,6 @@ use Illuminate\Validation\Rule;
 use App\Models\Customer;
 use App\Models\Venta;
 use Filament\Notifications\Actions\Action as NotificationAction;
-use App\Filament\HeadOfRoom\Pages\BuscarCliente;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\ToggleColumn;
 use App\Filament\Support\CustomerPhoneForm;
@@ -55,11 +54,13 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['blockedByVenta.comercial:id,empleado_id,name'])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
                         EstadoTerminal::SIN_ESTADO->value,  // ''
                         EstadoTerminal::SALA->value,        // 'sala'
+                        EstadoTerminal::AUSENTE->value,     // visible en la pestaña NOTAS
                     ]);
             });
     }
@@ -81,7 +82,7 @@ class NoteResource extends Resource
                             ->searchable()
                             ->getSearchResultsUsing(function (string $search): array {
                                 return User::query()
-                                    ->role(['teleoperator', 'head_of_room'])
+                                    ->teleoperadorasActivasSelect()
                                     ->where(function (Builder $q) use ($search) {
                                         $q->where('name', 'like', "%{$search}%")
                                             ->orWhere('last_name', 'like', "%{$search}%")
@@ -95,7 +96,7 @@ class NoteResource extends Resource
                             })
                             ->options(function (): array {
                                 return User::query()
-                                    ->role(['teleoperator', 'head_of_room'])
+                                    ->teleoperadorasActivasSelect()
                                     ->orderBy('empleado_id')
                                     ->get()
                                     ->mapWithKeys(fn($u) => [$u->id => $u->display_name])
@@ -193,11 +194,13 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('fuente')
                             ->label('Tipo')
                             ->native(false)
-                            ->options(\App\Enums\FuenteNotas::options()) // sin filtrar opciones
-                            // === visibilidad y comportamiento ===
-                            ->hidden(fn() => !auth()->user()?->canSeeVipSources())
-                            ->dehydrated(fn() => auth()->user()?->canSeeVipSources())   // solo envía el valor si se muestra
-                            ->required(fn() => auth()->user()?->canSeeVipSources()),     // solo es requerido si se muestra
+                            ->options(fn () => FuenteNotas::optionsForUser(auth()->user()))
+                            ->default(FuenteNotas::CALLE->value)
+                            ->selectablePlaceholder(false)
+                            ->required()
+                            ->validationMessages([
+                                'required' => 'El tipo es obligatorio',
+                            ]),
 
 
 
@@ -342,35 +345,119 @@ class NoteResource extends Resource
                     ->sortable()
                     ->alignCenter(),
 
+                Tables\Columns\TextColumn::make('blocked_by_venta_id')
+                    ->label('Alerta')
+                    ->badge()
+                    ->alignCenter()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? 'VENTA RECIENTE' : '')
+                    ->color(fn ($state): string => filled($state) ? 'danger' : 'gray')
+                    ->tooltip(function (Note $record): ?string {
+                        if (! $record->blocked_by_venta_id) {
+                            return null;
+                        }
+
+                        $restriction = NoteAssignRestriction::forNote($record);
+
+                        return $restriction['message']
+                            ?? 'Cliente con venta reciente. Asignar requiere forzar.';
+                    })
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('estado_terminal')
                     ->label('En nota')
                     ->badge()
                     ->formatStateUsing(fn (Note $record): string => $record->estado_terminal->enNotaLabel())
                     ->color(fn (Note $record): string => $record->estado_terminal->enNotaColor())
-                    ->tooltip('Clic para cambiar el estado')
+                    ->tooltip('Clic para elegir el estado')
                     ->alignCenter()
-                    ->action(function (Note $record): void {
-                        $next = EstadoTerminal::nextFromRaw($record->getRawOriginal('estado_terminal'));
+                    ->action(
+                        Action::make('cambiarEstadoEnNota')
+                            ->modalHeading(fn (Note $record): string => 'Cambiar estado — nota #'.$record->nro_nota)
+                            ->modalDescription('Se muestra el estado actual de la base de datos. Elige otro solo si debes corregirlo. No uses esto para declarar una venta nueva.')
+                            ->modalSubmitActionLabel('Guardar estado')
+                            ->modalCancelActionLabel('Cancelar')
+                            ->fillForm(function (Note $record): array {
+                                // Valor por defecto = exactamente lo guardado en BD
+                                $raw = $record->getRawOriginal('estado_terminal');
 
-                        if (NoteVentaDeclarationGuard::wouldBecomeVenta($next)) {
-                            Notification::make()
-                                ->title('No se puede marcar como VENTA')
-                                ->body(NoteVentaDeclarationGuard::blockReasonForManualTerminalVenta($record))
-                                ->warning()
-                                ->persistent()
-                                ->send();
+                                return [
+                                    'estado_terminal' => ($raw === null || $raw === '')
+                                        ? '__SIN_ESTADO__'
+                                        : (string) $raw,
+                                ];
+                            })
+                            ->form([
+                                Forms\Components\Select::make('estado_terminal')
+                                    ->label('Estado en nota (BD)')
+                                    ->helperText('Por defecto aparece el estado actual de la nota.')
+                                    ->options(
+                                        collect(EstadoTerminal::cases())
+                                            ->mapWithKeys(fn (EstadoTerminal $estado) => [
+                                                $estado->value === '' ? '__SIN_ESTADO__' : $estado->value => $estado->enNotaLabel(),
+                                            ])
+                                            ->all()
+                                    )
+                                    ->required()
+                                    ->native(false)
+                                    ->searchable(false),
+                            ])
+                            ->action(function (Note $record, array $data): void {
+                                $raw = $data['estado_terminal'] ?? null;
+                                if ($raw === '__SIN_ESTADO__') {
+                                    $raw = EstadoTerminal::SIN_ESTADO->value;
+                                }
 
-                            return;
-                        }
+                                $next = EstadoTerminal::tryFrom((string) $raw)
+                                    ?? (($raw === '' || $raw === null)
+                                        ? EstadoTerminal::SIN_ESTADO
+                                        : null);
 
-                        $record->update(['estado_terminal' => $next->value]);
+                                if ($next === null) {
+                                    Notification::make()
+                                        ->title('Estado no válido')
+                                        ->danger()
+                                        ->send();
 
-                        Notification::make()
-                            ->title('Estado actualizado')
-                            ->body("En nota: {$next->enNotaLabel()}")
-                            ->success()
-                            ->send();
-                    }),
+                                    return;
+                                }
+
+                                $currentRaw = $record->getRawOriginal('estado_terminal') ?? '';
+                                $currentIsVenta = NoteVentaDeclarationGuard::wouldBecomeVenta($currentRaw);
+                                $nextIsVenta = NoteVentaDeclarationGuard::wouldBecomeVenta($next);
+
+                                // Solo se bloquea pasar a VENTA desde otro estado (no crea contrato).
+                                // Si ya es venta en BD, se puede dejar o cambiar a otro estado.
+                                if ($nextIsVenta && ! $currentIsVenta) {
+                                    Notification::make()
+                                        ->title('No se puede marcar como VENTA')
+                                        ->body(NoteVentaDeclarationGuard::blockReasonForManualTerminalVenta($record))
+                                        ->warning()
+                                        ->persistent()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                if ((string) $currentRaw === (string) $next->value) {
+                                    Notification::make()
+                                        ->title('Sin cambios')
+                                        ->body('La nota ya tiene ese estado en base de datos.')
+                                        ->info()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $record->update(['estado_terminal' => $next->value]);
+
+                                Notification::make()
+                                    ->title('Estado actualizado')
+                                    ->body("En nota: {$next->enNotaLabel()}")
+                                    ->success()
+                                    ->send();
+                            })
+                    ),
 
                 // Tables\Columns\TextColumn::make('fuente')
                 // ->badge()
@@ -617,6 +704,18 @@ class NoteResource extends Resource
                         blank: fn(Builder $q) => $q,
                     ),
 
+                Tables\Filters\TernaryFilter::make('blocked_by_venta_id')
+                    ->label('Venta reciente')
+                    ->trueLabel('Solo con alerta venta reciente')
+                    ->falseLabel('Sin alerta venta reciente')
+                    ->placeholder('Todas')
+                    ->native(false)
+                    ->queries(
+                        true: fn (Builder $q) => $q->whereNotNull('blocked_by_venta_id'),
+                        false: fn (Builder $q) => $q->whereNull('blocked_by_venta_id'),
+                        blank: fn (Builder $q) => $q,
+                    ),
+
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(4)
@@ -722,23 +821,23 @@ class NoteResource extends Resource
                     })
                     ->modalHeading(function (Note $record): string {
                         return NoteAssignRestriction::forNote($record) !== null
-                            ? 'Asignación restringida'
+                            ? '⛔ Venta reciente — asignación restringida'
                             : 'Confirmar asignación';
                     })
                     ->modalDescription(function (Note $record): ?string {
                         if (NoteAssignRestriction::forNote($record) !== null) {
-                            return 'Este cliente tiene una restricción. Revisa el detalle y, si procede, asigna de todos modos.';
+                            return 'Este cliente YA TIENE una venta reciente. Si continúas, la nota volverá a la agenda del comercial pese a esa venta. Solo fuerza si es consciente y necesario.';
                         }
 
                         return 'Selecciona el comercial y confirma la asignación de la nota #'.$record->nro_nota.'.';
                     })
                     ->modalSubmitActionLabel(function (Note $record): string {
                         return NoteAssignRestriction::forNote($record) !== null
-                            ? 'ASIGNAR DE TODOS MODOS'
+                            ? 'ASIGNAR DE TODOS MODOS (hay venta reciente)'
                             : 'Sí, confirmar';
                     })
                     ->color(fn (Note $record): string => NoteAssignRestriction::forNote($record) !== null
-                        ? 'warning'
+                        ? 'danger'
                         : 'primary')
                     ->modalWidth('2xl')
                     ->action(function (Note $record, array $data): void {
@@ -780,13 +879,23 @@ class NoteResource extends Resource
                             $comercialId = $data['comercial_id'] ?? null;
                             $forced = $restriction !== null && ! blank($comercialId);
 
+                            if ($forced) {
+                                Notification::make()
+                                    ->title('Asignación forzada pese a venta reciente')
+                                    ->body(
+                                        ($restriction['message'] ?? 'Había una venta reciente.')
+                                        .' La nota vuelve a aparecer en la agenda del comercial.'
+                                    )
+                                    ->warning()
+                                    ->persistent()
+                                    ->send();
+
+                                return;
+                            }
+
                             $message = blank($comercialId)
                                 ? 'Comercial removido correctamente'
-                                : (
-                                    $forced
-                                        ? 'Asignación forzada: '.User::find($comercialId)?->name
-                                        : 'Comercial asignado correctamente: '.User::find($comercialId)?->name
-                                );
+                                : 'Comercial asignado correctamente: '.User::find($comercialId)?->name;
 
                             Notification::make()
                                 ->title($message)
@@ -827,17 +936,24 @@ class NoteResource extends Resource
                         }
 
                         try {
+                            $restrictionMsg = $pending['restriction']['message'] ?? null;
+
                             NoteAssignRestriction::applyAssignment($record, $pending['data'] ?? []);
 
                             $comercialId = $pending['data']['comercial_id'] ?? null;
+
                             Notification::make()
-                                ->title('Asignación forzada completada')
+                                ->title('Asignación forzada pese a venta reciente')
                                 ->body(
-                                    blank($comercialId)
-                                        ? 'Comercial removido'
-                                        : 'Comercial asignado (sin aplicar restricción): '.User::find($comercialId)?->name
+                                    ($restrictionMsg ? $restrictionMsg.' ' : '')
+                                    .(
+                                        blank($comercialId)
+                                            ? 'Comercial removido.'
+                                            : 'Comercial asignado: '.User::find($comercialId)?->name.'. La nota vuelve a agenda.'
+                                    )
                                 )
                                 ->warning()
+                                ->persistent()
                                 ->send();
                         } catch (\Throwable $e) {
                             Notification::make()
@@ -850,11 +966,7 @@ class NoteResource extends Resource
 
             ])
             ->headerActions([
-                Action::make('irABuscarCliente')
-                    ->label('Crear Nota nueva          ')
-                    ->icon('heroicon-o-magnifying-glass')
-                    ->color('warning')
-                    ->url(fn() => BuscarCliente::getUrl()),
+                // El botón naranja "Crear Nota nueva" → BuscarCliente está en ListNotes::getHeaderActions().
 
                 //Tables\Actions\Action::make('buscarTelefono')
                 //    ->label('Buscar teléfono')
@@ -946,10 +1058,44 @@ class NoteResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('pdfSalaSoloNoImpresas')
-                    ->label('PDF - Oficina')
+                    ->label('PDF / Oficina /selección')
                     ->icon('heroicon-o-printer')
                     ->color('pink')
                     ->requiresConfirmation()
+                    ->modalHeading('PDF / Oficina /selección')
+                    ->modalDescription(function (Collection $records): string {
+                        $idsNoImpresas = $records
+                            ->filter(fn (Note $n) => ! $n->printed)
+                            ->pluck('id')
+                            ->values()
+                            ->all();
+
+                        if ($idsNoImpresas === []) {
+                            return 'Ninguna de las seleccionadas está pendiente de imprimir. No se generará ningún PDF.';
+                        }
+
+                        $count = Note::query()
+                            ->whereIn('id', $idsNoImpresas)
+                            ->where(function (Builder $q) {
+                                $q->whereNull('estado_terminal')
+                                    ->orWhereIn('estado_terminal', [
+                                        EstadoTerminal::SIN_ESTADO->value,
+                                        EstadoTerminal::SALA->value,
+                                    ]);
+                            })
+                            ->count();
+
+                        if ($count === 0) {
+                            return 'No hay notas válidas entre la selección (solo SIN_ESTADO o SALA). No se generará ningún PDF.';
+                        }
+
+                        $seleccionadas = $records->count();
+
+                        return $count === 1
+                            ? "Se va a imprimir 1 nota (de {$seleccionadas} seleccionada/s). ¿Continuar?"
+                            : "Se van a imprimir {$count} notas (de {$seleccionadas} seleccionada/s). ¿Continuar?";
+                    })
+                    ->modalSubmitActionLabel('Generar PDF')
                     ->action(function (Collection $records) {
                         // 1) Solo no impresas
                         $idsNoImpresas = $records

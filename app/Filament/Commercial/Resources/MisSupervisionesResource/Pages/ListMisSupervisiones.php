@@ -39,6 +39,7 @@ class ListMisSupervisiones extends ListRecords
                                 ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
                         })
                         ->whereDoesntHave('venta')
+                        ->notBlockedByRecentSale()
                         ->count();
                 }),
         ];
@@ -60,6 +61,7 @@ class ListMisSupervisiones extends ListRecords
                             ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
                     })
                     ->whereDoesntHave('venta')
+                    ->notBlockedByRecentSale()
                     ->count());
         }
 

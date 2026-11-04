@@ -40,20 +40,51 @@ class VentaOrigenResolver
 
     public static function origenForCreateFromNote(Note $note): OrigenVenta
     {
-        if ($note->fuente === FuenteNotas::PTA_FRIA) {
+        if ($note->fuente === FuenteNotas::PTA_FRIA || self::isAutogenerarNota($note)) {
             return OrigenVenta::PUERTA_FRIA;
         }
 
         return OrigenVenta::VENTA_NORMAL;
     }
 
+    /**
+     * Nota creada con Autogenerar nota por comercial o jefe de equipo
+     * (fuente VIP-EXT, creador = comercial asignado).
+     */
+    public static function isAutogenerarNota(?Note $note): bool
+    {
+        if (! $note || $note->fuente !== FuenteNotas::VIP_EXT) {
+            return false;
+        }
+
+        if (! $note->user_id || ! $note->comercial_id) {
+            return false;
+        }
+
+        if ((int) $note->user_id !== (int) $note->comercial_id) {
+            return false;
+        }
+
+        $note->loadMissing('user');
+        $creator = $note->user;
+
+        return $creator !== null
+            && $creator->hasAnyRole(['commercial', 'team_leader']);
+    }
+
     /** Fuente visible en listados de contratos (teleoperadora vs puerta fría). */
     public static function fuenteDisplayForVenta(Venta $venta): FuenteNotas
     {
-        $venta->loadMissing('note');
+        $venta->loadMissing(['note', 'comercial']);
+
+        $esComercial911 = (string) ($venta->comercial?->empleado_id ?? '') === ActionGps::GPS_EXEMPT_COMMERCIAL_EMPLEADO_ID;
+
+        if (self::isAutogenerarNota($venta->note)) {
+            return $esComercial911 ? FuenteNotas::AG_N_ADMIN : FuenteNotas::PTA_FRIA;
+        }
 
         if ($venta->origen_venta === OrigenVenta::PUERTA_FRIA) {
-            return FuenteNotas::PTA_FRIA;
+            return $esComercial911 ? FuenteNotas::PF_ADMIN : FuenteNotas::PTA_FRIA;
         }
 
         if ($venta->origen_venta === OrigenVenta::EXCEL) {

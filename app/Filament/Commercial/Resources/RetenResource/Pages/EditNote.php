@@ -31,6 +31,7 @@ use App\Support\NoteRouteGps;
 use App\Support\NoteSalaActions;
 use App\Support\Filament\GpsActionForm;
 use App\Support\NoteVentaDeclarationGuard;
+use App\Support\RecentSaleAgendaBlocker;
 use App\Filament\Commercial\Concerns\HandlesGpsActionModal;
 
 class EditNote extends EditRecord
@@ -38,6 +39,26 @@ class EditNote extends EditRecord
     use HandlesGpsActionModal;
 
     protected static string $resource = RetenResource::class;
+
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        $reason = RecentSaleAgendaBlocker::manageBlockReason($this->record);
+
+        if ($reason === null) {
+            return;
+        }
+
+        Notification::make()
+            ->title('Nota bloqueada por venta reciente')
+            ->body($reason)
+            ->danger()
+            ->persistent()
+            ->send();
+
+        $this->redirect(RetenResource::postGestionRedirectUrl());
+    }
 
     public function getTitle(): string
     {
@@ -100,7 +121,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(RetenResource::postGestionRedirectUrl());
                 }),
 
             Actions\Action::make('nulo')
@@ -115,7 +136,7 @@ class EditNote extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -188,7 +209,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(RetenResource::postGestionRedirectUrl());
                 }),
 
 
@@ -213,7 +234,7 @@ class EditNote extends EditRecord
                                 ->native(false)
                                 ->searchable()
                                 ->required()
-                                ->placeholder('Selecciona una opción')
+                                ->placeholder('Seleccionar')
                                 ->options(
                                     fn() => ['__NONE__' => 'SIN COMPAÑERO']
                                     + User::role(['commercial', 'team_leader', 'sales_manager'])
@@ -354,7 +375,7 @@ class EditNote extends EditRecord
                         ->send();
 
                     // 3️⃣ Flujo normal: volvemos al listado
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(RetenResource::postGestionRedirectUrl());
                 }),
 
 
@@ -432,7 +453,7 @@ class EditNote extends EditRecord
                         ->success()
                         ->send();
 
-                    $this->redirect(static::getResource()::getUrl('index'));
+                    $this->redirect(RetenResource::postGestionRedirectUrl());
                 }),
 
         ];
@@ -532,7 +553,7 @@ class EditNote extends EditRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return RetenResource::postGestionRedirectUrl();
     }
 
     private function syncComercialToSession(): void

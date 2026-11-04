@@ -6,6 +6,8 @@ use App\Filament\Admin\Resources\CustomerResource\Pages;
 use App\Filament\Admin\Resources\CustomerResource\RelationManagers;
 use App\Filament\Support\CustomerPosicionGlobalTable;
 use App\Models\Customer;
+use App\Models\Venta;
+use App\Support\CustomerNameSearch;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -20,7 +22,6 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Carbon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Support\Colors\Color;
-use App\Models\Venta;
 
 class CustomerResource extends Resource
 {
@@ -147,7 +148,9 @@ class CustomerResource extends Resource
                     ->label('Nombre de Cliente')
                     ->weight('bold')
                     ->state(fn(Customer $r) => mb_strtoupper(trim($r->first_names . ' ' . $r->last_names)))
-                    ->searchable(['first_names', 'last_names'])
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainCustomer($query, $search),
+                    )
                     ->extraAttributes(['class' => 'whitespace-nowrap']),
 
                 TextColumn::make('nro_cliente')

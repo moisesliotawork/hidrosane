@@ -188,6 +188,17 @@ class Customer extends Model
         return $this->hasMany(Venta::class, 'customer_id');
     }
 
+    public static function idHasVenta(mixed $customerId): bool
+    {
+        $id = (int) $customerId;
+
+        if ($id <= 0) {
+            return false;
+        }
+
+        return Venta::query()->where('customer_id', $id)->exists();
+    }
+
     /** Relación: última venta del cliente (para eager loading eficiente) */
     public function latestVenta(): HasOne
     {
@@ -422,7 +433,94 @@ class Customer extends Model
 
     public function getIsMergedAttribute(): bool
     {
-        return !is_null($this->merged_into_id);
+        return ! is_null($this->merged_into_id);
+    }
+
+    /**
+     * Si el cliente está fusionado, devuelve la ficha activa (sigue merged_into_id).
+     * Si ya es activo (o no existe), se devuelve a sí mismo / null.
+     */
+    public static function resolveToActive(?self $customer): ?self
+    {
+        if (! $customer) {
+            return null;
+        }
+
+        $seen = [];
+        $current = $customer;
+
+        while ($current && filled($current->merged_into_id)) {
+            $id = (int) $current->id;
+            if (isset($seen[$id])) {
+                return null;
+            }
+            $seen[$id] = true;
+
+            $next = static::withoutGlobalScope(NotMergedScope::class)
+                ->withTrashed()
+                ->find((int) $current->merged_into_id);
+
+            if (! $next) {
+                return null;
+            }
+
+            $current = $next;
+        }
+
+        if (! $current || $current->trashed()) {
+            return null;
+        }
+
+        // El global scope NotMergedScope no aplica a instancias ya cargadas;
+        // si llegó aquí sin merged_into_id y no está soft-deleted, es usable.
+        return $current;
+    }
+
+    /**
+     * Resuelve un id de cliente a la ficha activa (nunca una fusionada).
+     */
+    public static function resolveActiveId(?int $customerId): ?int
+    {
+        if (! $customerId) {
+            return null;
+        }
+
+        $customer = static::withoutGlobalScope(NotMergedScope::class)
+            ->withTrashed()
+            ->find($customerId);
+
+        return static::resolveToActive($customer)?->id;
+    }
+
+    /**
+     * Busca cliente activo por DNI. Si solo hay coincidencia en una ficha fusionada,
+     * sigue la cadena hasta el keeper activo.
+     */
+    public static function findActiveByDni(string $dni): ?self
+    {
+        $dni = mb_strtoupper(trim($dni));
+        if ($dni === '') {
+            return null;
+        }
+
+        $active = static::query()
+            ->whereNull('deleted_at')
+            ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
+            ->orderBy('id')
+            ->first();
+
+        if ($active) {
+            return $active;
+        }
+
+        $merged = static::withoutGlobalScope(NotMergedScope::class)
+            ->withTrashed()
+            ->whereNotNull('merged_into_id')
+            ->whereRaw('UPPER(TRIM(dni)) = ?', [$dni])
+            ->orderByDesc('id')
+            ->first();
+
+        return static::resolveToActive($merged);
     }
 
     /**

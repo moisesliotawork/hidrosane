@@ -19,6 +19,8 @@ class CreateNote extends CreateRecord
 
     public bool $isEmergencyCreate = false;
 
+    public bool $forceNewCustomer = false;
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -29,6 +31,7 @@ class CreateNote extends CreateRecord
         parent::mount();
 
         $this->isEmergencyCreate = request()->boolean('emergency');
+        $this->forceNewCustomer = request()->boolean('nuevo');
 
         // Si viene un customer_id, precargamos TODO
         if ($customerId = request()->query('customer_id')) {
@@ -160,6 +163,10 @@ class CreateNote extends CreateRecord
         $data['customer_id'] = $customer->id;
         $data['comercial_id'] = null;
 
+        if (! Auth::user()?->canSeeVipSources()) {
+            $data['fuente'] = \App\Enums\FuenteNotas::CALLE->value;
+        }
+
         unset($data['edadTelOp']);
 
         return $data;
@@ -171,6 +178,10 @@ class CreateNote extends CreateRecord
      */
     protected function resolveTargetCustomer(array $data): Customer
     {
+        if ($this->forceNewCustomer) {
+            return $this->createCustomerFromNoteData($data);
+        }
+
         $guard = app(TeleoperatorCustomerNoteGuard::class);
         $phoneMatches = $guard->resolveCustomersForPhone((string) ($data['phone'] ?? ''));
 

@@ -130,11 +130,13 @@ class NoteResource extends Resource
                         Forms\Components\Select::make('fuente')
                             ->label('Tipo')
                             ->native(false)
-                            ->options(FuenteNotas::options()) // sin filtrar opciones
-                            // === visibilidad y comportamiento ===
-                            ->hidden(fn() => !auth()->user()?->canSeeVipSources())
-                            ->dehydrated(fn() => auth()->user()?->canSeeVipSources())   // solo envía el valor si se muestra
-                            ->required(fn() => auth()->user()?->canSeeVipSources()),    // solo es requerido si se muestra
+                            ->options(fn () => FuenteNotas::optionsForUser(auth()->user()))
+                            ->default(FuenteNotas::CALLE->value)
+                            ->selectablePlaceholder(false)
+                            ->required()
+                            ->validationMessages([
+                                'required' => 'El tipo es obligatorio',
+                            ]),
 
                         Forms\Components\Select::make('status')
                             ->options(NoteStatus::options())

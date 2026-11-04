@@ -430,6 +430,7 @@ class NotasJV extends Component
         $eligible = Note::query()
             ->whereIn('id', $allIds)
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('estado_terminal')
                     ->orWhere('estado_terminal', '')
@@ -492,7 +493,8 @@ class NotasJV extends Component
         }
 
         // 2) Sin ventas (como ya haces)
-        $query->whereDoesntHave('venta');
+        $query->whereDoesntHave('venta')
+        ->notBlockedByRecentSale();
 
         // 3) Filtros de asignación (como Resource)
         $hasAssignmentFilter = !empty($this->assignmentStart) || !empty($this->assignmentEnd) || !empty($this->assignmentExact);
@@ -807,8 +809,8 @@ class NotasJV extends Component
                 $postalCodeSimple = $customer->postal_code ?? null;
                 $citySimple = $customer->ciudad ?? null;
                 $addressInfo = $postalCodeSimple && $citySimple
-                    ? "$citySimple, $postalCodeSimple"
-                    : ($citySimple ?? $postalCodeSimple ?? 'Sin ubicación');
+                    ? "$postalCodeSimple, $citySimple"
+                    : ($postalCodeSimple ?? $citySimple ?? 'Sin ubicación');
                 // ============================================
 
                 return [
@@ -834,6 +836,8 @@ class NotasJV extends Component
                     'lng' => $note->lng,
                     'lat' => $note->lat,
                     'lng_dentro' => $note->lng_dentro,
+                    'blocked_by_recent_sale' => filled($note->blocked_by_venta_id),
+                    'blocked_by_recent_sale_label' => filled($note->blocked_by_venta_id) ? 'VENTA RECIENTE' : null,
                 ];
             });
     }

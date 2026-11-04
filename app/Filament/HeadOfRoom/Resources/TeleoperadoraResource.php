@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Columns\TextColumn;
 use App\Enums\EstadoTerminal;
-use Illuminate\Support\Carbon;
 
 class TeleoperadoraResource extends Resource
 {
@@ -153,26 +152,9 @@ SQL;
 
     public static function getEloquentQuery(): Builder
     {
-        $tz = config('app.timezone', 'UTC');
-
-        // Hoy en tu zona horaria
-        $today = Carbon::today($tz);
-
-        // Primer día del mes anterior (límite mínimo para seguir mostrándola)
-        $firstDayPreviousMonth = $today->copy()
-            ->subMonth()
-            ->startOfMonth()
-            ->toDateString(); // formato 'Y-m-d'
-
         return User::query()
             ->select('users.*')
-            ->role(['teleoperator', 'head_of_room'])
-            ->where(function (Builder $q) use ($firstDayPreviousMonth) {
-                $q->whereNull('users.baja') // sin baja, siempre visible
-                    // solo mostrar si la baja fue en el mes actual o en el mes anterior
-                    ->orWhereDate('users.baja', '>=', $firstDayPreviousMonth);
-            })
-            ->whereNotIn('users.empleado_id', ['038', '046'])
+            ->teleoperadorasVisiblesJefeSala()
             ->distinct('users.id');
     }
 

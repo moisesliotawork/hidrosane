@@ -13,7 +13,7 @@ use App\Models\User;
  */
 final class AccesoDirecto
 {
-    /** @return array{rol: string, panel: string, etiqueta: string}|null */
+    /** @return array{rol: string, panel: string, etiqueta: string, email?: string, empleado_id?: array<int, string>}|null */
     public static function perfil(string $clave): ?array
     {
         $spec = config("demo.perfiles.{$clave}");
@@ -22,7 +22,11 @@ final class AccesoDirecto
     }
 
     /**
-     * Primer usuario con ese rol que pueda entrar al panel.
+     * Usuario de ese rol que pueda entrar al panel.
+     *
+     * Si el perfil trae número de empleado o email (los de Ohana), entra ESA
+     * persona y no el primer registro del rol. Sin esos datos, se mantiene el
+     * primer usuario del rol, para no romper la demo.
      *
      * OJO CON is_active: en esta app NO significa «cuenta habilitada», significa
      * «tiene un fichaje abierto». Lo pone a true el middleware StartWorkSession
@@ -34,10 +38,33 @@ final class AccesoDirecto
      */
     public static function usuario(array $spec): ?User
     {
-        return User::query()
+        $ids = array_values(array_filter(
+            array_map(fn ($id) => trim((string) $id), (array) ($spec['empleado_id'] ?? [])),
+            fn ($id) => $id !== ''
+        ));
+        $email = trim((string) ($spec['email'] ?? ''));
+
+        $query = User::query()
             ->role($spec['rol'])
-            ->where(fn ($q) => $q->whereNull('can_login')->orWhere('can_login', true))
-            ->orderBy('id')
-            ->first();
+            ->where(fn ($q) => $q->whereNull('can_login')->orWhere('can_login', true));
+
+        if ($ids !== [] || $email !== '') {
+            $query->where(function ($q) use ($ids, $email) {
+                if ($ids !== []) {
+                    $q->whereIn('empleado_id', $ids);
+                }
+                if ($email !== '') {
+                    $method = $ids === [] ? 'where' : 'orWhere';
+                    $q->{$method}('email', $email);
+                }
+            });
+
+            if ($ids !== []) {
+                $marcas = implode(',', array_fill(0, count($ids), '?'));
+                $query->orderByRaw("CASE WHEN empleado_id IN ({$marcas}) THEN 0 ELSE 1 END", $ids);
+            }
+        }
+
+        return $query->orderBy('id')->first();
     }
 }

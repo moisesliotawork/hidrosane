@@ -15,6 +15,53 @@ class CreateNote extends CreateRecord
 {
     protected static string $resource = NoteResource::class;
 
+    public function mount(): void
+    {
+        parent::mount();
+
+        $prefill = [];
+        if ($customerId = request()->query('customer_id')) {
+            $customer = Customer::find($customerId);
+            if ($customer) {
+                $prefill = [
+                    'customer_id' => $customer->id,
+                    'first_names' => $customer->first_names,
+                    'last_names' => $customer->last_names,
+                    'phone' => $customer->phone,
+                    'secondary_phone' => $customer->secondary_phone,
+                    'third_phone' => $customer->third_phone,
+                    'edadTelOp' => $customer->edadTelOp ?? null,
+                    'email' => $customer->email,
+                    'postal_code' => $customer->postal_code,
+                    'nro_piso' => $customer->nro_piso,
+                    'ayuntamiento' => $customer->ayuntamiento,
+                    'provincia' => $customer->provincia,
+                    'primary_address' => $customer->primary_address,
+                    'secondary_address' => $customer->secondary_address,
+                    'parish' => $customer->parish,
+                ];
+            }
+        }
+
+        foreach (['first_names', 'last_names', 'phone', 'secondary_phone', 'third_phone', 'email'] as $key) {
+            $value = request()->query($key);
+            if ($value === null || $value === '') {
+                continue;
+            }
+            if (in_array($key, ['phone', 'secondary_phone', 'third_phone'], true)) {
+                $digits = preg_replace('/\D+/', '', (string) $value);
+                if (strlen($digits) === 9) {
+                    $value = implode(' ', str_split($digits, 3));
+                }
+            }
+            $prefill[$key] = $value;
+        }
+
+        if ($prefill !== []) {
+            $this->form->fill(array_merge($this->data ?? [], $prefill));
+        }
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

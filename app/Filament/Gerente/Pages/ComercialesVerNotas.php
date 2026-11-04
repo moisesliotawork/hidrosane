@@ -3,6 +3,7 @@
 namespace App\Filament\Gerente\Pages;
 
 use App\Models\User;
+use App\Support\ReasignarVisitasComercialQuery;
 use Filament\Pages\Page;
 use Filament\Support\Enums\ActionSize;
 use Filament\Support\Enums\FontWeight;
@@ -23,13 +24,19 @@ class ComercialesVerNotas extends Page implements HasTable
 
     protected static string $view = 'filament.gerente.pages.comerciales-ver-notas';
 
+    public static function canAccess(): bool
+    {
+        return auth()->check() && auth()->user()->hasAnyRole(['gerente_general', 'gerente']);
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->query(
-                User::query()
-                    ->role(['commercial', 'team_leader', 'sales_manager'])
-                    ->whereNull('baja')
+                ReasignarVisitasComercialQuery::applyHiddenComerciales(
+                    User::query()->role(['commercial', 'team_leader', 'sales_manager']),
+                    forGerente: true,
+                )
             )
             ->columns([
                 Tables\Columns\TextColumn::make('empleado_id')

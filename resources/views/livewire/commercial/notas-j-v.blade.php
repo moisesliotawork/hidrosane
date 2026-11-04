@@ -1,6 +1,5 @@
-<div class="notas-page">
+<div>
     <x-commercial.note-reveal-script />
-    <x-commercial.note-page-surface />
     <style>
         /* Estilos para la información del cliente en TODOS los tamaños */
         .customer-name {
@@ -92,26 +91,28 @@
 
         .bulk-bar {
             display: flex;
-            gap: .5rem;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: .35rem;
             margin: .25rem .75rem .75rem .75rem;
             align-items: center;
-            flex-wrap: wrap;
         }
 
         .filament-bulk-btn {
             display: inline-flex;
             align-items: center;
-            gap: .45rem;
-            padding: .45rem .75rem;
-            border-radius: .6rem;
+            gap: .3rem;
+            padding: .4rem .55rem;
+            border-radius: .55rem;
             font-weight: 700;
-            font-size: .78rem;
+            font-size: .72rem;
             line-height: 1;
             color: white;
             border: 0;
             cursor: pointer;
             box-shadow: 0 1px 2px rgba(0, 0, 0, .10);
             transition: transform .08s ease, opacity .15s ease;
+            white-space: nowrap;
         }
 
         .filament-bulk-btn:active {
@@ -139,20 +140,6 @@
             padding: .25rem .5rem;
             border-radius: 999px;
             background: rgba(107, 114, 128, .15);
-        }
-
-        .bulk-left {
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-            flex-wrap: wrap;
-        }
-
-        .bulk-right {
-            margin-left: auto;
-            /* empuja a la derecha */
-            display: flex;
-            align-items: center;
         }
 
         /* Botón verde estilo Filament bulk */
@@ -311,12 +298,15 @@
 
         .tabs-pill {
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: .35rem;
             padding: .4rem;
-            border-radius: 999px;
+            border-radius: 1rem;
             background: rgba(17, 24, 39, .55);
             border: 1px solid rgba(55, 65, 81, .6);
             backdrop-filter: blur(8px);
+            max-width: 100%;
         }
 
         .tab-btn {
@@ -340,7 +330,8 @@
 
         .tab-btn.is-active {
             background: rgba(31, 41, 55, .85);
-            color: #38bdf8;
+            color: #a3e635;
+            /* verde similar a la foto */
         }
 
         .tab-ico {
@@ -382,19 +373,10 @@
 
         @media (max-width: 520px) {
             .bulk-bar {
-                flex-wrap: nowrap;
-                /* CLAVE: no bajar a otra línea */
-                gap: .35rem;
+                flex-wrap: wrap;
+                gap: .3rem;
                 margin: .25rem .5rem .5rem .5rem;
-                overflow-x: auto;
-                /* si aun así no cabe, hace scroll horizontal suave */
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .bulk-left {
-                flex-wrap: nowrap;
-                /* todo en una fila */
-                gap: .35rem;
+                overflow-x: visible;
             }
 
             .bulk-count {
@@ -404,21 +386,15 @@
             }
 
             .filament-bulk-btn {
-                padding: .35rem .55rem;
-                border-radius: .55rem;
-                font-size: .70rem;
-                gap: .35rem;
-                white-space: nowrap;
+                padding: .32rem .45rem;
+                border-radius: .5rem;
+                font-size: .66rem;
+                gap: .25rem;
             }
 
             .heroicon {
-                width: .9rem;
-                height: .9rem;
-            }
-
-            /* Botón verde igual pero compacto */
-            .btn-autonota {
-                padding: .35rem .55rem;
+                width: .85rem;
+                height: .85rem;
             }
 
             .filter-control {
@@ -468,19 +444,10 @@
             }
 
             .bulk-bar {
-                flex-wrap: nowrap;
-                /* CLAVE: no bajar a otra línea */
-                gap: .35rem;
+                flex-wrap: wrap;
+                gap: .3rem;
                 margin: .25rem .5rem .5rem .5rem;
-                overflow-x: auto;
-                /* si aun así no cabe, hace scroll horizontal suave */
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .bulk-left {
-                flex-wrap: nowrap;
-                /* todo en una fila */
-                gap: .35rem;
+                overflow-x: visible;
             }
 
             .bulk-count {
@@ -490,21 +457,15 @@
             }
 
             .filament-bulk-btn {
-                padding: .35rem .55rem;
-                border-radius: .55rem;
-                font-size: .70rem;
-                gap: .35rem;
-                white-space: nowrap;
+                padding: .32rem .45rem;
+                border-radius: .5rem;
+                font-size: .66rem;
+                gap: .25rem;
             }
 
             .heroicon {
-                width: .9rem;
-                height: .9rem;
-            }
-
-            /* Botón verde igual pero compacto */
-            .btn-autonota {
-                padding: .35rem .55rem;
+                width: .85rem;
+                height: .85rem;
             }
 
             .filter-control {
@@ -705,23 +666,30 @@
 
 
     <div class="bulk-bar">
-        {{-- IZQUIERDA --}}
-        <div class="bulk-left">
-            <span class="bulk-count">
-                Seleccionadas: {{ count($selectedNotes) }}
-            </span>
+        <button class="filament-bulk-btn btn-sala" type="button"
+            onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
+            wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
+            <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 21h18M9 8h6m-6 4h6m-6 4h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" />
+            </svg>
+            EnvOfic
+        </button>
 
-            <button class="filament-bulk-btn btn-sala" type="button"
-                onclick="enviarAOficinaConGps('bulkEnviarASala')" wire:loading.attr="disabled"
-                wire:target="bulkEnviarASala" @disabled(count($selectedNotes) === 0)>
-                <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M3 21h18M9 8h6m-6 4h6m-6 4h6M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" />
-                </svg>
-                Enviar a Oficina
-            </button>
-        </div>
+        <a href="{{ \App\Filament\Commercial\Resources\AutogenerarNoteResource::getUrl('create') }}"
+            class="filament-bulk-btn btn-autonota">
+            <svg class="heroicon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            AutogNota
+        </a>
+
+        <span class="bulk-count">
+            Selecc: {{ count($selectedNotes) }}
+        </span>
     </div>
 
 
@@ -752,7 +720,7 @@
                     {{-- badge count --}}
                     @if($this->activeFiltersCount > 0)
                         <span
-                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-sky-500 text-black text-xs font-black flex items-center justify-center">
+                            class="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-lime-500 text-black text-xs font-black flex items-center justify-center">
                             {{ $this->activeFiltersCount }}
                         </span>
                     @endif
@@ -858,7 +826,14 @@
             <div class="space-y-4">
 
                 @forelse($this->notes as $note)
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" x-data="noteReveal()">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4" x-data="noteReveal({ exclusive: true, noteId: {{ (int) $note['id'] }} })">
+                        <div
+                            class="flex items-center gap-2 ml-3 w-full justify-end sm:w-auto sm:justify-start sm:basis-auto basis-full">
+                            <input type="checkbox" class="note-checkbox" wire:model.live="selectedNotes"
+                                value="{{ $note['id'] }}" />
+                        </div>
+                        <!-- Línea superior con todos los elementos -->
+                        <div class="flex items-center justify-between mb-3">
                             @php
                                 $colorData = match ($note['fuente_puntaje']) {
                                     4950 => ['bg_color' => '#f67400', 'text_color' => '#ffffff'],
@@ -866,19 +841,71 @@
                                     7500 => ['bg_color' => '#1e40af', 'text_color' => '#ffffff'],
                                     default => ['bg_color' => '#6b7280', 'text_color' => '#ffffff'],
                                 };
-                                $canSeePhones = $note['show_phone'] || $this->canAlwaysSeePhones();
+                                // JE / JV siempre ven botones Ver de teléfono y dirección.
+                                $canSeePhones = true;
                             @endphp
 
-                        <x-commercial.note-card-meta :note="$note" :color-data="$colorData" />
+                            <!-- Grupo izquierdo - Fecha, Horario -->
+                            <div class="flex flex-col gap-1 min-w-0 flex-1">
+                                <div class="flex gap-2 flex-wrap items-end">
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">Fecha</span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
+                                            {{ $note['visit_date'] }}
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">Horario</span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
+                                            {{ $note['visit_schedule'] ?? '--:--' }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
-                        <x-commercial.note-customer-location :note="$note" />
+                            <!-- Grupo central - Nro Nota, Puntaje y Comercial -->
+                            <div class="flex flex-col gap-1">
+                                <div class="flex gap-2">
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">Nro Nota</span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style="background-color: #00248c; color: {{ $colorData['text_color'] }};">
+                                            {{ $note['nro_nota'] }}
+                                            @if (!empty($note['blocked_by_recent_sale']))
+                                                <span class="ml-1 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-600 text-white">
+                                                    VENTA RECIENTE
+                                                </span>
+                                            @endif
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">Ptos</span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
+                                            {{ $note['fuente_puntaje'] }} pts
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">Comercial</span>
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style="background-color: {{ $colorData['bg_color'] }}; color: {{ $colorData['text_color'] }};">
+                                            {{ $note['comercial'] }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                        <x-commercial.note-phone-badges
-                            :note="$note"
-                            :color-data="$colorData"
-                            :can-see-phones="$canSeePhones"
-                            :as-tel-links="true"
-                        />
+                        <div class="flex gap-2 flex-wrap items-end mt-1 w-full">
+                            <x-commercial.note-phone-badges
+                                :note="$note"
+                                :color-data="$colorData"
+                                :can-see-phones="$canSeePhones"
+                                :as-tel-links="true"
+                            />
+                        </div>
 
                         <div class="my-2 border-t border-gray-100 dark:border-gray-700"></div>
 
@@ -896,6 +923,8 @@
                                 Reasignar Comercial
                             </button>
                         </div>
+
+
                     </div>
                 @empty
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">

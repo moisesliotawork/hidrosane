@@ -8,12 +8,13 @@ use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Forms\Components\Wizard\Step;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use App\Models\{Venta, Note, User};
+use App\Models\{Customer, Venta, Note, User};
 use App\Filament\Commercial\Pages\NotasHoy;
 use App\Enums\{EstadoTerminal, MesesEnum};
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use App\Events\VentaCreada;
+use App\Support\CustomerSurnames;
 use App\Support\VentaFechaVenta;
 use App\Support\VentaOrigenResolver;
 use App\Support\ActionGps;
@@ -30,6 +31,8 @@ class CreateVenta extends CreateRecord
     use HandlesGpsVentaWizard;
 
     protected static string $resource = VentaResource::class;
+
+    protected static string $view = 'filament.commercial.pages.create-venta';
 
     /** id de la nota recibida en la URL */
     public int $noteId;
@@ -105,7 +108,7 @@ class CreateVenta extends CreateRecord
     protected function getSubmitFormAction(): Action
     {
         return GpsActionForm::applyToVentaWizardCreateAction(
-            parent::getSubmitFormAction(),
+            parent::getSubmitFormAction()->color('pink'),
             fn (): bool => $this->isCreateVentaGpsReady(),
         );
     }
@@ -171,7 +174,7 @@ class CreateVenta extends CreateRecord
                 ->persistent()
                 ->send();
 
-            $this->redirect(\App\Filament\Commercial\Resources\NoteResource::getUrl('index', panel: 'comercial'));
+            $this->redirect(\App\Filament\Commercial\Resources\NoteResource::postGestionRedirectUrl());
 
             return;
         }
@@ -187,6 +190,40 @@ class CreateVenta extends CreateRecord
                 'age' => $fechaNac?->age,
             ],
         );
+
+        // Crear Venta: solo nombre/apellidos/DNI precargados. El resto de campos
+        // se muestran vacíos (como cliente nuevo) para relleno manual del comercial.
+        foreach ([
+            'phone1_commercial',
+            'phone2_commercial',
+            'third_phone',
+            'phone',
+            'secondary_phone',
+            'fecha_nac',
+            'age',
+            'customer.edadTelOp',
+            'edadTelOp',
+            'primary_address',
+            'secondary_address',
+            'parish',
+            'postal_code',
+            'postal_code_id',
+            'nro_piso',
+            'ciudad',
+            'provincia',
+            'ayuntamiento',
+            'tipo_vivienda',
+            'estado_civil',
+            'situacion_laboral',
+            'antiguedad',
+            'oficio',
+            'nombre_empresa',
+            'ingresos_rango',
+            'num_hab_casa',
+            'email',
+        ] as $blankField) {
+            $payload[$blankField] = null;
+        }
 
         $this->form->fill($payload);
 
@@ -331,10 +368,34 @@ class CreateVenta extends CreateRecord
                 $data['fecha_nac'] = FechaNacimientoField::normalizeForStorage($data['fecha_nac']);
             }
 
-            $customer->update(array_intersect_key(
+            $customerPayload = array_intersect_key(
                 $data,
                 array_flip($customer->getFillable())
-            ));
+            );
+
+            if (Customer::idHasVenta($customer->id)) {
+                unset($customerPayload['first_names'], $customerPayload['last_names']);
+            } else {
+                $firstNames = trim((string) ($data['first_names'] ?? ''));
+                $lastNames = trim((string) ($data['last_names'] ?? ''));
+
+                if ($firstNames === '') {
+                    throw ValidationException::withMessages([
+                        'first_names' => 'El nombre es obligatorio',
+                    ]);
+                }
+
+                if (! CustomerSurnames::hasTwoDistinct($lastNames)) {
+                    throw ValidationException::withMessages([
+                        'last_names' => CustomerSurnames::MESSAGE,
+                    ]);
+                }
+
+                $customerPayload['first_names'] = $firstNames;
+                $customerPayload['last_names'] = $lastNames;
+            }
+
+            $customer->update($customerPayload);
 
 
             /* ⚠️ Forzar número de cuotas si es contado */
@@ -393,7 +454,7 @@ class CreateVenta extends CreateRecord
 
                 'fecha_entrega' => $data['fecha_entrega'] ?? null,
                 'horario_entrega' => $data['horario_entrega'] ?? null,
-                'origen_venta' => \App\Enums\OrigenVenta::VENTA_NORMAL,
+                'origen_venta' => VentaOrigenResolver::origenForCreateFromNote($note),
 
                 'precontractual' => $data['precontractual'] ?? null,
                 'dni_anverso' => $data['dni_anverso'] ?? null,

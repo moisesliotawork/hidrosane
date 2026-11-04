@@ -29,7 +29,11 @@ trait PersistsVentaCustomerOnSave
 
         $previousCustomerId = (int) $this->record->customer_id;
 
-        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $payload);
+        VentaCustomerIdentityService::reassignCustomerIfNeeded(
+            $this->record,
+            $payload,
+            $this->customerIdentitySaveMode ?? null,
+        );
 
         $this->ventaCustomerPersistedInBeforeSave = true;
 
@@ -59,7 +63,11 @@ trait PersistsVentaCustomerOnSave
         }
 
         $data['customer'] = $data['customer'] ?? Arr::get($this->data, 'customer');
-        VentaCustomerIdentityService::reassignCustomerIfNeeded($this->record, $data);
+        VentaCustomerIdentityService::reassignCustomerIfNeeded(
+            $this->record,
+            $data,
+            $this->customerIdentitySaveMode ?? null,
+        );
         unset($data['customer']);
     }
 }

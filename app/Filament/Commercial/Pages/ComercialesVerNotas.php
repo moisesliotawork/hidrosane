@@ -3,7 +3,7 @@
 namespace App\Filament\Commercial\Pages;
 
 use App\Models\User;
-use App\Models\Team;
+use App\Support\ReasignarVisitasComercialQuery;
 use Filament\Pages\Page;
 use Filament\Support\Enums\ActionSize;
 use Filament\Support\Enums\FontWeight;
@@ -48,13 +48,19 @@ class ComercialesVerNotas extends Page implements HasTable
     {
         $user = auth()->user();
 
-        // ✅ Team leader y Sales manager ven a TODOS
+        // ✅ Team leader y Sales manager (sin 991 / Diego / Lucía / bajas)
+        // JE: tampoco ve 911 ni perfiles gerente / sales_manager (applyHiddenComerciales).
         if ($user->hasAnyRole(['team_leader', 'sales_manager']) || in_array($user->id, [17, 18], true)) {
 
-            $query = User::query()
-                ->role(['commercial', 'team_leader', 'sales_manager'])
-                ->whereNull('baja')
-                ->where('id', '!=', 1);
+            $roles = ReasignarVisitasComercialQuery::viewerIsTeamLeaderOnly($user)
+                ? ['commercial', 'team_leader']
+                : ['commercial', 'team_leader', 'sales_manager'];
+
+            $query = ReasignarVisitasComercialQuery::applyHiddenComerciales(
+                User::query()
+                    ->role($roles)
+                    ->where('id', '!=', 1)
+            );
 
         } else {
             abort(403);
@@ -96,6 +102,8 @@ class ComercialesVerNotas extends Page implements HasTable
                     ->size(ActionSize::Small)
                     ->color('warning')
                     ->icon('heroicon-o-document-text')
+                    // JE y JV: botón naranja como antes
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['team_leader', 'sales_manager']) ?? false)
                     ->url(fn() => \App\Filament\Commercial\Pages\NotasDeComercial::getUrl(
                         ['comercial_id' => 'reten'],
                         panel: 'comercial'

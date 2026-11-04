@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Customer;
 use App\Enums\NoteStatus;
 use App\Enums\FuenteNotas;
+use App\Support\CustomerSurnames;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 
@@ -27,7 +29,7 @@ class CreateAutogenerarNote extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return NoteResource::getUrl('index');
+        return NoteResource::postGestionRedirectUrl();
     }
 
     protected function getFormActions(): array
@@ -45,7 +47,7 @@ class CreateAutogenerarNote extends CreateRecord
             Actions\Action::make('cancel')
                 ->label('Cancelar')
                 ->color('danger')
-                ->url(NoteResource::getUrl('index')),
+                ->url(fn () => NoteResource::postGestionRedirectUrl()),
         ];
     }
 
@@ -59,6 +61,13 @@ class CreateAutogenerarNote extends CreateRecord
         $data['secondary_phone'] = $sec === '' ? null : $sec;
         $data['third_phone'] = $thr === '' ? null : $thr;
 
+        $lastNames = trim((string) ($data['last_names'] ?? ''));
+        if (! CustomerSurnames::hasTwoDistinct($lastNames)) {
+            throw ValidationException::withMessages([
+                'last_names' => CustomerSurnames::MESSAGE,
+            ]);
+        }
+        $data['last_names'] = $lastNames;
 
         $normalizedFirstName = Str::slug(Str::lower($data['first_names']), '');
         $normalizedLastName = Str::slug(Str::lower($data['last_names']), '');

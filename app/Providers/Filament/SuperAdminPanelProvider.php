@@ -162,6 +162,9 @@ class SuperAdminPanelProvider extends PanelProvider
             ->pages([
                 RecuperarContratoImagen::class,
                 ReengancharDocumentosHuerfanos::class,
+                \App\Filament\Shared\Pages\VtasNetasPage::class,
+                \App\Filament\Shared\Pages\TotalVtasComPage::class,
+                \App\Filament\Shared\Pages\SabanaComercialPage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/SuperAdmin/Widgets'), for: 'App\\Filament\\SuperAdmin\\Widgets')
             /*

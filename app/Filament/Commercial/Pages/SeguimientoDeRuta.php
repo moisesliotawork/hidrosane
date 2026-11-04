@@ -6,6 +6,7 @@ use App\Enums\EstadoTerminal;
 use App\Filament\Support\HasSeguimientoDeRutaDateFilter;
 use App\Models\Note;
 use App\Models\User;
+use App\Support\ReasignarVisitasComercialQuery;
 use App\Support\SeguimientoRutaDisplay;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
@@ -39,13 +40,21 @@ class SeguimientoDeRuta extends Page
         return 'Seguimiento de ruta';
     }
 
+    /** Jefe de equipo: sin IR/GPS y nombres de cliente enmascarados. */
+    public function hidesGpsForTeamLeader(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->hasRole('team_leader') && ! $user?->hasRole('sales_manager'));
+    }
+
     public function getComercialesProperty(): Collection
     {
         [$from, $to] = $this->getNotesQueryDateRange();
 
-        return User::query()
-            ->role(['commercial', 'team_leader', 'sales_manager'])
-            ->whereNull('baja')
+        return ReasignarVisitasComercialQuery::applyHiddenComerciales(
+            User::query()->role(['commercial', 'team_leader', 'sales_manager'])
+        )
             ->with([
                 'notasDeclaradas' => fn($query) => $this->activeNotesQuery($query, $from, $to),
                 'notasDeclaradas.customer',
@@ -82,6 +91,7 @@ class SeguimientoDeRuta extends Page
                                     ->orWhereRaw('LOWER(TRIM(estado_terminal)) = ?', [EstadoTerminal::AUSENTE->value]);
                             })
                             ->whereDoesntHave('venta')
+                            ->notBlockedByRecentSale()
                             ->where(function ($q2) {
                                 $q2->whereNull('reten')->orWhere('reten', false);
                             });
@@ -289,13 +299,23 @@ class SeguimientoDeRuta extends Page
             ]]);
         }
 
-        return $anotaciones
+        $activities = $anotaciones
             ->concat($observaciones)
             ->concat($confirmaciones)
             ->concat($ausencias)
             ->concat($nulos)
             ->concat($ventas)
             ->sortBy('created_at')
+            ->values();
+
+        if (! $this->hidesGpsForTeamLeader()) {
+            return $activities;
+        }
+
+        // Jefe de equipo: sin GPS/IR; reasignaciones sin autor ni destino.
+        return $activities
+            ->reject(fn (array $activity) => strtoupper(trim((string) ($activity['topic'] ?? ''))) === 'GPS')
+            ->map(fn (array $activity) => SeguimientoRutaDisplay::maskActivityForTeamLeader($activity))
             ->values();
     }
 }

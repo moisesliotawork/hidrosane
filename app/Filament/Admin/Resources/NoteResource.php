@@ -16,6 +16,7 @@ use App\Filament\Support\CustomerPhoneForm;
 use App\Enums\FuenteNotas;
 use App\Enums\HorarioNotas;
 use App\Enums\EstadoTerminal;
+use App\Support\CustomerNameSearch;
 use Filament\Notifications\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -24,6 +25,7 @@ use Illuminate\Support\Collection;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use App\Support\HeadOfRoom\NoteAssignRestriction;
 
 class NoteResource extends Resource
 {
@@ -40,6 +42,7 @@ class NoteResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->with(['blockedByVenta.comercial:id,empleado_id,name'])
             ->where(function (Builder $q) {
                 $q->whereNull('estado_terminal')
                     ->orWhereIn('estado_terminal', [
@@ -251,6 +254,25 @@ class NoteResource extends Resource
                         return $state; // Si no tiene 5 caracteres, devolver el valor original
                     }),
 
+                Tables\Columns\TextColumn::make('blocked_by_venta_id')
+                    ->label('Alerta')
+                    ->badge()
+                    ->alignCenter()
+                    ->formatStateUsing(fn ($state): string => filled($state) ? 'VENTA RECIENTE' : '')
+                    ->color(fn ($state): string => filled($state) ? 'danger' : 'gray')
+                    ->tooltip(function (Note $record): ?string {
+                        if (! $record->blocked_by_venta_id) {
+                            return null;
+                        }
+
+                        $restriction = NoteAssignRestriction::forNote($record);
+
+                        return $restriction['message']
+                            ?? 'Cliente asociado a una venta reciente.';
+                    })
+                    ->placeholder('—')
+                    ->toggleable(),
+
                 // Tables\Columns\TextColumn::make('fuente')
                 // ->badge()
                 // ->color(fn(FuenteNotas $state): string => $state->getColor())
@@ -265,18 +287,9 @@ class NoteResource extends Resource
 
                 Tables\Columns\TextColumn::make('customer.name')
                     ->label('Nombre Cliente')
-                    ->searchable(query: function (Builder $query, string $search) {
-                        $query->whereHas('customer', function (Builder $q) use ($search) {
-                            $q->where(function (Builder $qq) use ($search) {
-                                $qq->where('customers.first_names', 'like', "%{$search}%")
-                                    ->orWhere('customers.last_names', 'like', "%{$search}%")
-                                    ->orWhereRaw(
-                                        "CONCAT(COALESCE(customers.first_names,''),' ',COALESCE(customers.last_names,'')) LIKE ?",
-                                        ["%{$search}%"]
-                                    );
-                            });
-                        });
-                    }),
+                    ->searchable(
+                        query: fn (Builder $query, string $search): Builder => CustomerNameSearch::constrainHasCustomer($query, $search),
+                    ),
 
 
                 Tables\Columns\TextColumn::make('customer.phone')

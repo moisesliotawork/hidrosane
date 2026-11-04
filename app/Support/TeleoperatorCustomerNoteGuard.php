@@ -134,10 +134,9 @@ class TeleoperatorCustomerNoteGuard
             $printedNotes = $customer->notes()->where('printed', true)->get();
 
             foreach ($printedNotes as $printedNote) {
-                if (
-                    $printedNote->fuente === FuenteNotas::PTA_FRIA ||
-                    $printedNote->fuente === FuenteNotas::VIP_EXT
-                ) {
+                // VIP (int/ext) y Puerta Fría: recontacto permitido tras 4 meses calendario.
+                // Resto de fuentes impresas: bloqueo permanente.
+                if ($this->printedNoteAllowsRetryAfterCooldown($printedNote)) {
                     $fechaRef = $printedNote->assignment_date ?? $printedNote->created_at;
                     $permitidoDesde = Carbon::parse($fechaRef)->addMonths(4)->startOfMonth();
 
@@ -288,6 +287,18 @@ class TeleoperatorCustomerNoteGuard
         return now()->startOfMonth()->subMonthsNoOverflow(4);
     }
 
+    /**
+     * Fuentes de campaña VIP / puerta fría: la impresión no bloquea para siempre.
+     */
+    protected function printedNoteAllowsRetryAfterCooldown(Note $note): bool
+    {
+        return in_array($note->fuente, [
+            FuenteNotas::PTA_FRIA,
+            FuenteNotas::VIP_EXT,
+            FuenteNotas::VIP_INT,
+        ], true);
+    }
+
     public function referenceDateForNote(Note $note): ?Carbon
     {
         $date = $note->assignment_date
@@ -347,6 +358,46 @@ class TeleoperatorCustomerNoteGuard
         return $notes
             ->sortByDesc(fn (Note $note) => $this->referenceDateForNote($note)?->timestamp ?? 0)
             ->first();
+    }
+
+    /**
+     * Nota en VTA cuya fecha sigue dentro del plazo de actividad reciente.
+     *
+     * @param  Collection<int, Customer>  $customers
+     * @return array{fecha: string, note_id: int, customer_id: int}|null
+     */
+    public function recentVentaNote(Collection $customers): ?array
+    {
+        if ($customers->isEmpty()) {
+            return null;
+        }
+
+        $cutoff = $this->recentActivityCutoff();
+        $notes = Note::query()
+            ->whereIn('customer_id', $customers->pluck('id')->all())
+            ->get();
+
+        $recent = $notes
+            ->filter(fn (Note $note) => $note->estado_terminal === EstadoTerminal::VENTA)
+            ->filter(function (Note $note) use ($cutoff): bool {
+                $fecha = $this->referenceDateForNote($note);
+
+                return $fecha !== null && $fecha->gte($cutoff);
+            })
+            ->sortByDesc(fn (Note $note) => $this->referenceDateForNote($note)?->timestamp ?? 0)
+            ->first();
+
+        if (! $recent) {
+            return null;
+        }
+
+        $fecha = $this->referenceDateForNote($recent);
+
+        return [
+            'fecha' => $fecha?->format('d/m/Y') ?? '',
+            'note_id' => $recent->id,
+            'customer_id' => (int) $recent->customer_id,
+        ];
     }
 }
 

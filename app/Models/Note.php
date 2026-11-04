@@ -105,6 +105,7 @@ class Note extends Model
         'sent_to_sala_at',
         'printed',
         'reten',
+        'blocked_by_venta_id',
         'fecha_declaracion',
         'deleted_by_user_id',
     ];
@@ -391,6 +392,12 @@ class Note extends Model
         return $this->hasOne(\App\Models\Venta::class, 'note_id');
     }
 
+    /** Venta que provocó el soft-block de agenda (mismo cliente / teléfono). */
+    public function blockedByVenta(): BelongsTo
+    {
+        return $this->belongsTo(Venta::class, 'blocked_by_venta_id');
+    }
+
     public function ausencias()
     {
         return $this->hasMany(\App\Models\AbsentHistory::class, 'note_id');
@@ -551,6 +558,22 @@ class Note extends Model
             ->whereDate('assignment_date', '<=', today());
     }
 
+    /** Soft-block: oculta de agenda a comercial/JE/Gerente; solo Jefe de Sala y Admin la ven. */
+    public function scopeNotBlockedByRecentSale(Builder $query): Builder
+    {
+        $user = auth()->user();
+
+        if ($user?->hasAnyRole([
+            'head_of_room',
+            'admin',
+            'super_admin',
+        ])) {
+            return $query;
+        }
+
+        return $query->whereNull('blocked_by_venta_id');
+    }
+
     /** Notas visibles en Reasignar Visitas (misma lógica que NotasDeComercial). */
     public function scopeForReasignarVisitas(Builder $query): Builder
     {
@@ -561,6 +584,7 @@ class Note extends Model
                     ->orWhereRaw("LOWER(TRIM(estado_terminal)) = 'ausente'");
             })
             ->whereDoesntHave('venta')
+            ->notBlockedByRecentSale()
             ->where(function ($q) {
                 $q->whereNull('reten')->orWhere('reten', false);
             });

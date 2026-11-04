@@ -69,11 +69,9 @@ class EditNoteJV extends EditRecord
             }
         }
 
-        // Actualizar el customer
+        // Actualizar el customer (nombre fijo: no se cambia en edición)
         $customer = Customer::find($data['customer_id']);
         $customer->update([
-            'first_names' => $data['first_names'],
-            'last_names' => $data['last_names'],
             'phone' => $data['phone'],
             'secondary_phone' => $data['secondary_phone'] ?? null,
             'email' => $data['email'],
