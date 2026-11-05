@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Database\Eloquent\Builder;
+
 final class NroContratoAdmin
 {
     /**
@@ -60,5 +62,44 @@ final class NroContratoAdmin
         }
 
         return array_values(array_unique(array_filter($out, fn (string $value): bool => $value !== '')));
+    }
+
+    /**
+     * Nº que el listado está buscando: caja de SuperAdmin o columna Nº Contrato.
+     */
+    public static function resolveNroSearchTermFromLivewire(object $livewire): ?string
+    {
+        if (isset($livewire->nroContratoBusqueda)) {
+            $term = trim((string) $livewire->nroContratoBusqueda);
+            if ($term !== '') {
+                return $term;
+            }
+        }
+
+        if (isset($livewire->tableColumnSearches) && is_array($livewire->tableColumnSearches)) {
+            $term = trim((string) ($livewire->tableColumnSearches['nro_contr_adm'] ?? ''));
+            if ($term !== '') {
+                return $term;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Admin y gerente no listan los -B, salvo que se busque un número concreto
+     * (entonces sí tiene que aparecer el 1-B junto al 1).
+     */
+    public static function constrainAdminGerenteList(Builder $query, ?string $nroSearch): void
+    {
+        if (filled($nroSearch)) {
+            return;
+        }
+
+        $query->where(function (Builder $q): void {
+            $q->whereNull('nro_contr_adm')
+                ->orWhere('nro_contr_adm', '=', '')
+                ->orWhere('nro_contr_adm', 'not like', '%-B%');
+        });
     }
 }
